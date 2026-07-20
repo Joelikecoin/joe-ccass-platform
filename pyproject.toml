@@ -1,0 +1,32 @@
+[project]
+name = "joe-ccass-platform"
+version = "0.1.0"
+description = "AI-ready Hong Kong CCASS data service with REST, MCP and Streamlit interfaces"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "beautifulsoup4>=4.12,<5",
+  "fastapi>=0.115,<1",
+  "fastmcp>=2.0,<3",
+  "httpx>=0.27,<1",
+  "pydantic-settings>=2.7,<3",
+  "streamlit>=1.40,<2",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+  "respx>=0.22,<1",
+  "ruff>=0.9,<1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
