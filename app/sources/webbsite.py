@@ -132,8 +132,13 @@ class WebbsiteClient:
         return candidates[0]
 
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
-        issue_id, resolved_name = await self.resolve_issue_id(code)
-        html, source_url, cached = await self._fetch("/ccass/choldings.asp", {"i": issue_id})
+        # The stock-code route resolves the issue and returns the holdings in one response.
+        # This avoids two serial upstream requests, which previously made cold queries prone
+        # to exceeding the hosting gateway's source timeout.
+        html, source_url, cached = await self._fetch(
+            "/ccass/choldings.asp", {"sc": code.lstrip("0") or "0"}
+        )
+        issue_id, resolved_name = self._resolve_holdings_identity(html, code)
         return self.parse_holdings(
             html,
             code=code,
@@ -143,6 +148,25 @@ class WebbsiteClient:
             limit=limit,
             cached=cached,
         )
+
+    @staticmethod
+    def _resolve_holdings_identity(html: str, code: str) -> tuple[int, str | None]:
+        """Verify that a stock-code lookup returned the requested listed security."""
+        soup = BeautifulSoup(html, "html.parser")
+        code_node = soup.find(string=lambda value: bool(value and value.strip() == code))
+        issue_input = soup.select_one('input[name="i"][value]')
+        issue_value = issue_input.get("value", "") if issue_input else ""
+
+        if code_node is None or not re.fullmatch(r"\d+", issue_value):
+            raise PlatformError(
+                ErrorCode.NOT_FOUND,
+                f"No verified Webb-site holdings page found for stock code {code}.",
+                status_code=404,
+            )
+
+        heading = soup.find("h2")
+        name = heading.get_text(" ", strip=True) if heading else None
+        return int(issue_value), name
 
     @staticmethod
     def parse_holdings(
