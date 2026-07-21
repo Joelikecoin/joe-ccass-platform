@@ -1,18 +1,15 @@
 import re
 from datetime import date
 
-from app.errors import ErrorCode, PlatformError
+from ccass_core.normalize import normalize_stock_code
 
-
-def normalize_stock_code(value: str | int) -> str:
-    raw = re.sub(r"\D", "", str(value).strip())
-    if not raw or len(raw) > 5:
-        raise PlatformError(
-            ErrorCode.INVALID_CODE,
-            "Stock code must contain between 1 and 5 digits.",
-            status_code=422,
-        )
-    return raw.zfill(5)
+__all__ = [
+    "classify_participant",
+    "normalize_stock_code",
+    "parse_float",
+    "parse_int",
+    "parse_iso_date",
+]
 
 
 def parse_int(value: str) -> int:

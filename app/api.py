@@ -1,13 +1,16 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.services.ccass import CcassService, get_ccass_service
+from ccass_core.compute import compute_analysis
+from ccass_core.normalize import normalize_stock_code
+from ccass_core.report import build_markdown_report
 
 app = FastAPI(
     title="Joe CCASS Platform API",
@@ -55,3 +58,26 @@ async def get_ccass_stock_data(
     service: CcassService = Depends(get_ccass_service),
 ) -> CcassResponse:
     return await service.get_stock_data(code, holdings_limit=holdings_limit)
+
+
+@app.get(
+    "/api/v1/ccass/{code}/report",
+    response_class=PlainTextResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["ccass"],
+)
+async def get_ccass_stock_report(
+    code: str,
+    holdings_limit: int = Query(default=20, ge=1, le=100),
+    big_change_threshold: int = Query(default=1_000_000, ge=0),
+    service: CcassService = Depends(get_ccass_service),
+) -> PlainTextResponse:
+    normalized = normalize_stock_code(code)
+    response = await service.get_stock_data(normalized, holdings_limit=holdings_limit)
+    analysis = compute_analysis(
+        response,
+        previous=None,
+        big_change_threshold=big_change_threshold,
+    )
+    report = build_markdown_report(response, code=normalized, analysis=analysis)
+    return PlainTextResponse(report, media_type="text/markdown; charset=utf-8")

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_key: str = ""
-    data_source: Literal["webbsite", "google_drive_csv"] = "webbsite"
+    data_source: Literal["auto", "webbsite", "google_drive_csv"] = "auto"
     ccass_csv_url: str = ""
     ccass_csv_max_bytes: int = 5_000_000
     webbsite_base_url: str = "https://webbsite.0xmd.com"
