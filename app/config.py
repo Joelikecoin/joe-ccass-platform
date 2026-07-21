@@ -13,7 +13,11 @@ class Settings(BaseSettings):
     request_timeout_seconds: float = 12.0
     cache_ttl_seconds: int = 900
     min_request_interval_seconds: float = 1.0
-    user_agent: str = "Joe-CCASS-Research/0.1 (low-frequency public-data client)"
+    user_agent: str = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/138.0.0.0 Safari/537.36"
+    )
 
 
 @lru_cache

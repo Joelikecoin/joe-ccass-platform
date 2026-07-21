@@ -1,9 +1,10 @@
 import asyncio
+import logging
 import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -18,11 +19,20 @@ from app.core.normalizers import (
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(slots=True)
 class CachedPage:
     html: str
     stored_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class MirrorFailure:
+    hostname: str
+    status_code: int | None
+    error_type: str
 
 
 class WebbsiteClient:
@@ -33,12 +43,13 @@ class WebbsiteClient:
         self._request_lock = asyncio.Lock()
 
     async def _fetch(self, path: str, params: dict[str, str | int]) -> tuple[str, str, bool]:
-        last_error: Exception | None = None
+        failures: list[MirrorFailure] = []
         for base_url in (
             self.settings.webbsite_base_url,
             self.settings.webbsite_fallback_base_url,
         ):
             url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+            hostname = urlsplit(url).hostname or "unknown"
             cache_key = str(httpx.URL(url, params=params))
             cached = self._cache.get(cache_key)
             now = time.monotonic()
@@ -55,14 +66,37 @@ class WebbsiteClient:
                     async with httpx.AsyncClient(
                         timeout=self.settings.request_timeout_seconds,
                         follow_redirects=True,
-                        headers={"User-Agent": self.settings.user_agent},
+                        headers=self._browser_headers(base_url),
                     ) as client:
                         response = await client.get(url, params=params)
                     self._last_request_at = time.monotonic()
-                response.raise_for_status()
                 if "cf-chl-" in response.text or "Just a moment..." in response.text:
-                    last_error = RuntimeError("Cloudflare challenge page")
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        status_code=response.status_code,
+                        error_type="cloudflare_challenge",
+                    )
                     continue
+                if response.status_code == 403:
+                    self._record_failure(
+                        failures, hostname=hostname, status_code=403, error_type="forbidden"
+                    )
+                    continue
+                if response.status_code == 429:
+                    self._record_failure(
+                        failures, hostname=hostname, status_code=429, error_type="rate_limited"
+                    )
+                    continue
+                if 500 <= response.status_code <= 599:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        status_code=response.status_code,
+                        error_type="server_error",
+                    )
+                    continue
+                response.raise_for_status()
                 if len(response.content) > 5_000_000:
                     raise PlatformError(
                         ErrorCode.TOO_LARGE,
@@ -72,18 +106,103 @@ class WebbsiteClient:
                 return response.text, str(response.url), False
             except PlatformError:
                 raise
-            except (httpx.TimeoutException, httpx.NetworkError) as exc:
-                last_error = exc
+            except httpx.TimeoutException:
+                self._record_failure(
+                    failures, hostname=hostname, status_code=None, error_type="timeout"
+                )
+                continue
+            except httpx.NetworkError as exc:
+                self._record_failure(
+                    failures,
+                    hostname=hostname,
+                    status_code=None,
+                    error_type=type(exc).__name__,
+                )
                 continue
             except httpx.HTTPError as exc:
-                last_error = exc
+                status_code = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+                self._record_failure(
+                    failures,
+                    hostname=hostname,
+                    status_code=status_code,
+                    error_type=type(exc).__name__,
+                )
                 continue
 
-        raise PlatformError(
-            ErrorCode.SOURCE_TIMEOUT,
-            f"Both Webb-site mirror sources failed: {type(last_error).__name__}",
+        raise self._platform_error_for(failures)
+
+    def _browser_headers(self, base_url: str) -> dict[str, str]:
+        """Return navigation headers without API credentials or other secrets."""
+        return {
+            "User-Agent": self.settings.user_agent,
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,image/apng,*/*;q=0.8"
+            ),
+            "Accept-Language": "en-GB,en;q=0.9,zh-HK;q=0.8,zh;q=0.7",
+            "Accept-Encoding": "gzip, deflate",
+            "Cache-Control": "no-cache",
+            "DNT": "1",
+            "Pragma": "no-cache",
+            "Referer": base_url.rstrip("/") + "/",
+            "Sec-CH-UA": '"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"',
+            "Sec-CH-UA-Mobile": "?0",
+            "Sec-CH-UA-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "Sec-Fetch-User": "?1",
+            "Priority": "u=0, i",
+            "Upgrade-Insecure-Requests": "1",
+        }
+
+    @staticmethod
+    def _record_failure(
+        failures: list[MirrorFailure],
+        *,
+        hostname: str,
+        status_code: int | None,
+        error_type: str,
+    ) -> None:
+        failures.append(MirrorFailure(hostname, status_code, error_type))
+        logger.warning(
+            "Webb-site mirror failed hostname=%s status_code=%s error_type=%s",
+            hostname,
+            status_code if status_code is not None else "none",
+            error_type,
+        )
+
+    @staticmethod
+    def _platform_error_for(failures: list[MirrorFailure]) -> PlatformError:
+        error_types = {failure.error_type for failure in failures}
+        if failures and error_types == {"timeout"}:
+            return PlatformError(
+                ErrorCode.SOURCE_TIMEOUT,
+                "Both Webb-site mirror requests timed out.",
+                retry_recommended=True,
+                retry_after_seconds=30,
+                status_code=504,
+            )
+        if "rate_limited" in error_types:
+            return PlatformError(
+                ErrorCode.SOURCE_RATE_LIMITED,
+                "A Webb-site mirror rate limit prevented the request.",
+                retry_recommended=True,
+                retry_after_seconds=60,
+                status_code=503,
+            )
+        if error_types & {"forbidden", "cloudflare_challenge"}:
+            return PlatformError(
+                ErrorCode.SOURCE_FORBIDDEN,
+                "Webb-site mirrors refused or challenged the server request.",
+                status_code=502,
+            )
+        return PlatformError(
+            ErrorCode.SOURCE_UNAVAILABLE,
+            "Webb-site mirrors were unavailable.",
             retry_recommended=True,
             retry_after_seconds=30,
+            status_code=502,
         )
 
     async def resolve_issue_id(self, code: str) -> tuple[int, str | None]:
