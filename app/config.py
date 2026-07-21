@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -7,6 +8,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_key: str = ""
+    data_source: Literal["webbsite", "google_drive_csv"] = "webbsite"
+    ccass_csv_url: str = ""
+    ccass_csv_max_bytes: int = 5_000_000
     webbsite_base_url: str = "https://webbsite.0xmd.com"
     webbsite_fallback_base_url: str = "https://webbsite.renavon.com"
     # Keep two sequential mirror attempts inside a typical 30-second gateway budget.

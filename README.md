@@ -34,6 +34,17 @@ python -m venv .venv
 API key 可使用 query parameter `?key=`、`X-API-Key` 或 Bearer token。未設定 `API_KEY` 時，
 只適合本機開發，API 不會要求認證。
 
+## Google Drive CSV 資料來源
+
+設定 `DATA_SOURCE=google_drive_csv` 及 `CCASS_CSV_URL` 後，所有 API、MCP 和 Streamlit
+查詢都只會使用該 CSV，不會呼叫 Webb-site 鏡像。支援 Google Drive 檔案分享連結、直接下載
+連結及 Google Sheets 分享連結。檔案須允許毋須登入即可下載。
+
+CSV 欄位格式見 [`examples/ccass_template.csv`](examples/ccass_template.csv)。範本只有欄位名稱，
+不包含任何虛構正式資料。每列代表一個 participant；相同股票的 metadata 與 summary 欄位應一致。
+下載結果會按 `CACHE_TTL_SECONDS` 保存在記憶體中；更新失敗時會暫用 last-known-good snapshot。
+`REQUEST_TIMEOUT_SECONDS` 和 `CCASS_CSV_MAX_BYTES` 分別控制下載 timeout 及大小上限。
+
 ## 資料限制
 
 CCASS 是結算層面的代名人持倉資料，不等同實益擁有人。資料通常涉及 T+2；鏡像亦可能延遲、
