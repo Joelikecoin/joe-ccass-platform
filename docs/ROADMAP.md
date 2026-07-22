@@ -2,7 +2,7 @@
 
 > 路線圖只定義 phase、順序、依賴與 exit gates；每日執行狀態在 [`TASK.md`](../TASK.md)。所有 phase 受 [PROJECT_SPEC.md](PROJECT_SPEC.md) 與 [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md) 約束。
 
-實作盤點基準：程式至 P1-01 完成 commit（見 Git history）；規格基準 `67e35e5`。以下審核以 2026-07-22 的 Repository、64 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
+實作盤點基準：程式至 `ec09374`（P1-01 已批准）；規格基準 `67e35e5`。以下審核以 2026-07-22 的 Repository、64 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
 
 
 ## 狀態
@@ -42,8 +42,8 @@
 | FastAPI | `/health`、holdings JSON、Markdown report；query/Bearer/X-API-Key auth；共用 holdings service；OpenAPI 由 FastAPI 產生。 | Project Specification 的 stock/holdings/changes/big-changes/concentration/rainbow/announcements/prices/report/source-status versioned routes 大多未有；partial/error envelope 及 query-key log redaction 未完整驗證。 |
 | MCP | 一個 holdings tool 共用 `CcassService`。 | tool 名稱及集合未符合八個目標 tools；無 changes/concentration/rainbow/announcements/price/full report、error/schema 及 deployment tests。 |
 | Streamlit UX | 有 stock input、holdings limit、big-change threshold、local previous option、progress、diagnostic Markdown、copy 及 Markdown download；基本 AppTest。 | 無規格 sidebar controls/navigation/tables/rainbow/concentration/price/announcements/company/raw previews/source diagnostics、session-state re-render、mobile evidence及完整錯誤/partial呈現。 |
-| Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array。 | 缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics 與跨 section partial success。 |
-| Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs。 | 無 repository-wide secrets scan、自訂 API access-log query redaction、auth failure矩陣、raw/report sensitive-field policy tests。 |
+| Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array；normalized `SourceErrorRecord` 及 persistence foundation 已建立。 | run/error metadata 尚未接入 collector/service；缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics 與跨 section partial success。 |
+| Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs；P1-01 提交前 repository grep/diff scan 無發現 secret 或私人路徑。 | 無自動化 repository secrets scan、自訂 API access-log query redaction、auth failure 矩陣、raw/report sensitive-field policy tests。 |
 | Tests | 64 個離線 tests 覆蓋 normalize、identity、upstream failures、Google CSV、routing、collector、normalized history/migrations/idempotency/rollback/partial/rename/legacy compatibility、compute、report、API report、Streamlit validation 及 deployment files。 | Project Specification 矩陣仍缺 backfill/rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
 | Deployment and operations | 有 requirements、Streamlit headless/XSRF/theme config、secrets example及帶 `ShouldProcess` 的 Windows scheduler installer。 | 無 `robots.txt`、source status/metrics、cold-start drill、recovery/log rotation/remove script、已核准 scheduler install、公開 URL desktop/mobile/data/API/MCP acceptance。 |
 
@@ -61,6 +61,13 @@
 | Raw Previews and full Excel/JSON exports | 無 Raw Previews、Excel All Sections、Raw Tables JSON 及各 section structured export。 |
 | Supplemental source audits | HKEX DI/SDI、同花順、price fallbacks、AAStocks 等仍未 audit/adapter；DisclosureTracker 正確保持非依賴。 |
 | Golden and public acceptance | 只有 synthetic `01592` fixture；無合法 live source/HKEX SDW 數字核對、公開 Streamlit/mobile/language/download/API/MCP 驗收。 |
+
+### 本輪 Gap Analysis 結論（2026-07-22）
+
+- Done：4；Partial：19；Not Started：10。
+- P1-01 已把 normalized schema、migration、raw provenance 及 idempotent historical repository 完成為可重用前置，但不代表 Collector、Backfill 或任何 downstream section 自動完成。
+- 現有 Collector 已透過 compatibility facade 做 normalized idempotent save，但仍直接建立 Webb-site client，沒有 `--source`、`--date`、`--dry-run`、complete-vs-truncated capture contract、`collector_runs`/`source_errors` integration 或正式 per-stock status。
+- 因此下一個唯一最高優先工作是 P1-02 Source-neutral collector orchestration and persistent run accounting；它是 resumable Backfill 及可信 Changes/Concentration/Rainbow 之前的直接 gate。
 
 ## Phase 0 — Specification baseline
 
