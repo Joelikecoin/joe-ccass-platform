@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import datetime
 
 from app.sources.google_drive_csv import GoogleDriveCsvSource
@@ -7,6 +8,7 @@ from ccass_core.collector import (
     CollectorConfig,
     SnapshotStore,
     collect_watchlist,
+    configure_logging,
     export_latest_csv,
     parse_watchlist,
 )
@@ -15,6 +17,13 @@ from ccass_core.collector import (
 def test_collector_defaults_to_golden_01592_and_normalizes_watchlist():
     assert DEFAULT_WATCHLIST == ("01592",)
     assert parse_watchlist("1592, 700") == ("01592", "00700")
+
+
+def test_collector_suppresses_third_party_request_url_logs():
+    configure_logging()
+
+    assert logging.getLogger("httpx").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING
 
 
 async def test_collector_uses_injected_offline_fetcher_and_exports_schema(

@@ -274,11 +274,18 @@ def collector_config_from_args(argv: Sequence[str] | None = None) -> CollectorCo
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    configure_logging()
     config = collector_config_from_args(argv)
     collected, failures = asyncio.run(collect_watchlist(config))
     logger.info("Collector completed collected=%s failed=%s", len(collected), len(failures))
     return 1 if failures else 0
+
+
+def configure_logging() -> None:
+    """Keep collector status visible without logging third-party request URLs or parameters."""
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 if __name__ == "__main__":
