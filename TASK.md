@@ -35,16 +35,16 @@ Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同
 
 ## Audit summary
 
-- Done：3 個功能單位。
+- Done：4 個功能單位。
 - Partial：19 個功能單位。
-- Not Started：11 個功能單位。
+- Not Started：10 個功能單位。
 - 判定證據與逐項缺口只在 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核) 維護。
 - 排序結論：normalized historical foundation 是 Collector idempotency、Backfill、Changes、Concentration、Rainbow 與後續 delivery surfaces 的共同前置條件。
 
 
 ## 唯一最高優先工作
 
-### [-] P1-01 — Source-neutral normalized historical snapshot foundation
+### [x] P1-01 — Source-neutral normalized historical snapshot foundation
 
 優先理由：目前的 JSON snapshot store 不能提供 idempotent、完整性、provenance 與 date-range 保證；若先擴 Collector、Backfill、Changes、Concentration、Rainbow、API 或 UI，會把同一資料債擴散到所有出口。
 
@@ -60,16 +60,16 @@ Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同
 
 Acceptance：
 
-- [ ] 定義 stable source-neutral stock、source identity、snapshot、holding、run/error metadata；numeric values 保持 number，保存 source/date/cached/stale/partial/warnings/parser/schema version。
-- [ ] 第一版 transactional migration 至少建立 `stocks`、`source_issue_mapping`、`ccass_snapshots`、`ccass_holdings`、`collector_runs`、`source_errors` 及 raw provenance reference。
-- [ ] `stock/date/source/participant` unique constraints 與 idempotent upsert 生效；同日重跑不 duplicate，不靜默刪除已保存資料。
-- [ ] Snapshot 保存 complete/partial 狀態、issued-shares-as-of、denominator、participant identity；partial/missing 不得被轉成 0。
-- [ ] Repository 支援 save、latest、previous 及 date-range query；transaction failure 不留下半套 snapshot。
-- [ ] 現有 `CcassResponse`、FastAPI holdings、MCP holdings、Streamlit report、Google CSV/Webb-site routing 保持 compatibility，無 public field rename。
-- [ ] 既有最小 `SnapshotStore` 有明確 migration/compatibility path；不破壞現有資料，不以 destructive rebuild 取代 migration。
-- [ ] 使用合法保存的 `01592` fixture；live/golden source 核對與預設離線 tests 分離。
-- [ ] migration upgrade、idempotency、rollback、partial、duplicate participant、rename、>100%、T+2、compatibility tests 通過。
-- [ ] Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan 通過；只更新相關 docs/TASK；commit/push `main`。
+- [x] 定義 stable source-neutral stock、source identity、snapshot、holding、run/error metadata；numeric values 保持 number，保存 source/date/cached/stale/partial/warnings/parser/schema version。
+- [x] 第一版 transactional migration 至少建立 `stocks`、`source_issue_mapping`、`ccass_snapshots`、`ccass_holdings`、`collector_runs`、`source_errors` 及 raw provenance reference。
+- [x] `stock/date/source/participant` unique constraints 與 idempotent upsert 生效；同日重跑不 duplicate，不靜默刪除已保存資料。
+- [x] Snapshot 保存 complete/partial 狀態、issued-shares-as-of、denominator、participant identity；partial/missing 不得被轉成 0。
+- [x] Repository 支援 save、latest、previous 及 date-range query；transaction failure 不留下半套 snapshot。
+- [x] 現有 `CcassResponse`、FastAPI holdings、MCP holdings、Streamlit report、Google CSV/Webb-site routing 保持 compatibility，無 public field rename。
+- [x] 既有最小 `SnapshotStore` 有明確 migration/compatibility path；不破壞現有資料，不以 destructive rebuild 取代 migration。
+- [x] 使用合法保存的 `01592` fixture；live/golden source 核對與預設離線 tests 分離。
+- [x] migration upgrade、idempotency、rollback、partial、duplicate participant、rename、>100%、T+2、compatibility tests 通過。
+- [x] Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan 通過；只更新相關 docs/TASK；commit/push `main`。
 
 明確不在本工作：
 
@@ -93,6 +93,19 @@ Dependencies/risks：
 - Windows schedule、production credentials、付費服務、source legality ambiguity 必須停下請示。
 
 ## Evidence template
+
+```text
+Task: P1-01 — Source-neutral normalized historical snapshot foundation
+Status: complete
+Commit: current P1-01 commit (Git history)
+Tests: Ruff passed; Pytest 64 passed; git diff --check and repository secrets/private-path scan passed.
+Files: app/domain/*, app/storage/*, ccass_core/collector.py, tests/test_history_storage.py, tests/fixtures/01592_ccass_response.json, docs/ROADMAP.md, TASK.md
+Active sources: google_drive_csv and webbsite holdings routing unchanged; normalized repository is source-neutral.
+Disabled/unverified sources: HKEX SDW automation and all unaudited supplemental sources remain disabled/not implemented.
+Golden validation: legal offline synthetic 01592 contract fixture saved; explicitly labelled non-production; no live scraping performed.
+Public acceptance: not part of P1-01; existing public API/MCP/UI contracts remain covered by the full regression suite.
+Remaining manual step: none for P1-01; stop here pending user approval before the next Specification → Gap Analysis → TASK cycle.
+```
 
 完成 active task 時在此附加：
 

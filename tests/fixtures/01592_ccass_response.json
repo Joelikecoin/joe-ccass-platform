@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "code": "01592",
+    "name": "SYNTHETIC OFFLINE GOLDEN CONTRACT FIXTURE",
+    "issue_id": 15920,
+    "holdings_date": "2026-07-20",
+    "fetched_at": "2026-07-21T01:00:00Z",
+    "source_url": "https://fixture.invalid/01592",
+    "source_name": "Offline contract fixture",
+    "cached": false,
+    "settlement_note": "CCASS is settlement-layer nominee data and normally reflects T+2; recent trades may not yet be reflected.",
+    "attribution": "SYNTHETIC TEST DATA — NOT PRODUCTION OR LIVE SOURCE DATA"
+  },
+  "holdings_summary": {
+    "total_in_ccass_shares": 4000,
+    "total_in_ccass_pct_of_issued": 40.0,
+    "issued_shares": 10000,
+    "non_ccass_shares": 6000,
+    "non_ccass_pct_of_issued": 60.0,
+    "participant_count": 3,
+    "top5_pct_of_issued": 33.0,
+    "top10_pct_of_issued": 33.0,
+    "top5_pct_of_ccass": 82.5,
+    "top10_pct_of_ccass": 82.5
+  },
+  "holdings": [
+    {
+      "rank": 1,
+      "participant_id": "B00001",
+      "participant": "SYNTHETIC PARTICIPANT ONE",
+      "shares": 1500,
+      "last_change": "2026-07-20",
+      "pct_of_issued": 15.0,
+      "cumulative_pct_of_issued": 15.0,
+      "participant_category": "broker"
+    },
+    {
+      "rank": 2,
+      "participant_id": "B00002",
+      "participant": "SYNTHETIC PARTICIPANT TWO",
+      "shares": 1500,
+      "last_change": "2026-07-20",
+      "pct_of_issued": 15.0,
+      "cumulative_pct_of_issued": 30.0,
+      "participant_category": "broker"
+    },
+    {
+      "rank": 3,
+      "participant_id": "B00003",
+      "participant": "SYNTHETIC PARTICIPANT THREE",
+      "shares": 300,
+      "last_change": "2026-07-20",
+      "pct_of_issued": 3.0,
+      "cumulative_pct_of_issued": 33.0,
+      "participant_category": "broker"
+    }
+  ],
+  "data_quality_warnings": [
+    "SYNTHETIC OFFLINE FIXTURE; DO NOT USE AS PRODUCTION DATA."
+  ]
+}

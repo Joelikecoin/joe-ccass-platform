@@ -2,7 +2,7 @@
 
 > 路線圖只定義 phase、順序、依賴與 exit gates；每日執行狀態在 [`TASK.md`](../TASK.md)。所有 phase 受 [PROJECT_SPEC.md](PROJECT_SPEC.md) 與 [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md) 約束。
 
-實作盤點基準：程式至 `8966229`；規格基準 `67e35e5`。以下審核以 2026-07-22 的 Repository、51 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
+實作盤點基準：程式至 P1-01 完成 commit（見 Git history）；規格基準 `67e35e5`。以下審核以 2026-07-22 的 Repository、64 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
 
 
 ## 狀態
@@ -21,18 +21,19 @@
 | Specification governance | 五份 `docs`、根 `TASK.md`、README 引用、追溯索引及文件治理已建立，外部 Master Prompt 已 retired。 |
 | Stock code normalization and issue identity safety | 支援 1–5 位代號正規化；Webb-site stock-code holdings route 會核對頁內 code 與 hidden issue ID；錯配頁面 fail loud；有離線測試。 |
 | Google Drive CSV holdings source | `DATA_SOURCE=google_drive_csv`、一般分享／direct-download／Sheets URL、timeout、串流大小限制、HTML/login guard、CSV/schema/row validation、按 code/limit 查詢、memory cache、last-known-good、safe logging 及 CSV-only 不建立 Webb-site client 均有測試。 |
+| Normalized schema, migrations and raw provenance | Stable source-neutral models、transactional SQLite migration、normalized snapshot/holding/run/error tables、raw checksum/reference、unique constraints、idempotent repository 及舊 `SnapshotStore` 非破壞相容路徑已建立；離線 migration/storage/compatibility tests 通過。 |
 
 ### Partial
 
 | 功能 | 已有 | 仍欠 Project Specification 要求 |
 |---|---|---|
-| Holdings | Webb-site／Google CSV 可回 `CcassResponse`、summary、Top 5/10、T+2、`holdings_limit`；有 identity/parser/source tests。 | 缺 `pct_of_ccass` per row、issued-shares-as-of、完整 partial/duplicate/rename/corporate-action invariants、合法 golden live 核對及 normalized persistence。 |
+| Holdings | Webb-site／Google CSV 可回 `CcassResponse`、summary、Top 5/10、T+2、`holdings_limit`；normalized persistence 保存 per-row `pct_of_ccass`、issued-shares-as-of、partial/duplicate/rename invariants；有 identity/parser/source/storage tests。 | Public `HoldingRow` 尚未輸出 `pct_of_ccass`，`CcassResponse` 尚未公開 issued-shares-as-of；缺 corporate-action invariants 及合法 golden live 核對。 |
 | Changes | `compute_analysis` 可比較 supplied previous snapshot，識別 new/exited/increased/decreased、shares 及 percentage-point delta。 | 無 Changes source/parser、relative change、日期／完整性 pair validation、正式 service/API/MCP/table/download；比較可能基於截斷 holdings。 |
 | Big Changes | 有 shares threshold 及排序。 | 只支援單一 absolute-shares 門檻；無集中 config/version、percentage/relative basis、正式 endpoint/export 及完整 snapshot 保證。 |
 | Possible Transfer Patterns | 有 deterministic tolerance pairing 與報告免責字句。 | tolerance 未集中設定／版本化；沒有 dates/source metadata、完整 pair audit 或獨立交付接口。 |
 | Concentration | 最新 response 有 participant count、Top 5/10 issued/CCASS；report 可呈現。 | 無 historical timeline、outside/denominator freshness/partial rules engine、service/API/MCP/download；未保證計算永遠基於完整 snapshot。 |
-| Historical Snapshot | `SnapshotStore` 可保存整個 `CcassResponse` JSON，讀 latest/previous/latest-all。 | 只有單表 append-only JSON；無 normalized tables、unique constraints、idempotent upsert、migration、date-range query、complete/partial invariant 或 raw provenance。 |
-| Collector | 有 watchlist CLI、逐股 error isolation、SQLite save、UTF-8-SIG atomic latest CSV、safe third-party logging 及 scheduler installer。 | 同日重跑會 duplicate；無 dry-run、source/date options、batch/run status、normalized store、transactional multi-record persistence、retry/rate policy exposure、history export 或 failure retry。 |
+| Historical Snapshot | Source-neutral normalized tables、raw provenance、unique/idempotent save、latest/previous/date-range、complete/partial invariants 及 legacy JSON migration boundary 已完成。 | 尚無合法 live source 多日真實 snapshot 驗收、backfill/resume 及正式 history delivery surface。 |
+| Collector | 有 watchlist CLI、逐股 error isolation、normalized idempotent SQLite save、UTF-8-SIG atomic latest CSV、safe third-party logging 及 scheduler installer。 | 無 dry-run、source/date options、batch/run status integration、retry/rate policy exposure、history export 或 failure retry。 |
 | Webb-site source adapter | 有 primary/fallback、timeout/rate interval、cache、5 MB limit、browser headers、identity safety及 403/429/5xx/challenge/network classification。 | 只支援 Holdings；fetch/parser 仍耦合；無 content-type guard、persistent LKG、registry diagnostics、parser/schema version 或其他 Webb-site sections。 |
 | Source routing, fallback and cache | `auto|webbsite|google_drive_csv` routing；mirror failure 可 fallback CSV；兩 source 有 process cache，CSV 有 process-memory LKG。 | 無 configuration-driven registry、persistent normalized LKG、freshness/stale age/error metadata、cross-source conflict handling 或統一 cache policy。 |
 | Company | Holdings metadata 可帶 name、code、issue ID。 | 無 Company model/section/endpoint、正式 identifiers、name history、日期及 source merge。 |
@@ -43,14 +44,13 @@
 | Streamlit UX | 有 stock input、holdings limit、big-change threshold、local previous option、progress、diagnostic Markdown、copy 及 Markdown download；基本 AppTest。 | 無規格 sidebar controls/navigation/tables/rainbow/concentration/price/announcements/company/raw previews/source diagnostics、session-state re-render、mobile evidence及完整錯誤/partial呈現。 |
 | Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array。 | 缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics 與跨 section partial success。 |
 | Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs。 | 無 repository-wide secrets scan、自訂 API access-log query redaction、auth failure矩陣、raw/report sensitive-field policy tests。 |
-| Tests | 51 個離線 tests 覆蓋 normalize、identity、upstream failures、Google CSV、routing、collector basics、compute、report、API report、Streamlit validation 及 deployment files。 | Project Specification 35 項矩陣仍缺 parsers/history/migrations/idempotency/backfill/rainbow/i18n/完整 API/MCP/exports/partial/golden/live/visual tests。 |
+| Tests | 64 個離線 tests 覆蓋 normalize、identity、upstream failures、Google CSV、routing、collector、normalized history/migrations/idempotency/rollback/partial/rename/legacy compatibility、compute、report、API report、Streamlit validation 及 deployment files。 | Project Specification 矩陣仍缺 backfill/rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
 | Deployment and operations | 有 requirements、Streamlit headless/XSRF/theme config、secrets example及帶 `ShouldProcess` 的 Windows scheduler installer。 | 無 `robots.txt`、source status/metrics、cold-start drill、recovery/log rotation/remove script、已核准 scheduler install、公開 URL desktop/mobile/data/API/MCP acceptance。 |
 
 ### Not Started
 
 | 功能 | 缺口 |
 |---|---|
-| Normalized schema, migrations and raw provenance | 未建立規格所列 relational tables、migration framework、checksums/raw references、compatibility/upgrade tests；這是目前唯一最高優先前置工作。 |
 | Resumable Backfill | 無 CLI、date/latest range、resume cursor、skip existing、failed-date retry、bounded history 或 run records。 |
 | Rainbow Data Engine | 無 historical matrix、Top N latest selection、Others、complete-vs-partial missing semantics、stable participant colours、CSV/JSON 或 chart。 |
 | Price History | 無 audited source、parser/model/store/API/UI/export。 |

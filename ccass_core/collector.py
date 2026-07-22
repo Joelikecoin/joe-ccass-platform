@@ -1,10 +1,8 @@
 import argparse
 import asyncio
 import csv
-import json
 import logging
 import os
-import sqlite3
 import tempfile
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -15,6 +13,7 @@ from app.errors import PlatformError
 from app.models import CcassResponse
 from app.sources.webbsite import WebbsiteClient
 from ccass_core.fetch_webb import fetch_webb_holdings
+from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
 
 logger = logging.getLogger(__name__)
@@ -53,93 +52,55 @@ class CollectorConfig:
 
 
 class SnapshotStore:
+    """Compatibility facade backed by the normalized historical repository."""
+
     def __init__(self, path: Path) -> None:
         self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize()
-
-    def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
-        connection.row_factory = sqlite3.Row
-        return connection
-
-    def _initialize(self) -> None:
-        with self._connect() as connection:
-            connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS snapshots (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    code TEXT NOT NULL,
-                    fetched_at TEXT NOT NULL,
-                    holdings_date TEXT,
-                    source_cached INTEGER NOT NULL,
-                    payload_json TEXT NOT NULL
-                )
-                """
-            )
-            connection.execute(
-                "CREATE INDEX IF NOT EXISTS idx_snapshots_code_id ON snapshots(code, id DESC)"
-            )
+        self.repository = NormalizedSnapshotRepository(path)
 
     def save(self, response: CcassResponse) -> None:
-        metadata = response.metadata
-        payload = response.model_dump(mode="json")
-        with self._connect() as connection:
-            connection.execute(
-                """
-                INSERT INTO snapshots(code, fetched_at, holdings_date, source_cached, payload_json)
-                VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    metadata.code,
-                    metadata.fetched_at.isoformat(),
-                    metadata.holdings_date.isoformat() if metadata.holdings_date else None,
-                    int(metadata.cached),
-                    json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
-                ),
-            )
+        self.repository.save_response(response)
 
     def latest(self, code: str) -> CcassResponse | None:
-        with self._connect() as connection:
-            row = connection.execute(
-                "SELECT payload_json FROM snapshots WHERE code = ? ORDER BY id DESC LIMIT 1",
-                (code,),
-            ).fetchone()
-        return CcassResponse.model_validate_json(row["payload_json"]) if row else None
+        snapshot = self.repository.latest(code)
+        if snapshot:
+            return snapshot.to_response()
+        return next(
+            (
+                response
+                for response in self.repository.legacy_latest_responses()
+                if response.metadata.code == code
+            ),
+            None,
+        )
 
     def latest_all(self) -> list[CcassResponse]:
-        with self._connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT snapshots.payload_json
-                FROM snapshots
-                JOIN (
-                    SELECT code, MAX(id) AS latest_id
-                    FROM snapshots
-                    GROUP BY code
-                ) latest ON snapshots.id = latest.latest_id
-                ORDER BY snapshots.code
-                """
-            ).fetchall()
-        return [CcassResponse.model_validate_json(row["payload_json"]) for row in rows]
+        by_code = {
+            snapshot.stock.code: snapshot.to_response()
+            for snapshot in self.repository.latest_all()
+        }
+        for response in self.repository.legacy_latest_responses():
+            by_code.setdefault(response.metadata.code, response)
+        return [by_code[code] for code in sorted(by_code)]
 
     def previous_for(
         self, code: str, current: CcassResponse
     ) -> CcassResponse | None:
-        """Return the newest stored snapshot that predates the current snapshot."""
-        with self._connect() as connection:
-            rows = connection.execute(
-                "SELECT payload_json FROM snapshots WHERE code = ? ORDER BY id DESC",
-                (code,),
-            ).fetchall()
-        for row in rows:
-            candidate = CcassResponse.model_validate_json(row["payload_json"])
-            if candidate.metadata.holdings_date and current.metadata.holdings_date:
-                if candidate.metadata.holdings_date < current.metadata.holdings_date:
-                    return candidate
-                continue
-            if candidate.metadata.fetched_at < current.metadata.fetched_at:
-                return candidate
+        if current.metadata.holdings_date:
+            snapshot = self.repository.previous(
+                code,
+                before_date=current.metadata.holdings_date,
+            )
+            if snapshot:
+                return snapshot.to_response()
+        candidates = [
+            response
+            for response in self.repository.legacy_responses(code)
+            if response.metadata.code == code
+            and response.metadata.fetched_at < current.metadata.fetched_at
+        ]
+        if candidates:
+            return max(candidates, key=lambda response: response.metadata.fetched_at)
         return None
 
 
