@@ -141,12 +141,35 @@ MIGRATION_1 = Migration(
         "ON ccass_snapshots(stock_code, snapshot_date DESC)",
         "CREATE INDEX idx_ccass_holdings_participant "
         "ON ccass_holdings(participant_id, snapshot_id)",
-        "CREATE INDEX idx_source_errors_source_time "
-        "ON source_errors(source_id, occurred_at DESC)",
+        "CREATE INDEX idx_source_errors_source_time ON source_errors(source_id, occurred_at DESC)",
     ),
 )
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1,)
+MIGRATION_2 = Migration(
+    version=2,
+    name="collector_run_items",
+    statements=(
+        """
+        CREATE TABLE collector_run_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER NOT NULL REFERENCES collector_runs(id) ON DELETE CASCADE,
+            stock_code TEXT NOT NULL CHECK(length(stock_code) = 5),
+            status TEXT NOT NULL CHECK(status IN ('SUCCESS', 'PARTIAL', 'ERROR')),
+            source_id TEXT NOT NULL,
+            snapshot_id INTEGER REFERENCES ccass_snapshots(id) ON DELETE SET NULL,
+            snapshot_date TEXT,
+            partial INTEGER NOT NULL CHECK(partial IN (0, 1)),
+            safe_details_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            UNIQUE(run_id, stock_code)
+        )
+        """,
+        "CREATE INDEX idx_collector_run_items_run_status ON collector_run_items(run_id, status)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 

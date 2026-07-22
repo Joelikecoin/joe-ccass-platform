@@ -2,6 +2,7 @@ import hashlib
 import json
 import re
 from datetime import UTC, date, datetime
+from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -63,9 +64,7 @@ class NormalizedHolding(BaseModel):
         cls, row: HoldingRow, *, total_in_ccass_shares: int | None
     ) -> "NormalizedHolding":
         pct_of_ccass = (
-            round(row.shares / total_in_ccass_shares * 100, 6)
-            if total_in_ccass_shares
-            else None
+            round(row.shares / total_in_ccass_shares * 100, 6) if total_in_ccass_shares else None
         )
         return cls(
             participant_id=row.participant_id,
@@ -185,9 +184,7 @@ class HistoricalSnapshot(BaseModel):
             issued_shares=response.holdings_summary.issued_shares,
             issued_shares_as_of=issued_shares_as_of,
             total_in_ccass_shares=response.holdings_summary.total_in_ccass_shares,
-            total_in_ccass_pct_of_issued=(
-                response.holdings_summary.total_in_ccass_pct_of_issued
-            ),
+            total_in_ccass_pct_of_issued=(response.holdings_summary.total_in_ccass_pct_of_issued),
             non_ccass_shares=response.holdings_summary.non_ccass_shares,
             non_ccass_pct_of_issued=response.holdings_summary.non_ccass_pct_of_issued,
             participant_count=response.holdings_summary.participant_count,
@@ -212,9 +209,7 @@ class HistoricalSnapshot(BaseModel):
         if self.stale and not any("stale" in warning.lower() for warning in warnings):
             warnings.append("Stored snapshot is marked stale.")
         if self.partial and not any("partial" in warning.lower() for warning in warnings):
-            warnings.append(
-                "Stored snapshot is partial; missing participant rows remain absent."
-            )
+            warnings.append("Stored snapshot is partial; missing participant rows remain absent.")
         return CcassResponse(
             metadata=SourceMetadata(
                 code=self.stock.code,
@@ -255,6 +250,17 @@ class CollectorRunRecord(BaseModel):
     success_count: int = Field(default=0, ge=0)
     partial_count: int = Field(default=0, ge=0)
     error_count: int = Field(default=0, ge=0)
+    safe_details: dict[str, str | int | bool | None] = Field(default_factory=dict)
+
+
+class CollectorRunItemRecord(BaseModel):
+    run_id: int = Field(gt=0)
+    stock_code: str = Field(pattern=r"^\d{5}$")
+    status: Literal["SUCCESS", "PARTIAL", "ERROR"]
+    source_id: str
+    snapshot_id: int | None = Field(default=None, gt=0)
+    snapshot_date: date | None = None
+    partial: bool = False
     safe_details: dict[str, str | int | bool | None] = Field(default_factory=dict)
 
 

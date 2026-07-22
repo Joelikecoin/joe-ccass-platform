@@ -2,7 +2,7 @@
 
 > 路線圖只定義 phase、順序、依賴與 exit gates；每日執行狀態在 [`TASK.md`](../TASK.md)。所有 phase 受 [PROJECT_SPEC.md](PROJECT_SPEC.md) 與 [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md) 約束。
 
-實作盤點基準：程式至 `ec09374`（P1-01 已批准）；規格基準 `67e35e5`。以下審核以 2026-07-22 的 Repository、64 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
+實作盤點基準：程式至 P1-02 完成 commit（見 Git history）；規格基準 `67e35e5`。以下審核以 2026-07-22 的 Repository、78 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
 
 
 ## 狀態
@@ -21,7 +21,7 @@
 | Specification governance | 五份 `docs`、根 `TASK.md`、README 引用、追溯索引及文件治理已建立，外部 Master Prompt 已 retired。 |
 | Stock code normalization and issue identity safety | 支援 1–5 位代號正規化；Webb-site stock-code holdings route 會核對頁內 code 與 hidden issue ID；錯配頁面 fail loud；有離線測試。 |
 | Google Drive CSV holdings source | `DATA_SOURCE=google_drive_csv`、一般分享／direct-download／Sheets URL、timeout、串流大小限制、HTML/login guard、CSV/schema/row validation、按 code/limit 查詢、memory cache、last-known-good、safe logging 及 CSV-only 不建立 Webb-site client 均有測試。 |
-| Normalized schema, migrations and raw provenance | Stable source-neutral models、transactional SQLite migration、normalized snapshot/holding/run/error tables、raw checksum/reference、unique constraints、idempotent repository 及舊 `SnapshotStore` 非破壞相容路徑已建立；離線 migration/storage/compatibility tests 通過。 |
+| Normalized schema, migrations and raw provenance | Stable source-neutral models、兩版 transactional SQLite migrations、normalized snapshot/holding/run/error/per-stock run-item tables、raw checksum/reference、unique constraints、idempotent repository 及舊 `SnapshotStore` 非破壞相容路徑已建立；離線 upgrade/rollback/storage/compatibility tests 通過。 |
 
 ### Partial
 
@@ -33,7 +33,7 @@
 | Possible Transfer Patterns | 有 deterministic tolerance pairing 與報告免責字句。 | tolerance 未集中設定／版本化；沒有 dates/source metadata、完整 pair audit 或獨立交付接口。 |
 | Concentration | 最新 response 有 participant count、Top 5/10 issued/CCASS；report 可呈現。 | 無 historical timeline、outside/denominator freshness/partial rules engine、service/API/MCP/download；未保證計算永遠基於完整 snapshot。 |
 | Historical Snapshot | Source-neutral normalized tables、raw provenance、unique/idempotent save、latest/previous/date-range、complete/partial invariants 及 legacy JSON migration boundary 已完成。 | 尚無合法 live source 多日真實 snapshot 驗收、backfill/resume 及正式 history delivery surface。 |
-| Collector | 有 watchlist CLI、逐股 error isolation、normalized idempotent SQLite save、UTF-8-SIG atomic latest CSV、safe third-party logging 及 scheduler installer。 | 無 dry-run、source/date options、batch/run status integration、retry/rate policy exposure、history export 或 failure retry。 |
+| Collector | 經 `CcassService` 重用 `auto|webbsite|google_drive_csv` routing；CSV-only 不建立 Webb-site client；支援 stocks/watchlist、source、`date=latest`、dry-run、complete/partial honesty、normalized idempotent save、batch/per-stock run/error accounting、明確 exit codes及帶安全 metadata 的 UTF-8-SIG atomic latest CSV。 | 尚無 historical date collection、resumable backfill、history export、failed-date retry、完整 retry policy exposure 或合法 live/golden batch 驗收。 |
 | Webb-site source adapter | 有 primary/fallback、timeout/rate interval、cache、5 MB limit、browser headers、identity safety及 403/429/5xx/challenge/network classification。 | 只支援 Holdings；fetch/parser 仍耦合；無 content-type guard、persistent LKG、registry diagnostics、parser/schema version 或其他 Webb-site sections。 |
 | Source routing, fallback and cache | `auto|webbsite|google_drive_csv` routing；mirror failure 可 fallback CSV；兩 source 有 process cache，CSV 有 process-memory LKG。 | 無 configuration-driven registry、persistent normalized LKG、freshness/stale age/error metadata、cross-source conflict handling 或統一 cache policy。 |
 | Company | Holdings metadata 可帶 name、code、issue ID。 | 無 Company model/section/endpoint、正式 identifiers、name history、日期及 source merge。 |
@@ -42,9 +42,9 @@
 | FastAPI | `/health`、holdings JSON、Markdown report；query/Bearer/X-API-Key auth；共用 holdings service；OpenAPI 由 FastAPI 產生。 | Project Specification 的 stock/holdings/changes/big-changes/concentration/rainbow/announcements/prices/report/source-status versioned routes 大多未有；partial/error envelope 及 query-key log redaction 未完整驗證。 |
 | MCP | 一個 holdings tool 共用 `CcassService`。 | tool 名稱及集合未符合八個目標 tools；無 changes/concentration/rainbow/announcements/price/full report、error/schema 及 deployment tests。 |
 | Streamlit UX | 有 stock input、holdings limit、big-change threshold、local previous option、progress、diagnostic Markdown、copy 及 Markdown download；基本 AppTest。 | 無規格 sidebar controls/navigation/tables/rainbow/concentration/price/announcements/company/raw previews/source diagnostics、session-state re-render、mobile evidence及完整錯誤/partial呈現。 |
-| Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array；normalized `SourceErrorRecord` 及 persistence foundation 已建立。 | run/error metadata 尚未接入 collector/service；缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics 與跨 section partial success。 |
-| Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs；P1-01 提交前 repository grep/diff scan 無發現 secret 或私人路徑。 | 無自動化 repository secrets scan、自訂 API access-log query redaction、auth failure 矩陣、raw/report sensitive-field policy tests。 |
-| Tests | 64 個離線 tests 覆蓋 normalize、identity、upstream failures、Google CSV、routing、collector、normalized history/migrations/idempotency/rollback/partial/rename/legacy compatibility、compute、report、API report、Streamlit validation 及 deployment files。 | Project Specification 矩陣仍缺 backfill/rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
+| Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array；Collector 已持久化 safe source error/retry metadata、per-stock `SUCCESS|PARTIAL|ERROR` 及 batch counters。 | 其他 service/API 尚缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics 與跨 section partial success。 |
+| Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs；P1-02 repository grep/diff scan 無發現 secret 或私人路徑。 | 無自動化 repository secrets scan、自訂 API access-log query redaction、auth failure 矩陣、raw/report sensitive-field policy tests。 |
+| Tests | 78 個離線 tests 覆蓋 normalize、identity、upstream failures、Google CSV、三種 source routing、collector CLI/dry-run/partial/mixed batch/run accounting/atomic export、normalized history/migrations/idempotency/rollback/legacy compatibility、compute、report、API report、Streamlit validation 及 deployment files。 | Project Specification 矩陣仍缺 backfill/rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
 | Deployment and operations | 有 requirements、Streamlit headless/XSRF/theme config、secrets example及帶 `ShouldProcess` 的 Windows scheduler installer。 | 無 `robots.txt`、source status/metrics、cold-start drill、recovery/log rotation/remove script、已核准 scheduler install、公開 URL desktop/mobile/data/API/MCP acceptance。 |
 
 ### Not Started
@@ -62,12 +62,13 @@
 | Supplemental source audits | HKEX DI/SDI、同花順、price fallbacks、AAStocks 等仍未 audit/adapter；DisclosureTracker 正確保持非依賴。 |
 | Golden and public acceptance | 只有 synthetic `01592` fixture；無合法 live source/HKEX SDW 數字核對、公開 Streamlit/mobile/language/download/API/MCP 驗收。 |
 
-### 本輪 Gap Analysis 結論（2026-07-22）
+### P1-02 實際進度（2026-07-22）
 
-- Done：4；Partial：19；Not Started：10。
-- P1-01 已把 normalized schema、migration、raw provenance 及 idempotent historical repository 完成為可重用前置，但不代表 Collector、Backfill 或任何 downstream section 自動完成。
-- 現有 Collector 已透過 compatibility facade 做 normalized idempotent save，但仍直接建立 Webb-site client，沒有 `--source`、`--date`、`--dry-run`、complete-vs-truncated capture contract、`collector_runs`/`source_errors` integration 或正式 per-stock status。
-- 因此下一個唯一最高優先工作是 P1-02 Source-neutral collector orchestration and persistent run accounting；它是 resumable Backfill 及可信 Changes/Concentration/Rainbow 之前的直接 gate。
+- Done：4；Partial：19；Not Started：10；Collector 仍屬 Partial，沒有把 out-of-scope Backfill/history delivery 提前計算完成。
+- P1-02 完成 source-neutral collector orchestration、complete/partial capture contract、dry-run 零寫入、additive `collector_run_items` migration、batch/per-stock run/error accounting、明確 process exit status及安全 atomic CSV metadata。
+- `auto|webbsite|google_drive_csv` 均有離線 routing evidence；CSV-only collector 不建立 Webb-site client；同日重跑不 duplicate，partial 不覆蓋 complete。
+- 本輪沒有開始 Resumable Backfill 或其他下一項工作；下一個唯一優先工作須待使用者批准後再按 Specification → Gap Analysis → TASK 流程選定。
+
 
 ## Phase 0 — Specification baseline
 

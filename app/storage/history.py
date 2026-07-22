@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from app.domain.history import (
+    CollectorRunItemRecord,
     CollectorRunRecord,
     HistoricalSnapshot,
     NormalizedHolding,
@@ -120,7 +121,7 @@ class NormalizedSnapshotRepository:
                 f"""
                 SELECT *
                 FROM ccass_snapshots
-                WHERE {' AND '.join(clauses)}
+                WHERE {" AND ".join(clauses)}
                 ORDER BY snapshot_date DESC, fetched_at DESC, id DESC
                 LIMIT 1
                 """,
@@ -148,7 +149,7 @@ class NormalizedSnapshotRepository:
                 f"""
                 SELECT *
                 FROM ccass_snapshots
-                WHERE {' AND '.join(clauses)}
+                WHERE {" AND ".join(clauses)}
                 ORDER BY snapshot_date DESC, fetched_at DESC, id DESC
                 LIMIT 1
                 """,
@@ -179,7 +180,7 @@ class NormalizedSnapshotRepository:
                 f"""
                 SELECT *
                 FROM ccass_snapshots
-                WHERE {' AND '.join(clauses)}
+                WHERE {" AND ".join(clauses)}
                 ORDER BY snapshot_date, fetched_at, id
                 """,
                 parameters,
@@ -238,28 +239,115 @@ class NormalizedSnapshotRepository:
             )
             return int(cursor.lastrowid)
 
-    def record_source_error(self, error: SourceErrorRecord) -> int:
+    def complete_collector_run(
+        self,
+        run_id: int,
+        *,
+        completed_at: datetime,
+        status: str,
+        success_count: int,
+        partial_count: int,
+        error_count: int,
+        safe_details: dict[str, str | int | bool | None],
+    ) -> None:
+        if status not in {"SUCCESS", "PARTIAL", "ERROR"}:
+            raise ValueError("collector run status is invalid")
         with self._transaction() as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO source_errors(
-                    run_id, source_id, stock_code, occurred_at, error_code, safe_message,
-                    retry_recommended, retry_after_seconds, safe_details_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                UPDATE collector_runs
+                SET completed_at = ?, status = ?, success_count = ?, partial_count = ?,
+                    error_count = ?, safe_details_json = ?
+                WHERE id = ?
                 """,
                 (
-                    error.run_id,
-                    error.source_id,
-                    error.stock_code,
-                    error.occurred_at.isoformat(),
-                    error.error_code,
-                    error.safe_message,
-                    int(error.retry_recommended),
-                    error.retry_after_seconds,
-                    _json(error.safe_details),
+                    completed_at.isoformat(),
+                    status,
+                    success_count,
+                    partial_count,
+                    error_count,
+                    _json(safe_details),
+                    run_id,
                 ),
             )
-            return int(cursor.lastrowid)
+            if cursor.rowcount != 1:
+                raise ValueError("collector run does not exist")
+
+    def record_collector_result(self, item: CollectorRunItemRecord) -> int:
+        with self._transaction() as connection:
+            return self._upsert_collector_run_item(connection, item)
+
+    def record_collector_failure(
+        self, item: CollectorRunItemRecord, error: SourceErrorRecord
+    ) -> tuple[int, int]:
+        if error.run_id != item.run_id:
+            raise ValueError("collector item and source error run IDs must match")
+        with self._transaction() as connection:
+            item_id = self._upsert_collector_run_item(connection, item)
+            error_id = self._insert_source_error(connection, error)
+            return item_id, error_id
+
+    def record_source_error(self, error: SourceErrorRecord) -> int:
+        with self._transaction() as connection:
+            return self._insert_source_error(connection, error)
+
+    def _upsert_collector_run_item(
+        self, connection: sqlite3.Connection, item: CollectorRunItemRecord
+    ) -> int:
+        connection.execute(
+            """
+            INSERT INTO collector_run_items(
+                run_id, stock_code, status, source_id, snapshot_id, snapshot_date,
+                partial, safe_details_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(run_id, stock_code) DO UPDATE SET
+                status = excluded.status,
+                source_id = excluded.source_id,
+                snapshot_id = excluded.snapshot_id,
+                snapshot_date = excluded.snapshot_date,
+                partial = excluded.partial,
+                safe_details_json = excluded.safe_details_json
+            """,
+            (
+                item.run_id,
+                item.stock_code,
+                item.status,
+                item.source_id,
+                item.snapshot_id,
+                item.snapshot_date.isoformat() if item.snapshot_date else None,
+                int(item.partial),
+                _json(item.safe_details),
+                datetime.now(UTC).isoformat(),
+            ),
+        )
+        row = connection.execute(
+            "SELECT id FROM collector_run_items WHERE run_id = ? AND stock_code = ?",
+            (item.run_id, item.stock_code),
+        ).fetchone()
+        return int(row["id"])
+
+    @staticmethod
+    def _insert_source_error(connection: sqlite3.Connection, error: SourceErrorRecord) -> int:
+        cursor = connection.execute(
+            """
+            INSERT INTO source_errors(
+                run_id, source_id, stock_code, occurred_at, error_code, safe_message,
+                retry_recommended, retry_after_seconds, safe_details_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                error.run_id,
+                error.source_id,
+                error.stock_code,
+                error.occurred_at.isoformat(),
+                error.error_code,
+                error.safe_message,
+                int(error.retry_recommended),
+                error.retry_after_seconds,
+                _json(error.safe_details),
+            ),
+        )
+        return int(cursor.lastrowid)
 
     def legacy_latest_responses(self) -> list[CcassResponse]:
         if not self._has_legacy_table():
@@ -304,9 +392,7 @@ class NormalizedSnapshotRepository:
                 continue
         return responses
 
-    def _upsert_stock(
-        self, connection: sqlite3.Connection, stock: StockIdentity, now: str
-    ) -> None:
+    def _upsert_stock(self, connection: sqlite3.Connection, stock: StockIdentity, now: str) -> None:
         connection.execute(
             """
             INSERT INTO stocks(code, current_name, market, created_at, updated_at)
@@ -342,9 +428,7 @@ class NormalizedSnapshotRepository:
             ),
         )
 
-    def _upsert_provenance(
-        self, connection: sqlite3.Connection, provenance: RawProvenance
-    ) -> int:
+    def _upsert_provenance(self, connection: sqlite3.Connection, provenance: RawProvenance) -> int:
         connection.execute(
             """
             INSERT INTO raw_provenance(
@@ -395,9 +479,7 @@ class NormalizedSnapshotRepository:
             "warnings_json": _json(snapshot.warnings),
             "issued_shares": snapshot.issued_shares,
             "issued_shares_as_of": (
-                snapshot.issued_shares_as_of.isoformat()
-                if snapshot.issued_shares_as_of
-                else None
+                snapshot.issued_shares_as_of.isoformat() if snapshot.issued_shares_as_of else None
             ),
             "denominator": snapshot.denominator,
             "total_in_ccass_shares": snapshot.total_in_ccass_shares,
@@ -420,12 +502,11 @@ class NormalizedSnapshotRepository:
         updates = ", ".join(
             f"{column} = excluded.{column}"
             for column in columns
-            if column
-            not in {"stock_code", "snapshot_date", "source_id", "created_at"}
+            if column not in {"stock_code", "snapshot_date", "source_id", "created_at"}
         )
         connection.execute(
             f"""
-            INSERT INTO ccass_snapshots({', '.join(columns)})
+            INSERT INTO ccass_snapshots({", ".join(columns)})
             VALUES ({placeholders})
             ON CONFLICT(stock_code, snapshot_date, source_id) DO UPDATE SET {updates}
             """,

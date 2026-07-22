@@ -7,13 +7,14 @@ import pytest
 from pydantic import ValidationError
 
 from app.domain.history import (
+    CollectorRunItemRecord,
     CollectorRunRecord,
     HistoricalSnapshot,
     SourceErrorRecord,
 )
 from app.models import CcassResponse
 from app.storage.history import NormalizedSnapshotRepository
-from app.storage.migrations import Migration, SCHEMA_VERSION, apply_migrations
+from app.storage.migrations import MIGRATION_1, Migration, SCHEMA_VERSION, apply_migrations
 from ccass_core.collector import SnapshotStore
 
 REQUIRED_TABLES = {
@@ -24,6 +25,7 @@ REQUIRED_TABLES = {
     "ccass_snapshots",
     "ccass_holdings",
     "collector_runs",
+    "collector_run_items",
     "source_errors",
     "legacy_snapshot_imports",
 }
@@ -48,7 +50,45 @@ def test_migration_creates_required_schema_and_is_idempotent(tmp_path):
         connection.close()
 
     assert REQUIRED_TABLES <= tables
-    assert versions == [(1, "normalized_historical_foundation")]
+    assert versions == [
+        (1, "normalized_historical_foundation"),
+        (2, "collector_run_items"),
+    ]
+
+
+def test_version_one_database_upgrades_without_losing_collector_runs(tmp_path):
+    connection = sqlite3.connect(tmp_path / "upgrade.db", isolation_level=None)
+    try:
+        assert apply_migrations(connection, migrations=(MIGRATION_1,)) == 1
+        connection.execute(
+            """
+            INSERT INTO collector_runs(
+                started_at, status, source_id, requested_codes_json, safe_details_json
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                datetime(2026, 7, 22, tzinfo=UTC).isoformat(),
+                "RUNNING",
+                "auto",
+                '["01592"]',
+                "{}",
+            ),
+        )
+        assert apply_migrations(connection) == SCHEMA_VERSION
+        run = connection.execute(
+            "SELECT source_id, requested_codes_json FROM collector_runs"
+        ).fetchone()
+        table = connection.execute(
+            """
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = 'collector_run_items'
+            """
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert run == ("auto", '["01592"]')
+    assert table == (1,)
 
 
 def test_failed_migration_rolls_back_every_statement(tmp_path):
@@ -416,3 +456,108 @@ def test_run_and_safe_error_metadata_are_persisted(tmp_path):
     assert json.loads(run[1]) == {"mode": "offline-test"}
     assert error[0] == "SOURCE_TIMEOUT"
     assert json.loads(error[1]) == {"hostname": "fixture.invalid"}
+
+
+def test_collector_result_and_completion_are_persisted(tmp_path):
+    repository = NormalizedSnapshotRepository(tmp_path / "runs.db")
+    started_at = datetime(2026, 7, 22, tzinfo=UTC)
+    run_id = repository.create_collector_run(
+        CollectorRunRecord(
+            started_at=started_at,
+            status="RUNNING",
+            source_id="auto",
+            requested_codes=("01592",),
+        )
+    )
+    item_id = repository.record_collector_result(
+        CollectorRunItemRecord(
+            run_id=run_id,
+            stock_code="01592",
+            status="PARTIAL",
+            source_id="webbsite_mirror",
+            snapshot_date=date(2026, 7, 21),
+            partial=True,
+            safe_details={"rows": 1, "participant_count": 3},
+        )
+    )
+    repository.complete_collector_run(
+        run_id,
+        completed_at=started_at + timedelta(minutes=1),
+        status="PARTIAL",
+        success_count=0,
+        partial_count=1,
+        error_count=0,
+        safe_details={"exported": True},
+    )
+
+    connection = sqlite3.connect(tmp_path / "runs.db")
+    try:
+        run = connection.execute(
+            """
+            SELECT status, completed_at, success_count, partial_count, error_count,
+                   safe_details_json
+            FROM collector_runs WHERE id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+        item = connection.execute(
+            """
+            SELECT id, status, source_id, snapshot_date, partial, safe_details_json
+            FROM collector_run_items WHERE run_id = ?
+            """,
+            (run_id,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert run[:5] == (
+        "PARTIAL",
+        (started_at + timedelta(minutes=1)).isoformat(),
+        0,
+        1,
+        0,
+    )
+    assert json.loads(run[5]) == {"exported": True}
+    assert item[:5] == (item_id, "PARTIAL", "webbsite_mirror", "2026-07-21", 1)
+    assert json.loads(item[5]) == {"participant_count": 3, "rows": 1}
+
+
+def test_collector_failure_item_and_error_roll_back_together(tmp_path, monkeypatch):
+    repository = NormalizedSnapshotRepository(tmp_path / "runs.db")
+    run_id = repository.create_collector_run(
+        CollectorRunRecord(
+            started_at=datetime(2026, 7, 22, tzinfo=UTC),
+            status="RUNNING",
+            source_id="auto",
+            requested_codes=("01592",),
+        )
+    )
+
+    def fail_error_insert(*args, **kwargs):
+        raise sqlite3.OperationalError("offline error insert failure")
+
+    monkeypatch.setattr(repository, "_insert_source_error", fail_error_insert)
+    item = CollectorRunItemRecord(
+        run_id=run_id,
+        stock_code="01592",
+        status="ERROR",
+        source_id="auto",
+    )
+    error = SourceErrorRecord(
+        run_id=run_id,
+        source_id="auto",
+        stock_code="01592",
+        error_code="SOURCE_TIMEOUT",
+        safe_message="Fixture timeout.",
+    )
+    with pytest.raises(sqlite3.OperationalError, match="offline error insert failure"):
+        repository.record_collector_failure(item, error)
+
+    connection = sqlite3.connect(tmp_path / "runs.db")
+    try:
+        item_count = connection.execute("SELECT COUNT(*) FROM collector_run_items").fetchone()[0]
+        error_count = connection.execute("SELECT COUNT(*) FROM source_errors").fetchone()[0]
+    finally:
+        connection.close()
+    assert item_count == 0
+    assert error_count == 0

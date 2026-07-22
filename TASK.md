@@ -6,7 +6,7 @@
 
 - Branch：`main`
 - Original requested code baseline：`fad4411`
-- Latest implementation reviewed：`ec09374`
+- Latest implementation reviewed：P1-02 completion commit（見 Git history）
 - Specification baseline reviewed：`67e35e5`
 - Functional audit：2026-07-22，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
@@ -31,6 +31,7 @@
 - [x] `P0-05` 將外部 Master Prompt retired；README 改指 Single Source of Truth。
 - [x] `P0-06` 審核並納入 `4752183`（Google Drive CSV）、`cbeee7f`（collector/analysis/Streamlit）及 `8966229`（URL log redaction）。
 - [x] `P1-01` 建立 source-neutral normalized historical snapshot foundation、transactional migrations、raw provenance、idempotent repository 及 legacy compatibility；commit `ec09374`。
+- [x] `P1-02` 完成 source-neutral collector routing、dry-run、complete/partial honesty、batch/per-stock run/error accounting 及安全 atomic CSV；commit 見本次 Git history。
 
 Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同步雲端目錄作 basetemp，避免 Google Drive filesystem race）；UTF-8 replacement scan、相對 Markdown links、`git diff --check` passed；參考網站唯讀檢查確認重導至 Streamlit login，未繞過登入；commit 以本次 documentation commit 的 Git history 為準。
 
@@ -40,14 +41,14 @@ Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同
 - Partial：19 個功能單位。
 - Not Started：10 個功能單位。
 - 判定證據與逐項缺口只在 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核) 維護。
-- 排序結論：normalized foundation 已完成；下一個直接 gate 是把 Collector 接上 source-neutral routing、完整性規則及 persistent run/error accounting，之後才可開始 Backfill。
+- 排序結論：P1-02 已完成；本輪不自動選擇下一項工作，等待使用者批准後才重新執行 Specification → Gap Analysis → TASK。
 
 
 ## 唯一最高優先工作
 
-### [-] P1-02 — Source-neutral collector orchestration and persistent run accounting
+### [x] P1-02 — Source-neutral collector orchestration and persistent run accounting
 
-優先理由：P1-01 已提供 normalized transaction store，但現有 collector 仍繞過 `CcassService` 直接建立 Webb-site client、以最多 100 列作 collection input，且未寫入既有 `collector_runs`／`source_errors`。在此缺口修正前開始 Backfill 或 historical engines，會把來源路由、完整性及失敗狀態的不一致放大至整段歷史。
+優先理由（實作前狀態）：P1-01 已提供 normalized transaction store，但現有 collector 仍繞過 `CcassService` 直接建立 Webb-site client、以最多 100 列作 collection input，且未寫入既有 `collector_runs`／`source_errors`。在此缺口修正前開始 Backfill 或 historical engines，會把來源路由、完整性及失敗狀態的不一致放大至整段歷史。
 
 目標：在不新增資料來源、不改公開 `CcassResponse`／API／MCP／UI contract 的前提下，讓一次性 collector 經現有核准 source modes 取得、驗證並以 normalized repository 保存可信 snapshot，同時持久化 batch/per-stock run evidence。
 
@@ -62,16 +63,16 @@ Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同
 
 Acceptance：
 
-- [ ] Collector 不再硬接單一 Webb-site implementation；按既有 `DATA_SOURCE=auto|webbsite|google_drive_csv` 選擇 source，且 CSV-only 模式不建立或呼叫 Webb-site client。
-- [ ] CLI 保持現有用法相容，並支援規格所列 stocks/watchlist、`--source`、`--date latest`、`--dry-run`；本 task 不把 `--date` 擴成歷史 backfill。
-- [ ] Collection 與 presentation `holdings_limit` 分離；如來源只提供截斷 rows 或 row count 不完整，必須保存／回報 partial，不得當 complete snapshot 或以 missing rows 補 0。
-- [ ] 成功 snapshot 經 normalized repository transaction 保存 raw provenance；同 stock/date/source 重跑 idempotent，partial 不覆蓋已保存 complete snapshot。
-- [ ] Dry-run 仍執行 normalize、fetch、parse、schema/identity/completeness validation，但不寫 database、run/error records 或 CSV。
-- [ ] 每次 batch 建立可完成的 `collector_runs`；每股有 `SUCCESS`／`PARTIAL`／`ERROR` 結果，正確累計 success/partial/error、開始／完成時間及 safe details。
-- [ ] Source failure 寫入 `source_errors` 的 safe code/message/retry metadata；單股失敗不回滾其他成功股票，process exit status 能反映 batch 結果。
-- [ ] Latest CSV 保持 UTF-8-SIG、temporary + atomic replace 及現有 Google CSV compatibility，並補齊可安全輸出的 source/date/cache/partial/warnings metadata；失敗不得破壞上一份 good export。
-- [ ] 現有 `CcassResponse`、FastAPI holdings/report、MCP holdings、Streamlit report、Google CSV source 及 legacy database compatibility tests 全部保持通過，無 public field rename。
-- [ ] Offline tests 覆蓋 source modes、dry-run、duplicate run、complete/partial、mixed batch failure、run/error rollback、safe logging、atomic export；Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan 通過後 commit/push `main`。
+- [x] Collector 不再硬接單一 Webb-site implementation；按既有 `DATA_SOURCE=auto|webbsite|google_drive_csv` 選擇 source，且 CSV-only 模式不建立或呼叫 Webb-site client。
+- [x] CLI 保持現有用法相容，並支援規格所列 stocks/watchlist、`--source`、`--date latest`、`--dry-run`；本 task 不把 `--date` 擴成歷史 backfill。
+- [x] Collection 與 presentation `holdings_limit` 分離；如來源只提供截斷 rows 或 row count 不完整，必須保存／回報 partial，不得當 complete snapshot 或以 missing rows 補 0。
+- [x] 成功 snapshot 經 normalized repository transaction 保存 raw provenance；同 stock/date/source 重跑 idempotent，partial 不覆蓋已保存 complete snapshot。
+- [x] Dry-run 仍執行 normalize、fetch、parse、schema/identity/completeness validation，但不寫 database、run/error records 或 CSV。
+- [x] 每次 batch 建立可完成的 `collector_runs`；每股有 `SUCCESS`／`PARTIAL`／`ERROR` 結果，正確累計 success/partial/error、開始／完成時間及 safe details。
+- [x] Source failure 寫入 `source_errors` 的 safe code/message/retry metadata；單股失敗不回滾其他成功股票，process exit status 能反映 batch 結果。
+- [x] Latest CSV 保持 UTF-8-SIG、temporary + atomic replace 及現有 Google CSV compatibility，並補齊可安全輸出的 source/date/cache/partial/warnings metadata；失敗不得破壞上一份 good export。
+- [x] 現有 `CcassResponse`、FastAPI holdings/report、MCP holdings、Streamlit report、Google CSV source 及 legacy database compatibility tests 全部保持通過，無 public field rename。
+- [x] Offline tests 覆蓋 source modes、dry-run、duplicate run、complete/partial、mixed batch failure、run/error rollback、safe logging、atomic export；Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan 通過後 commit/push `main`。
 
 明確不在本工作：
 
@@ -108,6 +109,19 @@ Disabled/unverified sources: HKEX SDW automation and all unaudited supplemental 
 Golden validation: legal offline synthetic 01592 contract fixture saved; explicitly labelled non-production; no live scraping performed.
 Public acceptance: not part of P1-01; existing public API/MCP/UI contracts remain covered by the full regression suite.
 Remaining manual step: none; P1-01 was approved by the user before this gap-analysis cycle.
+```
+
+```text
+Task: P1-02 — Source-neutral collector orchestration and persistent run accounting
+Status: complete
+Commit: current P1-02 commit (Git history)
+Tests: Ruff passed; Pytest 78 passed; git diff --check and repository secrets/private-path scan passed.
+Files: app/domain/__init__.py, app/domain/history.py, app/storage/history.py, app/storage/migrations.py, ccass_core/collector.py, tests/test_collector.py, tests/test_history_storage.py, docs/ROADMAP.md, TASK.md
+Active sources: auto, webbsite and google_drive_csv routing retained; collector now uses shared CcassService; CSV-only construction isolation has offline evidence.
+Disabled/unverified sources: HKEX SDW automation and all unaudited supplemental sources remain disabled/not implemented.
+Golden validation: synthetic offline 01592 fixtures covered complete/partial, duplicate, dry-run, mixed failure and export flows; no live scraping performed.
+Public acceptance: not part of P1-02; existing FastAPI/MCP/Streamlit public contracts passed regression tests without field rename.
+Remaining manual step: none; stop pending user approval before the next Specification → Gap Analysis → TASK cycle.
 ```
 
 完成 active task 時在此附加：

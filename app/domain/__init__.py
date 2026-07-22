@@ -1,4 +1,5 @@
 from app.domain.history import (
+    CollectorRunItemRecord,
     CollectorRunRecord,
     HistoricalSnapshot,
     NormalizedHolding,
@@ -9,6 +10,7 @@ from app.domain.history import (
 )
 
 __all__ = [
+    "CollectorRunItemRecord",
     "CollectorRunRecord",
     "HistoricalSnapshot",
     "NormalizedHolding",
