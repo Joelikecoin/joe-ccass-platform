@@ -7,7 +7,8 @@
 - Branch：`main`
 - Original requested code baseline：`fad4411`
 - Latest implementation reviewed：`8966229`
-- Specification baseline：建立本文件的 documentation commit（以 Git history 為準）
+- Specification baseline reviewed：`67e35e5`
+- Functional audit：2026-07-22，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
 - Golden stock：`01592`
 - Status updated：2026-07-22 (Asia/Hong_Kong)
@@ -32,45 +33,55 @@
 
 Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同步雲端目錄作 basetemp，避免 Google Drive filesystem race）；UTF-8 replacement scan、相對 Markdown links、`git diff --check` passed；參考網站唯讀檢查確認重導至 Streamlit login，未繞過登入；commit 以本次 documentation commit 的 Git history 為準。
 
-## Active task
+## Audit summary
 
-### [-] P1-01 — Source audit、source-neutral schema 與 migration plan
+- Done：3 個功能單位。
+- Partial：19 個功能單位。
+- Not Started：11 個功能單位。
+- 判定證據與逐項缺口只在 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核) 維護。
+- 排序結論：normalized historical foundation 是 Collector idempotency、Backfill、Changes、Concentration、Rainbow 與後續 delivery surfaces 的共同前置條件。
 
-目標：在不破壞 `CcassResponse` 兼容性的前提下，建立 Phase 1 可落地的 source registry、domain envelope、SQLite schema/migration 及 golden-stock fixture plan。
+
+## 唯一最高優先工作
+
+### [-] P1-01 — Source-neutral normalized historical snapshot foundation
+
+優先理由：目前的 JSON snapshot store 不能提供 idempotent、完整性、provenance 與 date-range 保證；若先擴 Collector、Backfill、Changes、Concentration、Rainbow、API 或 UI，會把同一資料債擴散到所有出口。
+
+目標：在保持現有 `CcassResponse`、Google Drive CSV 及 Webb-site Holdings 相容的前提下，建立可 migration、可追溯、可 idempotent 保存的 normalized historical foundation。
+
+本工作範圍：
+
+- source-neutral snapshot/holding metadata envelope；
+- 第一版 SQLite migration 與 normalized repositories；
+- raw provenance reference/checksum；
+- existing JSON snapshot compatibility/migration boundary；
+- golden fixture、storage/migration/compatibility tests。
 
 Acceptance：
 
-- [ ] 盤點 Webb-site endpoints、HKEX SDW 後備／人工 import 邊界及 source status。
-- [ ] 把 Webb-site fetch 與 holdings parser 分離，保留現有錯誤分類與 tests。
-- [ ] 定義 source-neutral metadata、snapshot/holding models 與 compatibility tests。
-- [ ] 建立第一版 SQLite migration，涵蓋 `stocks`、`source_issue_mapping`、`ccass_snapshots`、`ccass_holdings`、run/error provenance 最小集合。
-- [ ] Migration transaction、unique constraints、idempotent upsert、no-silent-delete tests 通過。
-- [ ] 為 golden stock `01592` 保存合法 fixture；live 核對與離線 test 分開。
-- [ ] Ruff、Pytest、diff/secrets check 通過；更新 docs/TASK；commit/push `main`。
+- [ ] 定義 stable source-neutral stock、source identity、snapshot、holding、run/error metadata；numeric values 保持 number，保存 source/date/cached/stale/partial/warnings/parser/schema version。
+- [ ] 第一版 transactional migration 至少建立 `stocks`、`source_issue_mapping`、`ccass_snapshots`、`ccass_holdings`、`collector_runs`、`source_errors` 及 raw provenance reference。
+- [ ] `stock/date/source/participant` unique constraints 與 idempotent upsert 生效；同日重跑不 duplicate，不靜默刪除已保存資料。
+- [ ] Snapshot 保存 complete/partial 狀態、issued-shares-as-of、denominator、participant identity；partial/missing 不得被轉成 0。
+- [ ] Repository 支援 save、latest、previous 及 date-range query；transaction failure 不留下半套 snapshot。
+- [ ] 現有 `CcassResponse`、FastAPI holdings、MCP holdings、Streamlit report、Google CSV/Webb-site routing 保持 compatibility，無 public field rename。
+- [ ] 既有最小 `SnapshotStore` 有明確 migration/compatibility path；不破壞現有資料，不以 destructive rebuild 取代 migration。
+- [ ] 使用合法保存的 `01592` fixture；live/golden source 核對與預設離線 tests 分離。
+- [ ] migration upgrade、idempotency、rollback、partial、duplicate participant、rename、>100%、T+2、compatibility tests 通過。
+- [ ] Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan 通過；只更新相關 docs/TASK；commit/push `main`。
+
+明確不在本工作：
+
+- 不開始 Backfill、Rainbow、Price、Announcements、i18n 或新 UI。
+- 不擴大 FastAPI/MCP endpoints。
+- 不安裝 Windows scheduler、不部署、不執行未核准 live scraping。
 
 Dependencies/risks：
 
-- Source terms/robots audit 若無法安全判斷，標 `[!]` 並停止 active parser 擴充。
-- HKEX SDW 自動化若需不安全繞過，改走 manual CSV import。
-- Public schema 只 additive 擴充；breaking change 需使用者批准。
-
-## Phase 1 queue
-
-- [ ] `P1-02` Historical repositories、raw provenance、atomic CSV history。
-- [ ] `P1-03` 將既有最小 collector 完整化：normalized persistence、idempotent upsert、dry-run、batch isolation。
-- [ ] `P1-04` Resumable CCASS backfill + failed-date retry。
-- [ ] `P1-05` Holdings vertical slice 完整化及 golden validation。
-- [ ] `P1-06` Changes + objective comparison engine。
-- [ ] `P1-07` Big Changes + configurable thresholds。
-- [ ] `P1-08` Concentration + denominator/partial rules。
-- [ ] `P1-09` Phase 1 integration/smoke/public deployment gate。
-
-## Later phases
-
-- [ ] Phase 2：Rainbow、fixed colours、Concentration/Price history、aligned bilingual responsive UI。
-- [ ] Phase 3：HKEX announcements、Company、Raw Previews、all exports/copy/report。
-- [ ] Phase 4：complete FastAPI/MCP、source diagnostics、cache/fallback/import adapters。
-- [ ] Phase 5：golden/public acceptance、operations docs、scheduler scripts（不自行安裝）。
+- Migration 必須 additive、transactional、可測試；任何可能破壞真實資料的操作先停下請示。
+- Source terms/robots ambiguity、HKEX SDW 自動化、credential 或公開 schema breaking change 依 [`docs/DEVELOPMENT_RULES.md`](docs/DEVELOPMENT_RULES.md) 停下請示。
+- 其他所有未完成工作只保留在 [`docs/ROADMAP.md`](docs/ROADMAP.md)，不得在本檔建立第二個 pending queue。
 
 ## Decisions and constraints
 
