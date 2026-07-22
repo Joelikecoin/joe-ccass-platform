@@ -1,4 +1,16 @@
 # HK CCASS Shareholding Analysis Tool
+## Project specification
+
+本 Repository 的唯一規格來源（Single Source of Truth）是：
+
+- [Project Specification](docs/PROJECT_SPEC.md)
+- [Data Source Guide](docs/DATA_SOURCE_GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Development Rules](docs/DEVELOPMENT_RULES.md)
+- [Roadmap](docs/ROADMAP.md)
+- [Current Task Board](TASK.md)
+
+外部 Master Prompt 已被上述文件取代。新需求、規格變更與目前進度只更新這組文件及 `TASK.md`，不再維護另一份單一 Master Prompt。
 
 Streamlit-first 香港 CCASS 研究工具，共用同一套正規化、低頻 fetch/parse、計算及 Markdown
 報告核心，並保留 FastAPI、MCP、Google Drive CSV snapshot 與本機 collector。
