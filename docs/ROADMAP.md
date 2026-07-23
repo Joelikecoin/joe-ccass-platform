@@ -2,7 +2,7 @@
 
 > 路線圖只定義 phase、順序、依賴與 exit gates；每日執行狀態在 [`TASK.md`](../TASK.md)。所有 phase 受 [PROJECT_SPEC.md](PROJECT_SPEC.md) 與 [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md) 約束。
 
-實作盤點基準：已批准 P1-03 commits `f9fcf02`、`6152135`；規格基準 `67e35e5`。以下審核以 2026-07-23 的 Repository、P1-04完成後94個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
+實作盤點基準：已批准 P1-01 `ec09374`、P1-02 `d8a480e`、P1-03 `f9fcf02`／`6152135`及P1-04 `7b69316`；規格基準 `67e35e5`。以下審核以2026-07-23最新`main`、94個通過的離線測試及Project Specification為證據。局部module、UI骨架或mock-only test不等於功能完成。
 
 
 ## 狀態
@@ -45,7 +45,7 @@
 | MCP | 一個 holdings tool 共用 `CcassService`。 | tool 名稱及集合未符合八個目標 tools；無 changes/concentration/rainbow/announcements/price/full report、error/schema 及 deployment tests。 |
 | Streamlit UX | 有 stock input、holdings limit、big-change threshold、local previous option、progress、diagnostic Markdown、copy 及 Markdown download；基本 AppTest。 | 無規格 sidebar controls/navigation/tables/rainbow/concentration/price/announcements/company/raw previews/source diagnostics、session-state re-render、mobile evidence及完整錯誤/partial呈現。 |
 | Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array；Collector／Backfill 已持久化 safe error/retry metadata、per-item status及 batch counters；`DATE_UNAVAILABLE` exact-date 語義有測試。 | 其他 service/API 尚缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics與跨 section partial success。 |
-| Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs；P1-03 staged diff/repository credential-pattern及私人路徑 scans 無發現 secret。 | 無自動化 repository secrets scan、自訂 API access-log query redaction、auth failure矩陣、raw/report sensitive-field policy tests。 |
+| Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector抑制httpx/httpcore URL logs；P1-01至P1-04提交均有credential-pattern及私人路徑scan證據。 | 無自動化repository secrets scan、自訂API access-log query redaction、auth failure矩陣、raw/report sensitive-field policy tests。 |
 | Tests | 94 個離線 tests另覆蓋registry validation、capability matrix、audit metadata、safe diagnostics/redaction、disabled/unconfigured isolation、service/collector/backfill registry selection；原有regression全部保留。 | Project Specification矩陣仍缺 rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
 | Deployment and operations | 有 requirements、Streamlit headless/XSRF/theme config、secrets example及帶 `ShouldProcess` 的 Windows scheduler installer。 | 無 `robots.txt`、source status/metrics、cold-start drill、recovery/log rotation/remove script、已核准 scheduler install、公開 URL desktop/mobile/data/API/MCP acceptance。 |
 
@@ -62,13 +62,13 @@
 | Supplemental source audits | HKEX DI/SDI、同花順、price fallbacks、AAStocks 等仍未 audit/adapter；DisclosureTracker 正確保持非依賴。 |
 | Golden and public acceptance | 只有 synthetic `01592` fixture；無合法 live source/HKEX SDW 數字核對、公開 Streamlit/mobile/language/download/API/MCP 驗收。 |
 
-### P1-03 批准後完整 Gap Analysis及P1-04實際進度（2026-07-23）
+### Post-P1-04 完整 Gap Analysis（2026-07-23）
 
-- Done：5；Partial：20；Not Started：8；總計 33 個功能單位。
-- CTO 已正式批准 P1-03 commits `f9fcf02`、`6152135`。Resumable Backfill 由 Not Started 升為 Done：range/latest/resume、existing skip、failed-date retry、dry-run完整validation零寫入、exact-date identity/date checks、bounded retry及 persistent per-date evidence均有離線證據。
-- Historical Snapshot、Collector、Error contract及Tests更新已有證據，但仍欠各自其餘 Project Specification要求，故維持 Partial；其他功能沒有足夠證據跨級。
-- Phase 1 尚未通過：backfill resume/failed-date retry gate已滿足，但仍沒有合法 active source的多日真實 snapshot/golden證據，也未完成 Holdings、Changes、Big Changes、Concentration四個真實 vertical slices及 service/API tests。
-- P1-04已完成內部configuration-driven registry、能力／audit metadata、安全diagnostics及service/collector/backfill selection；公開diagnostics endpoint/UI、freshness/latency及persistent LKG仍留待既定後續phase。本更新不重新排序下一個Task。
+- Done：5；Partial：20；Not Started：8；總計33個功能單位；Remaining Gaps共28個。
+- CTO已批准P1-01 `ec09374`、P1-02 `d8a480e`、P1-03 `f9fcf02`／`6152135`及P1-04 `7b69316`；normalized persistence、collector、backfill及internal source registry的證據均納入本輪審核。
+- P1-04的批准不改變功能統計：`Source registry and diagnostics`仍是Partial，因last success/failure、freshness/latency、公開`/api/v1/sources/status`及UI diagnostics尚未完成。
+- Phase 1仍未通過：合法active source的多日真實snapshots／golden evidence及Holdings、Changes、Big Changes、Concentration完整vertical slices仍欠缺；Phase 2不得提前開始。
+- 唯一最高優先下一工作是`P1-05 — Guarded and parser-separated Webb-site latest Holdings adapter`；它只強化現有approved latest Holdings來源，不新增source、capability或公開contract。
 
 ### Remaining Gaps 優先序
 
@@ -76,34 +76,34 @@
 
 | 優先 | 功能 | 現況 | 排序依據／下一完成門檻 |
 |---:|---|---|---|
-| 1 | Source registry and diagnostics | Partial | Phase 1內部registry、capability/date coverage、limits、audit metadata及safe diagnostics已完成；公開`/api/v1/sources/status`、UI、freshness/latency及persistent LKG留待既定後續phase。 |
-| 2 | Webb-site source adapter | Partial | 在registry contract下拆分fetch/parser、補content guard、parser/schema version及誠實的latest-only capability，再評估任何歷史能力。 |
-| 3 | Source routing, fallback and cache | Partial | 以registry統一selection、persistent LKG、freshness/stale、conflict及cross-source policy，避免歷史與latest語義分裂。 |
-| 4 | Historical Snapshot | Partial | 以合法active source保存並驗證多日真實snapshots，補golden與正式history delivery evidence。 |
-| 5 | Holdings | Partial | 補public `pct_of_ccass`、issued-shares-as-of、corporate-action invariants及golden live核對。 |
-| 6 | Changes | Partial | 只用已驗證完整snapshot pair，補relative delta、pair completeness、service及tests。 |
-| 7 | Big Changes | Partial | 將threshold/basis/version移入config，補percentage/relative basis與完整snapshot保證。 |
-| 8 | Possible Transfer Patterns | Partial | 補可追溯tolerance/version、dates/source metadata、pair audit及固定免責。 |
-| 9 | Concentration | Partial | 補denominator freshness、partial rules、outside CCASS及基於完整snapshots的歷史時序。 |
-| 10 | HKEX SDW and manual official import | Not Started | 只在source audit/授權允許下提供官方抽樣或manual import；不得未核准自動化。 |
-| 11 | Collector | Partial | 一次性latest orchestration及獨立backfill已完成；待history export、retry policy exposure及合法live/golden batch證據。 |
-| 12 | Tests | Partial | 補Phase 1合法多日/golden、四個sections、registry/capability及service/API分層證據。 |
-| 13 | Error and partial-success contract | Partial | 補Phase 1 service的stale、safe details及partial sections語義，再擴至全平台。 |
-| 14 | Security and logging | Partial | 補自動secrets scan、access-log query redaction與raw/report sensitive-field policy tests。 |
-| 15 | Rainbow Data Engine | Not Started | 依賴可信多日snapshots及Phase 1 gate；完成matrix、Top N/Others、partial missing及stable colours。 |
-| 16 | Price History | Not Started | Phase 2 audit adapter、model/store、adjustment/missing warnings、API/UI/export。 |
-| 17 | Streamlit UX | Partial | Phase 2對齊navigation、tables、rainbow/concentration/price controls及desktop/mobile evidence。 |
-| 18 | i18n | Not Started | Phase 2建立`zh_HK`/English registry、fallback warning及不重新fetch的language state。 |
-| 19 | HKEX Announcements | Not Started | Phase 3官方index/PDF limits、languages、event tags、failure isolation及delivery surfaces。 |
-| 20 | Company | Partial | Phase 3補正式section、identifiers、name history、日期及source merge。 |
-| 21 | Raw Previews and full Excel/JSON exports | Not Started | Phase 3完成Raw Preview、Excel All Sections、Raw Tables JSON與structured exports。 |
-| 22 | Downloads | Partial | 補所有section CSV/JSON/Excel、preview、metadata/warnings、encoding及安全檔名tests。 |
-| 23 | Reports and Copy | Partial | 納入完整sections，固定實際source/date/T+2/warnings首段及localized exports。 |
-| 24 | FastAPI | Partial | Phase 4完成versioned endpoints、stable envelope、auth/redaction/OpenAPI tests。 |
+| 1 | Webb-site source adapter | Partial | `P1-05`：先分離guarded fetch與純Holdings parser，補content-type/login/error HTML／stream size guards，保持一次stock-code request及latest-only capability；它是可信live Holdings、collector及golden的最高風險前置。 |
+| 2 | Holdings | Partial | 在可信adapter boundary後補public `pct_of_ccass`、issued-shares-as-of、full-snapshot／`holdings_limit` invariants、corporate-action warnings及service tests，形成第一個Phase 1 section vertical slice。 |
+| 3 | Source routing, fallback and cache | Partial | 以normalized repository實作persistent LKG、freshness/stale age、last fetch error及cross-source conflict policy；只可使用registry批准來源。 |
+| 4 | Historical Snapshot | Partial | 由合法active flow保存並驗證多日真實snapshots，補正式history query／delivery及golden evidence；不得用latest、插值或synthetic冒充。 |
+| 5 | Changes | Partial | 只比較已驗證完整snapshot pair，補relative delta、日期／source／completeness metadata、service及tests。 |
+| 6 | Big Changes | Partial | 在Changes pair contract上把threshold/basis/version集中config，補percentage/relative basis及完整snapshot保證。 |
+| 7 | Concentration | Partial | 依完整snapshot補denominator freshness、partial rules、outside CCASS及historical timeline；不得以截斷holdings計算。 |
+| 8 | Possible Transfer Patterns | Partial | 依已驗證Changes補可追溯tolerance/version、dates/source metadata、pair audit及固定免責。 |
+| 9 | Collector | Partial | 核心idempotency/run accounting已完成；待persistent LKG/history export、完整retry policy exposure及合法live/golden batch evidence。 |
+| 10 | Error and partial-success contract | Partial | 隨Phase 1 services補`DATA_STALE`／`PARTIAL_DATA`／`INVALID_SCHEMA`、safe details、partial sections及stale語義，不先建立空envelope。 |
+| 11 | Tests | Partial | 隨上述slice補純parser/content guards、完整snapshot pair、四sections、service/API及合法多日/golden evidence。 |
+| 12 | Security and logging | Partial | 補自動secrets scan、API access-log query redaction、auth failure矩陣及raw/report sensitive-field policy tests。 |
+| 13 | HKEX SDW and manual official import | Not Started | Phase 1 golden抽樣前先取得明確source audit／批准；只可低頻官方或manual import，不得未核准自動化。 |
+| 14 | Rainbow Data Engine | Not Started | 依賴Phase 1可信多日完整snapshots；完成matrix、Top N/Others、partial missing及stable colours。 |
+| 15 | Price History | Not Started | Phase 2才audit adapter並完成model/store、adjustment/missing warnings、API/UI/export。 |
+| 16 | Streamlit UX | Partial | Phase 2對齊navigation、tables、rainbow/concentration/price controls及desktop/mobile evidence；不得以UI先行冒充資料完成。 |
+| 17 | i18n | Not Started | Phase 2建立`zh_HK`／English registry、fallback warning及不重新fetch的language state。 |
+| 18 | HKEX Announcements | Not Started | Phase 3官方index/PDF limits、languages、event tags、failure isolation及delivery surfaces。 |
+| 19 | Company | Partial | Phase 3補正式section、identifiers、name history、日期及source merge。 |
+| 20 | Raw Previews and full Excel/JSON exports | Not Started | Phase 3完成Raw Preview、Excel All Sections、Raw Tables JSON及各section structured exports。 |
+| 21 | Downloads | Partial | 依已完成sections補CSV/JSON/Excel、preview、metadata/warnings、encoding及安全檔名tests。 |
+| 22 | Reports and Copy | Partial | 依完整sections固定實際source/date/T+2/warnings首段及localized exports。 |
+| 23 | Source registry and diagnostics | Partial | Phase 4補runtime last success/failure、freshness/latency/cache telemetry及source-status service；P1-04 internal registry已完成，不重做。 |
+| 24 | FastAPI | Partial | Phase 4依真實services完成versioned endpoints、stable envelope、auth/redaction及OpenAPI tests。 |
 | 25 | MCP | Partial | Phase 4完成八個thin tools，共用service並補error/schema/deployment tests。 |
-| 26 | Supplemental source audits | Not Started | 核心來源穩定後才audit；未核准來源維持disabled/unverified。 |
-| 27 | Deployment and operations | Partial | 補source metrics、cold-start/recovery、log rotation/remove scripts及scheduler文件；不自行安裝。 |
-| 28 | Golden and public acceptance | Not Started | Phase 5才執行合法live數字核對及公開Streamlit/API/MCP/mobile/language/download驗收。 |
+| 26 | Supplemental source audits | Not Started | 核心來源及sections穩定後才audit；HKEX DI/SDI、同花順、price fallbacks、AAStocks維持disabled/unverified。 |
+| 27 | Deployment and operations | Partial | Phase 5補source metrics、cold-start/recovery、log rotation/remove scripts及scheduler文件；不自行安裝。 |
+| 28 | Golden and public acceptance | Not Started | 最後執行合法live數字核對及公開Streamlit/API/MCP/mobile/language/download驗收；不得以offline fixture代替。 |
 
 ## Phase 0 — Specification baseline
 
@@ -141,13 +141,21 @@ Exit gate：
 - Partial、T+2、>100%、rename/missing identity 的規則有測試。
 - Ruff/Pytest/smoke/secrets scan 通過；commit/push；部署保持可用。
 
-最新 gate 判定（2026-07-23）：
+最新gate判定（2026-07-23）：
 
-- ❌ 合法active source多日真實snapshots：未滿足；Google CSV exact-date flow只有離線fixtures／import能力，未有合法production history/golden證據；Webb-site仍latest-only。
-- ✅ Collector idempotency與Backfill resume/failed-date retry：離線tests已滿足。
-- ❌ Holdings／Changes／Big Changes／Concentration真實vertical slice及service/API tests：未滿足。
-- ✅ Partial、T+2、>100%、participant rename/added/removed與identity safety：已有離線tests；仍需golden live核對。
-- ✅ 本輪工程quality gate：P1-04後94個離線tests、Ruff、diff、文件及安全掃描有證據；但不能取代未滿足的data/vertical-slice gates。
+| Exit gate | 狀態 | 已有證據／尚欠條件 | 阻塞原因與依賴次序 |
+|---|---|---|---|
+| 合法active CCASS source可解析identity並保存多日真實snapshots | ❌ 未完成 | Webb-site可由code核對identity但只提供latest；Google CSV exact-date只有批准import flow及offline fixtures，未有production多日／golden evidence。 | 先完成P1-05 guarded parser boundary，再完成full Holdings／persistent LKG；多日資料只能由日常collector累積或另行獲批的真實import，不能造數。 |
+| Collector同日重跑無duplicate；Backfill resume／failed-date retry | ✅ 完成 | P1-02及P1-03離線tests覆蓋idempotency、batch isolation、resume、failed-date retry、existing skip及dry-run零寫入。 | 無工程阻塞；仍欠合法live batch evidence，歸入後續golden acceptance。 |
+| Holdings／Changes／Big Changes／Concentration有真實資料、stable metadata/errors及API/service tests | ❌ 未完成 | Holdings只有部分public contract；其餘主要是對supplied、可能截斷的responses作compute，沒有完整snapshot pair service或目標API。 | P1-05 → complete Holdings slice → persistent complete snapshots → Changes/Big Changes/Concentration services → Phase 1 API/service tests。 |
+| Partial、T+2、>100%、rename/missing identity規則有測試 | ✅ 完成（offline） | Storage、collector、compute及source tests已覆蓋partial honesty、T+2、>100%、rename、added/removed及identity mismatch。 | 仍須在合法golden data核對，但不阻塞下一個工程task。 |
+| Ruff／Pytest／smoke／secrets及部署可用性 | ✅ 目前通過 | P1-04基準為94個offline tests；Ruff、diff、文件、安全scan及既有deployment-file tests通過。 | 不等於公開部署或live source驗收；公開acceptance維持Phase 5。 |
+
+Phase 1已完成條件：configuration-driven registry、normalized schema/migrations/raw provenance、collector run accounting/idempotency、resumable exact-date backfill，以及主要offline invariants。
+
+Phase 1尚未完成條件：可信guarded live parser boundary、完整Holdings contract、persistent freshness/LKG、多日真實snapshots、三個比較／集中度sections及其service/API tests、合法golden抽樣。
+
+依賴次序：`P1-05 guarded Webb-site latest Holdings adapter` → complete Holdings vertical slice → persistent LKG／freshness → legal multi-day snapshots → Changes／Big Changes／Concentration → Phase 1 service/API tests → 獲批golden cross-check。任何HKEX SDW automation、source legality、credential或公開breaking schema需要CTO另行批准。
 
 ## Phase 2 — Historical visualization and aligned Streamlit UX
 
