@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 import httpx
 import pytest
@@ -21,6 +22,13 @@ VALID_CSV = (
     "1000,10,10000,9000,90"
     + "\n00700,Example Test Holdings,3601,2026-07-20,1,B00001,Test Broker One,200,"
     "2026-07-19,2,2,broker,1000,10,10000,9000,90\n"
+)
+
+PARTIAL_CSV = (
+    CSV_HEADER
+    + ",participant_count,snapshot_partial,data_quality_warnings\n"
+    + "00700,Example Test Holdings,3601,2026-07-20,1,B00001,Test Broker One,200,"
+    + '2026-07-19,2,2,broker,1000,10,10000,9000,90,3,true,"[""upstream truncated""]"\n'
 )
 
 
@@ -186,3 +194,49 @@ def test_csv_schema_and_rows_are_validated(content):
         GoogleDriveCsvSource._parse(content)
 
     assert caught.value.code == ErrorCode.DATA_SOURCE_ERROR
+
+
+MULTI_DATE_CSV = VALID_CSV + (
+    "00700,Example Test Holdings,3601,2026-07-19,1,B00001,Test Broker One,150,"
+    "2026-07-18,1.5,1.5,broker,900,9,10000,9100,91\n"
+    "00700,Example Test Holdings,3601,2026-07-19,2,B00002,Test Broker Two,250,,"
+    "2.5,4,broker,900,9,10000,9100,91\n"
+)
+
+
+@respx.mock
+async def test_csv_history_selects_exact_verified_date_and_keeps_latest_compatible():
+    route = respx.get("https://drive.google.com/uc?export=download&id=test-file_123").mock(
+        return_value=httpx.Response(200, content=MULTI_DATE_CSV.encode())
+    )
+    source = GoogleDriveCsvSource(csv_settings())
+
+    dates = await source.available_dates("00700")
+    historical = await source.get_holdings_for_date("00700", date(2026, 7, 19))
+    latest = await source.get_holdings("00700")
+
+    assert len(route.calls) == 1
+    assert dates == (date(2026, 7, 19), date(2026, 7, 20))
+    assert historical.metadata.holdings_date == date(2026, 7, 19)
+    assert [row.shares for row in historical.holdings] == [150, 250]
+    assert latest.metadata.holdings_date == date(2026, 7, 20)
+
+    with pytest.raises(PlatformError) as caught:
+        await source.get_holdings_for_date("00700", date(2026, 7, 18))
+    assert caught.value.code == ErrorCode.DATE_UNAVAILABLE
+
+
+@respx.mock
+async def test_csv_history_preserves_partial_completeness_metadata():
+    respx.get("https://drive.google.com/uc?export=download&id=test-file_123").mock(
+        return_value=httpx.Response(200, content=PARTIAL_CSV.encode())
+    )
+
+    response = await GoogleDriveCsvSource(csv_settings()).get_holdings_for_date(
+        "00700", date(2026, 7, 20)
+    )
+
+    assert len(response.holdings) == 1
+    assert response.holdings_summary.participant_count == 3
+    assert "upstream truncated" in response.data_quality_warnings
+    assert any("PARTIAL_DATA" in warning for warning in response.data_quality_warnings)

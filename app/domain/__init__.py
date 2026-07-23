@@ -1,4 +1,6 @@
 from app.domain.history import (
+    BackfillRunItemRecord,
+    BackfillRunRecord,
     CollectorRunItemRecord,
     CollectorRunRecord,
     HistoricalSnapshot,
@@ -10,6 +12,8 @@ from app.domain.history import (
 )
 
 __all__ = [
+    "BackfillRunItemRecord",
+    "BackfillRunRecord",
     "CollectorRunItemRecord",
     "CollectorRunRecord",
     "HistoricalSnapshot",

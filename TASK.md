@@ -6,12 +6,13 @@
 
 - Branch：`main`
 - Original requested code baseline：`fad4411`
-- Latest implementation reviewed：`d8a480e`（P1-02；CTO approved）
+- Latest approved implementation：`d8a480e`（P1-02；CTO approved）
+- Current implementation：P1-03 completion commit（pending CTO Review）
 - Specification baseline reviewed：`67e35e5`
 - Functional audit：2026-07-22，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
 - Golden stock：`01592`
-- Status updated：2026-07-22 (Asia/Hong_Kong)
+- Status updated：2026-07-23 (Asia/Hong_Kong)
 
 ## Status rules
 
@@ -32,6 +33,7 @@
 - [x] `P0-06` 審核並納入 `4752183`（Google Drive CSV）、`cbeee7f`（collector/analysis/Streamlit）及 `8966229`（URL log redaction）。
 - [x] `P1-01` 建立 source-neutral normalized historical snapshot foundation、transactional migrations、raw provenance、idempotent repository 及 legacy compatibility；commit `ec09374`。
 - [x] `P1-02` 完成 source-neutral collector routing、dry-run、complete/partial honesty、batch/per-stock run/error accounting 及安全 atomic CSV；commit `d8a480e`，CTO approved。
+- [x] `P1-03` 完成 source-neutral requested-date backfill、persistent resume/per-date accounting、exact-date validation、bounded retry及 partial honesty；completion commit pending CTO Review。
 
 Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同步雲端目錄作 basetemp，避免 Google Drive filesystem race）；UTF-8 replacement scan、相對 Markdown links、`git diff --check` passed；參考網站唯讀檢查確認重導至 Streamlit login，未繞過登入；commit 以本次 documentation commit 的 Git history 為準。
 
@@ -41,13 +43,13 @@ Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同
 - Partial：19 個功能單位。
 - Not Started：10 個功能單位。
 - 總計：33 個功能單位；29 個 Remaining Gaps 已按 phase gate 與依賴在 [`docs/ROADMAP.md`](docs/ROADMAP.md#remaining-gaps-優先序) 完整排序。
-- P1-02 的 CTO 批准沒有改變功能級統計：一次性 Collector 仍欠 historical/backfill/live evidence；Resumable Backfill 仍為 Not Started。
-- 排序結論：Phase 1 下一個唯一最高優先工作是 P1-03；未獲 CTO 批准前不得開始實作。
+- 上述統計及排序是 2026-07-22、P1-03 實作前的正式 Gap Analysis baseline。
+- P1-03 已依 CTO 授權完成實作及離線驗證，正等待 CTO Review；本輪不自行進行下一輪 Gap Analysis、不重判功能統計或指定新 task。
 
 
 ## 唯一最高優先工作
 
-### [ ] P1-03 — Resumable source-neutral CCASS historical backfill
+### [x] P1-03 — Resumable source-neutral CCASS historical backfill
 
 優先理由：P1-01 已建立 normalized historical repository，P1-02 已建立 source-neutral collector、idempotent snapshot save及 persistent run/error accounting。Phase 1 exit gate 下一個未滿足的直接依賴是可 resume、可隔離單日失敗且不製造日期的歷史 backfill；沒有可信多日 snapshots，不可提前展開 Changes/Concentration historical delivery 或 Rainbow。
 
@@ -64,17 +66,17 @@ Phase 0 驗收 evidence：Ruff passed；完整 Pytest `51 passed`（使用非同
 
 Acceptance：
 
-- [ ] CLI 支援 `--stock 01592 --from YYYY-MM-DD --to YYYY-MM-DD`、`--latest N`、`--resume`、`--dry-run`；互斥／缺失／反向日期及超出 configurable bound 會在 network/write 前 fail loud。
-- [ ] Backfill 經 source-neutral requested-date interface；只使用 `DATA_SOURCE_GUIDE.md` 已核准的 source/import flow，來源不支援指定日期時回清晰 `DATE_UNAVAILABLE`／兼容 structured error，不靜默改抓 latest。
-- [ ] 不以插值、日曆填補或複製 latest 製造 snapshot；保存的 `snapshot_date` 必須由來源資料驗證，requested/returned stock code及日期不符時拒絕持久化。
-- [ ] Additive transactional migration 保存 run range、cursor、source、started/completed、status及 success/failed/skipped counters；每個 requested date 有 `SUCCESS`／`PARTIAL`／`ERROR`／`SKIPPED` safe result evidence。
-- [ ] 已存在相同 stock/date/source 的可信 snapshot 會 skip；重跑不 duplicate；partial 不覆蓋 complete；每個成功 snapshot保留 raw provenance。
-- [ ] Resume 由持久化 cursor/result state繼續，跳過已成功／已存在日期並重試失敗日期；中斷後不把未處理日期標 success或 skipped。
-- [ ] 單日 source/parse/storage failure 不回滾其他已提交日期；process/run status及 exit code正確反映 complete、partial及 error batch。
-- [ ] 最大日期數／頁數、request sleep、timeout及 bounded retry 可配置且有 deterministic offline tests；不得無限 retry或高頻 probe。
-- [ ] Dry-run 執行 normalize、range planning、source capability、fetch/parse/schema/identity/date/completeness validation，但不寫 database、run/error records、cursor或 CSV。
-- [ ] Log、error、run details 不包含完整 URL/query、API key、Cookie、authorization或私人路徑；safe source/date/error metadata 可追溯。
-- [ ] Offline tests 覆蓋 range/latest/resume、existing skip、failed retry、partial、date mismatch、bounds、dry-run、rollback/isolation、duplicate及 legacy migration；Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan通過後才可 commit/push `main`。
+- [x] CLI 支援 `--stock 01592 --from YYYY-MM-DD --to YYYY-MM-DD`、`--latest N`、`--resume`、`--dry-run`；互斥／缺失／反向日期及超出 configurable bound 會在 network/write 前 fail loud。
+- [x] Backfill 經 source-neutral requested-date interface；只使用 `DATA_SOURCE_GUIDE.md` 已核准的 source/import flow，來源不支援指定日期時回清晰 `DATE_UNAVAILABLE`／兼容 structured error，不靜默改抓 latest。
+- [x] 不以插值、日曆填補或複製 latest 製造 snapshot；保存的 `snapshot_date` 必須由來源資料驗證，requested/returned stock code及日期不符時拒絕持久化。
+- [x] Additive transactional migration 保存 run range、cursor、source、started/completed、status及 success/failed/skipped counters；每個 requested date 有 `SUCCESS`／`PARTIAL`／`ERROR`／`SKIPPED` safe result evidence。
+- [x] 已存在相同 stock/date/source 的可信 snapshot 會 skip；重跑不 duplicate；partial 不覆蓋 complete；每個成功 snapshot保留 raw provenance。
+- [x] Resume 由持久化 cursor/result state繼續，跳過已成功／已存在日期並重試失敗日期；中斷後不把未處理日期標 success或 skipped。
+- [x] 單日 source/parse/storage failure 不回滾其他已提交日期；process/run status及 exit code正確反映 complete、partial及 error batch。
+- [x] 最大日期數／頁數、request sleep、timeout及 bounded retry 可配置且有 deterministic offline tests；不得無限 retry或高頻 probe。
+- [x] Dry-run 執行 normalize、range planning、source capability、fetch/parse/schema/identity/date/completeness validation，但不寫 database、run/error records、cursor或 CSV。
+- [x] Log、error、run details 不包含完整 URL/query、API key、Cookie、authorization或私人路徑；safe source/date/error metadata 可追溯。
+- [x] Offline tests 覆蓋 range/latest/resume、existing skip、failed retry、partial、date mismatch、bounds、dry-run、rollback/isolation、duplicate及 legacy migration；Ruff、完整 Pytest、`git diff --check`、secrets/private-path scan通過後才可 commit/push `main`。
 
 明確不在本工作：
 
@@ -90,6 +92,21 @@ Dependencies/risks：
 - Date planning 只代表待查要求，不代表該日存在資料；不存在／非交易日只能記錄 honest `DATE_UNAVAILABLE`／SKIPPED reason，不得生成 snapshot。
 - Source terms/robots疑問、憑證、付費服務、破壞性 migration或公開 schema變更均依 [`docs/DEVELOPMENT_RULES.md`](docs/DEVELOPMENT_RULES.md) 立即停下請示。
 
+
+## P1-03 completion evidence
+
+```text
+Task: P1-03 — Resumable source-neutral CCASS historical backfill
+Status: complete; pending CTO Review
+Commit: P1-03 completion commit（本次 commit；exact hash 以 Git history／push 回報為準）
+Tests: Ruff passed; full Pytest 88 passed; CLI smoke, git diff --check, credential-pattern scan and private-path scan passed.
+Files: app/backfill_ccass.py, app/config.py, app/errors.py, app/domain/*, app/storage/*, app/sources/google_drive_csv.py, ccass_core/collector.py, examples/ccass_template.csv, tests/test_backfill.py, tests/test_google_drive_csv.py, tests/test_history_storage.py, docs/ROADMAP.md, TASK.md
+Active sources: Only the approved Google Drive/CSV import flow provides exact requested-date history; auto selects it only when CCASS_CSV_URL is configured. Existing latest holdings routing remains unchanged.
+Disabled/unverified sources: Webb-site remains latest-only for backfill and returns DATE_UNAVAILABLE; HKEX SDW automation and all unaudited supplemental sources remain disabled/not implemented.
+Golden validation: Synthetic offline 01592 contract fixtures cover range/latest/resume, unavailable dates, existing skip, retry/sleep, partial, mismatch, interruption, isolation, dry-run, duplicate and legacy migration; fixtures are non-production and no live scraping was performed.
+Public acceptance: Existing FastAPI/MCP/Streamlit contracts were not modified; the full offline regression suite passed.
+Remaining manual step: CTO Review/approval of this P1-03 completion; do not begin the next Gap Analysis until approved.
+```
 
 ## Decisions and constraints
 

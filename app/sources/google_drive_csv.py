@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import io
+import json
 import logging
 import math
 import re
@@ -67,11 +68,26 @@ class CsvStock:
     issued_shares: int | None
     non_ccass_shares: int | None
     non_ccass_pct_of_issued: float | None
+    participant_count: int
+    partial: bool
+    warnings: tuple[str, ...]
+
+
+class CsvStockMap(dict[tuple[str, date | None], CsvStock]):
+    """Date-keyed stocks with the legacy code lookup returning the latest snapshot."""
+
+    def __getitem__(self, key: tuple[str, date | None] | str) -> CsvStock:
+        if isinstance(key, str):
+            matches = [stock for (code, _), stock in self.items() if code == key]
+            if not matches:
+                raise KeyError(key)
+            return max(matches, key=lambda item: item.holdings_date or date.min)
+        return super().__getitem__(key)
 
 
 @dataclass(frozen=True, slots=True)
 class CsvSnapshot:
-    stocks: dict[str, CsvStock]
+    stocks: CsvStockMap
     fetched_at: datetime
     stored_at: float
 
@@ -99,7 +115,9 @@ def google_drive_download_url(value: str) -> str:
         gid = _single_query_value(query, "gid", required=False)
         if gid:
             params["gid"] = gid
-        return urlunsplit(("https", hostname, f"/spreadsheets/d/{file_id}/export", urlencode(params), ""))
+        return urlunsplit(
+            ("https", hostname, f"/spreadsheets/d/{file_id}/export", urlencode(params), "")
+        )
 
     if hostname == "drive.usercontent.google.com":
         file_id = _validate_google_id(_single_query_value(query, "id"))
@@ -109,7 +127,9 @@ def google_drive_download_url(value: str) -> str:
         return urlunsplit(("https", hostname, "/download", urlencode(params), ""))
 
     file_match = re.fullmatch(r"/file/d/([^/]+)(?:/.*)?", parsed.path)
-    file_id = file_match.group(1) if file_match else _single_query_value(query, "id", required=False)
+    file_id = (
+        file_match.group(1) if file_match else _single_query_value(query, "id", required=False)
+    )
     file_id = _validate_google_id(file_id)
     params = {"export": "download", "id": file_id}
     if resource_key:
@@ -118,21 +138,77 @@ def google_drive_download_url(value: str) -> str:
 
 
 class GoogleDriveCsvSource:
+    source_id = "google_drive_csv"
+
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
         self._snapshot: CsvSnapshot | None = None
         self._refresh_lock = asyncio.Lock()
 
+    page_count = 1
+
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
         snapshot, cached, stale_warning = await self._get_snapshot()
-        stock = snapshot.stocks.get(code)
-        if stock is None:
+        matches = [
+            stock for (stock_code, _), stock in snapshot.stocks.items() if stock_code == code
+        ]
+        if not matches:
             raise PlatformError(
                 ErrorCode.NOT_FOUND,
                 f"Stock code {code} was not found in the configured CCASS CSV.",
                 status_code=404,
             )
+        stock = max(matches, key=lambda item: item.holdings_date or date.min)
+        return self._response(
+            stock,
+            snapshot=snapshot,
+            cached=cached,
+            stale_warning=stale_warning,
+            limit=max(1, min(limit, 100)),
+        )
 
+    async def available_dates(self, code: str) -> tuple[date, ...]:
+        snapshot, _, _ = await self._get_snapshot()
+        return tuple(
+            sorted(
+                holdings_date
+                for stock_code, holdings_date in snapshot.stocks
+                if stock_code == code and holdings_date is not None
+            )
+        )
+
+    async def get_holdings_for_date(
+        self,
+        code: str,
+        requested_date: date,
+        *,
+        limit: int = 10_000,
+    ) -> CcassResponse:
+        snapshot, cached, stale_warning = await self._get_snapshot()
+        stock = snapshot.stocks.get((code, requested_date))
+        if stock is None:
+            raise PlatformError(
+                ErrorCode.DATE_UNAVAILABLE,
+                f"CCASS CSV has no verified snapshot for {code} on {requested_date.isoformat()}.",
+                status_code=404,
+            )
+        return self._response(
+            stock,
+            snapshot=snapshot,
+            cached=cached,
+            stale_warning=stale_warning,
+            limit=max(1, limit),
+        )
+
+    def _response(
+        self,
+        stock: CsvStock,
+        *,
+        snapshot: CsvSnapshot,
+        cached: bool,
+        stale_warning: str | None,
+        limit: int,
+    ) -> CcassResponse:
         holdings = list(stock.holdings)
         top5 = holdings[:5]
         top10 = holdings[:10]
@@ -141,7 +217,14 @@ class GoogleDriveCsvSource:
             total = stock.total_in_ccass_shares
             return round(sum(row.shares for row in rows) / total * 100, 4) if total else None
 
-        warnings = [stale_warning] if stale_warning else []
+        warnings = list(stock.warnings)
+        if stock.partial and not any("partial" in warning.lower() for warning in warnings):
+            warnings.append(
+                "PARTIAL_DATA: imported snapshot is incomplete; missing rows remain absent."
+            )
+        if stale_warning:
+            warnings.append(stale_warning)
+
         return CcassResponse(
             metadata=SourceMetadata(
                 code=stock.code,
@@ -160,13 +243,13 @@ class GoogleDriveCsvSource:
                 issued_shares=stock.issued_shares,
                 non_ccass_shares=stock.non_ccass_shares,
                 non_ccass_pct_of_issued=stock.non_ccass_pct_of_issued,
-                participant_count=len(holdings),
+                participant_count=stock.participant_count,
                 top5_pct_of_issued=sum(row.pct_of_issued for row in top5),
                 top10_pct_of_issued=sum(row.pct_of_issued for row in top10),
                 top5_pct_of_ccass=pct_of_ccass(top5),
                 top10_pct_of_ccass=pct_of_ccass(top10),
             ),
-            holdings=holdings[: max(1, min(limit, 100))],
+            holdings=holdings[:limit],
             data_quality_warnings=warnings,
         )
 
@@ -195,9 +278,7 @@ class GoogleDriveCsvSource:
 
     async def _download(self) -> bytes:
         if not self.settings.ccass_csv_url.strip():
-            raise _data_source_error(
-                "CCASS_CSV_URL is required when DATA_SOURCE=google_drive_csv."
-            )
+            raise _data_source_error("CCASS_CSV_URL is required when DATA_SOURCE=google_drive_csv.")
         url = google_drive_download_url(self.settings.ccass_csv_url)
         hostname = urlsplit(url).hostname or "unknown"
         try:
@@ -218,7 +299,9 @@ class GoogleDriveCsvSource:
                         )
                     declared_size = response.headers.get("content-length")
                     if declared_size and int(declared_size) > self.settings.ccass_csv_max_bytes:
-                        raise _data_source_error("Google Drive CSV exceeds the configured size limit.")
+                        raise _data_source_error(
+                            "Google Drive CSV exceeds the configured size limit."
+                        )
                     chunks: list[bytes] = []
                     size = 0
                     async for chunk in response.aiter_bytes():
@@ -251,7 +334,7 @@ class GoogleDriveCsvSource:
         return content
 
     @staticmethod
-    def _parse(content: bytes) -> dict[str, CsvStock]:
+    def _parse(content: bytes) -> CsvStockMap:
         try:
             text = content.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
@@ -263,9 +346,11 @@ class GoogleDriveCsvSource:
             raise _data_source_error("CCASS CSV contains duplicate column names.")
         missing = sorted(REQUIRED_COLUMNS - columns)
         if missing:
-            raise _data_source_error(f"CCASS CSV is missing required columns: {', '.join(missing)}.")
+            raise _data_source_error(
+                f"CCASS CSV is missing required columns: {', '.join(missing)}."
+            )
 
-        grouped: dict[str, list[dict[str, str]]] = {}
+        grouped: dict[tuple[str, date | None], list[dict[str, str]]] = {}
         try:
             csv_rows = enumerate(reader, start=2)
             for line_number, raw_row in csv_rows:
@@ -276,16 +361,22 @@ class GoogleDriveCsvSource:
                 row = {key: (value or "").strip() for key, value in raw_row.items()}
                 try:
                     code = normalize_stock_code(row["code"])
-                except PlatformError as exc:
+                    holdings_date = _optional_date(row["holdings_date"], "holdings_date")
+                except (PlatformError, ValueError) as exc:
                     raise _data_source_error(
-                        f"CCASS CSV row {line_number} has an invalid code."
+                        f"CCASS CSV row {line_number} has an invalid code or holdings_date."
                     ) from exc
-                grouped.setdefault(code, []).append(row)
+                grouped.setdefault((code, holdings_date), []).append(row)
         except csv.Error as exc:
             raise _data_source_error("CCASS CSV has invalid CSV syntax.") from exc
         if not grouped:
             raise _data_source_error("CCASS CSV contains no data rows.")
-        return {code: _parse_stock(code, rows) for code, rows in grouped.items()}
+        return CsvStockMap(
+            {
+                (code, holdings_date): _parse_stock(code, rows)
+                for (code, holdings_date), rows in grouped.items()
+            }
+        )
 
     def _safe_source_url(self) -> str:
         parsed = urlsplit(self.settings.ccass_csv_url)
@@ -304,9 +395,15 @@ class GoogleDriveCsvSource:
 def _parse_stock(code: str, rows: list[dict[str, str]]) -> CsvStock:
     first = rows[0]
     identity = tuple(first[field] for field in STOCK_COLUMNS)
+    optional_fields = ("participant_count", "snapshot_partial", "data_quality_warnings")
+    optional_identity = tuple(first.get(field, "") for field in optional_fields)
     for row in rows[1:]:
         if tuple(row[field] for field in STOCK_COLUMNS) != identity:
             raise _data_source_error(f"CCASS CSV has inconsistent metadata for code {code}.")
+        if tuple(row.get(field, "") for field in optional_fields) != optional_identity:
+            raise _data_source_error(
+                f"CCASS CSV has inconsistent optional metadata for code {code}."
+            )
     try:
         name = _required(first, "name")
         issue_id = _positive_int(first["issue_id"], "issue_id")
@@ -318,13 +415,18 @@ def _parse_stock(code: str, rows: list[dict[str, str]]) -> CsvStock:
             first["total_in_ccass_pct_of_issued"], "total_in_ccass_pct_of_issued"
         )
         issued_shares = _optional_non_negative_int(first["issued_shares"], "issued_shares")
-        non_ccass_shares = _optional_non_negative_int(
-            first["non_ccass_shares"], "non_ccass_shares"
-        )
-        non_ccass_pct = _optional_float(
-            first["non_ccass_pct_of_issued"], "non_ccass_pct_of_issued"
-        )
+        non_ccass_shares = _optional_non_negative_int(first["non_ccass_shares"], "non_ccass_shares")
+        non_ccass_pct = _optional_float(first["non_ccass_pct_of_issued"], "non_ccass_pct_of_issued")
         holdings = tuple(sorted((_parse_holding(row) for row in rows), key=lambda row: row.rank))
+        participant_count = _optional_non_negative_int(
+            first.get("participant_count", ""), "participant_count"
+        )
+        participant_count = participant_count if participant_count is not None else len(holdings)
+        partial = _optional_bool(first.get("snapshot_partial", ""), "snapshot_partial")
+        partial = bool(partial) or participant_count != len(holdings)
+        warnings = _optional_warnings(first.get("data_quality_warnings", ""))
+        if participant_count < len(holdings):
+            raise ValueError("participant_count cannot be smaller than imported rows")
     except (ValueError, KeyError) as exc:
         raise _data_source_error(f"CCASS CSV data for code {code} is invalid: {exc}") from exc
 
@@ -346,6 +448,9 @@ def _parse_stock(code: str, rows: list[dict[str, str]]) -> CsvStock:
         issued_shares=issued_shares,
         non_ccass_shares=non_ccass_shares,
         non_ccass_pct_of_issued=non_ccass_pct,
+        participant_count=participant_count,
+        partial=partial,
+        warnings=warnings,
     )
 
 
@@ -401,6 +506,27 @@ def _non_negative_float(value: str, field: str) -> float:
     if not math.isfinite(parsed) or parsed < 0:
         raise ValueError(f"{field} must be a finite non-negative number")
     return parsed
+
+
+def _optional_bool(value: str, field: str) -> bool | None:
+    if not value:
+        return None
+    normalized = value.strip().lower()
+    if normalized not in {"true", "false"}:
+        raise ValueError(f"{field} must be true or false")
+    return normalized == "true"
+
+
+def _optional_warnings(value: str) -> tuple[str, ...]:
+    if not value:
+        return ()
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise ValueError("data_quality_warnings must be valid JSON") from exc
+    if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
+        raise ValueError("data_quality_warnings must be a JSON string array")
+    return tuple(parsed)
 
 
 def _optional_date(value: str, field: str) -> date | None:

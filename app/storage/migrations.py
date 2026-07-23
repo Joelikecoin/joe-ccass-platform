@@ -169,7 +169,59 @@ MIGRATION_2 = Migration(
 )
 
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2)
+MIGRATION_3 = Migration(
+    version=3,
+    name="resumable_backfill_runs",
+    statements=(
+        """
+        CREATE TABLE backfill_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL CHECK(length(stock_code) = 5),
+            source_id TEXT NOT NULL,
+            requested_from TEXT,
+            requested_to TEXT,
+            latest_count INTEGER CHECK(latest_count IS NULL OR latest_count > 0),
+            requested_dates_json TEXT NOT NULL,
+            cursor_date TEXT,
+            started_at TEXT NOT NULL,
+            completed_at TEXT,
+            status TEXT NOT NULL
+                CHECK(status IN ('RUNNING', 'SUCCESS', 'PARTIAL', 'ERROR')),
+            success_count INTEGER NOT NULL DEFAULT 0 CHECK(success_count >= 0),
+            partial_count INTEGER NOT NULL DEFAULT 0 CHECK(partial_count >= 0),
+            error_count INTEGER NOT NULL DEFAULT 0 CHECK(error_count >= 0),
+            skipped_count INTEGER NOT NULL DEFAULT 0 CHECK(skipped_count >= 0),
+            safe_details_json TEXT NOT NULL DEFAULT '{}'
+        )
+        """,
+        """
+        CREATE TABLE backfill_run_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id INTEGER NOT NULL REFERENCES backfill_runs(id) ON DELETE CASCADE,
+            requested_date TEXT NOT NULL,
+            status TEXT NOT NULL
+                CHECK(status IN ('SUCCESS', 'PARTIAL', 'ERROR', 'SKIPPED')),
+            source_id TEXT NOT NULL,
+            snapshot_id INTEGER REFERENCES ccass_snapshots(id) ON DELETE SET NULL,
+            partial INTEGER NOT NULL CHECK(partial IN (0, 1)),
+            error_code TEXT,
+            safe_message TEXT,
+            retry_recommended INTEGER NOT NULL CHECK(retry_recommended IN (0, 1)),
+            safe_details_json TEXT NOT NULL DEFAULT '{}',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(run_id, requested_date)
+        )
+        """,
+        "CREATE INDEX idx_backfill_runs_resume "
+        "ON backfill_runs(stock_code, source_id, status, id DESC)",
+        "CREATE INDEX idx_backfill_run_items_status "
+        "ON backfill_run_items(run_id, status, requested_date)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 

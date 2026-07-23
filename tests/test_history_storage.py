@@ -14,7 +14,13 @@ from app.domain.history import (
 )
 from app.models import CcassResponse
 from app.storage.history import NormalizedSnapshotRepository
-from app.storage.migrations import MIGRATION_1, Migration, SCHEMA_VERSION, apply_migrations
+from app.storage.migrations import (
+    MIGRATION_1,
+    MIGRATION_2,
+    Migration,
+    SCHEMA_VERSION,
+    apply_migrations,
+)
 from ccass_core.collector import SnapshotStore
 
 REQUIRED_TABLES = {
@@ -25,6 +31,8 @@ REQUIRED_TABLES = {
     "ccass_snapshots",
     "ccass_holdings",
     "collector_runs",
+    "backfill_runs",
+    "backfill_run_items",
     "collector_run_items",
     "source_errors",
     "legacy_snapshot_imports",
@@ -53,6 +61,7 @@ def test_migration_creates_required_schema_and_is_idempotent(tmp_path):
     assert versions == [
         (1, "normalized_historical_foundation"),
         (2, "collector_run_items"),
+        (3, "resumable_backfill_runs"),
     ]
 
 
@@ -561,3 +570,45 @@ def test_collector_failure_item_and_error_roll_back_together(tmp_path, monkeypat
         connection.close()
     assert item_count == 0
     assert error_count == 0
+
+
+def test_version_two_database_upgrades_without_losing_collector_evidence(tmp_path):
+    database = tmp_path / "upgrade-v2.db"
+    connection = sqlite3.connect(database, isolation_level=None)
+    try:
+        assert apply_migrations(connection, migrations=(MIGRATION_1, MIGRATION_2)) == 2
+        run_id = connection.execute(
+            """
+            INSERT INTO collector_runs(
+                started_at, status, source_id, requested_codes_json, safe_details_json
+            ) VALUES (?, 'RUNNING', 'auto', '["01592"]', '{}')
+            """,
+            (datetime(2026, 7, 23, tzinfo=UTC).isoformat(),),
+        ).lastrowid
+        connection.execute(
+            """
+            INSERT INTO collector_run_items(
+                run_id, stock_code, status, source_id, partial, safe_details_json, created_at
+            ) VALUES (?, '01592', 'SUCCESS', 'google_drive_csv', 0, '{}', ?)
+            """,
+            (run_id, datetime(2026, 7, 23, tzinfo=UTC).isoformat()),
+        )
+
+        assert apply_migrations(connection) == 3
+        collector_count = connection.execute("SELECT COUNT(*) FROM collector_run_items").fetchone()[
+            0
+        ]
+        backfill_tables = {
+            row[0]
+            for row in connection.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type = 'table' AND name LIKE 'backfill_%'
+                """
+            ).fetchall()
+        }
+    finally:
+        connection.close()
+
+    assert collector_count == 1
+    assert backfill_tables == {"backfill_runs", "backfill_run_items"}

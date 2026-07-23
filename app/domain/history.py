@@ -264,8 +264,49 @@ class CollectorRunItemRecord(BaseModel):
     safe_details: dict[str, str | int | bool | None] = Field(default_factory=dict)
 
 
+class BackfillRunRecord(BaseModel):
+    run_id: int | None = None
+    stock_code: str = Field(pattern=r"^\d{5}$")
+    source_id: str
+    requested_dates: tuple[date, ...]
+    started_at: datetime
+    requested_from: date | None = None
+    requested_to: date | None = None
+    latest_count: int | None = Field(default=None, gt=0)
+    cursor_date: date | None = None
+    completed_at: datetime | None = None
+    status: Literal["RUNNING", "SUCCESS", "PARTIAL", "ERROR"] = "RUNNING"
+    success_count: int = Field(default=0, ge=0)
+    partial_count: int = Field(default=0, ge=0)
+    error_count: int = Field(default=0, ge=0)
+    skipped_count: int = Field(default=0, ge=0)
+    safe_details: dict[str, str | int | bool | None] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_requested_dates(self) -> "BackfillRunRecord":
+        if not self.requested_dates:
+            raise ValueError("backfill run requires at least one requested date")
+        if tuple(sorted(set(self.requested_dates))) != self.requested_dates:
+            raise ValueError("backfill requested dates must be unique and sorted")
+        return self
+
+
+class BackfillRunItemRecord(BaseModel):
+    run_id: int = Field(gt=0)
+    requested_date: date
+    status: Literal["SUCCESS", "PARTIAL", "ERROR", "SKIPPED"]
+    source_id: str
+    snapshot_id: int | None = Field(default=None, gt=0)
+    partial: bool = False
+    error_code: str | None = None
+    safe_message: str | None = None
+    retry_recommended: bool = False
+    safe_details: dict[str, str | int | bool | None] = Field(default_factory=dict)
+
+
 class SourceErrorRecord(BaseModel):
     error_id: int | None = None
+
     run_id: int | None = None
     source_id: str
     stock_code: str | None = Field(default=None, pattern=r"^\d{5}$")

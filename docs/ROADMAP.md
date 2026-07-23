@@ -69,6 +69,13 @@
 - 批准代表 P1-02 task 完成，不會把 Project Specification 中未交付的 historical-date collection、resume、failed-date retry、history export 或合法 live/golden batch 驗收視為完成；故 Collector 維持 Partial，獨立 Resumable Backfill 維持 Not Started。
 - P1-01/P1-02 已移除 Backfill 的 normalized persistence、idempotency、source routing 與 run-accounting 前置缺口。依 Phase 1 exit gate，下一個唯一最高優先工作是 `P1-03 — Resumable source-neutral CCASS historical backfill`。
 
+### P1-03 實作證據（2026-07-23；待 CTO Review）
+
+- 已按核准 task 完成 source-neutral requested-date backfill CLI、Google Drive/CSV 多日期 exact lookup、additive v3 run/per-date migration、resume、existing skip、failed-date retry、partial honesty、bounds/sleep/retry、dry-run及 safe error evidence。
+- Webb-site latest adapter 未被宣稱或啟用為 historical source；range 中不存在的日期只記錄 `DATE_UNAVAILABLE`／`SKIPPED`，requested/returned code/date mismatch 會拒絕保存；未執行 live scraping或製造 synthetic production snapshot。
+- 完整離線 regression 為 88 passed；Ruff、CLI smoke、`git diff --check`、credential-pattern及私人路徑 scan 均通過。公開 FastAPI、MCP、Streamlit contract 未修改。
+- 本段只記錄已批准 P1-03 的實作事實，不構成下一輪 Gap Analysis；下列 2026-07-22 統計與 Remaining Gaps 排序維持原 audit baseline，待 CTO Review／另行批准後才重判。
+
 ### Remaining Gaps 優先序
 
 排序先遵守 phase gate，再按 Architecture → Data → Engine → API → UI → Tests → Deployment → Acceptance 的依賴次序。同一功能的後續完整化保留其現有 Partial／Not Started 判定；此表不把下一 phase 提前變成 active scope。

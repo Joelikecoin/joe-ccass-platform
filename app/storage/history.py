@@ -5,6 +5,8 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 from app.domain.history import (
+    BackfillRunItemRecord,
+    BackfillRunRecord,
     CollectorRunItemRecord,
     CollectorRunRecord,
     HistoricalSnapshot,
@@ -348,6 +350,241 @@ class NormalizedSnapshotRepository:
             ),
         )
         return int(cursor.lastrowid)
+
+    def snapshot_on(
+        self,
+        code: str,
+        snapshot_date: date,
+        *,
+        source_id: str,
+    ) -> HistoricalSnapshot | None:
+        snapshots = self.date_range(
+            code,
+            date_from=snapshot_date,
+            date_to=snapshot_date,
+            source_id=source_id,
+        )
+        return snapshots[-1] if snapshots else None
+
+    def snapshot_id_on(
+        self,
+        code: str,
+        snapshot_date: date,
+        *,
+        source_id: str,
+    ) -> int | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT id FROM ccass_snapshots
+                WHERE stock_code = ? AND snapshot_date = ? AND source_id = ?
+                """,
+                (code, snapshot_date.isoformat(), source_id),
+            ).fetchone()
+        return int(row["id"]) if row else None
+
+    def create_backfill_run(self, run: BackfillRunRecord) -> int:
+        with self._transaction() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO backfill_runs(
+                    stock_code, source_id, requested_from, requested_to, latest_count,
+                    requested_dates_json, cursor_date, started_at, completed_at, status,
+                    success_count, partial_count, error_count, skipped_count, safe_details_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run.stock_code,
+                    run.source_id,
+                    run.requested_from.isoformat() if run.requested_from else None,
+                    run.requested_to.isoformat() if run.requested_to else None,
+                    run.latest_count,
+                    _json([value.isoformat() for value in run.requested_dates]),
+                    run.cursor_date.isoformat() if run.cursor_date else None,
+                    run.started_at.isoformat(),
+                    run.completed_at.isoformat() if run.completed_at else None,
+                    run.status,
+                    run.success_count,
+                    run.partial_count,
+                    run.error_count,
+                    run.skipped_count,
+                    _json(run.safe_details),
+                ),
+            )
+            return int(cursor.lastrowid)
+
+    def resume_backfill_run(self, run_id: int) -> None:
+        with self._transaction() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE backfill_runs
+                SET status = 'RUNNING', completed_at = NULL
+                WHERE id = ?
+                """,
+                (run_id,),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("backfill run does not exist")
+
+    def complete_backfill_run(
+        self,
+        run_id: int,
+        *,
+        completed_at: datetime,
+        status: str,
+        success_count: int,
+        partial_count: int,
+        error_count: int,
+        skipped_count: int,
+        safe_details: dict[str, str | int | bool | None],
+    ) -> None:
+        if status not in {"SUCCESS", "PARTIAL", "ERROR"}:
+            raise ValueError("backfill run status is invalid")
+        with self._transaction() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE backfill_runs
+                SET completed_at = ?, status = ?, success_count = ?, partial_count = ?,
+                    error_count = ?, skipped_count = ?, safe_details_json = ?
+                WHERE id = ?
+                """,
+                (
+                    completed_at.isoformat(),
+                    status,
+                    success_count,
+                    partial_count,
+                    error_count,
+                    skipped_count,
+                    _json(safe_details),
+                    run_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ValueError("backfill run does not exist")
+
+    def record_backfill_result(self, item: BackfillRunItemRecord) -> int:
+        now = datetime.now(UTC).isoformat()
+        with self._transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO backfill_run_items(
+                    run_id, requested_date, status, source_id, snapshot_id, partial,
+                    error_code, safe_message, retry_recommended, safe_details_json,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(run_id, requested_date) DO UPDATE SET
+                    status = excluded.status,
+                    source_id = excluded.source_id,
+                    snapshot_id = excluded.snapshot_id,
+                    partial = excluded.partial,
+                    error_code = excluded.error_code,
+                    safe_message = excluded.safe_message,
+                    retry_recommended = excluded.retry_recommended,
+                    safe_details_json = excluded.safe_details_json,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    item.run_id,
+                    item.requested_date.isoformat(),
+                    item.status,
+                    item.source_id,
+                    item.snapshot_id,
+                    int(item.partial),
+                    item.error_code,
+                    item.safe_message,
+                    int(item.retry_recommended),
+                    _json(item.safe_details),
+                    now,
+                    now,
+                ),
+            )
+            connection.execute(
+                "UPDATE backfill_runs SET cursor_date = ? WHERE id = ?",
+                (item.requested_date.isoformat(), item.run_id),
+            )
+            row = connection.execute(
+                "SELECT id FROM backfill_run_items WHERE run_id = ? AND requested_date = ?",
+                (item.run_id, item.requested_date.isoformat()),
+            ).fetchone()
+            return int(row["id"])
+
+    def get_backfill_items(self, run_id: int) -> list[BackfillRunItemRecord]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT * FROM backfill_run_items
+                WHERE run_id = ? ORDER BY requested_date
+                """,
+                (run_id,),
+            ).fetchall()
+        return [
+            BackfillRunItemRecord(
+                run_id=int(row["run_id"]),
+                requested_date=date.fromisoformat(row["requested_date"]),
+                status=row["status"],
+                source_id=row["source_id"],
+                snapshot_id=row["snapshot_id"],
+                partial=bool(row["partial"]),
+                error_code=row["error_code"],
+                safe_message=row["safe_message"],
+                retry_recommended=bool(row["retry_recommended"]),
+                safe_details=json.loads(row["safe_details_json"]),
+            )
+            for row in rows
+        ]
+
+    def get_resumable_backfill_run(
+        self,
+        stock_code: str,
+        *,
+        source_id: str,
+    ) -> BackfillRunRecord | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT runs.*
+                FROM backfill_runs AS runs
+                WHERE runs.stock_code = ? AND runs.source_id = ?
+                  AND (
+                    runs.status = 'RUNNING'
+                    OR EXISTS (
+                        SELECT 1 FROM backfill_run_items AS items
+                        WHERE items.run_id = runs.id AND items.status = 'ERROR'
+                    )
+                  )
+                ORDER BY runs.id DESC
+                LIMIT 1
+                """,
+                (stock_code, source_id),
+            ).fetchone()
+        return self._load_backfill_run(row) if row else None
+
+    @staticmethod
+    def _load_backfill_run(row: sqlite3.Row) -> BackfillRunRecord:
+        return BackfillRunRecord(
+            run_id=int(row["id"]),
+            stock_code=row["stock_code"],
+            source_id=row["source_id"],
+            requested_from=(
+                date.fromisoformat(row["requested_from"]) if row["requested_from"] else None
+            ),
+            requested_to=(date.fromisoformat(row["requested_to"]) if row["requested_to"] else None),
+            latest_count=row["latest_count"],
+            requested_dates=tuple(
+                date.fromisoformat(value) for value in json.loads(row["requested_dates_json"])
+            ),
+            cursor_date=date.fromisoformat(row["cursor_date"]) if row["cursor_date"] else None,
+            started_at=datetime.fromisoformat(row["started_at"]),
+            completed_at=(
+                datetime.fromisoformat(row["completed_at"]) if row["completed_at"] else None
+            ),
+            status=row["status"],
+            success_count=int(row["success_count"]),
+            partial_count=int(row["partial_count"]),
+            error_count=int(row["error_count"]),
+            skipped_count=int(row["skipped_count"]),
+            safe_details=json.loads(row["safe_details_json"]),
+        )
 
     def legacy_latest_responses(self) -> list[CcassResponse]:
         if not self._has_legacy_table():

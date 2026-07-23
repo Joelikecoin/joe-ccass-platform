@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     # Keep two sequential mirror attempts inside a typical 30-second gateway budget.
     request_timeout_seconds: float = 12.0
     cache_ttl_seconds: int = 900
+    backfill_max_dates: int = 366
+    backfill_max_pages: int = 1
+    backfill_request_sleep_seconds: float = 1.0
+    backfill_retry_attempts: int = 2
     min_request_interval_seconds: float = 1.0
     user_agent: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
