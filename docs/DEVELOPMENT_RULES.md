@@ -14,6 +14,12 @@ Architecture → Data → Engine → API → UI → Tests → Deployment → Pub
 
 在 scope 清楚且安全時，工程代理可自行完成現況審核、規劃、實作、migration、fixtures、tests、修正、README/CHANGELOG、commit、push、部署與驗收，不要求使用者逐檔批准。
 
+### Architecture Guard — Discussion ≠ Decision
+
+- 聊天、brainstorm、例子、參考截圖或未批准建議不等於Architecture／Specification decision，不得據此自行改變產品方向、phase、source或public contract。
+- 只有CTO明確批准並寫入Repository Single Source of Truth的內容，才可成為後續實作依據；當前`TASK.md`的Scope、Acceptance、Out of Scope及risks是該輪唯一執行邊界。
+- 實作發現、測試結果或現況差異只形成evidence／gap，不會自動改寫Specification；需要改規格時必須另行明確批准。
+- 若聊天要求、task、code與正式文件衝突，停止擴大scope，保留證據並請CTO裁決；不得以「順便改善」名義refactor、rename、reformat或提前實作下一個Gap。
 ## 2. 必須停下取得使用者指示的情況
 
 - 需要密碼、API key、token、真實憑證或登入批准。

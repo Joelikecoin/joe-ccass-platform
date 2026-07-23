@@ -74,7 +74,8 @@ def test_registry_has_truthful_capabilities_and_configured_policies():
     assert google.policy.minimum_interval_seconds == 1.5
     assert google.policy.max_pages == 4
     assert google.policy.cache_policy == "process_memory"
-    assert google.policy.last_known_good_policy == "process_memory"
+    assert google.policy.last_known_good_policy == "persistent_normalized_snapshot"
+    assert google.policy.lkg_max_age_seconds == 604_800
 
 
 def test_safe_diagnostics_redact_urls_queries_credentials_and_private_paths():

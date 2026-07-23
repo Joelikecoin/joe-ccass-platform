@@ -140,8 +140,14 @@ def google_drive_download_url(value: str) -> str:
 class GoogleDriveCsvSource:
     source_id = "google_drive_csv"
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        allow_process_lkg_on_error: bool = True,
+    ) -> None:
         self.settings = settings or get_settings()
+        self.allow_process_lkg_on_error = allow_process_lkg_on_error
         self._snapshot: CsvSnapshot | None = None
         self._refresh_lock = asyncio.Lock()
 
@@ -164,7 +170,7 @@ class GoogleDriveCsvSource:
             snapshot=snapshot,
             cached=cached,
             stale_warning=stale_warning,
-            limit=max(1, min(limit, 100)),
+            limit=max(1, limit),
         )
 
     async def available_dates(self, code: str) -> tuple[date, ...]:
@@ -266,7 +272,7 @@ class GoogleDriveCsvSource:
                 content = await self._download()
                 snapshot = CsvSnapshot(self._parse(content), datetime.now(UTC), time.monotonic())
             except PlatformError:
-                if self._snapshot is None:
+                if self._snapshot is None or not self.allow_process_lkg_on_error:
                     raise
                 return (
                     self._snapshot,
@@ -293,9 +299,23 @@ class GoogleDriveCsvSource:
                 async with client.stream("GET", url) as response:
                     if response.status_code != 200:
                         self._log_failure(hostname, response.status_code, "http_status")
+                        if response.status_code == 403:
+                            raise _source_error(
+                                ErrorCode.SOURCE_FORBIDDEN,
+                                "Google Drive CSV download was temporarily forbidden.",
+                            )
+                        if response.status_code == 429:
+                            raise _source_error(
+                                ErrorCode.SOURCE_RATE_LIMITED,
+                                "Google Drive CSV download was rate limited.",
+                            )
+                        if response.status_code >= 500:
+                            raise _source_error(
+                                ErrorCode.SOURCE_UNAVAILABLE,
+                                "Google Drive CSV download is temporarily unavailable.",
+                            )
                         raise _data_source_error(
-                            f"Google Drive CSV download returned HTTP {response.status_code}.",
-                            retry_recommended=response.status_code >= 500,
+                            f"Google Drive CSV download returned HTTP {response.status_code}."
                         )
                     declared_size = response.headers.get("content-length")
                     if declared_size and int(declared_size) > self.settings.ccass_csv_max_bytes:
@@ -317,14 +337,19 @@ class GoogleDriveCsvSource:
             raise
         except httpx.TimeoutException as exc:
             self._log_failure(hostname, None, "timeout")
-            raise _data_source_error(
-                "Google Drive CSV download timed out.", retry_recommended=True
+            raise _source_error(
+                ErrorCode.SOURCE_TIMEOUT,
+                "Google Drive CSV download timed out.",
             ) from exc
-        except (httpx.HTTPError, ValueError) as exc:
+        except httpx.HTTPError as exc:
             self._log_failure(hostname, None, type(exc).__name__)
-            raise _data_source_error(
-                "Google Drive CSV download failed.", retry_recommended=True
+            raise _source_error(
+                ErrorCode.SOURCE_UNAVAILABLE,
+                "Google Drive CSV download failed temporarily.",
             ) from exc
+        except ValueError as exc:
+            self._log_failure(hostname, None, type(exc).__name__)
+            raise _data_source_error("Google Drive CSV response metadata was invalid.") from exc
 
         if _looks_like_html(content, content_type):
             raise _data_source_error(
@@ -561,6 +586,15 @@ def _looks_like_html(content: bytes, content_type: str) -> bool:
         or prefix.startswith(b"<html")
         or b"accounts.google.com" in prefix
         or b"servicelogin" in prefix
+    )
+
+
+def _source_error(code: ErrorCode, message: str) -> PlatformError:
+    return PlatformError(
+        code,
+        message,
+        retry_recommended=True,
+        status_code=504 if code == ErrorCode.SOURCE_TIMEOUT else 503,
     )
 
 

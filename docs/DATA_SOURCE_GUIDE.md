@@ -185,7 +185,7 @@ AAStocks／新聞只可作 source discovery、快速人工核實和正式文件 
 - 原子寫檔：temporary file + atomic replace；transactional database import；同日重跑 idempotent。
 - 缺資料不得補造；正式資料與人工整理衝突時列 warning。
 
-`8966229` 已實作 `DATA_SOURCE=google_drive_csv`、`CCASS_CSV_URL`、上述下載防護、schema validation、memory cache／process-memory last-known-good、安全 logging，以及 CSV-only 不呼叫 Webb-site。後續仍須把持久化 cache/import provenance 與 normalized historical store 統一；任務狀態以 [`TASK.md`](../TASK.md) 為準。
+`8966229` 已實作 `DATA_SOURCE=google_drive_csv`、`CCASS_CSV_URL`、上述下載防護、schema validation、memory cache、安全 logging，以及 CSV-only 不呼叫 Webb-site。P1-06再把latest Holdings的完整、已驗證last-known-good統一至normalized SQLite store；`HOLDINGS_LKG_MAX_AGE_SECONDS`控制最大age，HTML/login/schema/identity/date/disabled等integrity failures不可回退。任務狀態以 [`TASK.md`](../TASK.md) 為準。
 
 ## 13. Canonical normalized records
 

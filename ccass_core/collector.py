@@ -23,6 +23,17 @@ from app.domain.history import (
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.services.ccass import CcassService
+from app.services.holdings_lkg import (
+    LKG_AGE_SECONDS_PREFIX,
+    SOURCE_ERROR_CODE_PREFIX,
+    SOURCE_ERROR_MESSAGE_PREFIX,
+    SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX,
+    SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX,
+    FreshnessStatus,
+    freshness_detail,
+    freshness_status,
+)
+from app.sources.registry import build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
 
@@ -141,7 +152,16 @@ async def collect_watchlist(
     """Run one source-neutral, low-frequency collection pass."""
     codes = _normalize_codes(config.watchlist)
     source_settings = settings or Settings(data_source=config.source_mode)
-    service = CcassService(settings=source_settings) if fetcher is None else None
+    store = None if config.dry_run else SnapshotStore(config.sqlite_path)
+    repository = store.repository if store else None
+    if fetcher is None:
+        service = (
+            CcassService(settings=source_settings, lkg_repository=repository)
+            if repository is not None
+            else CcassService(settings=source_settings)
+        )
+    else:
+        service = None
 
     async def default_fetcher(code: str, limit: int) -> CcassResponse:
         if service is None:  # pragma: no cover - guarded by selected_fetcher
@@ -149,8 +169,6 @@ async def collect_watchlist(
         return await service.get_stock_data(code, holdings_limit=limit)
 
     selected_fetcher = fetcher or default_fetcher
-    store = None if config.dry_run else SnapshotStore(config.sqlite_path)
-    repository = store.repository if store else None
     run_id = None
     if repository is not None:
         run_id = repository.create_collector_run(
@@ -171,7 +189,11 @@ async def collect_watchlist(
     for code in codes:
         try:
             response = await selected_fetcher(code, config.effective_collection_limit)
-            snapshot = _validated_snapshot(response, requested_code=code)
+            snapshot = _validated_snapshot(
+                response,
+                requested_code=code,
+                settings=source_settings,
+            )
         except PlatformError as exc:
             error_count += 1
             failures[code] = f"{exc.code}: {exc.message}"
@@ -202,6 +224,71 @@ async def collect_watchlist(
                     source_id=source_settings.data_source,
                     error=error,
                 )
+            continue
+
+        current_freshness = freshness_status(response)
+        if current_freshness == FreshnessStatus.STALE_LKG:
+            partial_count += 1
+            if repository is not None and run_id is not None:
+                source_error_code = (
+                    freshness_detail(response, SOURCE_ERROR_CODE_PREFIX)
+                    or ErrorCode.SOURCE_UNAVAILABLE.value
+                )
+                source_error_message = (
+                    freshness_detail(response, SOURCE_ERROR_MESSAGE_PREFIX)
+                    or "Latest Holdings source failed; persistent LKG was served."
+                )
+                source_retry_recommended = (
+                    freshness_detail(
+                        response,
+                        SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX,
+                    )
+                    == "true"
+                )
+                source_retry_after = freshness_detail(
+                    response,
+                    SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX,
+                )
+                snapshot_id = repository.snapshot_id_on(
+                    code,
+                    snapshot.snapshot_date,
+                    source_id=snapshot.source.source_id,
+                )
+                repository.record_collector_result(
+                    CollectorRunItemRecord(
+                        run_id=run_id,
+                        stock_code=code,
+                        status="PARTIAL",
+                        source_id=snapshot.source.source_id,
+                        snapshot_id=snapshot_id,
+                        snapshot_date=snapshot.snapshot_date,
+                        safe_details={
+                            "freshness": current_freshness.value,
+                            "lkg_age_seconds": freshness_detail(
+                                response,
+                                LKG_AGE_SECONDS_PREFIX,
+                            ),
+                            "source_error_code": source_error_code,
+                        },
+                    )
+                )
+                repository.record_source_error(
+                    SourceErrorRecord(
+                        run_id=run_id,
+                        source_id=snapshot.source.source_id,
+                        stock_code=code,
+                        error_code=source_error_code,
+                        safe_message=source_error_message,
+                        retry_recommended=source_retry_recommended,
+                        retry_after_seconds=(
+                            int(source_retry_after)
+                            if source_retry_after and source_retry_after != "none"
+                            else None
+                        ),
+                        safe_details={"served_lkg": True},
+                    )
+                )
+            collected.append(response)
             continue
 
         if snapshot.partial:
@@ -235,7 +322,7 @@ async def collect_watchlist(
     exported = False
     if store is not None and store.latest_all():
         try:
-            export_latest_csv(store, config.csv_output_path)
+            export_latest_csv(store, config.csv_output_path, responses=collected)
             exported = True
         except Exception as exc:
             if repository is not None and run_id is not None:
@@ -266,7 +353,12 @@ async def collect_watchlist(
     return collected, failures
 
 
-def export_latest_csv(store: SnapshotStore, output_path: Path) -> None:
+def export_latest_csv(
+    store: SnapshotStore,
+    output_path: Path,
+    *,
+    responses: Sequence[CcassResponse] = (),
+) -> None:
     """Atomically export each stock's latest snapshot using a compatible CSV schema."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path: Path | None = None
@@ -283,7 +375,9 @@ def export_latest_csv(store: SnapshotStore, output_path: Path) -> None:
             temporary_path = Path(handle.name)
             writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS, lineterminator="\n")
             writer.writeheader()
-            for response in store.latest_all():
+            latest = {response.metadata.code: response for response in store.latest_all()}
+            latest.update({response.metadata.code: response for response in responses})
+            for response in (latest[code] for code in sorted(latest)):
                 partial = _response_is_partial(response)
                 for row in response.holdings:
                     writer.writerow(
@@ -340,14 +434,31 @@ def _csv_row(response: CcassResponse, holding: dict, *, partial: bool) -> dict[s
     }
 
 
-def _validated_snapshot(response: CcassResponse, *, requested_code: str) -> HistoricalSnapshot:
+def _validated_snapshot(
+    response: CcassResponse,
+    *,
+    requested_code: str,
+    settings: Settings | None = None,
+) -> HistoricalSnapshot:
     if response.metadata.code != requested_code:
         raise PlatformError(
             ErrorCode.SOURCE_CHANGED,
             f"Collector requested {requested_code} but the source returned another stock code.",
             status_code=502,
         )
-    return HistoricalSnapshot.from_response(response)
+    source_id = None
+    parser_version = "ccass-response-v1"
+    if settings is not None:
+        for diagnostic in build_source_registry(settings).diagnostics():
+            if diagnostic["display_name"] == response.metadata.source_name:
+                source_id = str(diagnostic["source_id"])
+                parser_version = str(diagnostic["parser_version"])
+                break
+    return HistoricalSnapshot.from_response(
+        response,
+        source_id=source_id,
+        parser_version=parser_version,
+    )
 
 
 def _persist_failure(
@@ -512,7 +623,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _collector_exit_code(collected: Sequence[CcassResponse], failures: dict[str, str]) -> int:
     if failures:
         return 1
-    if any(_response_is_partial(response) for response in collected):
+    if any(
+        _response_is_partial(response)
+        or freshness_status(response) == FreshnessStatus.STALE_LKG
+        for response in collected
+    ):
         return 2
     return 0
 

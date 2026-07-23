@@ -1,5 +1,6 @@
 from datetime import date
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import model_validator
@@ -25,6 +26,8 @@ class Settings(BaseSettings):
     # Keep two sequential mirror attempts inside a typical 30-second gateway budget.
     request_timeout_seconds: float = 12.0
     cache_ttl_seconds: int = 900
+    ccass_sqlite_path: Path = Path("data/ccass_snapshots.db")
+    holdings_lkg_max_age_seconds: int = 604_800
     source_retry_attempts: int = 1
     backfill_max_dates: int = 366
     backfill_max_pages: int = 1
@@ -44,6 +47,7 @@ class Settings(BaseSettings):
             "webbsite_max_bytes": self.webbsite_max_bytes,
             "request_timeout_seconds": self.request_timeout_seconds,
             "source_retry_attempts": self.source_retry_attempts,
+            "holdings_lkg_max_age_seconds": self.holdings_lkg_max_age_seconds,
             "backfill_max_dates": self.backfill_max_dates,
             "backfill_max_pages": self.backfill_max_pages,
             "backfill_retry_attempts": self.backfill_retry_attempts,

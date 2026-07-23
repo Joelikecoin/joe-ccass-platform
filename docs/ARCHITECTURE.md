@@ -66,7 +66,7 @@ tests/                         source, routing, collector, compute, report, UI/A
 - 已有最小 `snapshots` SQLite JSON store 與 collector，但未有 normalized tables、migrations、raw provenance、resumable backfill 或 batch isolation。
 - 現有 `CcassResponse` 已可承載 Webb-site／CSV attribution，但完整跨 section source-neutral envelope 尚未落地。
 - 核心仍以最新 Holdings 為主；changes 只可比較本地 previous snapshot，rainbow、announcements、price 等仍未實作。
-- Webb-site 與 Google CSV cache／last-known-good 只存 process lifetime，尚未與 persistent historical store 統一。
+- Webb-site 與 Google CSV 仍保留短期process cache；latest Holdings的完整、已驗證last-known-good已由service／collector統一寫入normalized SQLite store，並以config freshness age及保守transient-error allowlist控制回退。
 - machine timestamp 可用 UTC，但 business date 解析／顯示使用 `Asia/Hong_Kong`。
 
 ## 4. 目標 package 邊界

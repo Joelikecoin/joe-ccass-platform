@@ -50,12 +50,18 @@ class SourcePolicy:
     cache_ttl_seconds: int
     cache_policy: str
     last_known_good_policy: str
+    lkg_max_age_seconds: int
     max_pages: int = 1
 
     def __post_init__(self) -> None:
         if self.timeout_seconds <= 0:
             raise ValueError("source timeout must be positive")
-        if self.max_bytes <= 0 or self.retry_attempts <= 0 or self.max_pages <= 0:
+        if (
+            self.max_bytes <= 0
+            or self.retry_attempts <= 0
+            or self.max_pages <= 0
+            or self.lkg_max_age_seconds <= 0
+        ):
             raise ValueError("source size, retry, and page bounds must be positive")
         if self.minimum_interval_seconds < 0 or self.cache_ttl_seconds < 0:
             raise ValueError("source interval and cache TTL cannot be negative")
@@ -225,7 +231,8 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             minimum_interval_seconds=settings.min_request_interval_seconds,
             cache_ttl_seconds=settings.cache_ttl_seconds,
             cache_policy="process_memory",
-            last_known_good_policy="none",
+            last_known_good_policy="persistent_normalized_snapshot",
+            lkg_max_age_seconds=settings.holdings_lkg_max_age_seconds,
         ),
         hostname=webbsite_hostname,
         attribution="Data from Renavon/Webb-site mirror, originally compiled by Webb-site.com | CC-BY 4.0",
@@ -235,7 +242,7 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             "latest Holdings only",
             "requested-date history is unavailable",
             "percentage values use the source page's issued-share basis",
-            "no persistent last-known-good cache",
+            "persistent LKG is guarded by configured age and transient-error policy",
         ),
     )
     google = _definition(
@@ -266,7 +273,8 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             minimum_interval_seconds=settings.backfill_request_sleep_seconds,
             cache_ttl_seconds=settings.cache_ttl_seconds,
             cache_policy="process_memory",
-            last_known_good_policy="process_memory",
+            last_known_good_policy="persistent_normalized_snapshot",
+            lkg_max_age_seconds=settings.holdings_lkg_max_age_seconds,
             max_pages=settings.backfill_max_pages,
         ),
         hostname=google_hostname,
@@ -276,7 +284,7 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
         limitations=(
             "imported data; Google Drive does not increase source authority",
             "capabilities require a valid configured CCASS_CSV_URL",
-            "last-known-good is process-memory only",
+            "persistent normalized LKG is collector/service managed",
         ),
     )
     return SourceRegistry({webbsite.source_id: webbsite, google.source_id: google})

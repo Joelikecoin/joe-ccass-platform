@@ -145,7 +145,7 @@ async def test_download_enforces_declared_and_actual_size_limits(response):
 
 
 @respx.mock
-async def test_download_timeout_is_data_source_error_without_secret_logging(caplog):
+async def test_download_timeout_is_transient_without_secret_logging(caplog):
     respx.get("https://drive.google.com/uc?export=download&id=test-file_123").mock(
         side_effect=httpx.ReadTimeout("secret-api-key?token=do-not-log")
     )
@@ -153,7 +153,7 @@ async def test_download_timeout_is_data_source_error_without_secret_logging(capl
     with caplog.at_level(logging.WARNING), pytest.raises(PlatformError) as caught:
         await GoogleDriveCsvSource(csv_settings()).get_holdings("00700")
 
-    assert caught.value.code == ErrorCode.DATA_SOURCE_ERROR
+    assert caught.value.code == ErrorCode.SOURCE_TIMEOUT
     assert "timed out" in caught.value.message
     assert "hostname=drive.google.com status_code=none error_type=timeout" in caplog.text
     assert "secret-api-key" not in caplog.text

@@ -427,7 +427,7 @@ class WebbsiteClient:
                 attribution=self.definition.audit.attribution,
             ),
             holdings_summary=parsed.holdings_summary,
-            holdings=list(parsed.holdings[: max(1, min(limit, 100))]),
+            holdings=list(parsed.holdings[: max(1, limit)]),
             data_quality_warnings=warnings,
         )
 

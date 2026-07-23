@@ -174,7 +174,9 @@ async def test_csv_only_collector_never_constructs_webbsite_client(
         async def get_holdings(self, code, limit=15):
             assert code == "01592"
             assert limit == DEFAULT_COLLECTION_LIMIT
-            return current_response
+            response = current_response.model_copy(deep=True)
+            response.metadata.source_name = "Google Drive CSV"
+            return response
 
     def fail_if_constructed(*args, **kwargs):
         raise AssertionError("CSV-only collector must not construct WebbsiteClient")
