@@ -6,7 +6,7 @@
 
 - Branch：`main`
 - Original requested code baseline：`fad4411`
-- Latest approved baseline：`172e50f0fd367af62343b1125c0da3fd729cfd39`（P1-06；CTO approved）
+- Latest approved baseline：`03e7dc73b324a642aed39bb2500f5228a0473970`（P1-07；CTO approved）
 - Specification baseline reviewed：`67e35e5`
 - Functional audit：2026-07-23，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
@@ -31,69 +31,69 @@
 - [x] `P1-04`：configuration-driven source registry、truthful capability/audit metadata、安全internal diagnostics及service/collector/backfill selection；commit `7b69316`，CTO approved。
 - [x] P1-05：guarded streaming Webb-site latest Holdings adapter、純offline parser、identity/content/body/size guards及registry parser v2；commit 9e833214f634f42e8e64d8a149d57976b5c1b1aa，CTO approved。
 - [x] P1-06：persistent normalized LKG、freshness semantics、transient-only fallback及collector stale accounting；commit `172e50f0fd367af62343b1125c0da3fd729cfd39`，CTO approved。
+- [x] P1-07：完整Latest Holdings產品驗證、canonical API、diagnostics、denominator metadata及limit invariant；commit `03e7dc73b324a642aed39bb2500f5228a0473970`，CTO approved。
 
-## Post-P1-04 Gap Analysis
+## Post-P1-04 Gap Analysis（historical baseline）
 
 - Done：6個功能單位。
 - Partial：19個功能單位。
 - Not Started：8個功能單位。
 - Remaining Gaps：27個，已按Phase gate、前置依賴、風險及最小完整vertical slice重新排序，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#remaining-gaps-優先序)。
-- Phase 1維持In Progress：Latest Holdings已成為第一個完整核心vertical slice；合法active source多日真實snapshots、golden核對及Changes／Big Changes／Concentration仍未滿足。
-- P1-05及P1-06已由CTO批准；P1-07只完成Latest Holdings產品切片，不開始下一個TASK或其他section。
+- 本節是P1-04後的historical Gap Analysis，未因P1-08 delivery重算；目前產品證據以唯一Active Task為準，正式Phase狀態待CTO批准後另作Gap Analysis。
+- P1-01至P1-07已由CTO批准；P1-08只完成Changes產品切片，不開始下一個TASK或其他section。
 
 ## 唯一最高優先工作
 
-### [x] P1-07 — Complete Latest Holdings Vertical Slice
+### [x] P1-08 — Complete Changes Vertical Slice
 
-優先理由：P1-01至P1-06已提供可信latest fetch/parser、normalized persistence、collector、persistent LKG、freshness及diagnostics；目前剩餘缺口是把既有能力收斂成符合Project Specification、可由API直接使用及可明確驗收的完整Latest Holdings產品切片。
+優先理由：P1-01至P1-07已提供approved source registry、完整Latest Holdings產品驗證、exact-date normalized snapshots及persistent storage；本工作只把兩個已保存完整snapshots之間的客觀participant changes收斂成可直接使用的產品切片。
 
 本工作範圍：
 
-- 只修補Latest Holdings現有產品缺口：公開`participant_name`／`pct_of_ccass`、`issued_shares_as_of`、完整snapshot與`holdings_limit`不變量、metadata／diagnostics及產品驗證。
-- 讓既有source → parser → normalize → collector／LKG → service → API流程以完整snapshot先驗證，再只切片回傳rows；summary、participant count及Top 5／Top 10保持全snapshot口徑。
-- 提供Project Specification所列canonical latest Holdings API路徑，同時保留legacy FastAPI contract。
-- 對可觀察的source-date、denominator及大於100%異常發出清晰warning；不臆測corporate action。
-- 加入deterministic offline product/API acceptance tests，覆蓋fresh、LKG、limit、欄位round-trip、diagnostics及legacy compatibility。
+- 重用既有source fetch／parser／normalize／validation／collector／backfill及normalized SQLite snapshot流程，不新增source或另一套ingestion infrastructure。
+- 只比較同一approved active source的兩個exact-date snapshots；兩者必須完整、非stale、股票及issue identity一致，並通過Latest Holdings產品驗證。
+- 輸出participant、shares before／after／change、percent before／after／percentage-point change、relative change、new／removed flags、compare／snapshot dates及安全source provenance。
+- 提供canonical Changes JSON API及Changes專用Markdown report；既有Latest Holdings、legacy FastAPI、MCP及Streamlit contract保持不變。
+- 加入deterministic offline product/API/report/fail-loud tests；fixtures只證明工程行為，不作production evidence。
 
 Acceptance：
 
-- [x] Latest Holdings公開資料包含原participant identity/name、`pct_of_issued`、`pct_of_ccass`、累計百分比及完整summary denominator metadata。
-- [x] `issued_shares_as_of`有誠實、可驗證的來源日期語義；缺失或日期不一致不會靜默當作完整。
-- [x] Product validation核對identity、日期、rank、duplicate、participant count、denominator及完整度，錯誤／warning均可稽核。
-- [x] `holdings_limit`只切片rows；summary、participant count、Top 5／Top 10維持完整snapshot計算結果。
-- [x] Canonical Holdings API可直接使用，legacy endpoint保持相容；沒有breaking FastAPI、MCP或Streamlit contract。
-- [x] Freshness、persistent LKG及source diagnostics回歸測試通過。
-- [x] 沒有新source、Changes、Big Changes、Concentration、generic framework、UI美化或下一階段功能。
-- [x] Ruff、Full Pytest、`git diff --check`、Markdown links、UTF-8、secrets及private-path scans全部通過。
+- [x] Source → Fetch → Parse → Normalize → Validate → Persist沿用已批准Holdings pipeline；Changes只讀取persisted exact snapshots，不臆造歷史資料。
+- [x] 完整Changes產品輸出包含指定欄位、summary、diagnostics、percentage basis及兩邊source metadata。
+- [x] Participant新增／移除只在兩邊均為完整snapshot時判定；partial snapshot不會把缺失rows當作零。
+- [x] Missing pair、非正向日期、partial、stale、identity conflict及未通過product validation均fail loud並回傳structured `PlatformError`。
+- [x] Canonical `GET /api/v1/stocks/{stock_code}/changes`及additive Markdown report endpoint可直接使用。
+- [x] 沒有migration、Changes結果另存、source adapter、Big Changes、Concentration、generic comparison framework或其他scope drift。
+- [x] Latest Holdings、legacy API、MCP及Streamlit regression保持通過。
+- [x] Ruff、Full Pytest、`git diff --check`、Markdown links、UTF-8及secrets/private-path scans通過。
 
 Completion evidence：
 
-- Product contract：`HoldingRow`以additive方式公開canonical `participant_name`及`pct_of_ccass`；`HoldingsSummary`公開`issued_shares_as_of`，legacy `participant`及既有endpoint保持可用。
-- Validation：新增只限Latest Holdings的product validator；核對code、verified date、timezone、rank、duplicate、participant count、完整rows總數、issued／CCASS／non-CCASS arithmetic、row/cumulative/Top 5/Top 10 percentage basis及denominator date。缺失／不一致／>100%明確標`PARTIAL`或`INVALID_SCHEMA`，不臆測corporate action。
-- Limit invariant：`CcassService`及collector先取完整snapshot並驗證，最後才切`holdings_limit` rows；summary、participant count及Top 5／Top 10保持完整snapshot口徑。
-- Persistence/freshness：public欄位經normalized SQLite round-trip；`PRODUCT_VALIDATION: PARTIAL`不可promote為完整LKG或collector `SUCCESS`；既有`FRESH`／`STALE_LKG`／`UNAVAILABLE`語義保持。
-- API／delivery：新增canonical `GET /api/v1/stocks/{stock_code}/holdings`並保留`GET /api/v1/ccass/{code}`；OpenAPI及JSON有additive欄位測試。Collector CSV、Google CSV optional import、範本及Markdown Holdings report均帶新欄位。
-- Sources／scope：沒有新增source、migration、MCP tool、Streamlit control或其他section；Webb-site仍只批准latest Holdings，Google Drive CSV仍是核准configured import flow；HKEX SDW automation及未審核來源保持disabled／unverified。
-- Validation result：Ruff passed；targeted Pytest 95 passed；Full Pytest 137 passed（1個既有Starlette/httpx deprecation warning）；`git diff --check`及文件／安全scans通過。
-- Product impact：Repository可宣告`Latest Holdings Completed`；合法live/golden及多日production evidence仍屬Phase 1／最終acceptance，不以synthetic fixture冒充。
+- Product contract：additive `ChangesResponse`以metadata-first形式公開兩個snapshot日期、issued-shares percentage basis、安全provenance、兩邊issued shares／as-of與source warnings、summary、participant changes及complete diagnostics。
+- Validation：只選registry內approved active source；要求同source exact pair、完整、非stale、identity一致並重用`finalize_latest_holdings`完整產品驗證。Invalid／partial／stale資料不會產生Changes結果。
+- Calculation：以stable participant ID作union；完整snapshot中真正缺席才標`new`／`removed`。輸出shares delta、percentage-point delta及有定義時的relative change；denominator變更只發warning，不作corporate-action歸因。
+- Persistence：Not Changed；重用`ccass_snapshots`／`ccass_holdings`及raw provenance，Changes為deterministic read projection，不新增table或migration。
+- API／report：新增canonical JSON endpoint及Changes專用Markdown endpoint；現有Holdings、legacy report、MCP及Streamlit contract未修改。
+- Sources：沒有新增或啟用source；Webb-site仍只批准latest Holdings，Google Drive CSV仍只按既有配置／audit能力使用；HKEX SDW及未審核來源保持disabled／unregistered。
+- Validation result：targeted Pytest 20 passed；Full Pytest 149 passed（1個既有Starlette/httpx deprecation warning）；Ruff及最終文件／安全scans通過。
+- Product evidence：deterministic offline fixtures證明正常、new／removed、relative／percentage changes、missing pair、partial、stale、denominator及identity行為；不宣稱live／golden／production evidence。
 
 明確不在本工作：
 
-- 不實作Changes、Big Changes、Concentration、Rainbow、Price History、HKEX Announcements、ChatGPT Project、AI分析或UI美化。
-- 不新增source adapter、HKEX SDW automation、credentials、付費服務、migration或generic cross-feature framework。
-- 不預先設計下一個功能、不修改Product Direction、不開始P1-08或下一輪Gap Analysis。
+- 不實作Big Changes、Concentration、Rainbow、Price History、HKEX Announcements、Corporate Action、AI Analysis或UI。
+- 不新增source adapter、generic event engine、generic comparison framework、migration或未來Milestone infrastructure。
+- 不修改Product Direction、`docs/ROADMAP.md`，不開始P1-09或宣告Phase完成。
 
 Dependencies/risks：
 
-- 依賴已批准P1-01至P1-06；P1-06批准commit為`172e50f0fd367af62343b1125c0da3fd729cfd39`。
-- `pct_of_ccass`只可在`total_in_ccass_shares`有效時產生；`issued_shares_as_of`不可由latest serve time或未證實日期冒充。
-- Corporate-action diagnostics只依可觀察的denominator日期／百分比異常，不作事件歸因。
-- 公開欄位及canonical endpoint只可additive；legacy response語義、MCP及Streamlit既有使用方式必須保持。
-- 若發現需要breaking schema、destructive migration、新來源條款、credentials或付費服務，立即停止並回報。
+- 批准基準為`03e7dc73b324a642aed39bb2500f5228a0473970`；依賴P1-01至P1-07既有normalized complete snapshots。
+- Production使用前必須已有同一approved active source的兩個exact-date、完整、非stale snapshots；API不會以latest、LKG、插值、fixture或跨source拼接補足缺口。
+- issued-shares denominator若在兩日期間改變會明確warning；本Task不推測corporate action原因。
+- 若需要新source、breaking contract、destructive migration、credentials或付費服務，必須停止並由CTO另行批准。
 
 Remaining manual step：
 
-- CTO Review／批准P1-07；批准前不開始P1-08、Gap Analysis或下一個TASK。
+- CTO Review／批准P1-08；批准前不開始P1-09、Gap Analysis或下一個TASK。
 
 ## Decisions and constraints
 
@@ -165,17 +165,29 @@ Public acceptance: Public FastAPI, MCP, Streamlit and CcassResponse field contra
 
 ```text
 Task: P1-07 — Complete Latest Holdings Vertical Slice
-Status: complete; awaiting CTO Review
-Commit: current P1-07 commit
+Status: complete; CTO approved
+Commit: 03e7dc73b324a642aed39bb2500f5228a0473970
 Tests: Ruff passed; targeted Pytest 95 passed; full Pytest 137 passed; diff, Markdown, UTF-8, secrets, private-path, scope and migration scans passed.
 Files: Holdings public models/product validation, service/LKG/collector, approved source field mapping, canonical API, report/CSV template, ROADMAP/TASK and deterministic offline tests.
 Active sources: Existing approved Webb-site latest Holdings and configured Google Drive CSV only; no source was added or enabled.
 Disabled/unverified sources: HKEX SDW automation and all unreviewed sources remain disabled/unregistered.
 Golden validation: Synthetic offline fixtures only; no live/golden or production multi-day claim.
 Public acceptance: Latest Holdings is complete with additive fields and canonical API; legacy FastAPI, MCP and Streamlit usage remains compatible.
-Remaining manual step: CTO Review／批准P1-07.
+Remaining manual step: Complete; CTO approved.
 ```
 
+```text
+Task: P1-08 — Complete Changes Vertical Slice
+Status: complete; awaiting CTO Review
+Commit: P1-08 delivery commit containing this evidence
+Tests: Ruff passed; targeted Pytest 20 passed; full Pytest 149 passed; diff, Markdown, UTF-8, secrets and private-path scans passed.
+Files: additive Changes models/service/API/report and deterministic offline Changes acceptance tests; TASK evidence only.
+Active sources: Existing approved Webb-site latest Holdings and configured Google Drive CSV only; Changes reads exact persisted pairs from one approved active source.
+Disabled/unverified sources: No new source; HKEX SDW automation and all unreviewed sources remain disabled/unregistered.
+Golden validation: Synthetic offline fixtures only; no live/golden or production-data claim.
+Public acceptance: Canonical Changes JSON and Markdown delivery added; existing Holdings, legacy FastAPI, MCP and Streamlit contracts remain compatible.
+Remaining manual step: CTO Review／批准P1-08.
+```
 完成active task時附加：
 
 ```text
