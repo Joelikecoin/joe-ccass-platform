@@ -10,22 +10,42 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.config import Settings, get_settings
-from app.core.normalizers import (
-    classify_participant,
-    parse_float,
-    parse_int,
-    parse_iso_date,
-)
 from app.errors import ErrorCode, PlatformError
-from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
+from app.models import CcassResponse, SourceMetadata
+from app.sources.registry import (
+    WEBBSITE_SOURCE_ID,
+    SourceCapability,
+    SourceRegistry,
+    build_source_registry,
+)
+from app.sources.webbsite_parser import ParsedWebbsiteHoldings, parse_webbsite_holdings
 
 logger = logging.getLogger(__name__)
+
+_ALLOWED_HTML_TYPES = frozenset({"text/html", "application/xhtml+xml"})
+_SOURCE_CHANGED_FAILURES = frozenset(
+    {
+        "empty_body",
+        "error_page",
+        "incomplete_body",
+        "invalid_content_length",
+        "invalid_content_type",
+    }
+)
 
 
 @dataclass(slots=True)
 class CachedPage:
     html: str
+    source_url: str
     stored_at: float
+
+
+@dataclass(frozen=True, slots=True)
+class FetchedPage:
+    html: str
+    source_url: str
+    cached: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,101 +55,210 @@ class MirrorFailure:
     error_type: str
 
 
+@dataclass(frozen=True, slots=True)
+class _GuardedHtml:
+    html: str
+    failure_type: str | None
+
+
 class WebbsiteClient:
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        *,
+        registry: SourceRegistry | None = None,
+    ) -> None:
         self.settings = settings or get_settings()
+        self.registry = registry or build_source_registry(self.settings)
+        self.definition = self.registry.get(WEBBSITE_SOURCE_ID)
         self._cache: dict[str, CachedPage] = {}
         self._last_request_at = 0.0
         self._request_lock = asyncio.Lock()
 
-    async def _fetch(self, path: str, params: dict[str, str | int]) -> tuple[str, str, bool]:
+    async def _fetch(self, path: str, params: dict[str, str | int]) -> FetchedPage:
+        self._ensure_latest_enabled()
         failures: list[MirrorFailure] = []
-        for base_url in (
-            self.settings.webbsite_base_url,
-            self.settings.webbsite_fallback_base_url,
-        ):
-            url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
-            hostname = urlsplit(url).hostname or "unknown"
-            cache_key = str(httpx.URL(url, params=params))
-            cached = self._cache.get(cache_key)
-            now = time.monotonic()
-            if cached and now - cached.stored_at < self.settings.cache_ttl_seconds:
-                return cached.html, cache_key, True
-
-            try:
-                async with self._request_lock:
-                    wait = self.settings.min_request_interval_seconds - (
-                        time.monotonic() - self._last_request_at
-                    )
-                    if wait > 0:
-                        await asyncio.sleep(wait)
-                    async with httpx.AsyncClient(
-                        timeout=self.settings.request_timeout_seconds,
-                        follow_redirects=True,
-                        headers=self._browser_headers(base_url),
-                    ) as client:
-                        response = await client.get(url, params=params)
-                    self._last_request_at = time.monotonic()
-                if "cf-chl-" in response.text or "Just a moment..." in response.text:
-                    self._record_failure(
-                        failures,
-                        hostname=hostname,
-                        status_code=response.status_code,
-                        error_type="cloudflare_challenge",
-                    )
-                    continue
-                if response.status_code == 403:
-                    self._record_failure(
-                        failures, hostname=hostname, status_code=403, error_type="forbidden"
-                    )
-                    continue
-                if response.status_code == 429:
-                    self._record_failure(
-                        failures, hostname=hostname, status_code=429, error_type="rate_limited"
-                    )
-                    continue
-                if 500 <= response.status_code <= 599:
-                    self._record_failure(
-                        failures,
-                        hostname=hostname,
-                        status_code=response.status_code,
-                        error_type="server_error",
-                    )
-                    continue
-                response.raise_for_status()
-                if len(response.content) > self.settings.webbsite_max_bytes:
-                    raise PlatformError(
-                        ErrorCode.TOO_LARGE,
-                        "Upstream response exceeded the configured safety limit.",
-                    )
-                self._cache[cache_key] = CachedPage(response.text, time.monotonic())
-                return response.text, str(response.url), False
-            except PlatformError:
-                raise
-            except httpx.TimeoutException:
-                self._record_failure(
-                    failures, hostname=hostname, status_code=None, error_type="timeout"
+        base_urls = tuple(
+            dict.fromkeys(
+                (
+                    self.settings.webbsite_base_url,
+                    self.settings.webbsite_fallback_base_url,
                 )
-                continue
-            except httpx.NetworkError as exc:
-                self._record_failure(
-                    failures,
-                    hostname=hostname,
-                    status_code=None,
-                    error_type=type(exc).__name__,
+            )
+        )
+        for _attempt in range(self.definition.policy.retry_attempts):
+            for base_url in base_urls:
+                page = await self._fetch_from_mirror(
+                    base_url,
+                    path=path,
+                    params=params,
+                    failures=failures,
                 )
-                continue
-            except httpx.HTTPError as exc:
-                status_code = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
-                self._record_failure(
-                    failures,
-                    hostname=hostname,
-                    status_code=status_code,
-                    error_type=type(exc).__name__,
-                )
-                continue
-
+                if page is not None:
+                    return page
         raise self._platform_error_for(failures)
+
+    async def _fetch_from_mirror(
+        self,
+        base_url: str,
+        *,
+        path: str,
+        params: dict[str, str | int],
+        failures: list[MirrorFailure],
+    ) -> FetchedPage | None:
+        url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+        hostname = urlsplit(url).hostname or "unknown"
+        cache_key = str(httpx.URL(url, params=params))
+        cached = self._cache.get(cache_key)
+        now = time.monotonic()
+        if (
+            cached
+            and now - cached.stored_at < self.definition.policy.cache_ttl_seconds
+        ):
+            return FetchedPage(cached.html, cached.source_url, True)
+
+        try:
+            async with self._request_lock:
+                wait = self.definition.policy.minimum_interval_seconds - (
+                    time.monotonic() - self._last_request_at
+                )
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                async with httpx.AsyncClient(
+                    timeout=self.definition.policy.timeout_seconds,
+                    follow_redirects=True,
+                    headers=self._browser_headers(base_url),
+                ) as client:
+                    async with client.stream("GET", url, params=params) as response:
+                        self._last_request_at = time.monotonic()
+                        failure_type = self._status_failure_type(response.status_code)
+                        if failure_type is not None:
+                            self._record_failure(
+                                failures,
+                                hostname=hostname,
+                                status_code=response.status_code,
+                                error_type=failure_type,
+                            )
+                            return None
+                        response.raise_for_status()
+                        guarded = await self._read_guarded_html(response)
+
+            if guarded.failure_type is not None:
+                self._record_failure(
+                    failures,
+                    hostname=hostname,
+                    status_code=response.status_code,
+                    error_type=guarded.failure_type,
+                )
+                return None
+
+            source_url = str(response.url)
+            self._cache[cache_key] = CachedPage(
+                guarded.html,
+                source_url,
+                time.monotonic(),
+            )
+            return FetchedPage(guarded.html, source_url, False)
+        except httpx.TimeoutException:
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                status_code=None,
+                error_type="timeout",
+            )
+        except httpx.NetworkError as exc:
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                status_code=None,
+                error_type=type(exc).__name__,
+            )
+        except httpx.HTTPError as exc:
+            status_code = (
+                exc.response.status_code
+                if isinstance(exc, httpx.HTTPStatusError)
+                else None
+            )
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                status_code=status_code,
+                error_type=type(exc).__name__,
+            )
+        return None
+
+    async def _read_guarded_html(self, response: httpx.Response) -> _GuardedHtml:
+        content_type = response.headers.get("content-type", "")
+        media_type = content_type.split(";", 1)[0].strip().lower()
+        if media_type not in _ALLOWED_HTML_TYPES:
+            return _GuardedHtml("", "invalid_content_type")
+
+        content_length = response.headers.get("content-length")
+        if content_length:
+            try:
+                declared_size = int(content_length)
+            except ValueError:
+                return _GuardedHtml("", "invalid_content_length")
+            if declared_size < 0:
+                return _GuardedHtml("", "invalid_content_length")
+            if declared_size > self.definition.policy.max_bytes:
+                return _GuardedHtml("", "too_large")
+
+        chunks: list[bytes] = []
+        actual_size = 0
+        async for chunk in response.aiter_bytes():
+            actual_size += len(chunk)
+            if actual_size > self.definition.policy.max_bytes:
+                return _GuardedHtml("", "too_large")
+            chunks.append(chunk)
+
+        if actual_size == 0:
+            return _GuardedHtml("", "empty_body")
+        encoding = response.encoding or "utf-8"
+        html = b"".join(chunks).decode(encoding, errors="replace")
+        return _GuardedHtml(html, self._body_failure_type(html))
+
+    def _ensure_latest_enabled(self) -> None:
+        if not self.definition.supports(SourceCapability.LATEST):
+            raise PlatformError(
+                ErrorCode.SOURCE_DISABLED,
+                "The Webb-site latest Holdings source is disabled or unverified.",
+                status_code=503,
+            )
+
+    @staticmethod
+    def _status_failure_type(status_code: int) -> str | None:
+        if status_code == 403:
+            return "forbidden"
+        if status_code == 429:
+            return "rate_limited"
+        if 500 <= status_code <= 599:
+            return "server_error"
+        return None
+
+    @staticmethod
+    def _body_failure_type(html: str) -> str | None:
+        lowered = html.lower()
+        if not html.strip():
+            return "empty_body"
+        if (
+            "cf-chl-" in lowered
+            or "just a moment..." in lowered
+            or "captcha" in lowered
+        ):
+            return "cloudflare_challenge"
+        if (
+            'type="password"' in lowered
+            or 'name="login"' in lowered
+            or "<title>sign in" in lowered
+            or "<title>login" in lowered
+        ):
+            return "login_page"
+        if "<title>error" in lowered or "internal server error" in lowered:
+            return "error_page"
+        if "<html" not in lowered or "</html>" not in lowered:
+            return "incomplete_body"
+        return None
 
     def _browser_headers(self, base_url: str) -> dict[str, str]:
         """Return navigation headers without API credentials or other secrets."""
@@ -178,7 +307,7 @@ class WebbsiteClient:
         if failures and error_types == {"timeout"}:
             return PlatformError(
                 ErrorCode.SOURCE_TIMEOUT,
-                "Both Webb-site mirror requests timed out.",
+                "All configured Webb-site mirror requests timed out.",
                 retry_recommended=True,
                 retry_after_seconds=30,
                 status_code=504,
@@ -191,11 +320,21 @@ class WebbsiteClient:
                 retry_after_seconds=60,
                 status_code=503,
             )
-        if error_types & {"forbidden", "cloudflare_challenge"}:
+        if error_types & {"forbidden", "cloudflare_challenge", "login_page"}:
             return PlatformError(
                 ErrorCode.SOURCE_FORBIDDEN,
-                "Webb-site mirrors refused or challenged the server request.",
+                "Webb-site mirrors refused, challenged, or required login for the request.",
                 status_code=502,
+            )
+        if "too_large" in error_types:
+            return PlatformError(
+                ErrorCode.TOO_LARGE,
+                "Webb-site mirror responses exceeded the configured safety limit.",
+            )
+        if error_types & _SOURCE_CHANGED_FAILURES:
+            return PlatformError(
+                ErrorCode.SOURCE_CHANGED,
+                "Webb-site mirrors returned an invalid or unexpected HTML page.",
             )
         return PlatformError(
             ErrorCode.SOURCE_UNAVAILABLE,
@@ -206,10 +345,12 @@ class WebbsiteClient:
         )
 
     async def resolve_issue_id(self, code: str) -> tuple[int, str | None]:
-        html, _, _ = await self._fetch(
-            "/dbpub/orgdata.asp", {"code": code.lstrip("0") or "0", "Submit": "current"}
+        """Compatibility lookup; latest Holdings uses the guarded one-request route."""
+        page = await self._fetch(
+            "/dbpub/orgdata.asp",
+            {"code": code.lstrip("0") or "0", "Submit": "current"},
         )
-        soup = BeautifulSoup(html, "html.parser")
+        soup = BeautifulSoup(page.html, "html.parser")
         candidates: list[tuple[int, str | None]] = []
         code_node = soup.find(string=lambda value: bool(value and value.strip() == code))
         if code_node:
@@ -222,12 +363,13 @@ class WebbsiteClient:
                     if not hasattr(sibling, "select_one"):
                         continue
                     link = sibling.select_one(
-                        'a[href*="/ccass/choldings.asp?i="], a[href*="ccass/choldings.asp?i="]'
+                        'a[href*="/ccass/choldings.asp?i="], '
+                        'a[href*="ccass/choldings.asp?i="]'
                     )
                     if not link:
                         continue
                     match = re.search(r"[?&]i=(\d+)", link.get("href", ""))
-                    if match:
+                    if match and int(match.group(1)) > 0:
                         heading = soup.find("h2")
                         candidates.append(
                             (
@@ -246,159 +388,65 @@ class WebbsiteClient:
         if len(unique_ids) != 1:
             raise PlatformError(
                 ErrorCode.SOURCE_CHANGED,
-                f"Stock code {code} resolved to multiple issue IDs; manual verification is required.",
+                f"Stock code {code} resolved to multiple issue IDs; "
+                "manual verification is required.",
             )
         return candidates[0]
 
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
-        # The stock-code route resolves the issue and returns the holdings in one response.
-        # This avoids two serial upstream requests, which previously made cold queries prone
-        # to exceeding the hosting gateway's source timeout.
-        html, source_url, cached = await self._fetch(
-            "/ccass/choldings.asp", {"sc": code.lstrip("0") or "0"}
+        # The stock-code route resolves and verifies the issue in one upstream response.
+        page = await self._fetch(
+            "/ccass/choldings.asp",
+            {"sc": code.lstrip("0") or "0"},
         )
-        issue_id, resolved_name = self._resolve_holdings_identity(html, code)
-        return self.parse_holdings(
-            html,
-            code=code,
-            issue_id=issue_id,
-            source_url=source_url,
-            resolved_name=resolved_name,
-            limit=limit,
-            cached=cached,
+        parsed = parse_webbsite_holdings(page.html, requested_code=code)
+        return self._to_response(parsed, page=page, limit=limit)
+
+    def _to_response(
+        self,
+        parsed: ParsedWebbsiteHoldings,
+        *,
+        page: FetchedPage,
+        limit: int,
+    ) -> CcassResponse:
+        warnings = list(parsed.warnings)
+        warnings.extend(
+            f"SOURCE_LIMITATION: {limitation}"
+            for limitation in self.definition.audit.known_limitations
+        )
+        return CcassResponse(
+            metadata=SourceMetadata(
+                code=parsed.code,
+                name=parsed.name,
+                issue_id=parsed.issue_id,
+                holdings_date=parsed.holdings_date,
+                fetched_at=datetime.now(UTC),
+                source_url=page.source_url,
+                source_name=self.definition.display_name,
+                cached=page.cached,
+                attribution=self.definition.audit.attribution,
+            ),
+            holdings_summary=parsed.holdings_summary,
+            holdings=list(parsed.holdings[: max(1, min(limit, 100))]),
+            data_quality_warnings=warnings,
         )
 
     @staticmethod
     def _resolve_holdings_identity(html: str, code: str) -> tuple[int, str | None]:
-        """Verify that a stock-code lookup returned the requested listed security."""
+        """Compatibility identity guard retained for existing internal callers."""
         soup = BeautifulSoup(html, "html.parser")
         code_node = soup.find(string=lambda value: bool(value and value.strip() == code))
         issue_input = soup.select_one('input[name="i"][value]')
         issue_value = issue_input.get("value", "") if issue_input else ""
-
-        if code_node is None or not re.fullmatch(r"\d+", issue_value):
+        if (
+            code_node is None
+            or not re.fullmatch(r"[1-9]\d*", str(issue_value).strip())
+        ):
             raise PlatformError(
                 ErrorCode.NOT_FOUND,
-                f"No verified Webb-site holdings page found for stock code {code}.",
+                f"No verified Webb-site Holdings page found for stock code {code}.",
                 status_code=404,
             )
-
         heading = soup.find("h2")
         name = heading.get_text(" ", strip=True) if heading else None
         return int(issue_value), name
-
-    @staticmethod
-    def parse_holdings(
-        html: str,
-        *,
-        code: str,
-        issue_id: int,
-        source_url: str,
-        resolved_name: str | None = None,
-        limit: int = 15,
-        cached: bool = False,
-    ) -> CcassResponse:
-        soup = BeautifulSoup(html, "html.parser")
-        page_title = soup.find("h2")
-        name = page_title.get_text(" ", strip=True) if page_title else resolved_name
-        date_heading = soup.find(string=re.compile(r"CCASS holdings on \d{4}-\d{2}-\d{2}"))
-        holdings_date = parse_iso_date(str(date_heading)) if date_heading else None
-
-        summary_values: dict[str, tuple[int, float]] = {}
-        details_table = None
-        for table in soup.find_all("table"):
-            text = table.get_text(" ", strip=True)
-            if "Total in CCASS" in text and "Issued securities" in text:
-                for row in table.select("tr"):
-                    cells = [cell.get_text(" ", strip=True) for cell in row.select("th,td")]
-                    if len(cells) >= 3:
-                        try:
-                            summary_values[cells[0]] = (parse_int(cells[1]), parse_float(cells[2]))
-                        except ValueError:
-                            pass
-            if "CCASS ID" in text and "Cumul" in text:
-                details_table = table
-
-        if details_table is None:
-            raise PlatformError(
-                ErrorCode.SOURCE_CHANGED,
-                "Holdings table was not found; the source page may have changed.",
-            )
-
-        holdings: list[HoldingRow] = []
-        for row in details_table.select("tr"):
-            cells = [cell.get_text(" ", strip=True) for cell in row.select("th,td")]
-            if (
-                len(cells) < 7
-                or not cells[0].isdigit()
-                or not re.fullmatch(r"[A-Z]\d{5}", cells[1])
-            ):
-                continue
-            try:
-                holdings.append(
-                    HoldingRow(
-                        rank=int(cells[0]),
-                        participant_id=cells[1],
-                        participant=cells[2],
-                        shares=parse_int(cells[3]),
-                        last_change=parse_iso_date(cells[4]),
-                        pct_of_issued=parse_float(cells[5]),
-                        cumulative_pct_of_issued=parse_float(cells[6]),
-                        participant_category=classify_participant(cells[1], cells[2]),
-                    )
-                )
-            except (ValueError, IndexError) as exc:
-                raise PlatformError(
-                    ErrorCode.PARSE_ERROR,
-                    f"Could not parse holdings row {cells!r}: {exc}",
-                ) from exc
-
-        if not holdings:
-            raise PlatformError(
-                ErrorCode.PARSE_ERROR,
-                "The holdings table was present but no participant rows could be parsed.",
-            )
-
-        total_ccass = summary_values.get("Total in CCASS", (None, None))
-        issued = summary_values.get("Issued securities", (None, None))
-        non_ccass = summary_values.get("Securities not in CCASS", (None, None))
-        total_ccass_shares = total_ccass[0]
-
-        def pct_of_ccass(n: int) -> float | None:
-            return round(n / total_ccass_shares * 100, 4) if total_ccass_shares else None
-
-        top5_shares = sum(row.shares for row in holdings[:5])
-        top10_shares = sum(row.shares for row in holdings[:10])
-        warnings: list[str] = []
-        if holdings_date is None:
-            warnings.append("Holdings date could not be read from the source page.")
-        if total_ccass[1] is not None and total_ccass[1] > 100:
-            warnings.append(
-                "CCASS percentage exceeds 100%; the issued-share denominator may be stale after a corporate action."
-            )
-
-        return CcassResponse(
-            metadata=SourceMetadata(
-                code=code,
-                name=name,
-                issue_id=issue_id,
-                holdings_date=holdings_date,
-                fetched_at=datetime.now(UTC),
-                source_url=source_url,
-                cached=cached,
-            ),
-            holdings_summary=HoldingsSummary(
-                total_in_ccass_shares=total_ccass[0],
-                total_in_ccass_pct_of_issued=total_ccass[1],
-                issued_shares=issued[0],
-                non_ccass_shares=non_ccass[0],
-                non_ccass_pct_of_issued=non_ccass[1],
-                participant_count=len(holdings),
-                top5_pct_of_issued=holdings[min(4, len(holdings) - 1)].cumulative_pct_of_issued,
-                top10_pct_of_issued=holdings[min(9, len(holdings) - 1)].cumulative_pct_of_issued,
-                top5_pct_of_ccass=pct_of_ccass(top5_shares),
-                top10_pct_of_ccass=pct_of_ccass(top10_shares),
-            ),
-            holdings=holdings[: max(1, min(limit, 100))],
-            data_quality_warnings=warnings,
-        )

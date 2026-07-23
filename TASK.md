@@ -6,7 +6,7 @@
 
 - Branch：`main`
 - Original requested code baseline：`fad4411`
-- Latest approved implementation：`7b6931679912525f429b06ac5fc033adb9bc2456`（P1-04；CTO approved）
+- Latest approved baseline：`5e3485383a88a168544324530669649cb1f17a55`（Post-P1-04 Gap Analysis；CTO approved）
 - Specification baseline reviewed：`67e35e5`
 - Functional audit：2026-07-23，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
@@ -37,15 +37,21 @@
 - Not Started：8個功能單位。
 - Remaining Gaps：28個，已按Phase gate、前置依賴、風險及最小完整vertical slice重新排序，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#remaining-gaps-優先序)。
 - Phase 1維持In Progress：registry、normalized persistence、collector idempotency及backfill resume/retry已完成；合法active source多日真實snapshots、golden核對及Holdings／Changes／Big Changes／Concentration完整vertical slices仍未滿足。
-- P1-04批准後的最高風險前置是既有Webb-site latest Holdings fetch/parser邊界：目前仍耦合且缺content-type guard，未適合直接擴展新sections或進行golden live驗收。
+- P1-05已完成既有Webb-site latest Holdings guarded fetch／純parser邊界及離線vertical integration；功能仍維持Partial並等待CTO Review，不提前擴展新sections或進行golden live驗收。
 
 ## 唯一最高優先工作
 
-### [ ] P1-05 — Guarded and parser-separated Webb-site latest Holdings adapter
+### [x] P1-05 — Guarded and parser-separated Webb-site latest Holdings adapter
 
-優先理由：Webb-site是目前唯一approved、active的live CCASS來源，但`WebbsiteClient`仍把network fetch、content handling、identity resolution及Holdings parsing耦合在同一module，亦未在parse前完整驗證content type／login或error HTML。這是Phase 1真實Holdings、多日collector、persistent LKG及golden核對的共同資料誠信前置。先完成這個小而完整的既有latest Holdings adapter slice，可降低source drift、challenge page及oversize response被誤解析的風險；不新增來源或能力。
+優先理由（實作前）：Webb-site是目前唯一approved、active的live CCASS來源，但`WebbsiteClient`當時把network fetch、content handling、identity resolution及Holdings parsing耦合在同一module，亦未在parse前完整驗證content type／login或error HTML。這是Phase 1真實Holdings、多日collector、persistent LKG及golden核對的共同資料誠信前置。先完成這個小而完整的既有latest Holdings adapter slice，可降低source drift、challenge page及oversize response被誤解析的風險；不新增來源或能力。
 
 目標：把既有Webb-site latest Holdings路徑整理為有明確guarded fetch result及純離線parser的source boundary，讓單一stock-code request在不改公開contract的前提下，安全產生與目前兼容的`CcassResponse`，並由registry/config提供實際operational metadata與限制。
+
+Product Impact：
+
+- Latest Holdings現可由stock code經單次受保護request、頁內code + hidden issue ID驗證、純parser及normalized output完整流入collector。
+- 現可可信提供participant name／ID、rank、shares、source percentage、snapshot date、issue ID、source reference、retrieved timestamp、cache狀態及limitations，並保持完整snapshot totals／Top 5／Top 10先於`holdings_limit`切片。
+- 完整Holdings產品頁仍欠public `pct_of_ccass`、issued-shares-as-of、persistent LKG/freshness、合法live/golden evidence及後續UI交付；本任務沒有把Holdings功能改判Done。
 
 本工作範圍：
 
@@ -59,16 +65,27 @@
 
 Acceptance：
 
-- [ ] Webb-site latest Holdings parser是純函式／純元件，可只靠saved fixture及明確context離線執行；parser內沒有network、settings、env或database存取。
-- [ ] Fetch層在parser前完成status、content type、declared/actual size、challenge/login/error page及body完整性guard；錯誤保持deterministic `PlatformError`。
-- [ ] 正常查詢仍只作一次stock-code Holdings上游request，並核對requested code與hidden issue ID；不得猜issue ID或靜默接受另一股票頁。
-- [ ] Primary/fallback mirror、timeout、rate/minimum interval、bounded attempts、cache及安全logging保持兼容；不得新增高頻probe或無限retry。
-- [ ] Registry繼續只宣稱`webbsite`的latest Holdings能力；parser/schema version與實際adapter一致，不新增requested-date、historical、Changes、Concentration或Price capability。
-- [ ] `holdings_limit`只影響回傳列數；participant count、totals及Top 5/10仍由完整已解析rows計算。
-- [ ] `auto|webbsite|google_drive_csv` routing、CSV-only isolation、collector及backfill現有行為全部通過regression。
-- [ ] 不記錄完整source URL/query、API key、Cookie、authorization或私人路徑；safe errors/logging tests通過。
-- [ ] 不修改公開FastAPI、MCP、Streamlit或`CcassResponse` contract，不新增endpoint/UI或migration。
-- [ ] Ruff、完整Pytest、`git diff --check`、Markdown/UTF-8、secrets及private-path scans全部通過後才可commit/push。
+- [x] Webb-site latest Holdings parser是純函式／純元件，可只靠saved fixture及明確context離線執行；parser內沒有network、settings、env或database存取。
+- [x] Fetch層在parser前完成status、content type、declared/actual size、challenge/login/error page及body完整性guard；錯誤保持deterministic `PlatformError`。
+- [x] 正常查詢仍只作一次stock-code Holdings上游request，並核對requested code與hidden issue ID；不得猜issue ID或靜默接受另一股票頁。
+- [x] Primary/fallback mirror、timeout、rate/minimum interval、bounded attempts、cache及安全logging保持兼容；不得新增高頻probe或無限retry。
+- [x] Registry繼續只宣稱`webbsite`的latest Holdings能力；parser/schema version與實際adapter一致，不新增requested-date、historical、Changes、Concentration或Price capability。
+- [x] `holdings_limit`只影響回傳列數；participant count、totals及Top 5/10仍由完整已解析rows計算。
+- [x] `auto|webbsite|google_drive_csv` routing、CSV-only isolation、collector及backfill現有行為全部通過regression。
+- [x] 不記錄完整source URL/query、API key、Cookie、authorization或私人路徑；safe errors/logging tests通過。
+- [x] 不修改公開FastAPI、MCP、Streamlit或`CcassResponse` contract，不新增endpoint/UI或migration。
+- [x] Ruff、完整Pytest、`git diff --check`、Markdown/UTF-8、secrets及private-path scans全部通過後才可commit/push。
+
+Completion evidence：
+
+- Parser：新增純`app.sources.webbsite_parser`，只接收HTML及requested code，嚴格驗證identity、summary/table欄位、row數值、snapshot date、duplicates及>100%保留規則。
+- Adapter：`WebbsiteClient`使用registry policy執行status/content-type/declared+streamed size/body/login/challenge/error guards、bounded retries、mirror isolation、minimum interval及process cache，再組裝既有`CcassResponse`。
+- Identity：latest route維持一次`sc=` request；不得猜issue ID，缺少、無效、衝突或stock mismatch均Fail Loud。
+- Fixtures／tests：4個明確標示synthetic的offline HTML fixtures；新增26個tests，targeted 61 passed，Full Pytest 120 passed；包含adapter → parser → normalized result → collector vertical integration。
+- Registry：`webbsite`仍只宣稱latest Holdings；parser version升至`2`，HKEX SDW及未審核來源沒有新增或啟用。
+- Public contract：`app/api.py`、`app/models.py`、`app/mcp_server.py`及`app/streamlit_ui.py`沒有修改；沒有migration。
+- Limitations：snapshot date缺失時保留`None`並明確warning；來源percentage只保留頁面issued-share basis；無persistent LKG、history或live/golden claim。
+- Validation：Ruff passed；targeted Pytest 61 passed；Full Pytest 120 passed（1個既有deprecation warning）；`git diff --check`、Markdown links、UTF-8/replacement character、secrets、private-path、Scope Drift及public contract scans全部通過。
 
 明確不在本工作：
 
@@ -86,6 +103,11 @@ Dependencies/risks：
 - 現有source只批准latest Holdings。若工作需要新endpoint、requested-date能力、條款／robots重新判斷、登入、CAPTCHA、Cookie或反爬繞過，立即停止請示。
 - Parser分離不得藉機改公開schema或計算規則；如發現fixture顯示source schema已實際改變，只記錄`SOURCE_CHANGED`證據並停下，不猜新欄位。
 - 本任務完成後仍不等於Phase 1 exit gate或golden live驗收完成；必須等待CTO批准後才進下一輪。
+
+
+Remaining manual step：
+
+- CTO Review／批准P1-05；批准前不建立或實作下一個TASK。
 
 ## Decisions and constraints
 

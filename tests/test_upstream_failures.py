@@ -24,7 +24,11 @@ def make_client() -> WebbsiteClient:
 @respx.mock
 async def test_fetch_sends_browser_navigation_headers():
     route = respx.get("https://primary.example/page").mock(
-        return_value=httpx.Response(200, text="ok")
+        return_value=httpx.Response(
+            200,
+            text="<html><body>ok</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
     )
 
     await make_client()._fetch("/page", {"code": "700"})

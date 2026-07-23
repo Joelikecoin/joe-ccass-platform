@@ -1,8 +1,9 @@
 import pytest
 
+import app.sources.webbsite as webbsite_module
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
-from app.sources.webbsite import WebbsiteClient
+from app.sources.webbsite import FetchedPage, WebbsiteClient
 
 
 MULTI_SECURITY_HTML = """
@@ -26,7 +27,7 @@ async def test_resolve_issue_id_matches_exact_security_block(code, expected):
     client = WebbsiteClient(Settings(min_request_interval_seconds=0))
 
     async def fake_fetch(path, params):
-        return MULTI_SECURITY_HTML, "https://example.test/orgdata", False
+        return FetchedPage(MULTI_SECURITY_HTML, "https://example.test/orgdata", False)
 
     client._fetch = fake_fetch
     issue_id, name = await client.resolve_issue_id(code)
@@ -44,22 +45,36 @@ DIRECT_HOLDINGS_HTML = """
 """
 
 
-async def test_get_holdings_uses_single_verified_stock_code_request(monkeypatch):
+async def test_get_holdings_uses_single_stock_code_request(monkeypatch):
     client = WebbsiteClient(Settings(min_request_interval_seconds=0))
     calls = []
 
     async def fake_fetch(path, params):
         calls.append((path, params))
-        return DIRECT_HOLDINGS_HTML, "https://example.test/holdings", False
+        return FetchedPage(DIRECT_HOLDINGS_HTML, "https://example.test/holdings", False)
 
+    sentinel = object()
     monkeypatch.setattr(client, "_fetch", fake_fetch)
-    monkeypatch.setattr(client, "parse_holdings", lambda *args, **kwargs: kwargs)
+    monkeypatch.setattr(
+        webbsite_module,
+        "parse_webbsite_holdings",
+        lambda html, requested_code: sentinel,
+    )
+    monkeypatch.setattr(
+        client,
+        "_to_response",
+        lambda parsed, *, page, limit: {
+            "parsed": parsed,
+            "page": page,
+            "limit": limit,
+        },
+    )
 
     result = await client.get_holdings("00700", limit=5)
 
     assert calls == [("/ccass/choldings.asp", {"sc": "700"})]
-    assert result["issue_id"] == 3601
-    assert result["resolved_name"] == "TENCENT HOLDINGS LIMITED: O HKD"
+    assert result["parsed"] is sentinel
+    assert result["page"].source_url == "https://example.test/holdings"
     assert result["limit"] == 5
 
 

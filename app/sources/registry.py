@@ -10,6 +10,11 @@ from urllib.parse import urlsplit
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
 from app.sources.google_drive_csv import google_drive_download_url
+from app.sources.webbsite_parser import (
+    WEBBSITE_PARSER_ID,
+    WEBBSITE_PARSER_VERSION,
+    WEBBSITE_SCHEMA_VERSION,
+)
 
 WEBBSITE_SOURCE_ID = "webbsite"
 GOOGLE_DRIVE_CSV_SOURCE_ID = "google_drive_csv"
@@ -210,9 +215,9 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
         active_status=SourceStatus.ACTIVE,
         capabilities=frozenset({SourceCapability.LATEST}),
         fallback_eligible=False,
-        parser_id="webbsite-holdings",
-        parser_version="1",
-        schema_version="ccass-response-v1",
+        parser_id=WEBBSITE_PARSER_ID,
+        parser_version=WEBBSITE_PARSER_VERSION,
+        schema_version=WEBBSITE_SCHEMA_VERSION,
         policy=SourcePolicy(
             timeout_seconds=settings.request_timeout_seconds,
             max_bytes=settings.webbsite_max_bytes,
@@ -223,13 +228,14 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             last_known_good_policy="none",
         ),
         hostname=webbsite_hostname,
-        attribution="Webb-site public mirror",
+        attribution="Data from Renavon/Webb-site mirror, originally compiled by Webb-site.com | CC-BY 4.0",
         terms_review="approved_existing_source_scope",
         robots_review="approved_existing_source_scope",
         limitations=(
             "latest Holdings only",
             "requested-date history is unavailable",
-            "fetch and parser remain coupled",
+            "percentage values use the source page's issued-share basis",
+            "no persistent last-known-good cache",
         ),
     )
     google = _definition(
