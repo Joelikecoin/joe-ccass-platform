@@ -7,6 +7,10 @@ from enum import StrEnum
 from app.domain.history import HistoricalSnapshot
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
+from app.services.latest_holdings import (
+    finalize_latest_holdings,
+    latest_holdings_is_complete,
+)
 from app.sources.registry import SourceDefinition
 from app.storage.history import NormalizedSnapshotRepository
 
@@ -57,6 +61,7 @@ class PersistentLatestHoldingsSource:
         served_at = _aware_utc(self.clock(), field="served_at")
         try:
             response = await self.source.get_holdings(code, limit=self.collection_limit)
+            response = finalize_latest_holdings(response, requested_code=code)
             definition = self._definition_for_response(response)
             snapshot = self._validated_live_snapshot(
                 response,
@@ -114,6 +119,7 @@ class PersistentLatestHoldingsSource:
                 response,
                 source_id=definition.source_id,
                 parser_version=definition.parser_version,
+                partial=not latest_holdings_is_complete(response),
             )
         except ValueError as error:
             raise PlatformError(

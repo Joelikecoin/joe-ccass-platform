@@ -29,6 +29,6 @@ def test_compute_concentration_and_warnings(current_response):
     analysis = compute_analysis(current_response, big_change_threshold=100)
 
     assert analysis.concentration["top5_pct_of_issued"] == 33.0
-    assert analysis.concentration["top10_pct_of_ccass"] == 82.5
+    assert analysis.concentration["top10_pct_of_ccass"] == 100.0
     assert any("cached or snapshot" in warning for warning in analysis.warnings)
     assert any("no previous snapshot" in warning.lower() for warning in analysis.warnings)

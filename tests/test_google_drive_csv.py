@@ -14,21 +14,22 @@ from app.sources.google_drive_csv import GoogleDriveCsvSource, google_drive_down
 CSV_HEADER = (
     "code,name,issue_id,holdings_date,rank,participant_id,participant,shares,last_change,"
     "pct_of_issued,cumulative_pct_of_issued,participant_category,total_in_ccass_shares,"
-    "total_in_ccass_pct_of_issued,issued_shares,non_ccass_shares,non_ccass_pct_of_issued"
+    "total_in_ccass_pct_of_issued,issued_shares,issued_shares_as_of,non_ccass_shares,"
+    "non_ccass_pct_of_issued"
 )
 VALID_CSV = (
     CSV_HEADER
     + "\n700,Example Test Holdings,3601,2026-07-20,2,B00002,Test Broker Two,300,,3,5,broker,"
-    "1000,10,10000,9000,90"
+    "500,5,10000,2026-07-20,9500,95"
     + "\n00700,Example Test Holdings,3601,2026-07-20,1,B00001,Test Broker One,200,"
-    "2026-07-19,2,2,broker,1000,10,10000,9000,90\n"
+    "2026-07-19,2,2,broker,500,5,10000,2026-07-20,9500,95\n"
 )
 
 PARTIAL_CSV = (
     CSV_HEADER
     + ",participant_count,snapshot_partial,data_quality_warnings\n"
     + "00700,Example Test Holdings,3601,2026-07-20,1,B00001,Test Broker One,200,"
-    + '2026-07-19,2,2,broker,1000,10,10000,9000,90,3,true,"[""upstream truncated""]"\n'
+    + '2026-07-19,2,2,broker,500,5,10000,2026-07-20,9500,95,3,true,"[""upstream truncated""]"\n'
 )
 
 
@@ -92,6 +93,7 @@ async def test_csv_source_queries_by_code_limits_holdings_and_uses_cache():
     assert len(second.holdings) == 2
     assert second.metadata.cached is True
     assert second.holdings_summary.participant_count == 2
+    assert second.holdings_summary.issued_shares_as_of == date(2026, 7, 20)
 
 
 def test_csv_mode_does_not_construct_webbsite_client(monkeypatch):
@@ -198,9 +200,9 @@ def test_csv_schema_and_rows_are_validated(content):
 
 MULTI_DATE_CSV = VALID_CSV + (
     "00700,Example Test Holdings,3601,2026-07-19,1,B00001,Test Broker One,150,"
-    "2026-07-18,1.5,1.5,broker,900,9,10000,9100,91\n"
+    "2026-07-18,1.5,1.5,broker,400,4,10000,2026-07-19,9600,96\n"
     "00700,Example Test Holdings,3601,2026-07-19,2,B00002,Test Broker Two,250,,"
-    "2.5,4,broker,900,9,10000,9100,91\n"
+    "2.5,4,broker,400,4,10000,2026-07-19,9600,96\n"
 )
 
 

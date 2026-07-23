@@ -66,6 +66,7 @@ class CsvStock:
     total_in_ccass_shares: int | None
     total_in_ccass_pct_of_issued: float | None
     issued_shares: int | None
+    issued_shares_as_of: date | None
     non_ccass_shares: int | None
     non_ccass_pct_of_issued: float | None
     participant_count: int
@@ -247,6 +248,7 @@ class GoogleDriveCsvSource:
                 total_in_ccass_shares=stock.total_in_ccass_shares,
                 total_in_ccass_pct_of_issued=stock.total_in_ccass_pct_of_issued,
                 issued_shares=stock.issued_shares,
+                issued_shares_as_of=stock.issued_shares_as_of,
                 non_ccass_shares=stock.non_ccass_shares,
                 non_ccass_pct_of_issued=stock.non_ccass_pct_of_issued,
                 participant_count=stock.participant_count,
@@ -420,7 +422,12 @@ class GoogleDriveCsvSource:
 def _parse_stock(code: str, rows: list[dict[str, str]]) -> CsvStock:
     first = rows[0]
     identity = tuple(first[field] for field in STOCK_COLUMNS)
-    optional_fields = ("participant_count", "snapshot_partial", "data_quality_warnings")
+    optional_fields = (
+        "participant_count",
+        "snapshot_partial",
+        "data_quality_warnings",
+        "issued_shares_as_of",
+    )
     optional_identity = tuple(first.get(field, "") for field in optional_fields)
     for row in rows[1:]:
         if tuple(row[field] for field in STOCK_COLUMNS) != identity:
@@ -440,6 +447,11 @@ def _parse_stock(code: str, rows: list[dict[str, str]]) -> CsvStock:
             first["total_in_ccass_pct_of_issued"], "total_in_ccass_pct_of_issued"
         )
         issued_shares = _optional_non_negative_int(first["issued_shares"], "issued_shares")
+        issued_shares_as_of = _optional_date(
+            first.get("issued_shares_as_of", ""), "issued_shares_as_of"
+        )
+        if issued_shares_as_of is not None and issued_shares is None:
+            raise ValueError("issued_shares_as_of requires issued_shares")
         non_ccass_shares = _optional_non_negative_int(first["non_ccass_shares"], "non_ccass_shares")
         non_ccass_pct = _optional_float(first["non_ccass_pct_of_issued"], "non_ccass_pct_of_issued")
         holdings = tuple(sorted((_parse_holding(row) for row in rows), key=lambda row: row.rank))
@@ -471,6 +483,7 @@ def _parse_stock(code: str, rows: list[dict[str, str]]) -> CsvStock:
         total_in_ccass_shares=total_in_ccass_shares,
         total_in_ccass_pct_of_issued=total_in_ccass_pct,
         issued_shares=issued_shares,
+        issued_shares_as_of=issued_shares_as_of,
         non_ccass_shares=non_ccass_shares,
         non_ccass_pct_of_issued=non_ccass_pct,
         participant_count=participant_count,

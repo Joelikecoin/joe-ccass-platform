@@ -2,9 +2,10 @@ from functools import lru_cache
 from typing import Protocol
 
 from app.config import Settings, get_settings
-from app.errors import PlatformError
+from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.services.holdings_lkg import PersistentLatestHoldingsSource
+from app.services.latest_holdings import finalize_latest_holdings
 from app.sources.google_drive_csv import GoogleDriveCsvSource
 from app.sources.registry import (
     GOOGLE_DRIVE_CSV_SOURCE_ID,
@@ -105,7 +106,18 @@ class CcassService:
 
     async def get_stock_data(self, code: str | int, holdings_limit: int = 15) -> CcassResponse:
         normalized = normalize_stock_code(code)
-        return await self.source.get_holdings(normalized, limit=holdings_limit)
+        if holdings_limit < 1:
+            raise PlatformError(
+                ErrorCode.INVALID_SCHEMA,
+                "holdings_limit must be at least 1.",
+                status_code=400,
+            )
+        response = await self.source.get_holdings(normalized, limit=10_000)
+        return finalize_latest_holdings(
+            response,
+            requested_code=normalized,
+            holdings_limit=holdings_limit,
+        )
 
 
 @lru_cache

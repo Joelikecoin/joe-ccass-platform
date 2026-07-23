@@ -108,7 +108,10 @@ async def test_collector_uses_injected_offline_fetcher_records_run_and_exports_s
     assert row["source_cached"] == "false"
     assert row["snapshot_partial"] == "false"
     assert row["source_identifier"] == "https://fixture.invalid/"
-    assert json.loads(row["data_quality_warnings"]) == ["TEST FIXTURE warning"]
+    warnings = json.loads(row["data_quality_warnings"])
+    assert warnings[0] == "TEST FIXTURE warning"
+    assert "SNAPSHOT_COMPLETENESS: COMPLETE" in warnings
+    assert "PRODUCT_VALIDATION: COMPLETE" in warnings
     assert row["parser_version"] == "ccass-response-v1"
     assert row["schema_version"] == "1"
     assert "T+2" in row["settlement_note"]

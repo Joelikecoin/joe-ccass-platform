@@ -47,6 +47,20 @@ async def health() -> dict:
 
 
 @app.get(
+    "/api/v1/stocks/{stock_code}/holdings",
+    response_model=CcassResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["holdings"],
+)
+async def get_latest_holdings(
+    stock_code: str,
+    holdings_limit: int = Query(default=15, ge=1, le=100),
+    service: CcassService = Depends(get_ccass_service),
+) -> CcassResponse:
+    return await service.get_stock_data(stock_code, holdings_limit=holdings_limit)
+
+
+@app.get(
     "/api/v1/ccass/{code}",
     response_model=CcassResponse,
     dependencies=[Depends(verify_api_key)],

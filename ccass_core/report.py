@@ -72,6 +72,7 @@ def build_markdown_report(
             f"| Total in CCASS shares | {_integer(summary.total_in_ccass_shares)} |",
             f"| Total in CCASS / issued | {_percent(summary.total_in_ccass_pct_of_issued)} |",
             f"| Issued shares | {_integer(summary.issued_shares)} |",
+            f"| Issued shares as of | {_text(summary.issued_shares_as_of)} |",
             f"| Non-CCASS shares | {_integer(summary.non_ccass_shares)} |",
             f"| Non-CCASS / issued | {_percent(summary.non_ccass_pct_of_issued)} |",
             f"| Participant count | {summary.participant_count} |",
@@ -132,8 +133,8 @@ def _holdings_table(response: CcassResponse) -> list[str]:
     if not response.holdings:
         return [f"{DATA_NOT_AVAILABLE} — No participant rows were returned."]
     lines = [
-        "| Rank | CCASS ID | Participant | Shares | Last change | % issued | Cumulative % | Category |",
-        "|---:|---|---|---:|---|---:|---:|---|",
+        "| Rank | CCASS ID | Participant | Shares | Last change | % issued | % CCASS | Cumulative % | Category |",
+        "|---:|---|---|---:|---|---:|---:|---:|---|",
     ]
     for row in response.holdings:
         lines.append(
@@ -146,6 +147,7 @@ def _holdings_table(response: CcassResponse) -> list[str]:
                     f"{row.shares:,}",
                     _text(row.last_change),
                     _percent(row.pct_of_issued),
+                    _percent(row.pct_of_ccass),
                     _percent(row.cumulative_pct_of_issued),
                     _escape(row.participant_category or DATA_NOT_AVAILABLE),
                 ]

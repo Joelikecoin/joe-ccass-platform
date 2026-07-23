@@ -47,7 +47,7 @@ def parse_webbsite_holdings(html: str, *, requested_code: str) -> ParsedWebbsite
     holdings_date = _parse_snapshot_date(soup)
     summary_values = _parse_summary(soup)
     holdings = _parse_holdings_rows(soup)
-    summary = _build_summary(summary_values, holdings)
+    summary = _build_summary(summary_values, holdings, holdings_date)
 
     warnings: list[str] = []
     if holdings_date is None:
@@ -269,6 +269,7 @@ def _parse_holdings_rows(soup: BeautifulSoup) -> list[HoldingRow]:
 def _build_summary(
     values: dict[str, tuple[int, float]],
     holdings: list[HoldingRow],
+    holdings_date: date | None,
 ) -> HoldingsSummary:
     total_ccass = values["Total in CCASS"]
     issued = values["Issued securities"]
@@ -288,6 +289,7 @@ def _build_summary(
         total_in_ccass_shares=total_ccass[0],
         total_in_ccass_pct_of_issued=total_ccass[1],
         issued_shares=issued[0],
+        issued_shares_as_of=holdings_date,
         non_ccass_shares=non_ccass[0],
         non_ccass_pct_of_issued=non_ccass[1],
         participant_count=len(holdings),

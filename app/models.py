@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class SourceMetadata(BaseModel):
@@ -28,14 +28,22 @@ class HoldingRow(BaseModel):
     shares: int
     last_change: date | None = None
     pct_of_issued: float
+    pct_of_ccass: float | None = None
     cumulative_pct_of_issued: float | None = None
     participant_category: str | None = None
+
+    @computed_field
+    @property
+    def participant_name(self) -> str:
+        """Canonical name while preserving the legacy ``participant`` field."""
+        return self.participant
 
 
 class HoldingsSummary(BaseModel):
     total_in_ccass_shares: int | None = None
     total_in_ccass_pct_of_issued: float | None = None
     issued_shares: int | None = None
+    issued_shares_as_of: date | None = None
     non_ccass_shares: int | None = None
     non_ccass_pct_of_issued: float | None = None
     participant_count: int = 0

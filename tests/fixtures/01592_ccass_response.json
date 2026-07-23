@@ -12,16 +12,17 @@
     "attribution": "SYNTHETIC TEST DATA — NOT PRODUCTION OR LIVE SOURCE DATA"
   },
   "holdings_summary": {
-    "total_in_ccass_shares": 4000,
-    "total_in_ccass_pct_of_issued": 40.0,
+    "total_in_ccass_shares": 3300,
+    "total_in_ccass_pct_of_issued": 33.0,
     "issued_shares": 10000,
-    "non_ccass_shares": 6000,
-    "non_ccass_pct_of_issued": 60.0,
+    "issued_shares_as_of": "2026-07-20",
+    "non_ccass_shares": 6700,
+    "non_ccass_pct_of_issued": 67.0,
     "participant_count": 3,
     "top5_pct_of_issued": 33.0,
     "top10_pct_of_issued": 33.0,
-    "top5_pct_of_ccass": 82.5,
-    "top10_pct_of_ccass": 82.5
+    "top5_pct_of_ccass": 100.0,
+    "top10_pct_of_ccass": 100.0
   },
   "holdings": [
     {
@@ -31,6 +32,7 @@
       "shares": 1500,
       "last_change": "2026-07-20",
       "pct_of_issued": 15.0,
+      "pct_of_ccass": 45.454545,
       "cumulative_pct_of_issued": 15.0,
       "participant_category": "broker"
     },
@@ -41,6 +43,7 @@
       "shares": 1500,
       "last_change": "2026-07-20",
       "pct_of_issued": 15.0,
+      "pct_of_ccass": 45.454545,
       "cumulative_pct_of_issued": 30.0,
       "participant_category": "broker"
     },
@@ -51,6 +54,7 @@
       "shares": 300,
       "last_change": "2026-07-20",
       "pct_of_issued": 3.0,
+      "pct_of_ccass": 9.090909,
       "cumulative_pct_of_issued": 33.0,
       "participant_category": "broker"
     }

@@ -170,7 +170,7 @@ def test_repository_round_trip_is_idempotent_and_redacts_query(tmp_path, current
     assert stored.denominator == "issued_shares"
     assert stored.source.safe_identifier == "https://fixture.invalid/ccass/holdings"
     assert stored.source.display_name == current_response.metadata.source_name
-    assert stored.holdings[0].pct_of_ccass == 37.5
+    assert stored.holdings[0].pct_of_ccass == 45.454545
     round_trip = stored.to_response()
     assert round_trip.metadata.source_url == "https://fixture.invalid/ccass/holdings"
     assert round_trip.model_dump(exclude={"metadata": {"source_url"}}) == (

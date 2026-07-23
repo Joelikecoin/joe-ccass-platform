@@ -33,6 +33,10 @@ from app.services.holdings_lkg import (
     freshness_detail,
     freshness_status,
 )
+from app.services.latest_holdings import (
+    finalize_latest_holdings,
+    latest_holdings_is_complete,
+)
 from app.sources.registry import build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
@@ -49,15 +53,18 @@ CSV_COLUMNS = (
     "rank",
     "participant_id",
     "participant",
+    "participant_name",
     "shares",
     "last_change",
     "pct_of_issued",
+    "pct_of_ccass",
     "cumulative_pct_of_issued",
     "participant_category",
     "total_in_ccass_shares",
     "participant_count",
     "total_in_ccass_pct_of_issued",
     "issued_shares",
+    "issued_shares_as_of",
     "non_ccass_shares",
     "non_ccass_pct_of_issued",
     "snapshot_fetched_at",
@@ -189,6 +196,7 @@ async def collect_watchlist(
     for code in codes:
         try:
             response = await selected_fetcher(code, config.effective_collection_limit)
+            response = finalize_latest_holdings(response, requested_code=code)
             snapshot = _validated_snapshot(
                 response,
                 requested_code=code,
@@ -406,15 +414,20 @@ def _csv_row(response: CcassResponse, holding: dict, *, partial: bool) -> dict[s
         "rank": holding["rank"],
         "participant_id": holding["participant_id"],
         "participant": holding["participant"],
+        "participant_name": holding["participant_name"],
         "shares": holding["shares"],
         "last_change": holding["last_change"].isoformat() if holding["last_change"] else "",
         "pct_of_issued": holding["pct_of_issued"],
+        "pct_of_ccass": _csv_optional(holding["pct_of_ccass"]),
         "cumulative_pct_of_issued": _csv_optional(holding["cumulative_pct_of_issued"]),
         "participant_category": holding["participant_category"] or "",
         "total_in_ccass_shares": _csv_optional(summary.total_in_ccass_shares),
         "participant_count": summary.participant_count,
         "total_in_ccass_pct_of_issued": _csv_optional(summary.total_in_ccass_pct_of_issued),
         "issued_shares": _csv_optional(summary.issued_shares),
+        "issued_shares_as_of": (
+            summary.issued_shares_as_of.isoformat() if summary.issued_shares_as_of else ""
+        ),
         "non_ccass_shares": _csv_optional(summary.non_ccass_shares),
         "non_ccass_pct_of_issued": _csv_optional(summary.non_ccass_pct_of_issued),
         "snapshot_fetched_at": metadata.fetched_at.isoformat(),
@@ -458,6 +471,7 @@ def _validated_snapshot(
         response,
         source_id=source_id,
         parser_version=parser_version,
+        partial=not latest_holdings_is_complete(response),
     )
 
 
@@ -497,7 +511,10 @@ def _append_partial_warning(response: CcassResponse) -> None:
 
 
 def _response_is_partial(response: CcassResponse) -> bool:
-    return len(response.holdings) != response.holdings_summary.participant_count
+    return (
+        not latest_holdings_is_complete(response)
+        or len(response.holdings) != response.holdings_summary.participant_count
+    )
 
 
 def _batch_status(success_count: int, partial_count: int, error_count: int) -> str:

@@ -1,7 +1,7 @@
 import csv
 import json
 import sqlite3
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
@@ -72,6 +72,8 @@ async def test_verified_fresh_snapshot_persists_and_survives_restart(
     stored = repository.latest("01592", source_id=WEBBSITE_SOURCE_ID)
     assert stored is not None
     assert len(stored.holdings) == stored.participant_count == 3
+    assert stored.issued_shares_as_of == date(2026, 7, 20)
+    assert stored.holdings[0].pct_of_ccass == 45.454545
 
     timeout = PlatformError(
         ErrorCode.SOURCE_TIMEOUT,

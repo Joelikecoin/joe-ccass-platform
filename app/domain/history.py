@@ -73,7 +73,7 @@ class NormalizedHolding(BaseModel):
             shares=row.shares,
             last_change=row.last_change,
             pct_of_issued=row.pct_of_issued,
-            pct_of_ccass=pct_of_ccass,
+            pct_of_ccass=row.pct_of_ccass if row.pct_of_ccass is not None else pct_of_ccass,
             cumulative_pct_of_issued=row.cumulative_pct_of_issued,
             participant_category=row.participant_category,
         )
@@ -86,6 +86,7 @@ class NormalizedHolding(BaseModel):
             shares=self.shares,
             last_change=self.last_change,
             pct_of_issued=self.pct_of_issued,
+            pct_of_ccass=self.pct_of_ccass,
             cumulative_pct_of_issued=self.cumulative_pct_of_issued,
             participant_category=self.participant_category,
         )
@@ -182,7 +183,11 @@ class HistoricalSnapshot(BaseModel):
             parser_version=parser_version,
             schema_version=schema_version,
             issued_shares=response.holdings_summary.issued_shares,
-            issued_shares_as_of=issued_shares_as_of,
+            issued_shares_as_of=(
+                issued_shares_as_of
+                if issued_shares_as_of is not None
+                else response.holdings_summary.issued_shares_as_of
+            ),
             total_in_ccass_shares=response.holdings_summary.total_in_ccass_shares,
             total_in_ccass_pct_of_issued=(response.holdings_summary.total_in_ccass_pct_of_issued),
             non_ccass_shares=response.holdings_summary.non_ccass_shares,
@@ -227,6 +232,7 @@ class HistoricalSnapshot(BaseModel):
                 total_in_ccass_shares=self.total_in_ccass_shares,
                 total_in_ccass_pct_of_issued=self.total_in_ccass_pct_of_issued,
                 issued_shares=self.issued_shares,
+                issued_shares_as_of=self.issued_shares_as_of,
                 non_ccass_shares=self.non_ccass_shares,
                 non_ccass_pct_of_issued=self.non_ccass_pct_of_issued,
                 participant_count=self.participant_count,
