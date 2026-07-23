@@ -176,7 +176,7 @@ async def run_backfill(
             requested_date,
             source_id,
         )
-        if existing_snapshot:
+        if existing_snapshot and not config.dry_run:
             item = BackfillRunItemRecord(
                 run_id=run_id or 1,
                 requested_date=requested_date,

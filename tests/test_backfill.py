@@ -177,6 +177,24 @@ async def test_dry_run_mismatch_partial_and_existing_skip(tmp_path, current_resp
     assert existing.skipped_count == 1 and existing_source.calls == []
     assert existing_repo.count_snapshots() == 1
 
+    database_before_dry_run = existing_cfg.sqlite_path.read_bytes()
+    dry_existing_source = FakeHistory({day20: current_response})
+    dry_existing = await run_backfill(
+        cfg(
+            tmp_path,
+            sqlite_path=existing_cfg.sqlite_path,
+            date_from=day20,
+            date_to=day20,
+            dry_run=True,
+        ),
+        source=dry_existing_source,
+    )
+    assert dry_existing.status == "SUCCESS" and dry_existing.run_id is None
+    assert dry_existing_source.calls == [day20]
+    assert existing_cfg.sqlite_path.read_bytes() == database_before_dry_run
+    assert existing_repo.count_snapshots() == 1
+    assert existing_repo.get_backfill_items(existing.run_id)[0].status == "SKIPPED"
+
 
 @pytest.mark.asyncio
 async def test_resume_retries_error_without_refetching_success(

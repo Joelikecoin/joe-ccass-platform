@@ -98,6 +98,7 @@ Dependencies/risks：
 ```text
 Task: P1-03 — Resumable source-neutral CCASS historical backfill
 Status: complete; pending CTO Review
+CTO correction: Existing snapshots skip only normal runs; dry-run still fetches and validates, with byte-for-byte unchanged database evidence.
 Commit: P1-03 completion commit（本次 commit；exact hash 以 Git history／push 回報為準）
 Tests: Ruff passed; full Pytest 88 passed; CLI smoke, git diff --check, credential-pattern scan and private-path scan passed.
 Files: app/backfill_ccass.py, app/config.py, app/errors.py, app/domain/*, app/storage/*, app/sources/google_drive_csv.py, ccass_core/collector.py, examples/ccass_template.csv, tests/test_backfill.py, tests/test_google_drive_csv.py, tests/test_history_storage.py, docs/ROADMAP.md, TASK.md
