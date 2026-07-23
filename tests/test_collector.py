@@ -181,7 +181,10 @@ async def test_csv_only_collector_never_constructs_webbsite_client(
 
     monkeypatch.setattr(service_module, "GoogleDriveCsvSource", FixtureCsvSource)
     monkeypatch.setattr(service_module, "WebbsiteClient", fail_if_constructed)
-    settings = Settings(data_source="google_drive_csv", ccass_csv_url="https://fixture.invalid")
+    settings = Settings(
+        data_source="google_drive_csv",
+        ccass_csv_url="https://drive.google.com/open?id=collector-fixture",
+    )
     config = CollectorConfig(
         sqlite_path=tmp_path / "collector.db",
         csv_output_path=tmp_path / "latest.csv",

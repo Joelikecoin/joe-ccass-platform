@@ -2,7 +2,7 @@
 
 > 路線圖只定義 phase、順序、依賴與 exit gates；每日執行狀態在 [`TASK.md`](../TASK.md)。所有 phase 受 [PROJECT_SPEC.md](PROJECT_SPEC.md) 與 [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md) 約束。
 
-實作盤點基準：已批准 P1-03 commits `f9fcf02`、`6152135`；規格基準 `67e35e5`。以下審核以 2026-07-23 的 Repository、88 個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
+實作盤點基準：已批准 P1-03 commits `f9fcf02`、`6152135`；規格基準 `67e35e5`。以下審核以 2026-07-23 的 Repository、P1-04完成後94個通過的離線測試及 Project Specification 為證據。局部 module、UI 骨架或 mock-only test 不等於功能完成。
 
 
 ## 狀態
@@ -35,8 +35,9 @@
 | Concentration | 最新 response 有 participant count、Top 5/10 issued/CCASS；report 可呈現。 | 無 historical timeline、outside/denominator freshness/partial rules engine、service/API/MCP/download；未保證計算永遠基於完整 snapshot。 |
 | Historical Snapshot | Source-neutral normalized tables、raw provenance、unique/idempotent save、latest/previous/date-range、complete/partial invariants、legacy JSON migration boundary，以及核准 CSV exact-date backfill/resume 已完成。 | 尚無合法 live source 多日真實 snapshot／golden 驗收及正式 history delivery surface。 |
 | Collector | 經 `CcassService` 重用 `auto|webbsite|google_drive_csv` routing；CSV-only 不建立 Webb-site client；支援 stocks/watchlist、source、`date=latest`、dry-run、complete/partial honesty、normalized idempotent save、batch/per-stock run/error accounting、明確 exit codes及帶安全 metadata 的 UTF-8-SIG atomic latest CSV。 | 尚無 history export、完整 retry policy exposure或合法 live/golden batch 驗收；historical backfill 已由獨立 P1-03 CLI 完成。 |
-| Webb-site source adapter | 有 primary/fallback、timeout/rate interval、cache、5 MB limit、browser headers、identity safety及 403/429/5xx/challenge/network classification。 | 只支援 Holdings；fetch/parser 仍耦合；無 content-type guard、persistent LKG、registry diagnostics、parser/schema version 或其他 Webb-site sections。 |
-| Source routing, fallback and cache | `auto|webbsite|google_drive_csv` routing；mirror failure 可 fallback CSV；兩 source 有 process cache，CSV 有 process-memory LKG。 | 無 configuration-driven registry、persistent normalized LKG、freshness/stale age/error metadata、cross-source conflict handling 或統一 cache policy。 |
+| Webb-site source adapter | 有 primary/fallback、timeout/rate interval、configurable size、cache、browser headers、identity safety、403/429/5xx/challenge/network classification，以及registry內latest-only、parser/schema、audit metadata。 | 只支援 Holdings；fetch/parser 仍耦合；無 content-type guard、persistent LKG或其他 Webb-site sections。 |
+| Source routing, fallback and cache | `auto|webbsite|google_drive_csv` routing及collector/backfill capability checks已由configuration-driven registry統一；mirror failure可fallback CSV；兩source有process cache，CSV有process-memory LKG。 | 尚無persistent normalized LKG、freshness/stale age/error metadata或cross-source conflict handling；Phase 4公開status仍未實作。 |
+| Source registry and diagnostics | 集中registry已登記既有`webbsite`與`google_drive_csv`，提供configured/enabled/priority、latest/requested-date/historical/manual-import capabilities、limits/cache/fallback、parser/schema、audit/terms/robots及安全無network diagnostics；service/collector/backfill routing有離線測試。 | 尚無last success/failure/freshness/latency、公開`/api/v1/sources/status`或UI diagnostics；這些維持Phase 4範圍。 |
 | Company | Holdings metadata 可帶 name、code、issue ID。 | 無 Company model/section/endpoint、正式 identifiers、name history、日期及 source merge。 |
 | Reports and Copy | 固定九節 Markdown、error report、Copy Report、Copy for ChatGPT safety header 及安全 UTF-8 clipboard encoding。 | 報告未涵蓋完整 sections；Copy 首段未以結構化方式固定列出實際 source/date/T+2/warnings；無 bilingual/localized export。 |
 | Downloads | Streamlit 可下載 Markdown；collector 可輸出 latest holdings CSV。 | 缺 All Data/section/Rainbow/Price/Announcements CSV、JSON、Excel All Sections、Raw Tables JSON、內容預覽及完整 metadata/warning export tests。 |
@@ -45,7 +46,7 @@
 | Streamlit UX | 有 stock input、holdings limit、big-change threshold、local previous option、progress、diagnostic Markdown、copy 及 Markdown download；基本 AppTest。 | 無規格 sidebar controls/navigation/tables/rainbow/concentration/price/announcements/company/raw previews/source diagnostics、session-state re-render、mobile evidence及完整錯誤/partial呈現。 |
 | Error and partial-success contract | 有 `PlatformError` 及主要 upstream/auth/CSV errors；API 結構化回應；失敗報告不回空 array；Collector／Backfill 已持久化 safe error/retry metadata、per-item status及 batch counters；`DATE_UNAVAILABLE` exact-date 語義有測試。 | 其他 service/API 尚缺多個規定 error codes、source/warnings/safe details/partial sections envelope、stale semantics與跨 section partial success。 |
 | Security and logging | env/secrets placeholders、source hostname/status/error type logging、Google URL/key redaction tests、collector 抑制 httpx/httpcore URL logs；P1-03 staged diff/repository credential-pattern及私人路徑 scans 無發現 secret。 | 無自動化 repository secrets scan、自訂 API access-log query redaction、auth failure矩陣、raw/report sensitive-field policy tests。 |
-| Tests | 88 個離線 tests 覆蓋 normalize、identity、upstream failures、Google CSV、三種 source routing、collector、normalized history/migrations、range/latest/resume backfill、existing/dry-run/partial/mismatch/retry/isolation、compute、report、API report、Streamlit validation及 deployment files。 | Project Specification矩陣仍缺 rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
+| Tests | 94 個離線 tests另覆蓋registry validation、capability matrix、audit metadata、safe diagnostics/redaction、disabled/unconfigured isolation、service/collector/backfill registry selection；原有regression全部保留。 | Project Specification矩陣仍缺 rainbow/i18n/完整 API/MCP/exports/golden live/visual tests。 |
 | Deployment and operations | 有 requirements、Streamlit headless/XSRF/theme config、secrets example及帶 `ShouldProcess` 的 Windows scheduler installer。 | 無 `robots.txt`、source status/metrics、cold-start drill、recovery/log rotation/remove script、已核准 scheduler install、公開 URL desktop/mobile/data/API/MCP acceptance。 |
 
 ### Not Started
@@ -56,19 +57,18 @@
 | Price History | 無 audited source、parser/model/store/API/UI/export。 |
 | HKEX Announcements | 無 HKEXnews index/PDF adapter、limits、languages、event tags、store/API/UI/export。 |
 | HKEX SDW and manual official import | 無 adapter、manual CSV flow 或 golden cross-check evidence；目前只有合規說明。 |
-| Source registry and diagnostics | 無 source status model/registry、audit state、last success/failure/freshness/latency、`/api/v1/sources/status` 或 UI diagnostics。 |
 | i18n | 無 `zh_HK`／English translation registry、香港繁中預設、fallback warning 或 non-refetch language state。 |
 | Raw Previews and full Excel/JSON exports | 無 Raw Previews、Excel All Sections、Raw Tables JSON 及各 section structured export。 |
 | Supplemental source audits | HKEX DI/SDI、同花順、price fallbacks、AAStocks 等仍未 audit/adapter；DisclosureTracker 正確保持非依賴。 |
 | Golden and public acceptance | 只有 synthetic `01592` fixture；無合法 live source/HKEX SDW 數字核對、公開 Streamlit/mobile/language/download/API/MCP 驗收。 |
 
-### P1-03 批准後完整 Gap Analysis（2026-07-23）
+### P1-03 批准後完整 Gap Analysis及P1-04實際進度（2026-07-23）
 
-- Done：5；Partial：19；Not Started：9；總計 33 個功能單位。
+- Done：5；Partial：20；Not Started：8；總計 33 個功能單位。
 - CTO 已正式批准 P1-03 commits `f9fcf02`、`6152135`。Resumable Backfill 由 Not Started 升為 Done：range/latest/resume、existing skip、failed-date retry、dry-run完整validation零寫入、exact-date identity/date checks、bounded retry及 persistent per-date evidence均有離線證據。
 - Historical Snapshot、Collector、Error contract及Tests更新已有證據，但仍欠各自其餘 Project Specification要求，故維持 Partial；其他功能沒有足夠證據跨級。
 - Phase 1 尚未通過：backfill resume/failed-date retry gate已滿足，但仍沒有合法 active source的多日真實 snapshot/golden證據，也未完成 Holdings、Changes、Big Changes、Concentration四個真實 vertical slices及 service/API tests。
-- 下一個依賴是 `P1-04 — Configuration-driven source registry and capability/audit metadata`；它是 Phase 1 source audit、adapter/routing/cache一致性與後續合法歷史來源的共同前置，不包含 Phase 4公開 diagnostics endpoint/UI。
+- P1-04已完成內部configuration-driven registry、能力／audit metadata、安全diagnostics及service/collector/backfill selection；公開diagnostics endpoint/UI、freshness/latency及persistent LKG仍留待既定後續phase。本更新不重新排序下一個Task。
 
 ### Remaining Gaps 優先序
 
@@ -76,7 +76,7 @@
 
 | 優先 | 功能 | 現況 | 排序依據／下一完成門檻 |
 |---:|---|---|---|
-| 1 | Source registry and diagnostics | Not Started | 先完成 Phase 1 configuration-driven registry、capability/date coverage、limits及audit metadata；公開 `/api/v1/sources/status` 與UI diagnostics留待Phase 4。 |
+| 1 | Source registry and diagnostics | Partial | Phase 1內部registry、capability/date coverage、limits、audit metadata及safe diagnostics已完成；公開`/api/v1/sources/status`、UI、freshness/latency及persistent LKG留待既定後續phase。 |
 | 2 | Webb-site source adapter | Partial | 在registry contract下拆分fetch/parser、補content guard、parser/schema version及誠實的latest-only capability，再評估任何歷史能力。 |
 | 3 | Source routing, fallback and cache | Partial | 以registry統一selection、persistent LKG、freshness/stale、conflict及cross-source policy，避免歷史與latest語義分裂。 |
 | 4 | Historical Snapshot | Partial | 以合法active source保存並驗證多日真實snapshots，補golden與正式history delivery evidence。 |
@@ -147,7 +147,7 @@ Exit gate：
 - ✅ Collector idempotency與Backfill resume/failed-date retry：離線tests已滿足。
 - ❌ Holdings／Changes／Big Changes／Concentration真實vertical slice及service/API tests：未滿足。
 - ✅ Partial、T+2、>100%、participant rename/added/removed與identity safety：已有離線tests；仍需golden live核對。
-- ✅ 本輪工程quality gate：88個離線tests、Ruff、diff及安全掃描有證據；但不能取代未滿足的data/vertical-slice gates。
+- ✅ 本輪工程quality gate：P1-04後94個離線tests、Ruff、diff、文件及安全掃描有證據；但不能取代未滿足的data/vertical-slice gates。
 
 ## Phase 2 — Historical visualization and aligned Streamlit UX
 

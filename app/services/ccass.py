@@ -5,6 +5,12 @@ from app.config import Settings, get_settings
 from app.errors import PlatformError
 from app.models import CcassResponse
 from app.sources.google_drive_csv import GoogleDriveCsvSource
+from app.sources.registry import (
+    GOOGLE_DRIVE_CSV_SOURCE_ID,
+    WEBBSITE_SOURCE_ID,
+    SourceRegistry,
+    build_source_registry,
+)
 from app.sources.webbsite import WebbsiteClient
 from ccass_core.normalize import normalize_stock_code
 
@@ -14,11 +20,25 @@ class HoldingsSource(Protocol):
 
 
 class MirrorWithCsvFallback:
-    def __init__(self, settings: Settings) -> None:
-        self.mirror = WebbsiteClient(settings)
-        self.csv = GoogleDriveCsvSource(settings) if settings.ccass_csv_url.strip() else None
+    def __init__(
+        self,
+        settings: Settings,
+        registry: SourceRegistry | None = None,
+    ) -> None:
+        selected = (registry or build_source_registry(settings)).select_holdings("auto")
+        source_ids = {source.source_id for source in selected}
+        self.mirror = WebbsiteClient(settings) if WEBBSITE_SOURCE_ID in source_ids else None
+        self.csv = (
+            GoogleDriveCsvSource(settings)
+            if GOOGLE_DRIVE_CSV_SOURCE_ID in source_ids
+            else None
+        )
 
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
+        if self.mirror is None:
+            if self.csv is None:
+                raise RuntimeError("source registry selected no holdings source")
+            return await self.csv.get_holdings(code, limit=limit)
         try:
             return await self.mirror.get_holdings(code, limit=limit)
         except PlatformError as mirror_error:
@@ -55,12 +75,15 @@ class CcassService:
         self.settings = settings or get_settings()
         if client is not None:
             self.source = client
-        elif self.settings.data_source == "google_drive_csv":
-            self.source = GoogleDriveCsvSource(self.settings)
-        elif self.settings.data_source == "auto":
-            self.source = MirrorWithCsvFallback(self.settings)
         else:
-            self.source = WebbsiteClient(self.settings)
+            registry = build_source_registry(self.settings)
+            selected = registry.select_holdings(self.settings.data_source)
+            if len(selected) > 1:
+                self.source = MirrorWithCsvFallback(self.settings, registry)
+            elif selected[0].source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
+                self.source = GoogleDriveCsvSource(self.settings)
+            else:
+                self.source = WebbsiteClient(self.settings)
         self.client = self.source
 
     async def get_stock_data(self, code: str | int, holdings_limit: int = 15) -> CcassResponse:

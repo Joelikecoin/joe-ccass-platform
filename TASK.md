@@ -32,15 +32,15 @@
 ## Audit summary
 
 - Done：5個功能單位。
-- Partial：19個功能單位。
-- Not Started：9個功能單位。
-- 總計：33個功能單位；28個Remaining Gaps已按phase gate與依賴在 [`docs/ROADMAP.md`](docs/ROADMAP.md#remaining-gaps-優先序)重新排序。
+- Partial：20個功能單位。
+- Not Started：8個功能單位。
+- 總計：33個功能單位；P1-04完成後，Source registry and diagnostics由Not Started升為Partial；公開diagnostics仍留待Phase 4。
 - Phase 1維持In Progress：collector idempotency與backfill resume/retry gate已滿足；合法真實多日source/golden證據及Holdings／Changes／Big Changes／Concentration完整vertical slices仍未滿足。
-- 排序結論：下一個唯一最高優先工作是P1-04；本輪只完成Gap Analysis與文件更新，不開始實作。
+- P1-04實作與離線驗證已完成，等待CTO Review；未開始下一輪Gap Analysis或下一個Task。
 
 ## 唯一最高優先工作
 
-### [ ] P1-04 — Configuration-driven source registry and capability/audit metadata
+### [x] P1-04 — Configuration-driven source registry and capability/audit metadata
 
 優先理由：P1-01至P1-03已建立normalized persistence、collector及backfill，但source ID/status/capability/date coverage、limits、cache/fallback及audit metadata仍分散在settings、services及adapters。Phase 1必須先有誠實、可配置的registry，才可安全拆分Webb-site adapter、統一routing/cache、評估合法歷史能力及完成真實vertical slice；Phase 4公開source diagnostics不是本任務範圍。
 
@@ -56,16 +56,16 @@
 
 Acceptance：
 
-- [ ] Registry由集中domain/config model建立；同一source的identity、status、capabilities、limits、cache/fallback及audit metadata不再在service/collector/backfill重複定義。
-- [ ] `webbsite`只宣稱目前已驗證的latest Holdings能力；不得宣稱requested-date history、Changes、Concentration或Price已可用。
-- [ ] `google_drive_csv`只在配置有效URL時提供已驗證CSV latest/exact-date import能力；source status、imported/cached限制及known limitations誠實可查。
-- [ ] `auto|webbsite|google_drive_csv`現有env/public config兼容；auto holdings仍按既有mirror→configured CSV fallback，CSV-only仍不構造Webb-site client。
-- [ ] Collector及Backfill由registry capability判斷可用source；latest-only source用於requested date時fail loud `DATE_UNAVAILABLE`／兼容structured error，不fallback到latest。
-- [ ] Timeout、size、retry、rate/minimum sleep及cache policy由settings/registry可配置並有validation；不得引入無限retry或高頻diagnostic probe。
-- [ ] Internal diagnostics只輸出safe source ID/status/capabilities/parser/schema/audit/disabled reason；不含完整URL/query、API key、Cookie、authorization或私人路徑。
-- [ ] Unknown、disabled、unconfigured或capability不符的source有deterministic structured failure；一個disabled/unavailable source不拖垮不相關source。
-- [ ] Offline tests覆蓋registry validation、accurate capability matrix、routing compatibility、CSV isolation、collector/backfill selection、disabled/unconfigured及redaction；現有regression全部通過。
-- [ ] 不修改公開FastAPI/MCP/Streamlit response schema或新增endpoint/UI；Ruff、完整Pytest、`git diff --check`及secrets/private-path scan通過後才可commit/push `main`。
+- [x] Registry由集中domain/config model建立；同一source的identity、status、capabilities、limits、cache/fallback及audit metadata不再在service/collector/backfill重複定義。
+- [x] `webbsite`只宣稱目前已驗證的latest Holdings能力；不得宣稱requested-date history、Changes、Concentration或Price已可用。
+- [x] `google_drive_csv`只在配置有效URL時提供已驗證CSV latest/exact-date import能力；source status、imported/cached限制及known limitations誠實可查。
+- [x] `auto|webbsite|google_drive_csv`現有env/public config兼容；auto holdings仍按既有mirror→configured CSV fallback，CSV-only仍不構造Webb-site client。
+- [x] Collector及Backfill由registry capability判斷可用source；latest-only source用於requested date時fail loud `DATE_UNAVAILABLE`／兼容structured error，不fallback到latest。
+- [x] Timeout、size、retry、rate/minimum sleep及cache policy由settings/registry可配置並有validation；不得引入無限retry或高頻diagnostic probe。
+- [x] Internal diagnostics只輸出safe source ID/status/capabilities/parser/schema/audit/disabled reason；不含完整URL/query、API key、Cookie、authorization或私人路徑。
+- [x] Unknown、disabled、unconfigured或capability不符的source有deterministic structured failure；一個disabled/unavailable source不拖垮不相關source。
+- [x] Offline tests覆蓋registry validation、accurate capability matrix、routing compatibility、CSV isolation、collector/backfill selection、disabled/unconfigured及redaction；現有regression全部通過。
+- [x] 不修改公開FastAPI/MCP/Streamlit response schema或新增endpoint/UI；Ruff、完整Pytest、`git diff --check`及secrets/private-path scan通過後才可commit/push `main`。
 
 明確不在本工作：
 
@@ -118,6 +118,19 @@ Public acceptance: Existing FastAPI/MCP/Streamlit contracts were unchanged and p
 Remaining manual step: none; P1-03 is formally approved.
 ```
 
+P1-04 completion evidence：
+```text
+Task: P1-04 — Configuration-driven source registry and capability/audit metadata
+Status: complete; awaiting CTO Review
+Commit: this commit (hash reported after push)
+Tests: Ruff passed; targeted Pytest 31 passed; full Pytest 94 passed; git diff --check, Markdown links, UTF-8/replacement-character, secrets and private-path scans passed.
+Files: .env.example; app/config.py; app/errors.py; app/sources/registry.py; app/sources/webbsite.py; app/services/ccass.py; app/backfill_ccass.py; tests/test_collector.py; tests/test_source_registry.py; TASK.md; docs/ROADMAP.md.
+Active sources: Webb-site is approved for latest Holdings only. Google Drive CSV is approved only as a configured import flow; a valid Google URL enables latest, requested-date, historical and manual-import capabilities.
+Disabled/unverified sources: Missing/invalid/disabled/unverified Google CSV configuration has no effective capabilities. HKEX SDW, HKEXnews, DI/SDI, price and supplemental sources are not registered or enabled; no automation was added.
+Golden validation: Synthetic offline 01592 fixtures only; no live scraping, production history or golden-data claim.
+Public acceptance: FastAPI, MCP and Streamlit files/contracts were unchanged; full regression passed.
+Remaining manual step: CTO Review / approval of P1-04.
+```
 完成active task時附加：
 
 ```text

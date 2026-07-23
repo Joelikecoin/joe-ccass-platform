@@ -17,6 +17,11 @@ from app.domain.history import BackfillRunItemRecord, BackfillRunRecord, Histori
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.sources.google_drive_csv import GoogleDriveCsvSource
+from app.sources.registry import (
+    GOOGLE_DRIVE_CSV_SOURCE_ID,
+    SourceCapability,
+    build_source_registry,
+)
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
 
@@ -79,9 +84,16 @@ async def run_backfill(
     normalized_code = normalize_stock_code(config.stock_code)
     _validate_config(config)
     source_settings = settings or Settings(data_source=config.source_mode)
-    selected_source = source or _historical_source(source_settings, config.source_mode)
+    if source is None:
+        selected_source, source_max_pages = _historical_source(
+            source_settings,
+            config.source_mode,
+        )
+    else:
+        selected_source = source
+        source_max_pages = source.page_count
     source_id = selected_source.source_id
-    if selected_source.page_count > config.max_pages:
+    if source_max_pages > config.max_pages:
         raise PlatformError(
             ErrorCode.TOO_LARGE,
             "Historical source page count exceeds the configured backfill bound.",
@@ -307,9 +319,15 @@ async def run_backfill(
     return BackfillResult(run_id=run_id, status=status, **counts)
 
 
-def _historical_source(settings: Settings, source_mode: str) -> HistoricalSource:
-    if source_mode in {"auto", "google_drive_csv"} and settings.ccass_csv_url.strip():
-        return GoogleDriveCsvSource(settings)
+def _historical_source(
+    settings: Settings,
+    source_mode: str,
+) -> tuple[HistoricalSource, int]:
+    registry = build_source_registry(settings)
+    source = registry.select_historical(source_mode)
+    registry.require(source.source_id, SourceCapability.HISTORICAL)
+    if source.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
+        return GoogleDriveCsvSource(settings), source.policy.max_pages
     raise PlatformError(
         ErrorCode.DATE_UNAVAILABLE,
         f"Source mode {source_mode} cannot provide a verified requested-date snapshot.",

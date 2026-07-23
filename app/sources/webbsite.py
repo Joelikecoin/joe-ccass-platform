@@ -97,10 +97,10 @@ class WebbsiteClient:
                     )
                     continue
                 response.raise_for_status()
-                if len(response.content) > 5_000_000:
+                if len(response.content) > self.settings.webbsite_max_bytes:
                     raise PlatformError(
                         ErrorCode.TOO_LARGE,
-                        "Upstream response exceeded the 5 MB safety limit.",
+                        "Upstream response exceeded the configured safety limit.",
                     )
                 self._cache[cache_key] = CachedPage(response.text, time.monotonic())
                 return response.text, str(response.url), False
