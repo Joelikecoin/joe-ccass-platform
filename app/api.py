@@ -7,13 +7,20 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from app import __version__
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
-from app.models import BigChangesResponse, CcassResponse, ChangesResponse
+from app.models import (
+    BigChangesResponse,
+    CcassResponse,
+    ChangesResponse,
+    ConcentrationResponse,
+)
 from app.services.big_changes import BigChangesService, get_big_changes_service
 from app.services.ccass import CcassService, get_ccass_service
 from app.services.changes import ChangesService, get_changes_service
+from app.services.concentration import ConcentrationService, get_concentration_service
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.changes_report import build_changes_markdown_report
 from ccass_core.compute import compute_analysis
+from ccass_core.concentration_report import build_concentration_markdown_report
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import build_markdown_report
 
@@ -149,6 +156,48 @@ async def get_stock_big_changes_report(
     )
     return PlainTextResponse(
         build_big_changes_markdown_report(response),
+        media_type="text/markdown; charset=utf-8",
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/concentration",
+    response_model=ConcentrationResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["concentration"],
+)
+async def get_stock_concentration(
+    stock_code: str,
+    snapshot_date: date,
+    top_holders_limit: int = Query(default=10, ge=1, le=100),
+    service: ConcentrationService = Depends(get_concentration_service),
+) -> ConcentrationResponse:
+    return service.get_concentration(
+        stock_code,
+        snapshot_date=snapshot_date,
+        top_holders_limit=top_holders_limit,
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/concentration/report",
+    response_class=PlainTextResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["concentration"],
+)
+async def get_stock_concentration_report(
+    stock_code: str,
+    snapshot_date: date,
+    top_holders_limit: int = Query(default=10, ge=1, le=100),
+    service: ConcentrationService = Depends(get_concentration_service),
+) -> PlainTextResponse:
+    response = service.get_concentration(
+        stock_code,
+        snapshot_date=snapshot_date,
+        top_holders_limit=top_holders_limit,
+    )
+    return PlainTextResponse(
+        build_concentration_markdown_report(response),
         media_type="text/markdown; charset=utf-8",
     )
 

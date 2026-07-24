@@ -6,7 +6,7 @@
 
 - Branch：`main`
 - Original requested code baseline：`fad4411`
-- Latest approved baseline：`9800d7a6ed46893bcffecc8e604eb23c23eb4acf`（P1-08；CTO approved）
+- Latest approved baseline：`a8ad8fe7f9b1c23d11b5b560289d38c1d5300230`（P1-09；CTO approved）
 - Specification baseline reviewed：`67e35e5`
 - Functional audit：2026-07-23，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
@@ -33,6 +33,7 @@
 - [x] P1-06：persistent normalized LKG、freshness semantics、transient-only fallback及collector stale accounting；commit `172e50f0fd367af62343b1125c0da3fd729cfd39`，CTO approved。
 - [x] P1-07：完整Latest Holdings產品驗證、canonical API、diagnostics、denominator metadata及limit invariant；commit `03e7dc73b324a642aed39bb2500f5228a0473970`，CTO approved。
 - [x] P1-08：完整Changes產品、exact-pair validation、canonical API、diagnostics及Markdown report；commit `9800d7a6ed46893bcffecc8e604eb23c23eb4acf`，CTO approved。
+- [x] P1-09：完整Big Changes產品、configuration-driven threshold、Changes單次委派、canonical API及Markdown report；commit `a8ad8fe7f9b1c23d11b5b560289d38c1d5300230`，CTO approved。
 
 ## Post-P1-04 Gap Analysis（historical baseline）
 
@@ -41,60 +42,60 @@
 - Not Started：8個功能單位。
 - Remaining Gaps：27個，已按Phase gate、前置依賴、風險及最小完整vertical slice重新排序，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#remaining-gaps-優先序)。
 - 本節是P1-04後的historical Gap Analysis，未因P1-08 delivery重算；目前產品證據以唯一Active Task為準，正式Phase狀態待CTO批准後另作Gap Analysis。
-- P1-01至P1-08已由CTO批准；P1-09只完成Big Changes產品切片，不開始下一個TASK或其他section。
+- P1-01至P1-09已由CTO批准；P1-10只完成Concentration產品切片，不開始下一個TASK或其他section。
 
 ## 唯一最高優先工作
 
-### [x] P1-09 — Complete Big Changes Vertical Slice
+### [x] P1-10 — Complete Concentration Vertical Slice
 
-優先理由：P1-08已提供approved active source exact-pair selection、完整validation、participant comparison、metadata、provenance、diagnostics及warnings；P1-09只需把既有Changes結果依configuration-driven絕對shares門檻篩選成完整產品能力。
+優先理由：P1-07已提供normalized exact-date snapshot、完整產品validation、denominator metadata、provenance及diagnostics；P1-10只需從單一approved active source的完整snapshot計算客觀集中度及排名。
 
 本工作範圍：
 
-- 新增薄的`BigChangesService`，只呼叫一次`ChangesService.get_changes()`並篩選其結果；不重新讀取snapshots、不複製participant comparison。
-- 使用inclusive規則`abs(shares_change) >= threshold_shares`，並排除零變化；預設值由`BIG_CHANGES_THRESHOLD_SHARES`／`Settings`提供，API可作positive query override。
-- 完整保留P1-08 metadata、provenance、diagnostics、source warnings、denominator dates及settlement note。
-- 提供canonical Big Changes JSON API及專用Markdown report。
-- 加入deterministic offline product、threshold、fail-loud、report及API regression tests。
+- 新增薄的`ConcentrationService`，只讀取單一exact-date persisted snapshot；不比較日期、不跨source merge。
+- 重用P1-07 `finalize_latest_holdings()`及`latest_holdings_is_complete()`，並在計算前驗證stock/date/source identity、partial及stale狀態。
+- 由participant shares及已驗證`issued_shares`／`total_in_ccass_shares`計算tracked total與Top 1／5／10集中度；不累加四捨五入展示值。
+- 提供完整participant ranking及獨立`top_holders` view；`top_holders_limit`不改變full ranking或summary。
+- 提供canonical Concentration JSON API、Markdown report、metadata、provenance、diagnostics、warnings及settlement note。
+- 加入deterministic offline正常、empty、partial、stale、identity、missing exact date、report及API regression tests。
 
 Acceptance：
 
-- [x] Big Changes以P1-08 `ChangesResponse`為唯一comparison輸入，沒有重算participant union／delta／status。
-- [x] Default threshold由configuration提供，程式service／API沒有寫死產品門檻；query override為positive且boundary inclusive。
-- [x] 正常、empty result及threshold boundary均有deterministic tests。
-- [x] Partial、stale、identity conflict及missing pair errors由Changes原樣fail loud傳遞。
-- [x] JSON及Markdown endpoints為additive，既有Holdings、Changes、legacy API、MCP及Streamlit contracts保持相容。
+- [x] Concentration只使用一個approved active source的單一exact-date normalized snapshot，沒有latest substitution或cross-source merge。
+- [x] Empty、partial、stale、identity/date/source mismatch及不完整denominator均fail loud，不輸出貌似完整的集中度。
+- [x] Participant ranking、participant count、total tracked shares、issued／CCASS percentage、Top 1／5／10及top holders均由完整snapshot提供。
+- [x] Metadata、checksum provenance、source／denominator dates、diagnostics、data-quality warnings及settlement note完整保留。
+- [x] JSON及Markdown endpoints為additive，既有Holdings、Changes、Big Changes、legacy API、MCP及Streamlit contracts保持相容。
 - [x] 沒有storage schema、migration、source、background job或generic analytics framework。
 - [x] Ruff、Full Pytest、`git diff --check`、Markdown links、UTF-8及secrets/private-path scans通過。
 
 Completion evidence：
 
-- Reuse：`BigChangesService`委派P1-08 `ChangesService`取得完整結果，再只執行threshold filter；spy test證明每次產品查詢只呼叫一次Changes。
-- Configuration：新增`Settings.big_changes_threshold_shares`及`BIG_CHANGES_THRESHOLD_SHARES`範例；Settings要求positive。API `threshold_shares`為optional positive override。
-- Product contract：additive `BigChangesResponse`重用`ChangesMetadata`、`ChangeRow`及`ChangesDiagnostics`，另提供threshold及filtered status counts。
-- Validation／honesty：P1-08 partial、stale、date及identity validation完全保留；沒有結果時回傳完整metadata／diagnostics及空list，不把fixture或missing data冒充產品結果。
-- API／report：新增`GET /api/v1/stocks/{stock_code}/big-changes`及`.../big-changes/report`；Markdown列明absolute inclusive threshold、exact dates、source、denominator及warnings。
-- Persistence：Not Changed；Big Changes為read-only projection，沒有table、migration或結果另存。
-- Sources：沒有新增或啟用source；HKEX SDW及未審核來源保持disabled／unregistered。
-- Validation result：targeted Pytest 30 passed；Full Pytest 159 passed（1個既有Starlette/httpx deprecation warning）；Ruff及最終文件／安全scans通過。
+- Reuse：`ConcentrationService`使用`NormalizedSnapshotRepository.snapshot_on()`及registry-selected sources，並重用P1-07 complete-snapshot validation；沒有修改P1-07至P1-09邏輯。
+- Product calculation：shares／verified denominator直接計算tracked及Top N percentages；完整ranking與limit view分離，避免limit改變summary。
+- Validation／honesty：不存在exact snapshot回404；empty／identity／schema問題回`INVALID_SCHEMA`；partial回422；stale回`DATA_STALE` 409；沒有原因或市場意義推論。
+- API／report：新增`GET /api/v1/stocks/{stock_code}/concentration`及`.../concentration/report`；query要求`snapshot_date`，並支援1至100的`top_holders_limit`。
+- Persistence：Not Changed；Concentration為read-only projection，沒有table、migration或結果另存。
+- Sources：沒有新增或啟用source；只使用registry內approved active Holdings sources；HKEX SDW及未審核來源保持disabled／unregistered。
+- Validation result：targeted Pytest 39 passed；Full Pytest 169 passed（1個既有Starlette/httpx deprecation warning）；Ruff及最終文件／安全scans通過。
 - Product evidence：只使用deterministic offline fixtures證明工程行為，不宣稱live／golden／production evidence。
 
 明確不在本工作：
 
-- 不實作Concentration、Rainbow、Charts、Trend、multi-date comparison、corporate-action inference或cross-source merge。
+- 不實作Rainbow、historical trend、multi-date comparison、corporate-action inference或cross-source merge。
 - 不新增storage、migration、background job、source、generic analytics framework或未批准infrastructure。
-- 不修改`docs/ROADMAP.md`，不開始P1-10或宣告Phase完成。
+- 不修改`docs/ROADMAP.md`，不開始P1-11或宣告Phase完成。
 
 Dependencies/risks：
 
-- 批准基準為`9800d7a6ed46893bcffecc8e604eb23c23eb4acf`；完全依賴P1-08 Changes的exact-pair及fail-loud語義。
-- Threshold只按absolute `shares_change`篩選，不作百分比、成交、公告或corporate-action推論。
-- Production仍必須預先具備同一approved active source的兩個完整、非stale exact-date snapshots。
+- 批准基準為`a8ad8fe7f9b1c23d11b5b560289d38c1d5300230`；依賴P1-07 normalized snapshot及完整產品validation語義。
+- Concentration只描述snapshot中participant分布，不表示收貨、派貨、價格方向、實益擁有人或事件原因。
+- Production必須預先具備同一approved active source的完整、非stale exact-date snapshot。
 - 若需要new source、breaking contract、destructive migration、credentials或付費服務，必須停止並由CTO另行批准。
 
 Remaining manual step：
 
-- CTO Review／批准P1-09；批准前不開始P1-10、Gap Analysis或下一個TASK。
+- CTO Review／批准P1-10；批准前不開始P1-11、Gap Analysis或下一個TASK。
 
 ## Decisions and constraints
 
@@ -192,16 +193,30 @@ Remaining manual step: Complete; CTO approved.
 
 ```text
 Task: P1-09 — Complete Big Changes Vertical Slice
-Status: complete; awaiting CTO Review
-Commit: P1-09 delivery commit containing this evidence
+Status: complete; CTO approved
+Commit: a8ad8fe7f9b1c23d11b5b560289d38c1d5300230
 Tests: Ruff passed; targeted Pytest 30 passed; full Pytest 159 passed; diff, Markdown, UTF-8, secrets and private-path scans passed.
 Files: threshold setting/example, additive Big Changes models/service/API/report and deterministic offline acceptance tests; TASK evidence only.
 Active sources: Existing approved Webb-site latest Holdings and configured Google Drive CSV only; Big Changes delegates exact-pair retrieval to P1-08 Changes.
 Disabled/unverified sources: No new source; HKEX SDW automation and all unreviewed sources remain disabled/unregistered.
 Golden validation: Synthetic offline fixtures only; no live/golden or production-data claim.
 Public acceptance: Canonical Big Changes JSON and Markdown delivery added; existing Holdings, Changes, legacy FastAPI, MCP and Streamlit contracts remain compatible.
-Remaining manual step: CTO Review／批准P1-09.
+Remaining manual step: Complete; CTO approved.
 ```
+
+```text
+Task: P1-10 — Complete Concentration Vertical Slice
+Status: complete; awaiting CTO Review
+Commit: P1-10 delivery commit containing this evidence
+Tests: Ruff passed; targeted Pytest 39 passed; full Pytest 169 passed; diff, Markdown, UTF-8, secrets and private-path scans passed.
+Files: additive Concentration models/service/API/report and deterministic offline acceptance tests; TASK evidence only.
+Active sources: Existing approved Webb-site latest Holdings and configured Google Drive CSV only; Concentration reads one exact persisted snapshot from a registry-selected source.
+Disabled/unverified sources: No new source; HKEX SDW automation and all unreviewed sources remain disabled/unregistered.
+Golden validation: Synthetic offline fixtures only; no live/golden or production-data claim.
+Public acceptance: Canonical Concentration JSON and Markdown delivery added; existing Holdings, Changes, Big Changes, legacy FastAPI, MCP and Streamlit contracts remain compatible.
+Remaining manual step: CTO Review／批准P1-10.
+```
+
 完成active task時附加：
 
 ```text

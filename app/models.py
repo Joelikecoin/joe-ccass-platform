@@ -149,3 +149,43 @@ class BigChangesResponse(BaseModel):
     big_changes: list[ChangeRow] = Field(default_factory=list)
     diagnostics: ChangesDiagnostics
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class ConcentrationMetadata(BaseModel):
+    code: str
+    name: str | None = None
+    issue_id: int
+    snapshot_date: date
+    percentage_basis: Literal["issued_shares"] = "issued_shares"
+    snapshot_source: ChangesSourceMetadata
+    settlement_note: str
+
+
+class ConcentrationSummary(BaseModel):
+    participant_count: int = Field(ge=0)
+    total_tracked_shares: int = Field(ge=0)
+    total_tracked_pct_of_issued: float = Field(ge=0)
+    total_tracked_pct_of_ccass: float = Field(ge=0)
+    top1_pct_of_issued: float = Field(ge=0)
+    top1_pct_of_ccass: float = Field(ge=0)
+    top5_pct_of_issued: float = Field(ge=0)
+    top5_pct_of_ccass: float = Field(ge=0)
+    top10_pct_of_issued: float = Field(ge=0)
+    top10_pct_of_ccass: float = Field(ge=0)
+
+
+class ConcentrationDiagnostics(BaseModel):
+    validation_status: Literal["COMPLETE"] = "COMPLETE"
+    snapshot_complete: bool = True
+    identity_match: bool = True
+    exact_date: bool = True
+    stale_data_used: bool = False
+
+
+class ConcentrationResponse(BaseModel):
+    metadata: ConcentrationMetadata
+    summary: ConcentrationSummary
+    participant_ranking: list[HoldingRow] = Field(default_factory=list)
+    top_holders: list[HoldingRow] = Field(default_factory=list)
+    diagnostics: ConcentrationDiagnostics
+    data_quality_warnings: list[str] = Field(default_factory=list)
