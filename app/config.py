@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 900
     ccass_sqlite_path: Path = Path("data/ccass_snapshots.db")
     holdings_lkg_max_age_seconds: int = 604_800
+    big_changes_threshold_shares: int = 1_000_000
     source_retry_attempts: int = 1
     backfill_max_dates: int = 366
     backfill_max_pages: int = 1
@@ -48,6 +49,7 @@ class Settings(BaseSettings):
             "request_timeout_seconds": self.request_timeout_seconds,
             "source_retry_attempts": self.source_retry_attempts,
             "holdings_lkg_max_age_seconds": self.holdings_lkg_max_age_seconds,
+            "big_changes_threshold_shares": self.big_changes_threshold_shares,
             "backfill_max_dates": self.backfill_max_dates,
             "backfill_max_pages": self.backfill_max_pages,
             "backfill_retry_attempts": self.backfill_retry_attempts,

@@ -6,12 +6,12 @@
 
 - Branch：`main`
 - Original requested code baseline：`fad4411`
-- Latest approved baseline：`03e7dc73b324a642aed39bb2500f5228a0473970`（P1-07；CTO approved）
+- Latest approved baseline：`9800d7a6ed46893bcffecc8e604eb23c23eb4acf`（P1-08；CTO approved）
 - Specification baseline reviewed：`67e35e5`
 - Functional audit：2026-07-23，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
 - Golden stock：`01592`
-- Status updated：2026-07-23 (Asia/Hong_Kong)
+- Status updated：2026-07-24 (Asia/Hong_Kong)
 
 ## Status rules
 
@@ -32,6 +32,7 @@
 - [x] P1-05：guarded streaming Webb-site latest Holdings adapter、純offline parser、identity/content/body/size guards及registry parser v2；commit 9e833214f634f42e8e64d8a149d57976b5c1b1aa，CTO approved。
 - [x] P1-06：persistent normalized LKG、freshness semantics、transient-only fallback及collector stale accounting；commit `172e50f0fd367af62343b1125c0da3fd729cfd39`，CTO approved。
 - [x] P1-07：完整Latest Holdings產品驗證、canonical API、diagnostics、denominator metadata及limit invariant；commit `03e7dc73b324a642aed39bb2500f5228a0473970`，CTO approved。
+- [x] P1-08：完整Changes產品、exact-pair validation、canonical API、diagnostics及Markdown report；commit `9800d7a6ed46893bcffecc8e604eb23c23eb4acf`，CTO approved。
 
 ## Post-P1-04 Gap Analysis（historical baseline）
 
@@ -40,60 +41,60 @@
 - Not Started：8個功能單位。
 - Remaining Gaps：27個，已按Phase gate、前置依賴、風險及最小完整vertical slice重新排序，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#remaining-gaps-優先序)。
 - 本節是P1-04後的historical Gap Analysis，未因P1-08 delivery重算；目前產品證據以唯一Active Task為準，正式Phase狀態待CTO批准後另作Gap Analysis。
-- P1-01至P1-07已由CTO批准；P1-08只完成Changes產品切片，不開始下一個TASK或其他section。
+- P1-01至P1-08已由CTO批准；P1-09只完成Big Changes產品切片，不開始下一個TASK或其他section。
 
 ## 唯一最高優先工作
 
-### [x] P1-08 — Complete Changes Vertical Slice
+### [x] P1-09 — Complete Big Changes Vertical Slice
 
-優先理由：P1-01至P1-07已提供approved source registry、完整Latest Holdings產品驗證、exact-date normalized snapshots及persistent storage；本工作只把兩個已保存完整snapshots之間的客觀participant changes收斂成可直接使用的產品切片。
+優先理由：P1-08已提供approved active source exact-pair selection、完整validation、participant comparison、metadata、provenance、diagnostics及warnings；P1-09只需把既有Changes結果依configuration-driven絕對shares門檻篩選成完整產品能力。
 
 本工作範圍：
 
-- 重用既有source fetch／parser／normalize／validation／collector／backfill及normalized SQLite snapshot流程，不新增source或另一套ingestion infrastructure。
-- 只比較同一approved active source的兩個exact-date snapshots；兩者必須完整、非stale、股票及issue identity一致，並通過Latest Holdings產品驗證。
-- 輸出participant、shares before／after／change、percent before／after／percentage-point change、relative change、new／removed flags、compare／snapshot dates及安全source provenance。
-- 提供canonical Changes JSON API及Changes專用Markdown report；既有Latest Holdings、legacy FastAPI、MCP及Streamlit contract保持不變。
-- 加入deterministic offline product/API/report/fail-loud tests；fixtures只證明工程行為，不作production evidence。
+- 新增薄的`BigChangesService`，只呼叫一次`ChangesService.get_changes()`並篩選其結果；不重新讀取snapshots、不複製participant comparison。
+- 使用inclusive規則`abs(shares_change) >= threshold_shares`，並排除零變化；預設值由`BIG_CHANGES_THRESHOLD_SHARES`／`Settings`提供，API可作positive query override。
+- 完整保留P1-08 metadata、provenance、diagnostics、source warnings、denominator dates及settlement note。
+- 提供canonical Big Changes JSON API及專用Markdown report。
+- 加入deterministic offline product、threshold、fail-loud、report及API regression tests。
 
 Acceptance：
 
-- [x] Source → Fetch → Parse → Normalize → Validate → Persist沿用已批准Holdings pipeline；Changes只讀取persisted exact snapshots，不臆造歷史資料。
-- [x] 完整Changes產品輸出包含指定欄位、summary、diagnostics、percentage basis及兩邊source metadata。
-- [x] Participant新增／移除只在兩邊均為完整snapshot時判定；partial snapshot不會把缺失rows當作零。
-- [x] Missing pair、非正向日期、partial、stale、identity conflict及未通過product validation均fail loud並回傳structured `PlatformError`。
-- [x] Canonical `GET /api/v1/stocks/{stock_code}/changes`及additive Markdown report endpoint可直接使用。
-- [x] 沒有migration、Changes結果另存、source adapter、Big Changes、Concentration、generic comparison framework或其他scope drift。
-- [x] Latest Holdings、legacy API、MCP及Streamlit regression保持通過。
+- [x] Big Changes以P1-08 `ChangesResponse`為唯一comparison輸入，沒有重算participant union／delta／status。
+- [x] Default threshold由configuration提供，程式service／API沒有寫死產品門檻；query override為positive且boundary inclusive。
+- [x] 正常、empty result及threshold boundary均有deterministic tests。
+- [x] Partial、stale、identity conflict及missing pair errors由Changes原樣fail loud傳遞。
+- [x] JSON及Markdown endpoints為additive，既有Holdings、Changes、legacy API、MCP及Streamlit contracts保持相容。
+- [x] 沒有storage schema、migration、source、background job或generic analytics framework。
 - [x] Ruff、Full Pytest、`git diff --check`、Markdown links、UTF-8及secrets/private-path scans通過。
 
 Completion evidence：
 
-- Product contract：additive `ChangesResponse`以metadata-first形式公開兩個snapshot日期、issued-shares percentage basis、安全provenance、兩邊issued shares／as-of與source warnings、summary、participant changes及complete diagnostics。
-- Validation：只選registry內approved active source；要求同source exact pair、完整、非stale、identity一致並重用`finalize_latest_holdings`完整產品驗證。Invalid／partial／stale資料不會產生Changes結果。
-- Calculation：以stable participant ID作union；完整snapshot中真正缺席才標`new`／`removed`。輸出shares delta、percentage-point delta及有定義時的relative change；denominator變更只發warning，不作corporate-action歸因。
-- Persistence：Not Changed；重用`ccass_snapshots`／`ccass_holdings`及raw provenance，Changes為deterministic read projection，不新增table或migration。
-- API／report：新增canonical JSON endpoint及Changes專用Markdown endpoint；現有Holdings、legacy report、MCP及Streamlit contract未修改。
-- Sources：沒有新增或啟用source；Webb-site仍只批准latest Holdings，Google Drive CSV仍只按既有配置／audit能力使用；HKEX SDW及未審核來源保持disabled／unregistered。
-- Validation result：targeted Pytest 20 passed；Full Pytest 149 passed（1個既有Starlette/httpx deprecation warning）；Ruff及最終文件／安全scans通過。
-- Product evidence：deterministic offline fixtures證明正常、new／removed、relative／percentage changes、missing pair、partial、stale、denominator及identity行為；不宣稱live／golden／production evidence。
+- Reuse：`BigChangesService`委派P1-08 `ChangesService`取得完整結果，再只執行threshold filter；spy test證明每次產品查詢只呼叫一次Changes。
+- Configuration：新增`Settings.big_changes_threshold_shares`及`BIG_CHANGES_THRESHOLD_SHARES`範例；Settings要求positive。API `threshold_shares`為optional positive override。
+- Product contract：additive `BigChangesResponse`重用`ChangesMetadata`、`ChangeRow`及`ChangesDiagnostics`，另提供threshold及filtered status counts。
+- Validation／honesty：P1-08 partial、stale、date及identity validation完全保留；沒有結果時回傳完整metadata／diagnostics及空list，不把fixture或missing data冒充產品結果。
+- API／report：新增`GET /api/v1/stocks/{stock_code}/big-changes`及`.../big-changes/report`；Markdown列明absolute inclusive threshold、exact dates、source、denominator及warnings。
+- Persistence：Not Changed；Big Changes為read-only projection，沒有table、migration或結果另存。
+- Sources：沒有新增或啟用source；HKEX SDW及未審核來源保持disabled／unregistered。
+- Validation result：targeted Pytest 30 passed；Full Pytest 159 passed（1個既有Starlette/httpx deprecation warning）；Ruff及最終文件／安全scans通過。
+- Product evidence：只使用deterministic offline fixtures證明工程行為，不宣稱live／golden／production evidence。
 
 明確不在本工作：
 
-- 不實作Big Changes、Concentration、Rainbow、Price History、HKEX Announcements、Corporate Action、AI Analysis或UI。
-- 不新增source adapter、generic event engine、generic comparison framework、migration或未來Milestone infrastructure。
-- 不修改Product Direction、`docs/ROADMAP.md`，不開始P1-09或宣告Phase完成。
+- 不實作Concentration、Rainbow、Charts、Trend、multi-date comparison、corporate-action inference或cross-source merge。
+- 不新增storage、migration、background job、source、generic analytics framework或未批准infrastructure。
+- 不修改`docs/ROADMAP.md`，不開始P1-10或宣告Phase完成。
 
 Dependencies/risks：
 
-- 批准基準為`03e7dc73b324a642aed39bb2500f5228a0473970`；依賴P1-01至P1-07既有normalized complete snapshots。
-- Production使用前必須已有同一approved active source的兩個exact-date、完整、非stale snapshots；API不會以latest、LKG、插值、fixture或跨source拼接補足缺口。
-- issued-shares denominator若在兩日期間改變會明確warning；本Task不推測corporate action原因。
-- 若需要新source、breaking contract、destructive migration、credentials或付費服務，必須停止並由CTO另行批准。
+- 批准基準為`9800d7a6ed46893bcffecc8e604eb23c23eb4acf`；完全依賴P1-08 Changes的exact-pair及fail-loud語義。
+- Threshold只按absolute `shares_change`篩選，不作百分比、成交、公告或corporate-action推論。
+- Production仍必須預先具備同一approved active source的兩個完整、非stale exact-date snapshots。
+- 若需要new source、breaking contract、destructive migration、credentials或付費服務，必須停止並由CTO另行批准。
 
 Remaining manual step：
 
-- CTO Review／批准P1-08；批准前不開始P1-09、Gap Analysis或下一個TASK。
+- CTO Review／批准P1-09；批准前不開始P1-10、Gap Analysis或下一個TASK。
 
 ## Decisions and constraints
 
@@ -178,15 +179,28 @@ Remaining manual step: Complete; CTO approved.
 
 ```text
 Task: P1-08 — Complete Changes Vertical Slice
-Status: complete; awaiting CTO Review
-Commit: P1-08 delivery commit containing this evidence
+Status: complete; CTO approved
+Commit: 9800d7a6ed46893bcffecc8e604eb23c23eb4acf
 Tests: Ruff passed; targeted Pytest 20 passed; full Pytest 149 passed; diff, Markdown, UTF-8, secrets and private-path scans passed.
 Files: additive Changes models/service/API/report and deterministic offline Changes acceptance tests; TASK evidence only.
 Active sources: Existing approved Webb-site latest Holdings and configured Google Drive CSV only; Changes reads exact persisted pairs from one approved active source.
 Disabled/unverified sources: No new source; HKEX SDW automation and all unreviewed sources remain disabled/unregistered.
 Golden validation: Synthetic offline fixtures only; no live/golden or production-data claim.
 Public acceptance: Canonical Changes JSON and Markdown delivery added; existing Holdings, legacy FastAPI, MCP and Streamlit contracts remain compatible.
-Remaining manual step: CTO Review／批准P1-08.
+Remaining manual step: Complete; CTO approved.
+```
+
+```text
+Task: P1-09 — Complete Big Changes Vertical Slice
+Status: complete; awaiting CTO Review
+Commit: P1-09 delivery commit containing this evidence
+Tests: Ruff passed; targeted Pytest 30 passed; full Pytest 159 passed; diff, Markdown, UTF-8, secrets and private-path scans passed.
+Files: threshold setting/example, additive Big Changes models/service/API/report and deterministic offline acceptance tests; TASK evidence only.
+Active sources: Existing approved Webb-site latest Holdings and configured Google Drive CSV only; Big Changes delegates exact-pair retrieval to P1-08 Changes.
+Disabled/unverified sources: No new source; HKEX SDW automation and all unreviewed sources remain disabled/unregistered.
+Golden validation: Synthetic offline fixtures only; no live/golden or production-data claim.
+Public acceptance: Canonical Big Changes JSON and Markdown delivery added; existing Holdings, Changes, legacy FastAPI, MCP and Streamlit contracts remain compatible.
+Remaining manual step: CTO Review／批准P1-09.
 ```
 完成active task時附加：
 

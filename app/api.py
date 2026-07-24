@@ -7,9 +7,11 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from app import __version__
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
-from app.models import CcassResponse, ChangesResponse
+from app.models import BigChangesResponse, CcassResponse, ChangesResponse
+from app.services.big_changes import BigChangesService, get_big_changes_service
 from app.services.ccass import CcassService, get_ccass_service
 from app.services.changes import ChangesService, get_changes_service
+from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.changes_report import build_changes_markdown_report
 from ccass_core.compute import compute_analysis
 from ccass_core.normalize import normalize_stock_code
@@ -101,6 +103,52 @@ async def get_stock_changes_report(
     )
     return PlainTextResponse(
         build_changes_markdown_report(response),
+        media_type="text/markdown; charset=utf-8",
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/big-changes",
+    response_model=BigChangesResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["big-changes"],
+)
+async def get_stock_big_changes(
+    stock_code: str,
+    snapshot_date: date,
+    compare_date: date,
+    threshold_shares: int | None = Query(default=None, ge=1),
+    service: BigChangesService = Depends(get_big_changes_service),
+) -> BigChangesResponse:
+    return service.get_big_changes(
+        stock_code,
+        snapshot_date=snapshot_date,
+        compare_date=compare_date,
+        threshold_shares=threshold_shares,
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/big-changes/report",
+    response_class=PlainTextResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["big-changes"],
+)
+async def get_stock_big_changes_report(
+    stock_code: str,
+    snapshot_date: date,
+    compare_date: date,
+    threshold_shares: int | None = Query(default=None, ge=1),
+    service: BigChangesService = Depends(get_big_changes_service),
+) -> PlainTextResponse:
+    response = service.get_big_changes(
+        stock_code,
+        snapshot_date=snapshot_date,
+        compare_date=compare_date,
+        threshold_shares=threshold_shares,
+    )
+    return PlainTextResponse(
+        build_big_changes_markdown_report(response),
         media_type="text/markdown; charset=utf-8",
     )
 

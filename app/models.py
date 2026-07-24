@@ -130,3 +130,22 @@ class ChangesResponse(BaseModel):
     changes: list[ChangeRow] = Field(default_factory=list)
     diagnostics: ChangesDiagnostics
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class BigChangesSummary(BaseModel):
+    threshold_shares: int = Field(gt=0)
+    participants_compared: int = Field(ge=0)
+    changed_participants_considered: int = Field(ge=0)
+    big_changes_count: int = Field(ge=0)
+    new_count: int = Field(ge=0)
+    removed_count: int = Field(ge=0)
+    increased_count: int = Field(ge=0)
+    decreased_count: int = Field(ge=0)
+
+
+class BigChangesResponse(BaseModel):
+    metadata: ChangesMetadata
+    summary: BigChangesSummary
+    big_changes: list[ChangeRow] = Field(default_factory=list)
+    diagnostics: ChangesDiagnostics
+    data_quality_warnings: list[str] = Field(default_factory=list)
