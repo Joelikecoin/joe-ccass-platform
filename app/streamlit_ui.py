@@ -1,11 +1,13 @@
-import base64
+﻿import base64
 import html
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 
-from app.errors import PlatformError
+from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
+from app.sources.registry import WEBBSITE_SOURCE_ID
+from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.compute import compute_analysis
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import (
@@ -83,6 +85,48 @@ async def prepare_report(
         filename=report_filename(code),
         response=response,
     )
+
+
+
+def resolve_streamlit_query_input(
+    raw_value: str,
+    input_type: str,
+    *,
+    repository: NormalizedSnapshotRepository | None = None,
+) -> str:
+    if input_type == "Stock Code":
+        return normalize_stock_code(raw_value)
+    if input_type == "Webb-site Issue ID":
+        if repository is None:
+            raise ValueError("repository is required for Webb-site Issue ID lookup")
+        issue_id = _parse_positive_int(raw_value, label="Webb-site Issue ID")
+        code = repository.stock_code_for_issue_id(source_id=WEBBSITE_SOURCE_ID, issue_id=issue_id)
+        if code is None:
+            raise PlatformError(
+                ErrorCode.NOT_FOUND,
+                f"No verified stock code is available for Webb-site issue ID {issue_id}.",
+                status_code=404,
+            )
+        return code
+    raise ValueError(f"Unsupported input type: {input_type}")
+
+
+def _parse_positive_int(raw_value: str, *, label: str) -> int:
+    try:
+        value = int(raw_value.strip())
+    except ValueError as exc:
+        raise PlatformError(
+            ErrorCode.INVALID_SCHEMA,
+            f"{label} must be a positive integer.",
+            status_code=400,
+        ) from exc
+    if value <= 0:
+        raise PlatformError(
+            ErrorCode.INVALID_SCHEMA,
+            f"{label} must be a positive integer.",
+            status_code=400,
+        )
+    return value
 
 
 def copy_button_html(label: str, payload: str, *, element_id: str) -> str:

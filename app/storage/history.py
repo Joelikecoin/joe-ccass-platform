@@ -1,4 +1,4 @@
-import json
+﻿import json
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, date, datetime
@@ -217,6 +217,22 @@ class NormalizedSnapshotRepository:
                     (code,),
                 ).fetchone()
         return int(row[0])
+
+    def stock_code_for_issue_id(self, *, source_id: str, issue_id: int) -> str | None:
+        with self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT stock_code
+                FROM source_issue_mapping
+                WHERE source_id = ? AND issue_id = ?
+                ORDER BY last_verified_at DESC, stock_code ASC
+                LIMIT 1
+                """,
+                (source_id, str(issue_id)),
+            ).fetchone()
+        if row is None:
+            return None
+        return str(row["stock_code"])
 
     def create_collector_run(self, run: CollectorRunRecord) -> int:
         with self._transaction() as connection:

@@ -1,10 +1,11 @@
-import base64
+﻿import base64
 import re
 
 from streamlit.testing.v1 import AppTest
 
 from app.errors import ErrorCode, PlatformError
-from app.streamlit_ui import copy_button_html, prepare_report
+from app.streamlit_ui import copy_button_html, prepare_report, resolve_streamlit_query_input
+from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.report import CHATGPT_COPY_HEADER, SECTION_HEADINGS
 
 
@@ -97,3 +98,15 @@ def test_streamlit_abc_shows_validation_error_without_network():
 
     assert not app.exception
     assert any("Validation error" in error.value for error in app.error)
+
+
+def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, current_response):
+    repository = NormalizedSnapshotRepository(tmp_path / "history.db")
+    repository.save_response(current_response, source_id="webbsite")
+
+    assert resolve_streamlit_query_input(
+        str(current_response.metadata.issue_id),
+        "Webb-site Issue ID",
+        repository=repository,
+    ) == "01592"
+    assert resolve_streamlit_query_input("1592", "Stock Code") == "01592"

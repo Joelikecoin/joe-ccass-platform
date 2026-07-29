@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import os
 from pathlib import Path
 
@@ -6,10 +6,11 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from app.config import get_settings
-from app.errors import PlatformError
+from app.errors import ErrorCode, PlatformError
 from app.services.ccass import get_ccass_service
-from app.streamlit_ui import copy_button_html, prepare_report
+from app.streamlit_ui import copy_button_html, prepare_report, resolve_streamlit_query_input
 from ccass_core.collector import SnapshotStore
+from app.storage.history import NormalizedSnapshotRepository
 
 
 def _load_streamlit_secrets() -> None:
@@ -40,6 +41,7 @@ st.caption(
 
 with st.sidebar:
     st.header("Options")
+    input_type = st.radio("Input Type", ("Stock Code", "Webb-site Issue ID"), index=0)
     holdings_limit = st.slider("Holdings limit", min_value=5, max_value=100, value=20, step=5)
     big_change_threshold = st.number_input(
         "Big change threshold (shares)",
@@ -55,7 +57,16 @@ with st.sidebar:
     st.caption("HKEX SDW: manual verification only; no automated access.")
 
 with st.form("ccass-query"):
-    raw_code = st.text_input("Stock code", placeholder="e.g. 1592 → 01592", max_chars=5)
+    if input_type == "Webb-site Issue ID":
+        input_label = "Webb-site Issue ID"
+        input_placeholder = "e.g. 3601"
+        input_max_chars = 8
+    else:
+        input_label = "Stock code"
+        input_placeholder = "e.g. 1592 → 01592"
+        input_max_chars = 5
+
+    raw_code = st.text_input(input_label, placeholder=input_placeholder, max_chars=input_max_chars)
     submitted = st.form_submit_button("Fetch", type="primary", use_container_width=True)
 
 if submitted:
@@ -66,6 +77,22 @@ if submitted:
 
     try:
         sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
+        resolved_code = raw_code
+        if input_type == "Webb-site Issue ID":
+            if not sqlite_path.is_file():
+                raise PlatformError(
+                    ErrorCode.NOT_FOUND,
+                    "No verified stock code is available for the requested Webb-site issue ID.",
+                    status_code=404,
+                )
+            issue_repository = NormalizedSnapshotRepository(sqlite_path)
+            resolved_code = resolve_streamlit_query_input(
+                raw_code,
+                input_type,
+                repository=issue_repository,
+            )
+        else:
+            resolved_code = resolve_streamlit_query_input(raw_code, input_type)
         previous_loader = None
         if use_local_history and sqlite_path.is_file():
             store = SnapshotStore(sqlite_path)
@@ -76,7 +103,7 @@ if submitted:
             previous_loader = load_previous
         prepared = asyncio.run(
             prepare_report(
-                raw_code,
+                resolved_code,
                 holdings_limit=holdings_limit,
                 big_change_threshold=int(big_change_threshold),
                 service=get_ccass_service(),

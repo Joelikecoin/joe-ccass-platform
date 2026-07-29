@@ -612,3 +612,14 @@ def test_version_two_database_upgrades_without_losing_collector_evidence(tmp_pat
 
     assert collector_count == 1
     assert backfill_tables == {"backfill_runs", "backfill_run_items"}
+
+
+def test_stock_code_for_issue_id_returns_saved_mapping(tmp_path, current_response):
+    repository = NormalizedSnapshotRepository(tmp_path / "history.db")
+    repository.save_response(current_response, source_id="webbsite")
+
+    assert repository.stock_code_for_issue_id(
+        source_id="webbsite",
+        issue_id=current_response.metadata.issue_id,
+    ) == "01592"
+    assert repository.stock_code_for_issue_id(source_id="webbsite", issue_id=99999) is None
