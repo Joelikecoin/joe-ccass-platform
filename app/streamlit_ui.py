@@ -214,6 +214,17 @@ def streamlit_sidebar_control_labels(locale: str = DEFAULT_LOCALE) -> tuple[str,
 STREAMLIT_SIDEBAR_CONTROL_LABELS = streamlit_sidebar_control_labels(DEFAULT_LOCALE)
 
 
+def streamlit_hkex_announcements_columns(locale: str = DEFAULT_LOCALE) -> tuple[str, ...]:
+    return (
+        ui_text(locale, "hkex_announcements_table_publish_time"),
+        ui_text(locale, "hkex_announcements_table_category"),
+        ui_text(locale, "hkex_announcements_table_title"),
+        ui_text(locale, "hkex_announcements_table_file_info"),
+        ui_text(locale, "hkex_announcements_table_official_url"),
+        ui_text(locale, "hkex_announcements_table_event_tags"),
+    )
+
+
 def streamlit_chart_help_sections(locale: str = DEFAULT_LOCALE) -> tuple[tuple[str, str], ...]:
     return (
         (ui_text(locale, "chart_help_rainbow_title"), ui_text(locale, "chart_help_rainbow_body")),

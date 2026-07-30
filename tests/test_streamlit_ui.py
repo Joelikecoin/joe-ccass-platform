@@ -17,6 +17,7 @@ from app.streamlit_ui import (
     prepare_report,
     resolve_streamlit_query_input,
     streamlit_chart_help_sections,
+    streamlit_hkex_announcements_columns,
     streamlit_navigation_links,
     streamlit_navigation_sections,
     streamlit_responsive_layout_css,
@@ -173,6 +174,34 @@ def test_streamlit_chart_help_sections_cover_objective_guidance():
     assert sections[-1][0] == translate_text(DEFAULT_LOCALE, 'ui.chart_help_cross_check_title')
     assert 'Do not infer buying or selling' in sections_en[0][1]
     assert 'avoid drawing a final conclusion' in sections_en[-1][1]
+
+
+def test_streamlit_hkex_announcements_columns_cover_target_surface():
+    assert streamlit_hkex_announcements_columns(DEFAULT_LOCALE) == (
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_publish_time'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_category'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_title'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_file_info'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_official_url'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_event_tags'),
+    )
+
+
+def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.info)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_export_heading') in block.value for block in app.markdown)
+    assert len(service.calls) == 1
 
 
 def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):

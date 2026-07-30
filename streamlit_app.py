@@ -6,6 +6,7 @@ import warnings
 from datetime import date
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -22,6 +23,7 @@ from app.streamlit_ui import (
     render_prepared_report,
     resolve_streamlit_query_input,
     streamlit_chart_help_sections,
+    streamlit_hkex_announcements_columns,
     streamlit_navigation_links,
     streamlit_responsive_layout_css,
     ui_text,
@@ -294,6 +296,25 @@ if prepared is not None:
         for title, body in streamlit_chart_help_sections(current_locale):
             st.markdown(f"### {title}")
             st.markdown(body)
+
+        st.markdown(f"<a id='{localized_report_anchor('hkex_announcements')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'hkex_announcements_heading')}")
+        st.caption(ui_text(current_locale, 'hkex_announcements_caption'))
+        if prepared.response is None:
+            st.warning(ui_text(current_locale, 'hkex_announcements_unavailable'))
+        announcement_columns = streamlit_hkex_announcements_columns(current_locale)
+        announcement_rows: list[dict[str, object]] = []
+        st.metric(ui_text(current_locale, 'hkex_announcements_count'), len(announcement_rows))
+        st.markdown(f"### {ui_text(current_locale, 'hkex_announcements_rows_label')}")
+        st.caption(ui_text(current_locale, 'hkex_announcements_sorting_note'))
+        st.dataframe(pd.DataFrame(announcement_rows, columns=announcement_columns), use_container_width=True, hide_index=True)
+        st.info(ui_text(current_locale, 'hkex_announcements_empty'))
+        st.markdown(f"**{ui_text(current_locale, 'hkex_announcements_export_heading')}**")
+        st.caption(ui_text(current_locale, 'hkex_announcements_export_note'))
+        st.caption(
+            f"{ui_text(current_locale, 'hkex_announcements_export_csv_label')} | "
+            f"{ui_text(current_locale, 'hkex_announcements_export_excel_label')}"
+        )
 
         st.markdown(f"<a id='{localized_report_anchor('downloads')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'downloads_heading')}")
