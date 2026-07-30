@@ -1,5 +1,6 @@
 ﻿import base64
 import html
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
@@ -15,6 +16,40 @@ from ccass_core.report import (
     build_markdown_report,
     report_filename,
 )
+
+STREAMLIT_NAV_SECTIONS = (
+    "Fetch Summary",
+    "All Tables",
+    "DT Rainbow",
+    "HKEX Announcements",
+    "Company",
+    "Holdings",
+    "Changes",
+    "Big Changes",
+    "Concentration",
+    "Price",
+    "Raw Previews",
+    "Copy for ChatGPT",
+    "Downloads",
+)
+
+STREAMLIT_SIDEBAR_CONTROL_LABELS = (
+    "Input Type",
+    "Stock Code / Issue ID",
+    "Timeout",
+    "Announcement Period",
+    "Source Mode",
+    "Data Date",
+    "History Range",
+    "Top N",
+    "Percentage Basis",
+    "Fetch",
+)
+
+STREAMLIT_SOURCE_MODES = ("auto", "webbsite", "google_drive_csv")
+STREAMLIT_ANNOUNCEMENT_PERIODS = ("All", "7 days", "30 days", "90 days")
+STREAMLIT_HISTORY_RANGES = ("Latest", "7 days", "30 days", "90 days", "Custom")
+STREAMLIT_PERCENTAGE_BASES = ("CCASS", "Issued Shares")
 
 
 class StockDataService(Protocol):
@@ -87,6 +122,11 @@ async def prepare_report(
     )
 
 
+def streamlit_navigation_links() -> str:
+    return " | ".join(
+        f"[{label}](#{_streamlit_anchor_id(label)})" for label in STREAMLIT_NAV_SECTIONS
+    )
+
 
 def resolve_streamlit_query_input(
     raw_value: str,
@@ -158,3 +198,7 @@ document.getElementById("{safe_id}").addEventListener("click", async () => {{
 def _progress(callback: Callable[[int, str], None] | None, value: int, label: str) -> None:
     if callback:
         callback(value, label)
+
+
+def _streamlit_anchor_id(label: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")

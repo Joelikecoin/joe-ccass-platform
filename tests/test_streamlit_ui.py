@@ -1,10 +1,17 @@
-﻿import base64
+import base64
 import re
 
 from streamlit.testing.v1 import AppTest
 
 from app.errors import ErrorCode, PlatformError
-from app.streamlit_ui import copy_button_html, prepare_report, resolve_streamlit_query_input
+from app.streamlit_ui import (
+    STREAMLIT_NAV_SECTIONS,
+    STREAMLIT_SIDEBAR_CONTROL_LABELS,
+    copy_button_html,
+    prepare_report,
+    resolve_streamlit_query_input,
+    streamlit_navigation_links,
+)
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.report import CHATGPT_COPY_HEADER, SECTION_HEADINGS
 
@@ -110,3 +117,44 @@ def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, curren
         repository=repository,
     ) == "01592"
     assert resolve_streamlit_query_input("1592", "Stock Code") == "01592"
+
+
+def test_streamlit_navigation_links_cover_required_sections():
+    links = streamlit_navigation_links()
+
+    assert STREAMLIT_NAV_SECTIONS == (
+        "Fetch Summary",
+        "All Tables",
+        "DT Rainbow",
+        "HKEX Announcements",
+        "Company",
+        "Holdings",
+        "Changes",
+        "Big Changes",
+        "Concentration",
+        "Price",
+        "Raw Previews",
+        "Copy for ChatGPT",
+        "Downloads",
+    )
+    assert "#fetch-summary" in links
+    assert "#all-tables" in links
+    assert "#dt-rainbow" in links
+    assert "#hkex-announcements" in links
+    assert "#copy-for-chatgpt" in links
+    assert "#downloads" in links
+
+
+def test_streamlit_sidebar_controls_cover_required_v1_surface():
+    assert STREAMLIT_SIDEBAR_CONTROL_LABELS == (
+        "Input Type",
+        "Stock Code / Issue ID",
+        "Timeout",
+        "Announcement Period",
+        "Source Mode",
+        "Data Date",
+        "History Range",
+        "Top N",
+        "Percentage Basis",
+        "Fetch",
+    )
