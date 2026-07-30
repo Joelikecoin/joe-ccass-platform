@@ -6,7 +6,6 @@ import warnings
 from datetime import date
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -307,7 +306,17 @@ if prepared is not None:
         st.metric(ui_text(current_locale, 'hkex_announcements_count'), len(announcement_rows))
         st.markdown(f"### {ui_text(current_locale, 'hkex_announcements_rows_label')}")
         st.caption(ui_text(current_locale, 'hkex_announcements_sorting_note'))
-        st.dataframe(pd.DataFrame(announcement_rows, columns=announcement_columns), use_container_width=True, hide_index=True)
+        if announcement_rows:
+            import pandas as pd
+
+            st.dataframe(pd.DataFrame(announcement_rows, columns=announcement_columns), use_container_width=True, hide_index=True)
+        else:
+            st.markdown(
+                "| " + " | ".join(announcement_columns) + " |"
+            )
+            st.markdown(
+                "| " + " | ".join(['---'] * len(announcement_columns)) + " |"
+            )
         st.info(ui_text(current_locale, 'hkex_announcements_empty'))
         st.markdown(f"**{ui_text(current_locale, 'hkex_announcements_export_heading')}**")
         st.caption(ui_text(current_locale, 'hkex_announcements_export_note'))

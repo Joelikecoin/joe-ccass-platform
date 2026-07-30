@@ -1,6 +1,8 @@
 ﻿import base64
 import re
 import zipfile
+
+import pytest
 from io import BytesIO
 from xml.etree import ElementTree as ET
 
@@ -139,6 +141,16 @@ def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, curren
     assert resolve_streamlit_query_input("1592", "Stock Code") == "01592"
 
 
+def test_resolve_streamlit_query_input_rejects_invalid_issue_id(tmp_path):
+    repository = NormalizedSnapshotRepository(tmp_path / "history.db")
+
+    with pytest.raises(PlatformError) as excinfo:
+        resolve_streamlit_query_input("abc", "Webb-site Issue ID", repository=repository)
+
+    assert excinfo.value.code == ErrorCode.INVALID_SCHEMA
+    assert "positive integer" in excinfo.value.message
+
+
 def test_streamlit_navigation_links_cover_required_sections():
     links = streamlit_navigation_links(DEFAULT_LOCALE)
 
@@ -149,6 +161,27 @@ def test_streamlit_navigation_links_cover_required_sections():
     assert "#hkex-announcements" in links
     assert "#copy-for-chatgpt" in links
     assert "#downloads" in links
+
+
+def test_streamlit_issue_id_mode_shows_validation_error_for_invalid_input(tmp_path, monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    repository = NormalizedSnapshotRepository(tmp_path / "history.db")
+    repository.save_response(current_response, source_id="webbsite")
+    monkeypatch.setenv("CCASS_SQLITE_PATH", str(tmp_path / "history.db"))
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=20)
+    app.radio[0].set_value("Webb-site Issue ID").run(timeout=20)
+    app.text_input[0].input("abc")
+    app.button[0].click().run(timeout=20)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, "ui.validation_error_prefix") in error.value for error in app.error)
+    assert any("positive integer" in error.value for error in app.error)
+    assert len(service.calls) == 0
 
 
 def test_streamlit_sidebar_controls_cover_required_v1_surface():
