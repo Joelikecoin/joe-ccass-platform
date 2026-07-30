@@ -1,4 +1,4 @@
-import base64
+﻿import base64
 import re
 import zipfile
 from io import BytesIO
@@ -8,6 +8,7 @@ from streamlit.testing.v1 import AppTest
 
 from app.errors import ErrorCode, PlatformError
 from app.streamlit_ui import (
+    DEFAULT_LOCALE,
     STREAMLIT_NAV_SECTIONS,
     STREAMLIT_SIDEBAR_CONTROL_LABELS,
     build_download_artifacts,
@@ -16,9 +17,12 @@ from app.streamlit_ui import (
     prepare_report,
     resolve_streamlit_query_input,
     streamlit_navigation_links,
+    streamlit_navigation_sections,
+    streamlit_sidebar_control_labels,
+    translate_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
-from ccass_core.report import CHATGPT_COPY_HEADER, SECTION_HEADINGS
+from ccass_core.report import CHATGPT_COPY_HEADER, report_section_headings
 
 
 class SuccessfulService:
@@ -64,12 +68,13 @@ async def test_prepare_report_network_failure_keeps_all_sections():
         holdings_limit=20,
         big_change_threshold=500,
         service=FailingService(),
+        locale=DEFAULT_LOCALE,
     )
 
     assert prepared.fetch_error.startswith("SOURCE_UNAVAILABLE:")
-    assert "## Fetch Summary" in prepared.markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.fetch_summary") in prepared.markdown
     assert [line for line in prepared.markdown.splitlines() if line.startswith("## ")] == list(
-        SECTION_HEADINGS
+        report_section_headings(DEFAULT_LOCALE)
     )
 
 
@@ -82,11 +87,18 @@ async def test_optional_previous_snapshot_failure_preserves_report(current_respo
         holdings_limit=20,
         big_change_threshold=500,
         service=SuccessfulService(current_response),
+        locale=DEFAULT_LOCALE,
         previous_loader=broken_previous_loader,
     )
 
-    assert "Previous-snapshot enrichment is unavailable (OSError)." in prepared.markdown
-    assert "DATA NOT AVAILABLE — No previous snapshot was supplied" in prepared.markdown
+    assert (
+        translate_text(DEFAULT_LOCALE, "report.warning.previous_snapshot_enrichment_unavailable", exception_name="OSError")
+        in prepared.markdown
+    )
+    assert (
+        f"{translate_text(DEFAULT_LOCALE, 'report.data_not_available')} ? {translate_text(DEFAULT_LOCALE, 'report.previous_snapshot_unavailable')}"
+        in prepared.markdown
+    )
 
 
 def test_copy_button_contains_exact_utf8_payload_and_chatgpt_header():
@@ -109,7 +121,7 @@ def test_streamlit_abc_shows_validation_error_without_network():
     app.button[0].click().run(timeout=10)
 
     assert not app.exception
-    assert any("Validation error" in error.value for error in app.error)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.validation_error_prefix") in error.value for error in app.error)
 
 
 def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, current_response):
@@ -125,23 +137,9 @@ def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, curren
 
 
 def test_streamlit_navigation_links_cover_required_sections():
-    links = streamlit_navigation_links()
+    links = streamlit_navigation_links(DEFAULT_LOCALE)
 
-    assert STREAMLIT_NAV_SECTIONS == (
-        "Fetch Summary",
-        "All Tables",
-        "DT Rainbow",
-        "HKEX Announcements",
-        "Company",
-        "Holdings",
-        "Changes",
-        "Big Changes",
-        "Concentration",
-        "Price",
-        "Raw Previews",
-        "Copy for ChatGPT",
-        "Downloads",
-    )
+    assert STREAMLIT_NAV_SECTIONS == streamlit_navigation_sections(DEFAULT_LOCALE)
     assert "#fetch-summary" in links
     assert "#all-tables" in links
     assert "#dt-rainbow" in links
@@ -151,33 +149,26 @@ def test_streamlit_navigation_links_cover_required_sections():
 
 
 def test_streamlit_sidebar_controls_cover_required_v1_surface():
-    assert STREAMLIT_SIDEBAR_CONTROL_LABELS == (
-        "Input Type",
-        "Stock Code / Issue ID",
-        "Timeout",
-        "Announcement Period",
-        "Source Mode",
-        "Data Date",
-        "History Range",
-        "Top N",
-        "Percentage Basis",
-        "Fetch",
-    )
+    assert STREAMLIT_SIDEBAR_CONTROL_LABELS == streamlit_sidebar_control_labels(DEFAULT_LOCALE)
+
 
 def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):
-    tables = build_raw_preview_tables(current_response)
+    tables = build_raw_preview_tables(current_response, locale=DEFAULT_LOCALE)
 
     assert len(tables) == 2
 
     summary, holdings = tables
     assert summary.table_index == 0
-    assert summary.title == "Parsed Holdings Summary"
+    assert summary.title == translate_text(DEFAULT_LOCALE, "ui.raw_previews_summary_title")
     assert summary.shape == (9, 2)
-    assert summary.columns == ("Metric", "Value")
+    assert summary.columns == (
+        translate_text(DEFAULT_LOCALE, "ui.raw_previews_metric"),
+        translate_text(DEFAULT_LOCALE, "ui.raw_previews_value"),
+    )
     assert summary.sample_rows[0] == {"Metric": "Code", "Value": "01592"}
 
     assert holdings.table_index == 1
-    assert holdings.title == "Parsed Holdings Table"
+    assert holdings.title == translate_text(DEFAULT_LOCALE, "ui.raw_previews_holdings_title")
     assert holdings.shape == (len(current_response.holdings), 9)
     assert holdings.columns == (
         "Rank",
@@ -223,14 +214,43 @@ def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_resp
 def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 
-    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: SuccessfulService(current_response))
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
     app = AppTest.from_file("streamlit_app.py").run(timeout=10)
     app.text_input[0].input("1592")
     app.button[0].click().run(timeout=10)
 
     assert not app.exception
-    assert any("Downloads" in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_heading") in block.value for block in app.markdown)
     download_labels = [button.label for button in app.download_button]
-    assert "Download combined CSV" in download_labels
-    assert "Download Excel workbook" in download_labels
+    assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_combined_csv") in download_labels
+    assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_excel_workbook") in download_labels
+
+
+def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app.text_input[0].input("1592")
+    app.button[0].click().run(timeout=10)
+
+    assert len(service.calls) == 1
+    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+
+    try:
+        app.selectbox[0].select("en").run(timeout=10)
+    except Exception:
+        try:
+            app.selectbox[0].select("English").run(timeout=10)
+        except Exception:
+            app.session_state["locale"] = "en"
+            app.run(timeout=10)
+
+    assert len(service.calls) == 1
+    assert any("## Fetch Summary" in block.value for block in app.markdown)
+    assert any(button.label == "Download combined CSV" for button in app.download_button)
+

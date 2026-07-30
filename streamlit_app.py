@@ -1,5 +1,8 @@
-﻿import asyncio
+
+import asyncio
 import os
+import re
+import warnings
 from datetime import date
 from pathlib import Path
 
@@ -10,19 +13,20 @@ from app.config import get_settings
 from app.errors import ErrorCode, PlatformError
 from app.services.ccass import get_ccass_service
 from app.streamlit_ui import (
-    STREAMLIT_ANNOUNCEMENT_PERIODS,
-    STREAMLIT_HISTORY_RANGES,
-    STREAMLIT_PERCENTAGE_BASES,
-    STREAMLIT_SOURCE_MODES,
+    DEFAULT_LOCALE,
+    SUPPORTED_LOCALES,
     build_download_artifacts,
     build_raw_preview_tables,
     copy_button_html,
     prepare_report,
+    render_prepared_report,
     resolve_streamlit_query_input,
     streamlit_navigation_links,
+    ui_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import SnapshotStore
+from ccass_core.report import localized_report_anchor
 
 
 def _load_streamlit_secrets() -> None:
@@ -44,66 +48,130 @@ def _load_streamlit_secrets() -> None:
     get_settings.cache_clear()
 
 
+def _option_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def _choice_label(locale: str, category: str, value: str) -> str:
+    return ui_text(locale, f"{category}.{_option_key(value)}")
+
+
+def _dedupe_warning_messages(captured: list[warnings.WarningMessage]) -> list[str]:
+    seen: set[str] = set()
+    messages: list[str] = []
+    for warning in captured:
+        message = str(warning.message)
+        if message not in seen:
+            seen.add(message)
+            messages.append(message)
+    return messages
+
+
+def _render_fallback_warning(captured: list[warnings.WarningMessage]) -> None:
+    messages = _dedupe_warning_messages(captured)
+    if messages:
+        st.warning("\n".join(messages))
+
+
 _load_streamlit_secrets()
 settings = get_settings()
-st.set_page_config(page_title="HK CCASS Shareholding Analysis Tool", page_icon="📊", layout="wide")
-st.title("HK CCASS Shareholding Analysis Tool")
-st.caption(
-    "Low-frequency research tool. CCASS is settlement-layer nominee data, normally subject to T+2."
-)
-st.markdown(streamlit_navigation_links())
-st.caption("Jump links follow the report headings rendered below.")
+if "locale" not in st.session_state:
+    st.session_state.locale = DEFAULT_LOCALE
+current_locale = st.session_state.get("locale", DEFAULT_LOCALE)
+st.set_page_config(page_title=ui_text(current_locale, "app_title"), page_icon="??", layout="wide")
+st.title(ui_text(current_locale, "app_title"))
+st.caption(ui_text(current_locale, "app_caption"))
+st.markdown(streamlit_navigation_links(current_locale))
+st.caption(ui_text(current_locale, "jump_links_caption"))
 
 with st.sidebar:
-    st.header("Options")
-    input_type = st.radio("Input Type", ("Stock Code", "Webb-site Issue ID"), index=0)
+    st.header(ui_text(current_locale, "sidebar_header"))
+    st.selectbox(
+        ui_text(current_locale, "sidebar_language"),
+        SUPPORTED_LOCALES,
+        key="locale",
+        format_func=lambda value: ui_text(value, f"locale_name.{value}"),
+    )
+    current_locale = st.session_state.get("locale", DEFAULT_LOCALE)
+    input_type = st.radio(
+        ui_text(current_locale, "sidebar_input_type"),
+        ("Stock Code", "Webb-site Issue ID"),
+        index=0,
+        format_func=lambda value: _choice_label(current_locale, "input_type", value),
+    )
     timeout_seconds = st.number_input(
-        "Timeout",
+        ui_text(current_locale, "sidebar_timeout"),
         min_value=1.0,
         value=float(settings.request_timeout_seconds),
         step=1.0,
     )
     big_change_threshold = st.number_input(
-        "Big change threshold (shares)",
+        ui_text(current_locale, "sidebar_big_change_threshold"),
         min_value=0,
         value=settings.big_changes_threshold_shares,
         step=100000,
     )
-    announcement_period = st.selectbox("Announcement Period", STREAMLIT_ANNOUNCEMENT_PERIODS, index=0)
-    source_mode = st.selectbox(
-        "Source Mode",
-        STREAMLIT_SOURCE_MODES,
-        index=STREAMLIT_SOURCE_MODES.index(settings.data_source),
+    announcement_period = st.selectbox(
+        ui_text(current_locale, "sidebar_announcement_period"),
+        ("All", "7 days", "30 days", "90 days"),
+        index=0,
+        format_func=lambda value: _choice_label(current_locale, "announcement_period", value),
     )
-    data_date = st.date_input("Data Date", value=date.today())
-    history_range = st.selectbox("History Range", STREAMLIT_HISTORY_RANGES, index=0)
-    top_n = st.slider("Top N", min_value=5, max_value=100, value=20, step=5)
-    percentage_basis = st.selectbox("Percentage Basis", STREAMLIT_PERCENTAGE_BASES, index=0)
-    show_rendered_markdown = st.checkbox("Show rendered Markdown", value=True)
-    use_local_history = st.checkbox("Use local SQLite history for Changes", value=True)
+    source_mode = st.selectbox(
+        ui_text(current_locale, "sidebar_source_mode"),
+        ("auto", "webbsite", "google_drive_csv"),
+        index=("auto", "webbsite", "google_drive_csv").index(settings.data_source),
+        format_func=lambda value: _choice_label(current_locale, "source_mode", value),
+    )
+    data_date = st.date_input(ui_text(current_locale, "sidebar_data_date"), value=date.today())
+    history_range = st.selectbox(
+        ui_text(current_locale, "sidebar_history_range"),
+        ("Latest", "7 days", "30 days", "90 days", "Custom"),
+        index=0,
+        format_func=lambda value: _choice_label(current_locale, "history_range", value),
+    )
+    top_n = st.slider(ui_text(current_locale, "sidebar_top_n"), min_value=5, max_value=100, value=20, step=5)
+    percentage_basis = st.selectbox(
+        ui_text(current_locale, "sidebar_percentage_basis"),
+        ("CCASS", "Issued Shares"),
+        index=0,
+        format_func=lambda value: _choice_label(current_locale, "percentage_basis", value),
+    )
+    show_rendered_markdown = st.checkbox(ui_text(current_locale, "sidebar_show_rendered_markdown"), value=True)
+    use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=True)
     st.caption(
-        f"Source mode: {source_mode} | Timeout: {timeout_seconds:g}s | Announcement period: {announcement_period} | Data date: {data_date.isoformat()} | History range: {history_range} | Percentage basis: {percentage_basis}"
+        ui_text(
+            current_locale,
+            "sidebar_source_mode_caption",
+            source_mode=_choice_label(current_locale, "source_mode", source_mode),
+            timeout_seconds=timeout_seconds,
+            announcement_period=_choice_label(current_locale, "announcement_period", announcement_period),
+            data_date=data_date.isoformat(),
+            history_range=_choice_label(current_locale, "history_range", history_range),
+            percentage_basis=_choice_label(current_locale, "percentage_basis", percentage_basis),
+        )
     )
     st.divider()
-    st.caption(f"Data source mode: {source_mode}")
-    st.caption("HKEX SDW: manual verification only; no automated access.")
+    st.caption(ui_text(current_locale, "data_source_mode", source_mode=_choice_label(current_locale, "source_mode", source_mode)))
+    st.caption(ui_text(current_locale, "hkex_manual_verification"))
 
     with st.form("ccass-query"):
         if input_type == "Webb-site Issue ID":
             input_placeholder = "e.g. 3601"
             input_max_chars = 8
         else:
-            input_placeholder = "e.g. 1592 → 01592"
+            input_placeholder = "e.g. 1592 ? 01592"
             input_max_chars = 5
 
         raw_code = st.text_input(
-            "Stock Code / Issue ID",
+            ui_text(current_locale, "sidebar_stock_code_issue_id"),
             placeholder=input_placeholder,
             max_chars=input_max_chars,
         )
-        submitted = st.form_submit_button("Fetch", type="primary", use_container_width=True)
+        submitted = st.form_submit_button(ui_text(current_locale, "fetch"), type="primary", use_container_width=True)
 
 if submitted:
+    st.session_state.pop("prepared_report", None)
     progress_bar = st.progress(0, text="Starting")
 
     def update_progress(value: int, label: str) -> None:
@@ -145,128 +213,140 @@ if submitted:
                 holdings_limit=top_n,
                 big_change_threshold=int(big_change_threshold),
                 service=get_ccass_service(),
+                locale=current_locale,
                 previous_loader=previous_loader,
                 progress=update_progress,
             )
         )
     except PlatformError as exc:
         progress_bar.empty()
-        st.error(f"Validation error — {exc.message}")
+        st.error(f"{ui_text(current_locale, 'validation_error_prefix')} ? {exc.message}")
     except Exception as exc:
         progress_bar.empty()
-        st.error(f"UNEXPECTED_ERROR: {type(exc).__name__}")
+        st.error(f"{ui_text(current_locale, 'unexpected_error_prefix')}: {type(exc).__name__}")
     else:
+        st.session_state.prepared_report = prepared
+
+prepared = st.session_state.get("prepared_report")
+if prepared is not None:
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        localized_markdown, localized_chatgpt_payload = render_prepared_report(prepared, locale=current_locale)
+
         if prepared.fetch_error:
             st.error(prepared.fetch_error)
-            st.info("The Fetch Summary and every required report section remain available below.")
+            st.info(ui_text(current_locale, "fetch_summary_remaining"))
         if show_rendered_markdown:
-            st.markdown(prepared.markdown)
+            st.markdown(localized_markdown)
 
-        st.markdown("## Raw Previews")
-        with st.expander("Parsed source tables", expanded=False):
+        st.markdown(f"<a id='{localized_report_anchor('raw_previews')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'raw_previews_heading')}")
+        with st.expander(ui_text(current_locale, "raw_previews_expander"), expanded=False):
             if prepared.response is None:
-                st.info("Raw previews are available after a successful fetch.")
+                st.info(ui_text(current_locale, "raw_previews_unavailable"))
             else:
-                raw_preview_tables = build_raw_preview_tables(prepared.response)
-                st.caption(
-                    "Inspection view for parsed source tables already present in the fetched response."
-                )
+                raw_preview_tables = build_raw_preview_tables(prepared.response, locale=current_locale)
+                st.caption(ui_text(current_locale, "raw_previews_caption"))
                 overview_rows = [
                     {
-                        "Table Index": table.table_index,
-                        "Table Name": table.title,
-                        "Shape": f"{table.shape[0]} × {table.shape[1]}",
-                        "Columns": ", ".join(table.columns),
+                        ui_text(current_locale, "raw_previews_table_index"): table.table_index,
+                        ui_text(current_locale, "raw_previews_table_name"): table.title,
+                        ui_text(current_locale, "raw_previews_shape"): f"{table.shape[0]} ? {table.shape[1]}",
+                        ui_text(current_locale, "raw_previews_columns"): ", ".join(table.columns),
                     }
                     for table in raw_preview_tables
                 ]
                 st.table(overview_rows)
                 for table in raw_preview_tables:
                     st.markdown(f"### {table.table_index}. {table.title}")
-                    st.caption(f"Shape: {table.shape[0]} × {table.shape[1]}")
-                    st.caption(f"Columns: {', '.join(table.columns)}")
+                    st.caption(f"{ui_text(current_locale, 'raw_previews_shape')}: {table.shape[0]} ? {table.shape[1]}")
+                    st.caption(f"{ui_text(current_locale, 'raw_previews_columns')}: {', '.join(table.columns)}")
                     if table.sample_rows:
                         st.table(list(table.sample_rows))
                     else:
-                        st.info("No sample rows available.")
+                        st.info(ui_text(current_locale, "raw_previews_no_sample_rows"))
 
+        st.markdown(f"<a id='{localized_report_anchor('copy_for_chatgpt')}'></a>", unsafe_allow_html=True)
         copy_col, report_col = st.columns(2)
         with copy_col:
-            st.markdown("**Copy for ChatGPT**")
+            st.markdown(f"**{ui_text(current_locale, 'copy_for_chatgpt')}**")
             components.html(
                 copy_button_html(
-                    "Copy for ChatGPT",
-                    prepared.chatgpt_payload,
+                    ui_text(current_locale, "copy_for_chatgpt"),
+                    localized_chatgpt_payload,
                     element_id="copy-chatgpt",
                 ),
                 height=55,
             )
         with report_col:
-            st.markdown("**Copy report**")
+            st.markdown(f"**{ui_text(current_locale, 'copy_report')}**")
             components.html(
-                copy_button_html("Copy report", prepared.markdown, element_id="copy-report"),
+                copy_button_html(ui_text(current_locale, "copy_report"), localized_markdown, element_id="copy-report"),
                 height=55,
             )
 
-        st.markdown("## Downloads")
+        st.markdown(f"<a id='{localized_report_anchor('downloads')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'downloads_heading')}")
         if prepared.response is None:
-            st.info("Downloads are available after a successful fetch.")
+            st.info(ui_text(current_locale, "downloads_unavailable"))
         else:
             download_artifacts = build_download_artifacts(prepared.response)
-            st.caption("Download the current report artifacts directly from the fetched response.")
+            st.caption(ui_text(current_locale, "downloads_caption"))
             combined_col, workbook_col, report_download_col = st.columns(3)
             with combined_col:
-                st.markdown("**Combined CSV**")
+                st.markdown(f"**{ui_text(current_locale, 'downloads_combined_csv')}**")
                 st.download_button(
-                    "Download combined CSV",
+                    ui_text(current_locale, "downloads_download_combined_csv"),
                     data=download_artifacts.combined_csv_bytes,
                     file_name=download_artifacts.combined_csv_filename,
                     mime="text/csv",
                     use_container_width=True,
                 )
             with workbook_col:
-                st.markdown("**Excel workbook**")
+                st.markdown(f"**{ui_text(current_locale, 'downloads_excel_workbook')}**")
                 st.download_button(
-                    "Download Excel workbook",
+                    ui_text(current_locale, "downloads_download_excel_workbook"),
                     data=download_artifacts.workbook_bytes,
                     file_name=download_artifacts.workbook_filename,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
             with report_download_col:
-                st.markdown("**Report Markdown**")
+                st.markdown(f"**{ui_text(current_locale, 'downloads_report_markdown')}**")
                 st.download_button(
-                    "Download Markdown report",
-                    data=prepared.markdown,
+                    ui_text(current_locale, "downloads_download_markdown_report"),
+                    data=localized_markdown,
                     file_name=prepared.filename,
                     mime="text/markdown",
                     use_container_width=True,
                 )
 
-            with st.expander("CSV preview", expanded=False):
-                st.caption("First 80 CSV lines")
+            with st.expander(ui_text(current_locale, "downloads_csv_preview"), expanded=False):
+                st.caption(ui_text(current_locale, "downloads_first_80_csv_lines"))
                 st.code(download_artifacts.combined_csv_preview, language="csv")
 
-            with st.expander("Section-specific download controls", expanded=False):
+            with st.expander(ui_text(current_locale, "downloads_section_specific"), expanded=False):
                 section_summary_col, section_holdings_col = st.columns(2)
                 with section_summary_col:
-                    st.markdown("**Raw Preview Summary CSV**")
+                    st.markdown(f"**{ui_text(current_locale, 'downloads_raw_preview_summary_csv')}**")
                     st.download_button(
-                        "Download Raw Preview Summary CSV",
+                        ui_text(current_locale, "downloads_download_raw_preview_summary_csv"),
                         data=download_artifacts.raw_preview_summary_bytes,
                         file_name=download_artifacts.raw_preview_summary_filename,
                         mime="text/csv",
                         use_container_width=True,
                     )
                 with section_holdings_col:
-                    st.markdown("**Raw Preview Holdings CSV**")
+                    st.markdown(f"**{ui_text(current_locale, 'downloads_raw_preview_holdings_csv')}**")
                     st.download_button(
-                        "Download Raw Preview Holdings CSV",
+                        ui_text(current_locale, "downloads_download_raw_preview_holdings_csv"),
                         data=download_artifacts.raw_preview_holdings_bytes,
                         file_name=download_artifacts.raw_preview_holdings_filename,
                         mime="text/csv",
                         use_container_width=True,
                     )
 
-        with st.expander("Raw Markdown", expanded=False):
-            st.code(prepared.markdown, language="markdown")
+        with st.expander(ui_text(current_locale, "raw_markdown"), expanded=False):
+            st.code(localized_markdown, language="markdown")
+
+    _render_fallback_warning(caught)

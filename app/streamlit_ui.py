@@ -4,6 +4,7 @@ import html
 import io
 import re
 import tempfile
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,41 +18,49 @@ from app.models import CcassResponse
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import export_latest_csv
-from ccass_core.compute import compute_analysis
+from ccass_core.compute import AnalysisResult, compute_analysis
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import (
+    DEFAULT_LOCALE,
+    SUPPORTED_LOCALES,
     build_chatgpt_copy_payload,
     build_markdown_report,
+    localized_report_anchor,
     report_filename,
+    report_section_headings,
+    translate_text,
 )
 
-STREAMLIT_NAV_SECTIONS = (
-    "Fetch Summary",
-    "All Tables",
-    "DT Rainbow",
-    "HKEX Announcements",
-    "Company",
-    "Holdings",
-    "Changes",
-    "Big Changes",
-    "Concentration",
-    "Price",
-    "Raw Previews",
-    "Copy for ChatGPT",
-    "Downloads",
+NAV_SECTION_KEYS = (
+    "fetch_summary",
+    "all_tables",
+    "dt_rainbow",
+    "hkex_announcements",
+    "company",
+    "holdings",
+    "changes",
+    "big_changes",
+    "concentration",
+    "price",
+    "raw_previews",
+    "copy_for_chatgpt",
+    "downloads",
 )
 
+STREAMLIT_NAV_SECTIONS = tuple(
+    translate_text(DEFAULT_LOCALE, f"nav.{key}") for key in NAV_SECTION_KEYS
+)
 STREAMLIT_SIDEBAR_CONTROL_LABELS = (
-    "Input Type",
-    "Stock Code / Issue ID",
-    "Timeout",
-    "Announcement Period",
-    "Source Mode",
-    "Data Date",
-    "History Range",
-    "Top N",
-    "Percentage Basis",
-    "Fetch",
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_input_type"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_stock_code_issue_id"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_timeout"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_announcement_period"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_source_mode"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_data_date"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_history_range"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_top_n"),
+    translate_text(DEFAULT_LOCALE, "ui.sidebar_percentage_basis"),
+    translate_text(DEFAULT_LOCALE, "ui.fetch"),
 )
 
 STREAMLIT_SOURCE_MODES = ("auto", "webbsite", "google_drive_csv")
@@ -84,6 +93,7 @@ class PreparedReport:
     chatgpt_payload: str
     filename: str
     response: CcassResponse | None
+    analysis: AnalysisResult | None = None
     fetch_error: str | None = None
 
 
@@ -115,10 +125,10 @@ async def prepare_report(
     holdings_limit: int,
     big_change_threshold: int,
     service: StockDataService,
+    locale: str = DEFAULT_LOCALE,
     previous_loader: Callable[[CcassResponse], CcassResponse | None] | None = None,
     progress: Callable[[int, str], None] | None = None,
 ) -> PreparedReport:
-    """Fetch, compute, and render without depending on Streamlit runtime state."""
     code = normalize_stock_code(raw_code)
     _progress(progress, 15, "Validated stock code")
     try:
@@ -127,7 +137,7 @@ async def prepare_report(
     except PlatformError as exc:
         error = f"{exc.code}: {exc.message}"
         _progress(progress, 75, "Source unavailable; building a complete diagnostic report")
-        markdown = build_markdown_report(None, code=code, fetch_error=error)
+        markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
         _progress(progress, 100, "Report ready with source error details")
         return PreparedReport(
             code=code,
@@ -152,7 +162,7 @@ async def prepare_report(
         big_change_threshold=big_change_threshold,
     )
     _progress(progress, 85, "Rendering Markdown report")
-    markdown = build_markdown_report(response, code=code, analysis=analysis)
+    markdown = build_markdown_report(response, code=code, analysis=analysis, locale=locale)
     _progress(progress, 100, "Report ready")
     return PreparedReport(
         code=code,
@@ -160,33 +170,69 @@ async def prepare_report(
         chatgpt_payload=build_chatgpt_copy_payload(markdown),
         filename=report_filename(code),
         response=response,
+        analysis=analysis,
     )
 
 
-def streamlit_navigation_links() -> str:
+def ui_text(locale: str, key: str, /, **values: object) -> str:
+    return translate_text(locale, f"ui.{key}", **values)
+
+
+def nav_text(locale: str, key: str) -> str:
+    return translate_text(locale, f"nav.{key}")
+
+
+def _option_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def streamlit_navigation_sections(locale: str = DEFAULT_LOCALE) -> tuple[str, ...]:
+    return tuple(nav_text(locale, key) for key in NAV_SECTION_KEYS)
+
+
+def streamlit_navigation_links(locale: str = DEFAULT_LOCALE) -> str:
     return " | ".join(
-        f"[{label}](#{_streamlit_anchor_id(label)})" for label in STREAMLIT_NAV_SECTIONS
+        f"[{nav_text(locale, key)}](#{localized_report_anchor(key)})" for key in NAV_SECTION_KEYS
     )
+
+
+def streamlit_sidebar_control_labels(locale: str = DEFAULT_LOCALE) -> tuple[str, ...]:
+    return (
+        ui_text(locale, "sidebar_input_type"),
+        ui_text(locale, "sidebar_stock_code_issue_id"),
+        ui_text(locale, "sidebar_timeout"),
+        ui_text(locale, "sidebar_announcement_period"),
+        ui_text(locale, "sidebar_source_mode"),
+        ui_text(locale, "sidebar_data_date"),
+        ui_text(locale, "sidebar_history_range"),
+        ui_text(locale, "sidebar_top_n"),
+        ui_text(locale, "sidebar_percentage_basis"),
+        ui_text(locale, "fetch"),
+    )
+
+
+STREAMLIT_SIDEBAR_CONTROL_LABELS = streamlit_sidebar_control_labels(DEFAULT_LOCALE)
 
 
 def build_raw_preview_tables(
     response: CcassResponse,
     *,
     sample_size: int = 5,
+    locale: str = DEFAULT_LOCALE,
 ) -> tuple[RawPreviewTable, ...]:
     summary_rows = _summary_preview_rows(response)
     holdings_rows = _holding_preview_rows(response)
     return (
         RawPreviewTable(
             table_index=0,
-            title="Parsed Holdings Summary",
+            title=ui_text(locale, "raw_previews_summary_title"),
             shape=(len(summary_rows), 2),
-            columns=("Metric", "Value"),
+            columns=(ui_text(locale, "raw_previews_metric"), ui_text(locale, "raw_previews_value")),
             sample_rows=tuple(summary_rows[:sample_size]),
         ),
         RawPreviewTable(
             table_index=1,
-            title="Parsed Holdings Table",
+            title=ui_text(locale, "raw_previews_holdings_title"),
             shape=(len(holdings_rows), len(HOLDINGS_PREVIEW_COLUMNS)),
             columns=HOLDINGS_PREVIEW_COLUMNS,
             sample_rows=tuple(holdings_rows[:sample_size]),
@@ -199,7 +245,7 @@ def build_download_artifacts(
     *,
     preview_line_count: int = 80,
 ) -> DownloadArtifacts:
-    raw_preview_tables = build_raw_preview_tables(response)
+    raw_preview_tables = build_raw_preview_tables(response, locale="en")
     combined_csv_bytes = _build_combined_csv_bytes(response)
     workbook_bytes = _build_download_workbook_bytes(response, combined_csv_bytes, raw_preview_tables)
     return DownloadArtifacts(
@@ -529,3 +575,22 @@ def _progress(callback: Callable[[int, str], None] | None, value: int, label: st
 
 def _streamlit_anchor_id(label: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
+
+
+
+def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LOCALE) -> tuple[str, str]:
+    if prepared.response is None:
+        markdown = build_markdown_report(
+            None,
+            code=prepared.code,
+            fetch_error=prepared.fetch_error,
+            locale=locale,
+        )
+    else:
+        markdown = build_markdown_report(
+            prepared.response,
+            code=prepared.code,
+            analysis=prepared.analysis,
+            locale=locale,
+        )
+    return markdown, build_chatgpt_copy_payload(markdown)
