@@ -22,6 +22,7 @@ from app.streamlit_ui import (
     render_prepared_report,
     resolve_streamlit_query_input,
     streamlit_navigation_links,
+    streamlit_responsive_layout_css,
     ui_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
@@ -79,6 +80,7 @@ if "locale" not in st.session_state:
     st.session_state.locale = DEFAULT_LOCALE
 current_locale = st.session_state.get("locale", DEFAULT_LOCALE)
 st.set_page_config(page_title=ui_text(current_locale, "app_title"), page_icon="??", layout="wide")
+st.markdown(streamlit_responsive_layout_css(), unsafe_allow_html=True)
 st.title(ui_text(current_locale, "app_title"))
 st.caption(ui_text(current_locale, "app_caption"))
 st.markdown(streamlit_navigation_links(current_locale))

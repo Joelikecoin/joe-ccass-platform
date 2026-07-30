@@ -214,6 +214,63 @@ def streamlit_sidebar_control_labels(locale: str = DEFAULT_LOCALE) -> tuple[str,
 STREAMLIT_SIDEBAR_CONTROL_LABELS = streamlit_sidebar_control_labels(DEFAULT_LOCALE)
 
 
+def streamlit_responsive_layout_css() -> str:
+    """Return a small responsive stylesheet for the existing Streamlit layout."""
+    return """
+<style>
+    .block-container {
+        max-width: 100%;
+    }
+
+    div[data-testid="stMarkdownContainer"] p,
+    div[data-testid="stMarkdownContainer"] li,
+    div[data-testid="stMarkdownContainer"] a {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    div[data-testid="stTable"],
+    div[data-testid="stDataFrame"] {
+        overflow-x: auto;
+    }
+
+    @media (max-width: 768px) {
+        .block-container {
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+
+        section[data-testid="stSidebar"] > div {
+            padding: 1rem 0.75rem 1.5rem;
+        }
+
+        section[data-testid="stSidebar"] button,
+        section[data-testid="stSidebar"] input,
+        section[data-testid="stSidebar"] select,
+        section[data-testid="stSidebar"] textarea {
+            width: 100%;
+        }
+
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap;
+        }
+
+        div[data-testid="column"] {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+        }
+
+        div[data-testid="stDownloadButton"] button,
+        div[data-testid="stButton"] button {
+            width: 100%;
+        }
+    }
+</style>
+""".strip()
+
+
 def build_raw_preview_tables(
     response: CcassResponse,
     *,

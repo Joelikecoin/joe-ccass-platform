@@ -18,6 +18,7 @@ from app.streamlit_ui import (
     resolve_streamlit_query_input,
     streamlit_navigation_links,
     streamlit_navigation_sections,
+    streamlit_responsive_layout_css,
     streamlit_sidebar_control_labels,
     translate_text,
 )
@@ -150,6 +151,16 @@ def test_streamlit_navigation_links_cover_required_sections():
 
 def test_streamlit_sidebar_controls_cover_required_v1_surface():
     assert STREAMLIT_SIDEBAR_CONTROL_LABELS == streamlit_sidebar_control_labels(DEFAULT_LOCALE)
+
+
+def test_streamlit_responsive_layout_css_targets_narrow_screens():
+    css = streamlit_responsive_layout_css()
+
+    assert '@media (max-width: 768px)' in css
+    assert 'section[data-testid="stSidebar"]' in css
+    assert 'div[data-testid="stHorizontalBlock"]' in css
+    assert 'div[data-testid="column"]' in css
+    assert 'overflow-wrap: anywhere' in css
 
 
 def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):
