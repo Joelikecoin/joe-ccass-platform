@@ -16,6 +16,7 @@ from app.streamlit_ui import (
     copy_button_html,
     prepare_report,
     resolve_streamlit_query_input,
+    streamlit_chart_help_sections,
     streamlit_navigation_links,
     streamlit_navigation_sections,
     streamlit_responsive_layout_css,
@@ -163,6 +164,17 @@ def test_streamlit_responsive_layout_css_targets_narrow_screens():
     assert 'overflow-wrap: anywhere' in css
 
 
+def test_streamlit_chart_help_sections_cover_objective_guidance():
+    sections = streamlit_chart_help_sections(DEFAULT_LOCALE)
+    sections_en = streamlit_chart_help_sections('en')
+
+    assert len(sections) == 5
+    assert sections[0][0] == translate_text(DEFAULT_LOCALE, 'ui.chart_help_rainbow_title')
+    assert sections[-1][0] == translate_text(DEFAULT_LOCALE, 'ui.chart_help_cross_check_title')
+    assert 'Do not infer buying or selling' in sections_en[0][1]
+    assert 'avoid drawing a final conclusion' in sections_en[-1][1]
+
+
 def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):
     tables = build_raw_preview_tables(current_response, locale=DEFAULT_LOCALE)
 
@@ -251,6 +263,7 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
 
     assert len(service.calls) == 1
     assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
 
     try:
         app.selectbox[0].select("en").run(timeout=10)
@@ -263,5 +276,6 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
 
     assert len(service.calls) == 1
     assert any("## Fetch Summary" in block.value for block in app.markdown)
+    assert any(translate_text('en', 'ui.chart_help_heading') in block.value for block in app.markdown)
     assert any(button.label == "Download combined CSV" for button in app.download_button)
 

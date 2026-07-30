@@ -214,6 +214,16 @@ def streamlit_sidebar_control_labels(locale: str = DEFAULT_LOCALE) -> tuple[str,
 STREAMLIT_SIDEBAR_CONTROL_LABELS = streamlit_sidebar_control_labels(DEFAULT_LOCALE)
 
 
+def streamlit_chart_help_sections(locale: str = DEFAULT_LOCALE) -> tuple[tuple[str, str], ...]:
+    return (
+        (ui_text(locale, "chart_help_rainbow_title"), ui_text(locale, "chart_help_rainbow_body")),
+        (ui_text(locale, "chart_help_concentration_title"), ui_text(locale, "chart_help_concentration_body")),
+        (ui_text(locale, "chart_help_price_title"), ui_text(locale, "chart_help_price_body")),
+        (ui_text(locale, "chart_help_announcements_title"), ui_text(locale, "chart_help_announcements_body")),
+        (ui_text(locale, "chart_help_cross_check_title"), ui_text(locale, "chart_help_cross_check_body")),
+    )
+
+
 def streamlit_responsive_layout_css() -> str:
     """Return a small responsive stylesheet for the existing Streamlit layout."""
     return """

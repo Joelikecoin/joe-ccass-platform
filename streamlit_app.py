@@ -21,6 +21,7 @@ from app.streamlit_ui import (
     prepare_report,
     render_prepared_report,
     resolve_streamlit_query_input,
+    streamlit_chart_help_sections,
     streamlit_navigation_links,
     streamlit_responsive_layout_css,
     ui_text,
@@ -286,6 +287,13 @@ if prepared is not None:
                 copy_button_html(ui_text(current_locale, "copy_report"), localized_markdown, element_id="copy-report"),
                 height=55,
             )
+
+        st.markdown(f"<a id='{localized_report_anchor('chart_help')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'chart_help_heading')}")
+        st.caption(ui_text(current_locale, 'chart_help_caption'))
+        for title, body in streamlit_chart_help_sections(current_locale):
+            st.markdown(f"### {title}")
+            st.markdown(body)
 
         st.markdown(f"<a id='{localized_report_anchor('downloads')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'downloads_heading')}")
