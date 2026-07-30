@@ -7,6 +7,7 @@ from app.errors import ErrorCode, PlatformError
 from app.streamlit_ui import (
     STREAMLIT_NAV_SECTIONS,
     STREAMLIT_SIDEBAR_CONTROL_LABELS,
+    build_raw_preview_tables,
     copy_button_html,
     prepare_report,
     resolve_streamlit_query_input,
@@ -158,3 +159,32 @@ def test_streamlit_sidebar_controls_cover_required_v1_surface():
         "Percentage Basis",
         "Fetch",
     )
+
+def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):
+    tables = build_raw_preview_tables(current_response)
+
+    assert len(tables) == 2
+
+    summary, holdings = tables
+    assert summary.table_index == 0
+    assert summary.title == "Parsed Holdings Summary"
+    assert summary.shape == (9, 2)
+    assert summary.columns == ("Metric", "Value")
+    assert summary.sample_rows[0] == {"Metric": "Code", "Value": "01592"}
+
+    assert holdings.table_index == 1
+    assert holdings.title == "Parsed Holdings Table"
+    assert holdings.shape == (len(current_response.holdings), 9)
+    assert holdings.columns == (
+        "Rank",
+        "CCASS ID",
+        "Participant",
+        "Shares",
+        "Last change",
+        "% issued",
+        "% CCASS",
+        "Cumulative %",
+        "Category",
+    )
+    assert holdings.sample_rows[0]["Rank"] == 1
+    assert holdings.sample_rows[0]["CCASS ID"] == "B00001"

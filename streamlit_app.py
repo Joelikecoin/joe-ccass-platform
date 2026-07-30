@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import os
 from datetime import date
 from pathlib import Path
@@ -14,6 +14,7 @@ from app.streamlit_ui import (
     STREAMLIT_HISTORY_RANGES,
     STREAMLIT_PERCENTAGE_BASES,
     STREAMLIT_SOURCE_MODES,
+    build_raw_preview_tables,
     copy_button_html,
     prepare_report,
     resolve_streamlit_query_input,
@@ -159,6 +160,34 @@ if submitted:
             st.info("The Fetch Summary and every required report section remain available below.")
         if show_rendered_markdown:
             st.markdown(prepared.markdown)
+
+        st.markdown("## Raw Previews")
+        with st.expander("Parsed source tables", expanded=False):
+            if prepared.response is None:
+                st.info("Raw previews are available after a successful fetch.")
+            else:
+                raw_preview_tables = build_raw_preview_tables(prepared.response)
+                st.caption(
+                    "Inspection view for parsed source tables already present in the fetched response."
+                )
+                overview_rows = [
+                    {
+                        "Table Index": table.table_index,
+                        "Table Name": table.title,
+                        "Shape": f"{table.shape[0]} × {table.shape[1]}",
+                        "Columns": ", ".join(table.columns),
+                    }
+                    for table in raw_preview_tables
+                ]
+                st.table(overview_rows)
+                for table in raw_preview_tables:
+                    st.markdown(f"### {table.table_index}. {table.title}")
+                    st.caption(f"Shape: {table.shape[0]} × {table.shape[1]}")
+                    st.caption(f"Columns: {', '.join(table.columns)}")
+                    if table.sample_rows:
+                        st.table(list(table.sample_rows))
+                    else:
+                        st.info("No sample rows available.")
 
         copy_col, report_col, download_col = st.columns(3)
         with copy_col:

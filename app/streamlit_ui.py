@@ -50,6 +50,17 @@ STREAMLIT_SOURCE_MODES = ("auto", "webbsite", "google_drive_csv")
 STREAMLIT_ANNOUNCEMENT_PERIODS = ("All", "7 days", "30 days", "90 days")
 STREAMLIT_HISTORY_RANGES = ("Latest", "7 days", "30 days", "90 days", "Custom")
 STREAMLIT_PERCENTAGE_BASES = ("CCASS", "Issued Shares")
+HOLDINGS_PREVIEW_COLUMNS = (
+    "Rank",
+    "CCASS ID",
+    "Participant",
+    "Shares",
+    "Last change",
+    "% issued",
+    "% CCASS",
+    "Cumulative %",
+    "Category",
+)
 
 
 class StockDataService(Protocol):
@@ -66,6 +77,15 @@ class PreparedReport:
     filename: str
     response: CcassResponse | None
     fetch_error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RawPreviewTable:
+    table_index: int
+    title: str
+    shape: tuple[int, int]
+    columns: tuple[str, ...]
+    sample_rows: tuple[dict[str, object], ...]
 
 
 async def prepare_report(
@@ -125,6 +145,31 @@ async def prepare_report(
 def streamlit_navigation_links() -> str:
     return " | ".join(
         f"[{label}](#{_streamlit_anchor_id(label)})" for label in STREAMLIT_NAV_SECTIONS
+    )
+
+
+def build_raw_preview_tables(
+    response: CcassResponse,
+    *,
+    sample_size: int = 5,
+) -> tuple[RawPreviewTable, ...]:
+    summary_rows = _summary_preview_rows(response)
+    holdings_rows = _holding_preview_rows(response)
+    return (
+        RawPreviewTable(
+            table_index=0,
+            title="Parsed Holdings Summary",
+            shape=(len(summary_rows), 2),
+            columns=("Metric", "Value"),
+            sample_rows=tuple(summary_rows[:sample_size]),
+        ),
+        RawPreviewTable(
+            table_index=1,
+            title="Parsed Holdings Table",
+            shape=(len(holdings_rows), len(HOLDINGS_PREVIEW_COLUMNS)),
+            columns=HOLDINGS_PREVIEW_COLUMNS,
+            sample_rows=tuple(holdings_rows[:sample_size]),
+        ),
     )
 
 
@@ -193,6 +238,55 @@ document.getElementById("{safe_id}").addEventListener("click", async () => {{
 }});
 </script>
 """.strip()
+
+
+def _summary_preview_rows(response: CcassResponse) -> list[dict[str, object]]:
+    summary = response.holdings_summary
+    metadata = response.metadata
+    return [
+        {"Metric": "Code", "Value": metadata.code},
+        {"Metric": "Stock name", "Value": metadata.name or "DATA NOT AVAILABLE"},
+        {"Metric": "Issue ID", "Value": metadata.issue_id},
+        {"Metric": "Holdings date", "Value": metadata.holdings_date or "DATA NOT AVAILABLE"},
+        {"Metric": "Participant count", "Value": summary.participant_count},
+        {
+            "Metric": "Total in CCASS shares",
+            "Value": summary.total_in_ccass_shares or "DATA NOT AVAILABLE",
+        },
+        {
+            "Metric": "Issued shares",
+            "Value": summary.issued_shares or "DATA NOT AVAILABLE",
+        },
+        {
+            "Metric": "Top 5 / issued",
+            "Value": _format_percent(summary.top5_pct_of_issued),
+        },
+        {
+            "Metric": "Top 10 / issued",
+            "Value": _format_percent(summary.top10_pct_of_issued),
+        },
+    ]
+
+
+def _holding_preview_rows(response: CcassResponse) -> list[dict[str, object]]:
+    return [
+        {
+            "Rank": row.rank,
+            "CCASS ID": row.participant_id,
+            "Participant": row.participant,
+            "Shares": row.shares,
+            "Last change": row.last_change or "DATA NOT AVAILABLE",
+            "% issued": _format_percent(row.pct_of_issued),
+            "% CCASS": _format_percent(row.pct_of_ccass),
+            "Cumulative %": _format_percent(row.cumulative_pct_of_issued),
+            "Category": row.participant_category or "DATA NOT AVAILABLE",
+        }
+        for row in response.holdings
+    ]
+
+
+def _format_percent(value: float | None) -> str:
+    return f"{value:.4f}%" if value is not None else "DATA NOT AVAILABLE"
 
 
 def _progress(callback: Callable[[int, str], None] | None, value: int, label: str) -> None:
