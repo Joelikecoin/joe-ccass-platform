@@ -1,5 +1,8 @@
 import base64
 import re
+import zipfile
+from io import BytesIO
+from xml.etree import ElementTree as ET
 
 from streamlit.testing.v1 import AppTest
 
@@ -7,6 +10,7 @@ from app.errors import ErrorCode, PlatformError
 from app.streamlit_ui import (
     STREAMLIT_NAV_SECTIONS,
     STREAMLIT_SIDEBAR_CONTROL_LABELS,
+    build_download_artifacts,
     build_raw_preview_tables,
     copy_button_html,
     prepare_report,
@@ -188,3 +192,45 @@ def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_resp
     )
     assert holdings.sample_rows[0]["Rank"] == 1
     assert holdings.sample_rows[0]["CCASS ID"] == "B00001"
+
+
+def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_response):
+    artifacts = build_download_artifacts(current_response)
+
+    assert artifacts.combined_csv_filename == "01592_all_ccass_data.csv"
+    assert artifacts.workbook_filename == "01592_all_sections.xlsx"
+    assert artifacts.raw_preview_summary_filename == "01592_raw_preview_summary.csv"
+    assert artifacts.raw_preview_holdings_filename == "01592_raw_preview_holdings.csv"
+    assert artifacts.combined_csv_preview.splitlines()[0].startswith("code,")
+    assert artifacts.combined_csv_preview.splitlines()[1].split(",")[0] == "01592"
+
+    with zipfile.ZipFile(BytesIO(artifacts.workbook_bytes)) as workbook_archive:
+        workbook_xml = ET.fromstring(workbook_archive.read("xl/workbook.xml"))
+
+    namespace = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    sheet_names = [
+        sheet.attrib["name"]
+        for sheet in workbook_xml.findall("a:sheets/a:sheet", namespace)
+    ]
+    assert sheet_names == [
+        "Combined CSV",
+        "Report Metadata",
+        "Raw Preview Summary",
+        "Raw Preview Holdings",
+    ]
+
+
+def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: SuccessfulService(current_response))
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app.text_input[0].input("1592")
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any("Downloads" in block.value for block in app.markdown)
+    download_labels = [button.label for button in app.download_button]
+    assert "Download combined CSV" in download_labels
+    assert "Download Excel workbook" in download_labels

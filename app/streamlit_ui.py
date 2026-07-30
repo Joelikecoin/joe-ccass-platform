@@ -1,14 +1,22 @@
 ﻿import base64
+import csv
 import html
+import io
 import re
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
+
+import zipfile
+from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
+from ccass_core.collector import export_latest_csv
 from ccass_core.compute import compute_analysis
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import (
@@ -86,6 +94,19 @@ class RawPreviewTable:
     shape: tuple[int, int]
     columns: tuple[str, ...]
     sample_rows: tuple[dict[str, object], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class DownloadArtifacts:
+    combined_csv_bytes: bytes
+    combined_csv_filename: str
+    combined_csv_preview: str
+    workbook_bytes: bytes
+    workbook_filename: str
+    raw_preview_summary_bytes: bytes
+    raw_preview_summary_filename: str
+    raw_preview_holdings_bytes: bytes
+    raw_preview_holdings_filename: str
 
 
 async def prepare_report(
@@ -173,6 +194,27 @@ def build_raw_preview_tables(
     )
 
 
+def build_download_artifacts(
+    response: CcassResponse,
+    *,
+    preview_line_count: int = 80,
+) -> DownloadArtifacts:
+    raw_preview_tables = build_raw_preview_tables(response)
+    combined_csv_bytes = _build_combined_csv_bytes(response)
+    workbook_bytes = _build_download_workbook_bytes(response, combined_csv_bytes, raw_preview_tables)
+    return DownloadArtifacts(
+        combined_csv_bytes=combined_csv_bytes,
+        combined_csv_filename=f"{response.metadata.code}_all_ccass_data.csv",
+        combined_csv_preview=_csv_preview_text(combined_csv_bytes, preview_line_count=preview_line_count),
+        workbook_bytes=workbook_bytes,
+        workbook_filename=f"{response.metadata.code}_all_sections.xlsx",
+        raw_preview_summary_bytes=_table_to_csv_bytes(raw_preview_tables[0]),
+        raw_preview_summary_filename=f"{response.metadata.code}_raw_preview_summary.csv",
+        raw_preview_holdings_bytes=_table_to_csv_bytes(raw_preview_tables[1]),
+        raw_preview_holdings_filename=f"{response.metadata.code}_raw_preview_holdings.csv",
+    )
+
+
 def resolve_streamlit_query_input(
     raw_value: str,
     input_type: str,
@@ -238,6 +280,197 @@ document.getElementById("{safe_id}").addEventListener("click", async () => {{
 }});
 </script>
 """.strip()
+
+
+class _SingleResponseStore:
+    def __init__(self, response: CcassResponse) -> None:
+        self._response = response
+
+    def latest_all(self) -> list[CcassResponse]:
+        return [self._response]
+
+
+def _build_combined_csv_bytes(response: CcassResponse) -> bytes:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        output_path = Path(temp_dir) / "combined.csv"
+        export_latest_csv(_SingleResponseStore(response), output_path)
+        return output_path.read_bytes()
+
+
+def _build_download_workbook_bytes(
+    response: CcassResponse,
+    combined_csv_bytes: bytes,
+    raw_preview_tables: tuple[RawPreviewTable, ...],
+) -> bytes:
+    combined_rows, combined_headers = _csv_rows_from_bytes(combined_csv_bytes)
+    workbook_sheets = [
+        (
+            "Combined CSV",
+            combined_headers,
+            combined_rows,
+        ),
+        (
+            "Report Metadata",
+            ("Field", "Value"),
+            [
+                {"Field": "Code", "Value": response.metadata.code},
+                {"Field": "Stock name", "Value": response.metadata.name or "DATA NOT AVAILABLE"},
+                {"Field": "Issue ID", "Value": response.metadata.issue_id},
+                {"Field": "Holdings date", "Value": response.metadata.holdings_date or "DATA NOT AVAILABLE"},
+                {"Field": "Participant count", "Value": response.holdings_summary.participant_count},
+            ],
+        ),
+        (
+            "Raw Preview Summary",
+            raw_preview_tables[0].columns,
+            list(raw_preview_tables[0].sample_rows),
+        ),
+        (
+            "Raw Preview Holdings",
+            raw_preview_tables[1].columns,
+            list(raw_preview_tables[1].sample_rows),
+        ),
+    ]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+        sheet_names = [sheet_name for sheet_name, _, _ in workbook_sheets]
+        archive.writestr("[Content_Types].xml", _build_xlsx_content_types(len(workbook_sheets)))
+        archive.writestr("_rels/.rels", _build_xlsx_root_rels())
+        archive.writestr("xl/workbook.xml", _build_xlsx_workbook_xml(sheet_names))
+        archive.writestr("xl/_rels/workbook.xml.rels", _build_xlsx_workbook_rels(len(workbook_sheets)))
+        for index, (_, headers, rows) in enumerate(workbook_sheets, start=1):
+            archive.writestr(
+                f"xl/worksheets/sheet{index}.xml",
+                _build_xlsx_sheet_xml(headers, rows),
+            )
+    return buffer.getvalue()
+
+
+def _csv_rows_from_bytes(csv_bytes: bytes) -> tuple[list[dict[str, object]], tuple[str, ...]]:
+    text = csv_bytes.decode("utf-8-sig")
+    reader = csv.DictReader(io.StringIO(text))
+    headers = tuple(reader.fieldnames or ())
+    return [dict(row) for row in reader], headers
+
+
+def _build_xlsx_content_types(sheet_count: int) -> str:
+    overrides = "".join(
+        f'<Override PartName="/xl/worksheets/sheet{index}.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        for index in range(1, sheet_count + 1)
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" '
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        f'{overrides}'
+        '</Types>'
+    )
+
+
+def _build_xlsx_root_rels() -> str:
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        '<Relationship Id="rId1" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        'Target="xl/workbook.xml"/>'
+        '</Relationships>'
+    )
+
+
+def _build_xlsx_workbook_xml(sheet_names: tuple[str, ...]) -> str:
+    sheets_xml = "".join(
+        f'<sheet name="{xml_escape(sheet_name)}" sheetId="{index}" r:id="rId{index}"/>'
+        for index, sheet_name in enumerate(sheet_names, start=1)
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        f'<sheets>{sheets_xml}</sheets>'
+        '</workbook>'
+    )
+
+
+def _build_xlsx_workbook_rels(sheet_count: int) -> str:
+    relationships = "".join(
+        f'<Relationship Id="rId{index}" '
+        'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
+        f'Target="worksheets/sheet{index}.xml"/>'
+        for index in range(1, sheet_count + 1)
+    )
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        f'{relationships}'
+        '</Relationships>'
+    )
+
+
+def _build_xlsx_sheet_xml(headers: tuple[str, ...], rows: list[dict[str, object]]) -> str:
+    sheet_rows = []
+    if headers:
+        sheet_rows.append(_build_xlsx_row_xml(1, headers))
+        for row_index, row in enumerate(rows, start=2):
+            values = [row.get(header, "") for header in headers]
+            sheet_rows.append(_build_xlsx_row_xml(row_index, values))
+    else:
+        sheet_rows.append(_build_xlsx_row_xml(1, ("",)))
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        f'<sheetData>{"".join(sheet_rows)}</sheetData>'
+        '</worksheet>'
+    )
+
+
+def _build_xlsx_row_xml(row_number: int, values: tuple[object, ...] | list[object]) -> str:
+    cells = "".join(
+        _build_xlsx_cell_xml(row_number, column_number, value)
+        for column_number, value in enumerate(values, start=1)
+    )
+    return f'<row r="{row_number}">{cells}</row>'
+
+
+def _build_xlsx_cell_xml(row_number: int, column_number: int, value: object) -> str:
+    cell_ref = f"{_xlsx_column_letter(column_number)}{row_number}"
+    text = _xlsx_text(value)
+    return f'<c r="{cell_ref}" t="inlineStr"><is><t>{xml_escape(text)}</t></is></c>'
+
+
+def _xlsx_column_letter(column_number: int) -> str:
+    letters = ""
+    while column_number:
+        column_number, remainder = divmod(column_number - 1, 26)
+        letters = chr(ord("A") + remainder) + letters
+    return letters
+
+
+def _xlsx_text(value: object) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "isoformat") and not isinstance(value, (str, bytes)):
+        return str(value.isoformat())
+    return str(value)
+
+
+def _csv_preview_text(csv_bytes: bytes, *, preview_line_count: int) -> str:
+    text = csv_bytes.decode("utf-8-sig")
+    lines = text.splitlines()
+    return "\n".join(lines[:preview_line_count])
+
+
+def _table_to_csv_bytes(table: RawPreviewTable) -> bytes:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=table.columns, lineterminator="\n")
+    writer.writeheader()
+    for row in table.sample_rows:
+        writer.writerow(row)
+    return buffer.getvalue().encode("utf-8-sig")
 
 
 def _summary_preview_rows(response: CcassResponse) -> list[dict[str, object]]:

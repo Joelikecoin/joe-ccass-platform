@@ -14,6 +14,7 @@ from app.streamlit_ui import (
     STREAMLIT_HISTORY_RANGES,
     STREAMLIT_PERCENTAGE_BASES,
     STREAMLIT_SOURCE_MODES,
+    build_download_artifacts,
     build_raw_preview_tables,
     copy_button_html,
     prepare_report,
@@ -189,7 +190,7 @@ if submitted:
                     else:
                         st.info("No sample rows available.")
 
-        copy_col, report_col, download_col = st.columns(3)
+        copy_col, report_col = st.columns(2)
         with copy_col:
             st.markdown("**Copy for ChatGPT**")
             components.html(
@@ -206,15 +207,66 @@ if submitted:
                 copy_button_html("Copy report", prepared.markdown, element_id="copy-report"),
                 height=55,
             )
-        with download_col:
-            st.markdown("**Download**")
-            st.download_button(
-                "Download .md",
-                data=prepared.markdown,
-                file_name=prepared.filename,
-                mime="text/markdown",
-                use_container_width=True,
-            )
+
+        st.markdown("## Downloads")
+        if prepared.response is None:
+            st.info("Downloads are available after a successful fetch.")
+        else:
+            download_artifacts = build_download_artifacts(prepared.response)
+            st.caption("Download the current report artifacts directly from the fetched response.")
+            combined_col, workbook_col, report_download_col = st.columns(3)
+            with combined_col:
+                st.markdown("**Combined CSV**")
+                st.download_button(
+                    "Download combined CSV",
+                    data=download_artifacts.combined_csv_bytes,
+                    file_name=download_artifacts.combined_csv_filename,
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with workbook_col:
+                st.markdown("**Excel workbook**")
+                st.download_button(
+                    "Download Excel workbook",
+                    data=download_artifacts.workbook_bytes,
+                    file_name=download_artifacts.workbook_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            with report_download_col:
+                st.markdown("**Report Markdown**")
+                st.download_button(
+                    "Download Markdown report",
+                    data=prepared.markdown,
+                    file_name=prepared.filename,
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
+
+            with st.expander("CSV preview", expanded=False):
+                st.caption("First 80 CSV lines")
+                st.code(download_artifacts.combined_csv_preview, language="csv")
+
+            with st.expander("Section-specific download controls", expanded=False):
+                section_summary_col, section_holdings_col = st.columns(2)
+                with section_summary_col:
+                    st.markdown("**Raw Preview Summary CSV**")
+                    st.download_button(
+                        "Download Raw Preview Summary CSV",
+                        data=download_artifacts.raw_preview_summary_bytes,
+                        file_name=download_artifacts.raw_preview_summary_filename,
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+                with section_holdings_col:
+                    st.markdown("**Raw Preview Holdings CSV**")
+                    st.download_button(
+                        "Download Raw Preview Holdings CSV",
+                        data=download_artifacts.raw_preview_holdings_bytes,
+                        file_name=download_artifacts.raw_preview_holdings_filename,
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
 
         with st.expander("Raw Markdown", expanded=False):
             st.code(prepared.markdown, language="markdown")
