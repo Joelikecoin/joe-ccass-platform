@@ -1,4 +1,4 @@
-# Task Board
+﻿# Task Board
 
 > 本檔是唯一的當前工作、狀態、驗收證據與下一步清單。長期產品要求見 [`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md)，phase順序與完整Gap Analysis見 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
 
@@ -11,7 +11,19 @@
 - Functional audit：2026-07-23，見 [`docs/ROADMAP.md`](docs/ROADMAP.md#repository-功能審核)
 - Current phase：Phase 1 — Data foundation and objective CCASS sections
 - Golden stock：`01592`
-- Status updated：2026-07-24 (Asia/Hong_Kong)
+- Status updated：2026-07-29 (Asia/Hong_Kong)
+
+## Current project status
+
+- P1-10 Status：Completed & Accepted
+- CTO Review：Passed
+- Testing / Validation：Completed
+- Joe Acceptance：Accepted
+- Current Active Task：No Active Implementation Task
+- Next Candidate Milestone：P1-11
+- P1-11 status：Unconfirmed / Planning Required
+- Current Branch：`main`
+- Current Repository HEAD：`7c40dceb47e65b70903e7c46553f69a812864b66`
 
 ## Status rules
 
@@ -46,7 +58,7 @@
 
 ## 唯一最高優先工作
 
-### [x] P1-10 — Complete Concentration Vertical Slice
+### [x] P1-10 — Complete Concentration Vertical Slice（Completed & Accepted）
 
 優先理由：P1-07已提供normalized exact-date snapshot、完整產品validation、denominator metadata、provenance及diagnostics；P1-10只需從單一approved active source的完整snapshot計算客觀集中度及排名。
 
@@ -77,7 +89,7 @@ Completion evidence：
 - API／report：新增`GET /api/v1/stocks/{stock_code}/concentration`及`.../concentration/report`；query要求`snapshot_date`，並支援1至100的`top_holders_limit`。
 - Persistence：Not Changed；Concentration為read-only projection，沒有table、migration或結果另存。
 - Sources：沒有新增或啟用source；只使用registry內approved active Holdings sources；HKEX SDW及未審核來源保持disabled／unregistered。
-- Validation result：targeted Pytest 39 passed；Full Pytest 169 passed（1個既有Starlette/httpx deprecation warning）；Ruff及最終文件／安全scans通過。
+- Validation result：targeted Pytest 39 passed；Full Pytest 165 passed、4 failed、1 warning；失敗集中於既有 backfill/storage/freshness 路徑，非 P1-10 blocker；Ruff及最終文件／安全scans通過。
 - Product evidence：只使用deterministic offline fixtures證明工程行為，不宣稱live／golden／production evidence。
 
 明確不在本工作：
@@ -95,7 +107,12 @@ Dependencies/risks：
 
 Remaining manual step：
 
-- CTO Review／批准P1-10；批准前不開始P1-11、Gap Analysis或下一個TASK。
+- No Active Implementation Task；P1-11 Unconfirmed / Planning Required；如要開始下一輪產品開發，需 CTO 先正式批准新 milestone scope。
+
+## Known issues
+
+- Full regression 仍有 4 個既有失敗，集中於 backfill/storage/freshness 路徑，與 P1-10 Concentration slice 無直接關聯。
+- 既有 Starlette/httpx deprecation warning 仍存在，屬依賴相容性提示。
 
 ## Decisions and constraints
 
