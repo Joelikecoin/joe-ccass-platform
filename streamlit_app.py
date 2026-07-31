@@ -16,6 +16,7 @@ from app.streamlit_ui import (
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
     build_download_artifacts,
+    build_full_summary_markdown,
     build_raw_preview_tables,
     copy_button_html,
     prepare_report,
@@ -233,8 +234,8 @@ if submitted:
 
             def load_previous(response):
                 return store.previous_for(response.metadata.code, response)
-
             previous_loader = load_previous
+        st.session_state.history_snapshots = history_snapshots
         prepared = asyncio.run(
             prepare_report(
                 resolved_code,
@@ -257,6 +258,7 @@ if submitted:
         st.session_state.prepared_report = prepared
 
 prepared = st.session_state.get("prepared_report")
+history_snapshots = st.session_state.get("history_snapshots")
 if prepared is not None:
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -280,6 +282,19 @@ if prepared is not None:
                 st.warning("\n".join(f"- {warning}" for warning in quality_warnings))
             else:
                 st.info(ui_text(current_locale, 'data_quality_no_warnings'))
+        st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'full_summary_heading')}")
+        st.caption(ui_text(current_locale, 'full_summary_caption'))
+        if prepared.response is None:
+            st.info(ui_text(current_locale, 'full_summary_unavailable'))
+        else:
+            st.markdown(
+                build_full_summary_markdown(
+                    prepared,
+                    history_snapshots=history_snapshots,
+                    locale=current_locale,
+                )
+            )
         if show_rendered_markdown:
             st.markdown(localized_markdown)
 

@@ -14,7 +14,9 @@ from app.streamlit_ui import (
     STREAMLIT_NAV_SECTIONS,
     STREAMLIT_SIDEBAR_CONTROL_LABELS,
     build_download_artifacts,
+    build_full_summary_markdown,
     build_raw_preview_tables,
+    PreparedReport,
     copy_button_html,
     prepare_report,
     resolve_streamlit_query_input,
@@ -27,6 +29,7 @@ from app.streamlit_ui import (
     translate_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
+from ccass_core.compute import AnalysisResult
 from ccass_core.report import CHATGPT_COPY_HEADER, localized_report_anchor, report_section_headings
 
 
@@ -156,6 +159,7 @@ def test_streamlit_navigation_links_cover_required_sections():
 
     assert STREAMLIT_NAV_SECTIONS == streamlit_navigation_sections(DEFAULT_LOCALE)
     assert "#fetch-summary" in links
+    assert "#full-summary" in links
     assert "#all-tables" in links
     assert "#dt-rainbow" in links
     assert "#hkex-announcements" in links
@@ -292,6 +296,57 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_no_warnings') in block.value for block in app.info)
+    assert len(service.calls) == 1
+
+
+def test_build_full_summary_markdown_renders_status_table(current_response, previous_response):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown='',
+        chatgpt_payload='',
+        filename='01592_ccass_report.md',
+        response=current_response,
+        analysis=AnalysisResult(previous_available=True),
+    )
+
+    markdown = build_full_summary_markdown(
+        prepared,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_status') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_note') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
+
+
+
+def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(
+        f"<a id='{localized_report_anchor('full_summary')}'></a>" in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.full_summary_heading') in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in block.value
+        for block in app.markdown
+    )
     assert len(service.calls) == 1
 
 

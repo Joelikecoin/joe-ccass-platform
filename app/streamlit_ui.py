@@ -34,6 +34,7 @@ from ccass_core.report import (
 
 NAV_SECTION_KEYS = (
     "fetch_summary",
+    "full_summary",
     "all_tables",
     "dt_rainbow",
     "hkex_announcements",
@@ -357,6 +358,118 @@ def build_download_artifacts(
         raw_preview_holdings_bytes=_table_to_csv_bytes(raw_preview_tables[1]),
         raw_preview_holdings_filename=f"{response.metadata.code}_raw_preview_holdings.csv",
     )
+
+
+def build_full_summary_markdown(
+    prepared: PreparedReport,
+    *,
+    history_snapshots: Sequence[CcassResponse] | None = None,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "full_summary_unavailable")
+
+    analysis = prepared.analysis or AnalysisResult()
+    summary = response.holdings_summary
+    raw_preview_count = len(build_raw_preview_tables(response, locale=locale))
+    snapshot_count = len(tuple(history_snapshots or ())) + 1
+    warning_count = len(response.data_quality_warnings)
+
+    def section_label(key: str) -> str:
+        return translate_text(locale, key).removeprefix("## ")
+
+    rows = [
+        (
+            section_label("report.section.fetch_summary"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_fetch_summary"),
+        ),
+        (
+            section_label("report.section.company"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(
+                locale,
+                "full_summary_note_company",
+                code=response.metadata.code,
+                issue_id=response.metadata.issue_id,
+            ),
+        ),
+        (
+            section_label("report.section.holdings"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_holdings", participant_count=summary.participant_count),
+        ),
+        (
+            section_label("report.section.changes"),
+            ui_text(
+                locale,
+                "full_summary_status_available" if analysis.previous_available else "full_summary_status_unavailable",
+            ),
+            ui_text(
+                locale,
+                "full_summary_note_changes_available" if analysis.previous_available else "full_summary_note_changes_unavailable",
+            ),
+        ),
+        (
+            section_label("report.section.big_changes"),
+            ui_text(
+                locale,
+                "full_summary_status_available" if analysis.previous_available else "full_summary_status_unavailable",
+            ),
+            ui_text(
+                locale,
+                "full_summary_note_big_changes_available" if analysis.previous_available else "full_summary_note_big_changes_unavailable",
+            ),
+        ),
+        (
+            section_label("report.section.concentration"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(
+                locale,
+                "full_summary_note_concentration",
+                top5_pct_of_issued=_format_percent(summary.top5_pct_of_issued),
+                top10_pct_of_issued=_format_percent(summary.top10_pct_of_issued),
+            ),
+        ),
+        (
+            section_label("report.section.concentration_history"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_concentration_history", snapshot_count=snapshot_count),
+        ),
+        (
+            section_label("report.section.price_history"),
+            ui_text(locale, "full_summary_status_unavailable"),
+            ui_text(locale, "full_summary_note_price_history"),
+        ),
+        (
+            ui_text(locale, "raw_previews_heading"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_raw_previews", table_count=raw_preview_count),
+        ),
+        (
+            ui_text(locale, "downloads_heading"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_downloads"),
+        ),
+        (
+            ui_text(locale, "data_quality_heading"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(
+                locale,
+                "full_summary_note_data_quality_no_warnings"
+                if warning_count == 0
+                else "full_summary_note_data_quality_warnings",
+                warning_count=warning_count,
+            ),
+        ),
+    ]
+    lines = [
+        f"| {ui_text(locale, 'full_summary_table_section')} | {ui_text(locale, 'full_summary_table_status')} | {ui_text(locale, 'full_summary_table_note')} |",
+        "|---|---|---|",
+    ]
+    lines.extend(f"| {section} | {status} | {note} |" for section, status, note in rows)
+    return "\n".join(lines)
 
 
 def resolve_streamlit_query_input(
