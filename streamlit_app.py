@@ -387,6 +387,8 @@ if prepared is not None:
 
         st.markdown(f"<a id='{localized_report_anchor('downloads')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'downloads_heading')}")
+        st.markdown(f"### {ui_text(current_locale, 'downloads_workflow_heading')}")
+        st.caption(ui_text(current_locale, 'downloads_workflow_caption'))
         if prepared.response is None:
             st.info(ui_text(current_locale, "downloads_unavailable"))
         else:
