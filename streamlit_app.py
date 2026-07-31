@@ -274,6 +274,7 @@ if prepared is not None:
         st.markdown(streamlit_report_navigation_links(current_locale))
         st.markdown(f"### {ui_text(current_locale, 'data_quality_heading')}")
         st.caption(ui_text(current_locale, 'data_quality_caption'))
+        st.caption(ui_text(current_locale, 'data_quality_help_caption'))
         if prepared.response is None:
             st.info(ui_text(current_locale, 'data_quality_unavailable'))
         else:
