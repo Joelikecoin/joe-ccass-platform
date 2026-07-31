@@ -240,6 +240,22 @@ def test_streamlit_chart_help_sections_cover_objective_guidance():
     assert 'avoid drawing a final conclusion' in sections_en[-1][1]
 
 
+def test_streamlit_chart_help_surface_renders_help_caption(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app.text_input[0].input("1592")
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_surface_caption") in block.value for block in app.caption)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_cross_check_title") in block.value for block in app.markdown)
+
+
 def test_streamlit_hkex_announcements_columns_cover_target_surface():
     assert streamlit_hkex_announcements_columns(DEFAULT_LOCALE) == (
         translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_publish_time'),
@@ -599,5 +615,6 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     assert len(service.calls) == 1
     assert any("## Fetch Summary" in block.value for block in app.markdown)
     assert any(translate_text('en', 'ui.chart_help_heading') in block.value for block in app.markdown)
+    assert any(translate_text('en', 'ui.chart_help_surface_caption') in block.value for block in app.caption)
     assert any(button.label == "Download All CCASS Data CSV" for button in app.download_button)
 

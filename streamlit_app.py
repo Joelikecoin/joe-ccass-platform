@@ -353,6 +353,7 @@ if prepared is not None:
         st.markdown(f"<a id='{localized_report_anchor('chart_help')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'chart_help_heading')}")
         st.caption(ui_text(current_locale, 'chart_help_caption'))
+        st.caption(ui_text(current_locale, 'chart_help_surface_caption'))
         for title, body in streamlit_chart_help_sections(current_locale):
             st.markdown(f"### {title}")
             st.markdown(body)
