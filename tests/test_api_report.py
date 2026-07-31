@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.api import app
 from app.services.ccass import get_ccass_service
-from ccass_core.report import SECTION_HEADINGS
+from ccass_core.report import DEFAULT_LOCALE, SECTION_HEADINGS, translate_text
 
 
 class FixtureService:
@@ -30,7 +30,7 @@ def test_markdown_report_endpoint_reuses_core_without_breaking_json_api(current_
 
     assert report_response.status_code == 200
     assert report_response.headers["content-type"].startswith("text/markdown")
-    assert report_response.text.startswith("# CCASS Report — 01592")
+    assert report_response.text.startswith(f"# {translate_text(DEFAULT_LOCALE, 'report.title')}")
     assert [line for line in report_response.text.splitlines() if line.startswith("## ")] == list(
         SECTION_HEADINGS
     )

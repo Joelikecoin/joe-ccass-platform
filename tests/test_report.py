@@ -17,9 +17,7 @@ def test_report_has_required_sections_in_exact_order(current_response, previous_
     analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
     report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
 
-    assert report.startswith(f"# {translate_text(DEFAULT_LOCALE, 'report.title')} ? 01592 ")
-    positions = [report.index(heading) for heading in report_section_headings(DEFAULT_LOCALE)]
-    assert positions == sorted(positions)
+    assert report.startswith(f"# {translate_text(DEFAULT_LOCALE, 'report.title')}")
     assert [line for line in report.splitlines() if line.startswith("## ")] == list(
         report_section_headings(DEFAULT_LOCALE)
     )
@@ -33,6 +31,26 @@ def test_report_supports_english_locale(current_response, previous_response):
     assert [line for line in report.splitlines() if line.startswith("## ")] == list(
         report_section_headings("en")
     )
+
+
+def test_report_includes_company_section_identity_details(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.company") in report
+    assert translate_text(DEFAULT_LOCALE, "report.metadata.stock_name", value=current_response.metadata.name) in report
+    assert translate_text(DEFAULT_LOCALE, "report.metadata.code", value=current_response.metadata.code) in report
+    assert translate_text(DEFAULT_LOCALE, "report.metadata.issue_id", value=current_response.metadata.issue_id) in report
+    assert translate_text(
+        DEFAULT_LOCALE,
+        "report.company.lookup_status",
+        value=translate_text(DEFAULT_LOCALE, "report.company.lookup_status.success"),
+    ) in report
+    assert translate_text(
+        DEFAULT_LOCALE,
+        "report.company.lookup_method",
+        value=translate_text(DEFAULT_LOCALE, "report.company.lookup_method.extracted_from_url"),
+    ) in report
 
 
 def test_network_failure_report_is_readable_and_keeps_fetch_summary():

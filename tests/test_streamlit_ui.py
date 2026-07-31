@@ -237,6 +237,31 @@ def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, c
     assert len(service.calls) == 1
 
 
+def test_streamlit_company_section_renders_identity_details(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'report.section.company') in block.value for block in app.markdown)
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'report.company.lookup_status', value=translate_text(DEFAULT_LOCALE, 'report.company.lookup_status.success'))
+        in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'report.company.lookup_method', value=translate_text(DEFAULT_LOCALE, 'report.company.lookup_method.extracted_from_url'))
+        in block.value
+        for block in app.markdown
+    )
+    assert len(service.calls) == 1
+
+
 def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):
     tables = build_raw_preview_tables(current_response, locale=DEFAULT_LOCALE)
 
