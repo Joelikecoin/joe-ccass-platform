@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import re
 import zipfile
 
@@ -534,6 +534,22 @@ def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_resp
         "Raw Preview Holdings",
     ]
 
+
+
+def test_streamlit_raw_previews_surface_renders_help_caption(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app.text_input[0].input("1592")
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_help_caption") in block.value for block in app.caption)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_expander") in block.label for block in app.expander)
 
 def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypatch, current_response):
     import app.services.ccass as ccass_service

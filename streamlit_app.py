@@ -303,6 +303,7 @@ if prepared is not None:
 
         st.markdown(f"<a id='{localized_report_anchor('raw_previews')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'raw_previews_heading')}")
+        st.caption(ui_text(current_locale, "raw_previews_help_caption"))
         with st.expander(ui_text(current_locale, "raw_previews_expander"), expanded=False):
             if prepared.response is None:
                 st.info(ui_text(current_locale, "raw_previews_unavailable"))
