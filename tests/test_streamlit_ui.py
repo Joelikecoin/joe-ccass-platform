@@ -350,6 +350,36 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
     assert len(service.calls) == 1
 
 
+def test_streamlit_all_parsed_tables_surface_renders_heading_and_sections(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(
+        f"<a id='{localized_report_anchor('all_parsed_tables')}'></a>" in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.all_parsed_tables_heading') in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'report.section.holdings') in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'report.section.price_history') in block.value
+        for block in app.markdown
+    )
+    assert len(service.calls) == 1
+
+
 def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 

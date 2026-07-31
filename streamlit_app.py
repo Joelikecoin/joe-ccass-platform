@@ -295,6 +295,9 @@ if prepared is not None:
                     locale=current_locale,
                 )
             )
+        st.markdown(f"<a id='{localized_report_anchor('all_parsed_tables')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'all_parsed_tables_heading')}")
+        st.caption(ui_text(current_locale, 'all_parsed_tables_caption'))
         if show_rendered_markdown:
             st.markdown(localized_markdown)
 
