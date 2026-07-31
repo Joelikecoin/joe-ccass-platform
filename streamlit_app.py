@@ -329,6 +329,8 @@ if prepared is not None:
                         st.info(ui_text(current_locale, "raw_previews_no_sample_rows"))
 
         st.markdown(f"<a id='{localized_report_anchor('copy_for_chatgpt')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'copy_for_chatgpt')}")
+        st.caption(ui_text(current_locale, 'copy_for_chatgpt_caption'))
         copy_col, report_col = st.columns(2)
         with copy_col:
             st.markdown(f"**{ui_text(current_locale, 'copy_for_chatgpt')}**")

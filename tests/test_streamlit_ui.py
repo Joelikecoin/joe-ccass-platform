@@ -123,6 +123,32 @@ def test_copy_button_contains_exact_utf8_payload_and_chatgpt_header():
     assert base64.b64decode(report_encoded).decode("utf-8") == "# Report\n"
 
 
+def test_streamlit_copy_for_chatgpt_surface_renders_heading_caption_and_actions(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(
+        f"<a id='{localized_report_anchor('copy_for_chatgpt')}'></a>" in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.copy_for_chatgpt') in block.value and block.value.startswith('## ')
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.copy_for_chatgpt_caption') in block.value
+        for block in app.caption
+    )
+    assert len(service.calls) == 1
+
+
 def test_streamlit_abc_shows_validation_error_without_network():
     app = AppTest.from_file("streamlit_app.py").run(timeout=10)
     app.text_input[0].input("abc")
