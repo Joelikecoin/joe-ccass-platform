@@ -159,6 +159,7 @@ def test_streamlit_navigation_links_cover_required_sections():
     assert "#all-tables" in links
     assert "#dt-rainbow" in links
     assert "#hkex-announcements" in links
+    assert "#price-history" in links
     assert "#copy-for-chatgpt" in links
     assert "#downloads" in links
 
@@ -316,6 +317,22 @@ def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, cu
     assert len(service.calls) == 1
 
 
+def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'report.section.price_history') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'report.price_history.unavailable') in block.value for block in app.markdown)
+    assert len(service.calls) == 1
+
+
 def test_streamlit_report_navigation_links_cover_report_sections():
     from app.streamlit_ui import streamlit_report_navigation_links
 
@@ -415,6 +432,7 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     assert len(service.calls) == 1
     assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "report.section.price_history") in block.value for block in app.markdown)
 
     try:
         app.selectbox[0].select("en").run(timeout=10)

@@ -162,6 +162,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.changes": "## Changes",
         "report.section.big_changes": "## Big Changes",
         "report.section.concentration": "## Concentration",
+        "report.section.price_history": "## Price History",
+        "report.price_history.unavailable": "Price history is unavailable in the current result.",
         "report.section.data_quality_warnings": "## Data Quality Warnings",
         "report.fetch.status_success": "- Status: SUCCESS",
         "report.fetch.source": "- Source: {value}",
@@ -346,6 +348,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.changes": "## ??",
         "report.section.big_changes": "## ???",
         "report.section.concentration": "## ???",
+        "report.section.price_history": "## 價格歷史",
+        "report.price_history.unavailable": "目前結果沒有可用的價格歷史資料。",
         "report.section.data_quality_warnings": "## ??????",
         "report.fetch.status_success": "- ?????",
         "report.fetch.source": "- ???{value}",
@@ -393,6 +397,7 @@ REPORT_SECTION_KEYS = (
     "changes",
     "big_changes",
     "concentration",
+    "price_history",
     "data_quality_warnings",
 )
 
@@ -533,6 +538,11 @@ def build_markdown_report(
             f"| Top 10 / CCASS | {_percent(summary.top10_pct_of_ccass, locale)} |",
             "",
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
+            translate_text(locale, "report.section.price_history"),
+            "",
+            translate_text(locale, "report.price_history.unavailable"),
+            "",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
             translate_text(locale, "report.section.data_quality_warnings"),
             "",
         ]

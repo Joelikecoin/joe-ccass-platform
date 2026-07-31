@@ -192,8 +192,12 @@ def streamlit_navigation_sections(locale: str = DEFAULT_LOCALE) -> tuple[str, ..
 
 
 def streamlit_navigation_links(locale: str = DEFAULT_LOCALE) -> str:
+    anchor_overrides = {
+        "price": "price-history",
+    }
     return " | ".join(
-        f"[{nav_text(locale, key)}](#{localized_report_anchor(key)})" for key in NAV_SECTION_KEYS
+        f"[{nav_text(locale, key)}](#{anchor_overrides.get(key, localized_report_anchor(key))})"
+        for key in NAV_SECTION_KEYS
     )
 
 
