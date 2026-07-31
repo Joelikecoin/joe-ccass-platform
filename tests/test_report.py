@@ -53,6 +53,21 @@ def test_report_includes_company_section_identity_details(current_response, prev
     ) in report
 
 
+def test_report_includes_data_quality_warning_summary(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.data_quality_warnings") in report
+    assert "TEST FIXTURE warning" in report
+
+
+def test_report_states_no_data_quality_warnings_when_empty(previous_response, current_response):
+    analysis = compute_analysis(previous_response, current_response, big_change_threshold=500)
+    report = build_markdown_report(previous_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, "report.no_additional_warning") in report
+
+
 def test_network_failure_report_is_readable_and_keeps_fetch_summary():
     error = PlatformError(
         ErrorCode.SOURCE_TIMEOUT,

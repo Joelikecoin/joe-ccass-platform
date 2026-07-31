@@ -262,6 +262,38 @@ def test_streamlit_company_section_renders_identity_details(monkeypatch, current
     assert len(service.calls) == 1
 
 
+def test_streamlit_data_quality_surface_renders_warning_summary(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
+    assert any('TEST FIXTURE warning' in block.value for block in app.warning)
+    assert len(service.calls) == 1
+
+
+def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previous_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(previous_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_no_warnings') in block.value for block in app.info)
+    assert len(service.calls) == 1
+
+
 def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 
@@ -282,6 +314,16 @@ def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, cu
         for block in app.markdown
     )
     assert len(service.calls) == 1
+
+
+def test_streamlit_report_navigation_links_cover_report_sections():
+    from app.streamlit_ui import streamlit_report_navigation_links
+
+    links = streamlit_report_navigation_links(DEFAULT_LOCALE)
+
+    assert '#fetch-summary' in links
+    assert '#company' in links
+    assert '#data-quality-warnings' in links
 
 
 def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_response):
@@ -386,5 +428,5 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     assert len(service.calls) == 1
     assert any("## Fetch Summary" in block.value for block in app.markdown)
     assert any(translate_text('en', 'ui.chart_help_heading') in block.value for block in app.markdown)
-    assert any(button.label == "Download combined CSV" for button in app.download_button)
+    assert any(button.label == "Download All CCASS Data CSV" for button in app.download_button)
 

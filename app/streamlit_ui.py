@@ -22,6 +22,7 @@ from ccass_core.compute import AnalysisResult, compute_analysis
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import (
     DEFAULT_LOCALE,
+    REPORT_SECTION_KEYS,
     SUPPORTED_LOCALES,
     build_chatgpt_copy_payload,
     build_markdown_report,
@@ -193,6 +194,14 @@ def streamlit_navigation_sections(locale: str = DEFAULT_LOCALE) -> tuple[str, ..
 def streamlit_navigation_links(locale: str = DEFAULT_LOCALE) -> str:
     return " | ".join(
         f"[{nav_text(locale, key)}](#{localized_report_anchor(key)})" for key in NAV_SECTION_KEYS
+    )
+
+
+def streamlit_report_navigation_links(locale: str = DEFAULT_LOCALE) -> str:
+    report_headings = report_section_headings(locale)
+    return " | ".join(
+        f"[{heading.removeprefix('## ')}](#{localized_report_anchor(key)})"
+        for key, heading in zip(REPORT_SECTION_KEYS, report_headings, strict=True)
     )
 
 

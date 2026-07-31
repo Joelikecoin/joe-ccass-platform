@@ -23,6 +23,7 @@ from app.streamlit_ui import (
     resolve_streamlit_query_input,
     nav_text,
     streamlit_chart_help_sections,
+    streamlit_report_navigation_links,
     streamlit_hkex_announcements_columns,
     streamlit_navigation_links,
     streamlit_responsive_layout_css,
@@ -243,6 +244,19 @@ if prepared is not None:
             st.info(ui_text(current_locale, "fetch_summary_remaining"))
         st.markdown(f"<a id='{localized_report_anchor('all_tables')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {nav_text(current_locale, 'all_tables')}")
+        st.markdown(f"### {ui_text(current_locale, 'report_navigation_heading')}")
+        st.caption(ui_text(current_locale, 'report_navigation_caption'))
+        st.markdown(streamlit_report_navigation_links(current_locale))
+        st.markdown(f"### {ui_text(current_locale, 'data_quality_heading')}")
+        st.caption(ui_text(current_locale, 'data_quality_caption'))
+        if prepared.response is None:
+            st.info(ui_text(current_locale, 'data_quality_unavailable'))
+        else:
+            quality_warnings = list(prepared.response.data_quality_warnings)
+            if quality_warnings:
+                st.warning("\n".join(f"- {warning}" for warning in quality_warnings))
+            else:
+                st.info(ui_text(current_locale, 'data_quality_no_warnings'))
         if show_rendered_markdown:
             st.markdown(localized_markdown)
 
