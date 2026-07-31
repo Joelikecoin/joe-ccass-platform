@@ -27,7 +27,7 @@ from app.streamlit_ui import (
     translate_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
-from ccass_core.report import CHATGPT_COPY_HEADER, report_section_headings
+from ccass_core.report import CHATGPT_COPY_HEADER, localized_report_anchor, report_section_headings
 
 
 class SuccessfulService:
@@ -257,6 +257,28 @@ def test_streamlit_company_section_renders_identity_details(monkeypatch, current
     assert any(
         translate_text(DEFAULT_LOCALE, 'report.company.lookup_method', value=translate_text(DEFAULT_LOCALE, 'report.company.lookup_method.extracted_from_url'))
         in block.value
+        for block in app.markdown
+    )
+    assert len(service.calls) == 1
+
+
+def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(
+        f"<a id='{localized_report_anchor('all_tables')}'></a>" in block.value
+        for block in app.markdown
+    )
+    assert any(
+        f"## {translate_text(DEFAULT_LOCALE, 'nav.all_tables')}" in block.value
         for block in app.markdown
     )
     assert len(service.calls) == 1

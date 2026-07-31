@@ -21,6 +21,7 @@ from app.streamlit_ui import (
     prepare_report,
     render_prepared_report,
     resolve_streamlit_query_input,
+    nav_text,
     streamlit_chart_help_sections,
     streamlit_hkex_announcements_columns,
     streamlit_navigation_links,
@@ -240,6 +241,8 @@ if prepared is not None:
         if prepared.fetch_error:
             st.error(prepared.fetch_error)
             st.info(ui_text(current_locale, "fetch_summary_remaining"))
+        st.markdown(f"<a id='{localized_report_anchor('all_tables')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {nav_text(current_locale, 'all_tables')}")
         if show_rendered_markdown:
             st.markdown(localized_markdown)
 
