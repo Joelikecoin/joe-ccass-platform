@@ -5,7 +5,7 @@ import io
 import re
 import tempfile
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -127,6 +127,7 @@ async def prepare_report(
     big_change_threshold: int,
     service: StockDataService,
     locale: str = DEFAULT_LOCALE,
+    history_snapshots: Sequence[CcassResponse] | None = None,
     previous_loader: Callable[[CcassResponse], CcassResponse | None] | None = None,
     progress: Callable[[int, str], None] | None = None,
 ) -> PreparedReport:
@@ -163,7 +164,13 @@ async def prepare_report(
         big_change_threshold=big_change_threshold,
     )
     _progress(progress, 85, "Rendering Markdown report")
-    markdown = build_markdown_report(response, code=code, analysis=analysis, locale=locale)
+    markdown = build_markdown_report(
+        response,
+        code=code,
+        analysis=analysis,
+        history_snapshots=history_snapshots,
+        locale=locale,
+    )
     _progress(progress, 100, "Report ready")
     return PreparedReport(
         code=code,

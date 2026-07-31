@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from collections.abc import Sequence
 
 from app.models import CcassResponse
 from ccass_core.compute import AnalysisResult, HoldingChange
@@ -162,6 +163,16 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.changes": "## Changes",
         "report.section.big_changes": "## Big Changes",
         "report.section.concentration": "## Concentration",
+        "report.section.concentration_history": "## Concentration History",
+        "report.concentration_history.latest_values": "### Latest Values",
+        "report.concentration_history.participant_count_history": "### Participant Count History",
+        "report.concentration_history.table_date": "Date",
+        "report.concentration_history.table_top5_issued": "Top 5 / issued",
+        "report.concentration_history.table_top10_issued": "Top 10 / issued",
+        "report.concentration_history.table_top5_ccass": "Top 5 / CCASS",
+        "report.concentration_history.table_top10_ccass": "Top 10 / CCASS",
+        "report.concentration_history.table_participant_count": "Participant count",
+        "report.concentration_history.unavailable": "Concentration history is unavailable in the current result.",
         "report.section.price_history": "## Price History",
         "report.price_history.unavailable": "Price history is unavailable in the current result.",
         "report.section.data_quality_warnings": "## Data Quality Warnings",
@@ -348,6 +359,16 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.changes": "## ??",
         "report.section.big_changes": "## ???",
         "report.section.concentration": "## ???",
+        "report.section.concentration_history": "## 持股集中度歷史",
+        "report.concentration_history.latest_values": "### 最新值",
+        "report.concentration_history.participant_count_history": "### 參與者數量歷史",
+        "report.concentration_history.table_date": "日期",
+        "report.concentration_history.table_top5_issued": "前五大 / 已發行股份",
+        "report.concentration_history.table_top10_issued": "前十大 / 已發行股份",
+        "report.concentration_history.table_top5_ccass": "前五大 / CCASS",
+        "report.concentration_history.table_top10_ccass": "前十大 / CCASS",
+        "report.concentration_history.table_participant_count": "參與者數量",
+        "report.concentration_history.unavailable": "目前結果沒有可用的持股集中度歷史資料。",
         "report.section.price_history": "## 價格歷史",
         "report.price_history.unavailable": "目前結果沒有可用的價格歷史資料。",
         "report.section.data_quality_warnings": "## ??????",
@@ -397,6 +418,7 @@ REPORT_SECTION_KEYS = (
     "changes",
     "big_changes",
     "concentration",
+    "concentration_history",
     "price_history",
     "data_quality_warnings",
 )
@@ -442,6 +464,7 @@ def build_markdown_report(
     code: str,
     analysis: AnalysisResult | None = None,
     fetch_error: str | None = None,
+    history_snapshots: Sequence[CcassResponse] | None = None,
     locale: str = DEFAULT_LOCALE,
 ) -> str:
     stock_name = response.metadata.name if response and response.metadata.name else translate_text(locale, "report.data_not_available")
@@ -538,11 +561,19 @@ def build_markdown_report(
             f"| Top 10 / CCASS | {_percent(summary.top10_pct_of_ccass, locale)} |",
             "",
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
+            translate_text(locale, "report.section.concentration_history"),
+            "",
+        ]
+    )
+    lines.extend(_concentration_history_section(response, history_snapshots, locale))
+    lines.extend([
+            "",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
             translate_text(locale, "report.section.price_history"),
             "",
             translate_text(locale, "report.price_history.unavailable"),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
             translate_text(locale, "report.section.data_quality_warnings"),
             "",
         ]
@@ -640,6 +671,48 @@ def _big_changes_section(analysis: AnalysisResult, locale: str) -> list[str]:
     if not analysis.big_changes:
         return [translate_text(locale, "report.no_changes_met_threshold", threshold=analysis.big_change_threshold)]
     return _change_table(analysis.big_changes, locale)
+
+
+def _concentration_history_section(
+    response: CcassResponse,
+    history_snapshots: Sequence[CcassResponse] | None,
+    locale: str,
+) -> list[str]:
+    snapshots_by_date: dict[str, CcassResponse] = {}
+    for snapshot in [*(history_snapshots or ()), response]:
+        holdings_date = snapshot.metadata.holdings_date
+        if holdings_date is None:
+            continue
+        snapshots_by_date[holdings_date.isoformat()] = snapshot
+    if not snapshots_by_date:
+        return [translate_text(locale, "report.concentration_history.unavailable")]
+
+    ordered_snapshots = [snapshots_by_date[key] for key in sorted(snapshots_by_date)]
+    latest_values_lines = [
+        translate_text(locale, "report.concentration_history.latest_values"),
+        "",
+        f"| {translate_text(locale, 'report.concentration_history.table_date')} | {translate_text(locale, 'report.concentration_history.table_top5_issued')} | {translate_text(locale, 'report.concentration_history.table_top10_issued')} | {translate_text(locale, 'report.concentration_history.table_top5_ccass')} | {translate_text(locale, 'report.concentration_history.table_top10_ccass')} |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    for snapshot in ordered_snapshots:
+        summary = snapshot.holdings_summary
+        latest_values_lines.append(
+            f"| {_text(snapshot.metadata.holdings_date, locale)} | {_percent(summary.top5_pct_of_issued, locale)} | {_percent(summary.top10_pct_of_issued, locale)} | {_percent(summary.top5_pct_of_ccass, locale)} | {_percent(summary.top10_pct_of_ccass, locale)} |"
+        )
+
+    participant_count_lines = [
+        "",
+        translate_text(locale, "report.concentration_history.participant_count_history"),
+        "",
+        f"| {translate_text(locale, 'report.concentration_history.table_date')} | {translate_text(locale, 'report.concentration_history.table_participant_count')} |",
+        "|---|---:|",
+    ]
+    for snapshot in ordered_snapshots:
+        participant_count_lines.append(
+            f"| {_text(snapshot.metadata.holdings_date, locale)} | {snapshot.holdings_summary.participant_count} |"
+        )
+
+    return latest_values_lines + participant_count_lines
 
 
 def _change_table(changes: tuple[HoldingChange, ...], locale: str) -> list[str]:

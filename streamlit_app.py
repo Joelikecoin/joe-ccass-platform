@@ -3,7 +3,7 @@ import asyncio
 import os
 import re
 import warnings
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 import streamlit as st
@@ -76,6 +76,18 @@ def _render_fallback_warning(captured: list[warnings.WarningMessage]) -> None:
     messages = _dedupe_warning_messages(captured)
     if messages:
         st.warning("\n".join(messages))
+
+
+def _history_range_start(end_date: date, history_range: str) -> date:
+    windows = {
+        "7 days": 7,
+        "30 days": 30,
+        "90 days": 90,
+    }
+    days = windows.get(history_range)
+    if days is None:
+        return date(1900, 1, 1)
+    return end_date - timedelta(days=days)
 
 
 _load_streamlit_secrets()
@@ -206,8 +218,18 @@ if submitted:
         else:
             resolved_code = resolve_streamlit_query_input(raw_code, input_type)
         previous_loader = None
+        history_snapshots = None
         if use_local_history and sqlite_path.is_file():
             store = SnapshotStore(sqlite_path)
+            history_start = _history_range_start(data_date, history_range)
+            history_snapshots = tuple(
+                snapshot.to_response()
+                for snapshot in store.repository.date_range(
+                    resolved_code,
+                    date_from=history_start,
+                    date_to=data_date,
+                )
+            )
 
             def load_previous(response):
                 return store.previous_for(response.metadata.code, response)
@@ -220,6 +242,7 @@ if submitted:
                 big_change_threshold=int(big_change_threshold),
                 service=get_ccass_service(),
                 locale=current_locale,
+                history_snapshots=history_snapshots,
                 previous_loader=previous_loader,
                 progress=update_progress,
             )

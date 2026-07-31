@@ -69,6 +69,22 @@ def test_report_includes_price_history_surface_as_unavailable(current_response, 
     assert translate_text(DEFAULT_LOCALE, "report.price_history.unavailable") in report
 
 
+def test_report_includes_concentration_history_surface_from_snapshots(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(
+        current_response,
+        code="01592",
+        analysis=analysis,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.concentration_history") in report
+    assert translate_text(DEFAULT_LOCALE, "report.concentration_history.latest_values") in report
+    assert translate_text(DEFAULT_LOCALE, "report.concentration_history.participant_count_history") in report
+    assert "2026-07-19" in report and "2026-07-20" in report
+
+
 def test_report_states_no_data_quality_warnings_when_empty(previous_response, current_response):
     analysis = compute_analysis(previous_response, current_response, big_change_threshold=500)
     report = build_markdown_report(previous_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
