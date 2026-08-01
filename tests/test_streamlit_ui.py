@@ -380,6 +380,20 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     assert len(service.calls) == 1
 
 
+def test_streamlit_fetch_summary_remaining_message_renders_on_error(monkeypatch):
+    import app.services.ccass as ccass_service
+
+    service = FailingService()
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.fetch_summary_remaining') in block.value for block in app.info)
+
+
 def test_build_full_summary_markdown_renders_status_table(current_response, previous_response):
     prepared = PreparedReport(
         code=current_response.metadata.code,

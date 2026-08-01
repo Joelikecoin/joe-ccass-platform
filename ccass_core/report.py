@@ -335,7 +335,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.fetch": "??",
         "ui.validation_error_prefix": "????",
         "ui.unexpected_error_prefix": "UNEXPECTED_ERROR",
-        "ui.fetch_summary_remaining": "?????????????????????",
+        "ui.fetch_summary_remaining": "擴取摘要與所有必要報告章節仍可在下方查看。",
         "ui.progress_starting": "開始中",
         "ui.progress_validated_stock_code": "已驗證股票代碼",
         "ui.progress_fetching_source": "正在擷取低頻 CCASS 資料來源",
