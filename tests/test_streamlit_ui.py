@@ -157,6 +157,13 @@ def test_streamlit_abc_shows_validation_error_without_network():
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.validation_error_prefix") in error.value for error in app.error)
 
+def test_streamlit_query_input_surface_renders_help_caption():
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_query_input_caption") in block.value for block in app.caption)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_stock_code_issue_id") in widget.label for widget in app.text_input)
+
 
 def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, current_response):
     repository = NormalizedSnapshotRepository(tmp_path / "history.db")
@@ -619,6 +626,7 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
             app.run(timeout=10)
 
     assert len(service.calls) == 1
+    assert any(translate_text('en', 'ui.sidebar_query_input_caption') in block.value for block in app.caption)
     assert any("## Fetch Summary" in block.value for block in app.markdown)
     assert any(translate_text('en', 'ui.chart_help_heading') in block.value for block in app.markdown)
     assert any(translate_text('en', 'ui.chart_help_surface_caption') in block.value for block in app.caption)

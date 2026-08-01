@@ -173,6 +173,7 @@ with st.sidebar:
     st.divider()
     st.caption(ui_text(current_locale, "data_source_mode", source_mode=_choice_label(current_locale, "source_mode", source_mode)))
     st.caption(ui_text(current_locale, "hkex_manual_verification"))
+    st.caption(ui_text(current_locale, "sidebar_query_input_caption"))
 
     with st.form("ccass-query"):
         if input_type == "Webb-site Issue ID":
