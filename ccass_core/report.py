@@ -435,7 +435,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.company.lookup_status.success": "成功",
         "report.company.lookup_method.extracted_from_url": "從 URL 擷取",
         "report.company.metadata_resolution_note": "已解析的 metadata 與查詢詳情僅供驗證用途。",
-        "report.section.metadata": "## ????",
+        "report.section.metadata": "## 元資料",
         "report.section.holdings_summary": "## ????",
         "report.section.holdings": "## ??",
         "report.section.changes": "## ??",
@@ -495,6 +495,7 @@ REPORT_SECTION_KEYS = (
     "analysis_ready_summary",
     "fetch_summary",
     "company",
+    "metadata",
     "holdings_summary",
     "holdings",
     "changes",
@@ -593,11 +594,15 @@ def build_markdown_report(
             translate_text(locale, "report.company.lookup_status", value=translate_text(locale, "report.company.lookup_status.success")),
             translate_text(locale, "report.company.lookup_method", value=translate_text(locale, "report.company.lookup_method.extracted_from_url")),
             translate_text(locale, "report.company.metadata_resolution_note"),
+            "",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
+            translate_text(locale, "report.section.metadata"),
+            "",
             translate_text(locale, "report.metadata.source_url", value=_text(metadata.source_url, locale)),
             translate_text(locale, "report.metadata.settlement_note", value=_text(metadata.settlement_note, locale)),
             translate_text(locale, "report.metadata.attribution", value=_text(metadata.attribution, locale)),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
             translate_text(locale, "report.section.holdings_summary"),
             "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
@@ -610,7 +615,7 @@ def build_markdown_report(
             f"| Non-CCASS / issued | {_percent(summary.non_ccass_pct_of_issued, locale)} |",
             f"| Participant count | {summary.participant_count} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
             translate_text(locale, "report.section.holdings"),
             "",
         ]
@@ -618,14 +623,14 @@ def build_markdown_report(
     lines.extend(_holdings_table(response, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
         translate_text(locale, "report.section.changes"),
         "",
     ])
     lines.extend(_changes_section(computed, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[7])}'></a>",
         translate_text(locale, "report.section.big_changes"),
         "",
     ])
@@ -633,7 +638,7 @@ def build_markdown_report(
     lines.extend(
         [
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[7])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
             translate_text(locale, "report.section.concentration"),
             "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
@@ -643,7 +648,7 @@ def build_markdown_report(
             f"| Top 5 / CCASS | {_percent(summary.top5_pct_of_ccass, locale)} |",
             f"| Top 10 / CCASS | {_percent(summary.top10_pct_of_ccass, locale)} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
             translate_text(locale, "report.section.concentration_history"),
             "",
         ]
@@ -651,12 +656,12 @@ def build_markdown_report(
     lines.extend(_concentration_history_section(response, history_snapshots, locale))
     lines.extend([
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
             translate_text(locale, "report.section.price_history"),
             "",
             translate_text(locale, "report.price_history.unavailable"),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[11])}'></a>",
             translate_text(locale, "report.section.data_quality_warnings"),
             "",
         ]

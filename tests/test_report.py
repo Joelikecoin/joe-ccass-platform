@@ -1,4 +1,4 @@
-﻿import warnings
+import warnings
 
 from app.errors import ErrorCode, PlatformError
 from ccass_core.compute import compute_analysis
@@ -52,6 +52,8 @@ def test_report_includes_company_section_identity_details(current_response, prev
         value=translate_text(DEFAULT_LOCALE, "report.company.lookup_method.extracted_from_url"),
     ) in report
     assert translate_text(DEFAULT_LOCALE, "report.company.metadata_resolution_note") in report
+    assert translate_text(DEFAULT_LOCALE, "report.section.metadata") in report
+    assert translate_text(DEFAULT_LOCALE, "report.metadata.attribution", value=current_response.metadata.attribution) in report
 
 
 def test_report_includes_data_quality_warning_summary(current_response, previous_response):
