@@ -371,7 +371,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.downloads_download_markdown_report": "下載 Markdown 報告",
         "ui.downloads_csv_preview": "CSV 內容預覽",
         "ui.downloads_first_80_csv_lines": "前 80 行 CSV",
-        "ui.downloads_section_specific": "??????",
+        "ui.downloads_section_specific": "各章節下載",
         "ui.downloads_raw_preview_summary_csv": "?????? CSV",
         "ui.downloads_download_raw_preview_summary_csv": "???????? CSV",
         "ui.downloads_raw_preview_holdings_csv": "?????? CSV",
