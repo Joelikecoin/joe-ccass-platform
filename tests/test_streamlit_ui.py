@@ -67,7 +67,30 @@ async def test_prepare_report_normalizes_1592_and_applies_holdings_limit(current
     assert prepared.code == "01592"
     assert service.calls == [("01592", 25)]
     assert prepared.filename == "01592_ccass_report.md"
-    assert progress[-1] == (100, "Report ready")
+    assert progress[-1] == (100, translate_text(DEFAULT_LOCALE, "ui.progress_ready"))
+
+@pytest.mark.parametrize("locale", [DEFAULT_LOCALE, "en"])
+async def test_prepare_report_uses_localized_progress_labels(current_response, locale):
+    service = SuccessfulService(current_response)
+    progress = []
+
+    prepared = await prepare_report(
+        "1592",
+        holdings_limit=25,
+        big_change_threshold=500,
+        service=service,
+        locale=locale,
+        progress=lambda value, label: progress.append((value, label)),
+    )
+
+    assert prepared.code == "01592"
+    assert progress == [
+        (15, translate_text(locale, "ui.progress_validated_stock_code")),
+        (30, translate_text(locale, "ui.progress_fetching_source")),
+        (65, translate_text(locale, "ui.progress_computing_analysis")),
+        (85, translate_text(locale, "ui.progress_rendering_report")),
+        (100, translate_text(locale, "ui.progress_ready")),
+    ]
 
 
 async def test_prepare_report_network_failure_keeps_all_sections():

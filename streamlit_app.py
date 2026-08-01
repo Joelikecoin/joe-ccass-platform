@@ -192,7 +192,7 @@ with st.sidebar:
 
 if submitted:
     st.session_state.pop("prepared_report", None)
-    progress_bar = st.progress(0, text="Starting")
+    progress_bar = st.progress(0, text=ui_text(current_locale, "progress_starting"))
 
     def update_progress(value: int, label: str) -> None:
         progress_bar.progress(value, text=label)

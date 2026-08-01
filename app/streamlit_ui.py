@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import csv
 import html
 import io
@@ -133,15 +133,15 @@ async def prepare_report(
     progress: Callable[[int, str], None] | None = None,
 ) -> PreparedReport:
     code = normalize_stock_code(raw_code)
-    _progress(progress, 15, "Validated stock code")
+    _progress(progress, 15, ui_text(locale, "progress_validated_stock_code"))
     try:
-        _progress(progress, 30, "Fetching low-frequency CCASS source")
+        _progress(progress, 30, ui_text(locale, "progress_fetching_source"))
         response = await service.get_stock_data(code, holdings_limit=holdings_limit)
     except PlatformError as exc:
         error = f"{exc.code}: {exc.message}"
-        _progress(progress, 75, "Source unavailable; building a complete diagnostic report")
+        _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))
         markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
-        _progress(progress, 100, "Report ready with source error details")
+        _progress(progress, 100, ui_text(locale, "progress_ready_with_error_details"))
         return PreparedReport(
             code=code,
             markdown=markdown,
@@ -151,7 +151,7 @@ async def prepare_report(
             fetch_error=error,
         )
 
-    _progress(progress, 65, "Computing concentration and comparison fields")
+    _progress(progress, 65, ui_text(locale, "progress_computing_analysis"))
     try:
         previous = previous_loader(response) if previous_loader else None
     except Exception as exc:
@@ -164,7 +164,7 @@ async def prepare_report(
         previous=previous,
         big_change_threshold=big_change_threshold,
     )
-    _progress(progress, 85, "Rendering Markdown report")
+    _progress(progress, 85, ui_text(locale, "progress_rendering_report"))
     markdown = build_markdown_report(
         response,
         code=code,
@@ -172,7 +172,7 @@ async def prepare_report(
         history_snapshots=history_snapshots,
         locale=locale,
     )
-    _progress(progress, 100, "Report ready")
+    _progress(progress, 100, ui_text(locale, "progress_ready"))
     return PreparedReport(
         code=code,
         markdown=markdown,
