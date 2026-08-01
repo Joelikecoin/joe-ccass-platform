@@ -448,6 +448,11 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
         translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in block.value
         for block in app.markdown
     )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_data_quality_warnings', warning_count=1)
+        in block.value
+        for block in app.markdown
+    )
     assert len(service.calls) == 1
 
 
