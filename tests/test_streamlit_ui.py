@@ -714,6 +714,8 @@ def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypat
     download_labels = [button.label for button in app.download_button]
     assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_combined_csv") in download_labels
     assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_excel_workbook") in download_labels
+    assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_markdown_report") in download_labels
+    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_report_markdown") in block.value for block in app.markdown)
 
 
 def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_response):
@@ -747,4 +749,5 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     assert any(translate_text('en', 'ui.chart_help_heading') in block.value for block in app.markdown)
     assert any(translate_text('en', 'ui.chart_help_surface_caption') in block.value for block in app.caption)
     assert any(button.label == "Download All CCASS Data CSV" for button in app.download_button)
+    assert any(button.label == "Download Markdown Report" for button in app.download_button)
 
