@@ -449,7 +449,7 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_data_quality_warnings', warning_count=1)
+        translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_company', code='01592', issue_id=15920)
         in block.value
         for block in app.markdown
     )

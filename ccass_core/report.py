@@ -390,7 +390,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_status_unavailable": "???",
         "ui.full_summary_unavailable": "???????????????",
         "ui.full_summary_note_fetch_summary": "?????????????",
-        "ui.full_summary_note_company": "?? {code} / Issue ID {issue_id}",
+        "ui.full_summary_note_company": "公司 {code} / Issue ID {issue_id}",
         "ui.full_summary_note_holdings": "{participant_count} ???????",
         "ui.full_summary_note_changes_available": "?????????",
         "ui.full_summary_note_changes_unavailable": "?????????",
