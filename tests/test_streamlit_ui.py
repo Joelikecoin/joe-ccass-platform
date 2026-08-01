@@ -399,7 +399,9 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_status') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_note') in markdown
-    assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
+    assert markdown.index(translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ')) < markdown.index(
+        translate_text(DEFAULT_LOCALE, 'report.section.fetch_summary').removeprefix('## ')
+    )
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
 
@@ -526,9 +528,10 @@ def test_streamlit_report_navigation_links_cover_report_sections():
 
     links = streamlit_report_navigation_links(DEFAULT_LOCALE)
 
-    assert '#fetch-summary' in links
     assert '#company' in links
     assert '#metadata' in links
+    assert '#fetch-summary' in links
+    assert links.index('#company') < links.index('#metadata') < links.index('#fetch-summary')
     assert '#data-quality-warnings' in links
 
 

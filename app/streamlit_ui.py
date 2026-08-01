@@ -382,11 +382,6 @@ def build_full_summary_markdown(
 
     rows = [
         (
-            section_label("report.section.fetch_summary"),
-            ui_text(locale, "full_summary_status_available"),
-            ui_text(locale, "full_summary_note_fetch_summary"),
-        ),
-        (
             section_label("report.section.company"),
             ui_text(locale, "full_summary_status_available"),
             ui_text(
@@ -395,6 +390,11 @@ def build_full_summary_markdown(
                 code=response.metadata.code,
                 issue_id=response.metadata.issue_id,
             ),
+        ),
+        (
+            section_label("report.section.fetch_summary"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_fetch_summary"),
         ),
         (
             section_label("report.section.holdings"),
