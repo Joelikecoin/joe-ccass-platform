@@ -361,7 +361,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.downloads_heading": "下載本股票",
         "ui.downloads_unavailable": "成功抓取後才可下載。",
         "ui.downloads_caption": "直接從已抓取的回應下載目前報告產物。",
-        "ui.downloads_workflow_heading": "????",
+        "ui.downloads_workflow_heading": "匯出流程",
         "ui.downloads_workflow_caption": "選擇要下載的項目。合併 CSV、Excel 工作簿、Markdown 報告，以及各章節匯出都會重用已擷取的結果。",
         "ui.downloads_combined_csv": "全部 CCASS 資料 CSV",
         "ui.downloads_excel_workbook": "Excel - 全部章節",
