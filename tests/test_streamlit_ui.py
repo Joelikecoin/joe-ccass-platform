@@ -528,6 +528,7 @@ def test_streamlit_report_navigation_links_cover_report_sections():
 
     assert '#fetch-summary' in links
     assert '#company' in links
+    assert '#metadata' in links
     assert '#data-quality-warnings' in links
 
 
