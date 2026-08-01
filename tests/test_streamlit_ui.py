@@ -723,6 +723,11 @@ def test_streamlit_raw_previews_surface_renders_help_caption(monkeypatch, curren
     assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_help_caption") in block.value for block in app.caption)
     assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_expander") in block.label for block in app.expander)
 
+
+@pytest.mark.parametrize("locale", [DEFAULT_LOCALE, "en"])
+def test_streamlit_raw_previews_heading_matches_navigation_label(locale):
+    assert translate_text(locale, "ui.raw_previews_heading") == translate_text(locale, "nav.raw_previews")
+
 def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 
