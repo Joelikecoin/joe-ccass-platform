@@ -356,7 +356,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.raw_previews_sample_rows": "預覽列",
         "ui.raw_previews_no_sample_rows": "沒有可用的預覽列。",
         "ui.copy_for_chatgpt": "??? ChatGPT",
-        "ui.copy_for_chatgpt_caption": "?????????? ChatGPT?????????????????????????",
+        "ui.copy_for_chatgpt_caption": "複製已渲染的報告內容以貼到 ChatGPT。負載已包含安全標頭與目前報告文字。",
         "ui.copy_report": "????",
         "ui.downloads_heading": "下載本股票",
         "ui.downloads_unavailable": "成功抓取後才可下載。",
