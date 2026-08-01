@@ -743,6 +743,7 @@ def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypat
     assert any("匯出流程" in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_workflow_caption") in block.value for block in app.caption)
     assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_caption") in block.value for block in app.caption)
+    assert any("資料意義" in block.value and "各章節匯出" in block.value for block in app.caption)
     download_labels = [button.label for button in app.download_button]
     assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_combined_csv") in download_labels
     assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_excel_workbook") in download_labels

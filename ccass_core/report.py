@@ -360,7 +360,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.copy_report": "????",
         "ui.downloads_heading": "下載本股票",
         "ui.downloads_unavailable": "成功抓取後才可下載。",
-        "ui.downloads_caption": "直接從已抓取的回應下載目前報告產物。",
+        "ui.downloads_caption": "合併 CSV 包含 Holdings、Changes、Big Changes 和 Concentration，並列出來源 URL、擷取時間與資料意義。下方按鈕會重用已擷取的結果，提供 CSV、Excel 工作簿、Markdown 報告及各章節匯出。",
         "ui.downloads_workflow_heading": "匯出流程",
         "ui.downloads_workflow_caption": "選擇要下載的項目。合併 CSV、Excel 工作簿、Markdown 報告，以及各章節匯出都會重用已擷取的結果。",
         "ui.downloads_combined_csv": "全部 CCASS 資料 CSV",
