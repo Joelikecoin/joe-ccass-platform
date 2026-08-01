@@ -716,6 +716,7 @@ def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypat
     assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_excel_workbook") in download_labels
     assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_markdown_report") in download_labels
     assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_report_markdown") in block.value for block in app.markdown)
+    assert any("前 80 行 CSV" in block.value for block in app.caption)
 
 
 def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_response):
