@@ -1,6 +1,7 @@
 import base64
 import re
 import zipfile
+from datetime import date, datetime
 
 import pytest
 from io import BytesIO
@@ -9,6 +10,7 @@ from xml.etree import ElementTree as ET
 from streamlit.testing.v1 import AppTest
 
 from app.errors import ErrorCode, PlatformError
+from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
 from app.streamlit_ui import (
     DEFAULT_LOCALE,
     STREAMLIT_NAV_SECTIONS,
@@ -542,7 +544,7 @@ def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_resp
         translate_text(DEFAULT_LOCALE, "ui.raw_previews_metric"),
         translate_text(DEFAULT_LOCALE, "ui.raw_previews_value"),
     )
-    assert summary.sample_rows[0] == {"Metric": "Code", "Value": "01592"}
+    assert summary.sample_rows[0] == {summary.columns[0]: "Code", summary.columns[1]: "01592"}
 
     assert holdings.table_index == 1
     assert holdings.title == translate_text(DEFAULT_LOCALE, "ui.raw_previews_holdings_title")
@@ -560,6 +562,52 @@ def test_build_raw_preview_tables_exposes_summary_and_holdings_rows(current_resp
     )
     assert holdings.sample_rows[0]["Rank"] == 1
     assert holdings.sample_rows[0]["CCASS ID"] == "B00001"
+
+
+def test_build_raw_preview_tables_uses_localized_no_data_placeholders():
+    partial_response = CcassResponse(
+        metadata=SourceMetadata(
+            code="01592",
+            name=None,
+            issue_id=1592,
+            holdings_date=None,
+            fetched_at=datetime(2026, 7, 20, 9, 0, 0),
+            source_url="https://example.com/ccass/01592",
+        ),
+        holdings_summary=HoldingsSummary(
+            participant_count=0,
+            total_in_ccass_shares=None,
+            total_in_ccass_pct_of_issued=None,
+            issued_shares=None,
+            issued_shares_as_of=None,
+            non_ccass_shares=None,
+            non_ccass_pct_of_issued=None,
+            top5_pct_of_issued=None,
+            top10_pct_of_issued=None,
+            top5_pct_of_ccass=None,
+            top10_pct_of_ccass=None,
+        ),
+        holdings=[
+            HoldingRow(
+                rank=1,
+                participant_id="B00001",
+                participant="Example Participant",
+                shares=1000,
+                last_change=None,
+                pct_of_issued=1.2345,
+                pct_of_ccass=None,
+                cumulative_pct_of_issued=None,
+                participant_category=None,
+            )
+        ],
+    )
+
+    summary, holdings = build_raw_preview_tables(partial_response, locale=DEFAULT_LOCALE)
+
+    assert summary.sample_rows[1][summary.columns[1]] == translate_text(DEFAULT_LOCALE, "report.data_not_available")
+    assert summary.sample_rows[3][summary.columns[1]] == translate_text(DEFAULT_LOCALE, "report.data_not_available")
+    assert holdings.sample_rows[0]["Last change"] == translate_text(DEFAULT_LOCALE, "report.data_not_available")
+    assert holdings.sample_rows[0]["Category"] == translate_text(DEFAULT_LOCALE, "report.data_not_available")
 
 
 def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_response):
@@ -588,6 +636,50 @@ def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_resp
     ]
 
 
+def test_build_download_artifacts_uses_localized_no_data_placeholders():
+    partial_response = CcassResponse(
+        metadata=SourceMetadata(
+            code="01592",
+            name=None,
+            issue_id=1592,
+            holdings_date=None,
+            fetched_at=datetime(2026, 7, 20, 9, 0, 0),
+            source_url="https://example.com/ccass/01592",
+        ),
+        holdings_summary=HoldingsSummary(
+            participant_count=0,
+            total_in_ccass_shares=None,
+            total_in_ccass_pct_of_issued=None,
+            issued_shares=None,
+            issued_shares_as_of=None,
+            non_ccass_shares=None,
+            non_ccass_pct_of_issued=None,
+            top5_pct_of_issued=None,
+            top10_pct_of_issued=None,
+            top5_pct_of_ccass=None,
+            top10_pct_of_ccass=None,
+        ),
+        holdings=[
+            HoldingRow(
+                rank=1,
+                participant_id="B00001",
+                participant="Example Participant",
+                shares=1000,
+                last_change=None,
+                pct_of_issued=1.2345,
+                pct_of_ccass=None,
+                cumulative_pct_of_issued=None,
+                participant_category=None,
+            )
+        ],
+    )
+
+    artifacts = build_download_artifacts(partial_response, locale=DEFAULT_LOCALE)
+    preview_summary = artifacts.raw_preview_summary_bytes.decode("utf-8-sig")
+    preview_holdings = artifacts.raw_preview_holdings_bytes.decode("utf-8-sig")
+
+    assert translate_text(DEFAULT_LOCALE, "report.data_not_available") in preview_summary
+    assert translate_text(DEFAULT_LOCALE, "report.data_not_available") in preview_holdings
 
 def test_streamlit_raw_previews_surface_renders_help_caption(monkeypatch, current_response):
     import app.services.ccass as ccass_service

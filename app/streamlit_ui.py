@@ -319,8 +319,8 @@ def build_raw_preview_tables(
     sample_size: int = 5,
     locale: str = DEFAULT_LOCALE,
 ) -> tuple[RawPreviewTable, ...]:
-    summary_rows = _summary_preview_rows(response)
-    holdings_rows = _holding_preview_rows(response)
+    summary_rows = _summary_preview_rows(response, locale)
+    holdings_rows = _holding_preview_rows(response, locale)
     return (
         RawPreviewTable(
             table_index=0,
@@ -343,10 +343,11 @@ def build_download_artifacts(
     response: CcassResponse,
     *,
     preview_line_count: int = 80,
+    locale: str = DEFAULT_LOCALE,
 ) -> DownloadArtifacts:
-    raw_preview_tables = build_raw_preview_tables(response, locale="en")
+    raw_preview_tables = build_raw_preview_tables(response, locale=locale)
     combined_csv_bytes = _build_combined_csv_bytes(response)
-    workbook_bytes = _build_download_workbook_bytes(response, combined_csv_bytes, raw_preview_tables)
+    workbook_bytes = _build_download_workbook_bytes(response, combined_csv_bytes, raw_preview_tables, locale=locale)
     return DownloadArtifacts(
         combined_csv_bytes=combined_csv_bytes,
         combined_csv_filename=f"{response.metadata.code}_all_ccass_data.csv",
@@ -428,8 +429,8 @@ def build_full_summary_markdown(
             ui_text(
                 locale,
                 "full_summary_note_concentration",
-                top5_pct_of_issued=_format_percent(summary.top5_pct_of_issued),
-                top10_pct_of_issued=_format_percent(summary.top10_pct_of_issued),
+                top5_pct_of_issued=_format_percent(summary.top5_pct_of_issued, locale),
+                top10_pct_of_issued=_format_percent(summary.top10_pct_of_issued, locale),
             ),
         ),
         (
@@ -558,6 +559,8 @@ def _build_download_workbook_bytes(
     response: CcassResponse,
     combined_csv_bytes: bytes,
     raw_preview_tables: tuple[RawPreviewTable, ...],
+    *,
+    locale: str = DEFAULT_LOCALE,
 ) -> bytes:
     combined_rows, combined_headers = _csv_rows_from_bytes(combined_csv_bytes)
     workbook_sheets = [
@@ -571,9 +574,9 @@ def _build_download_workbook_bytes(
             ("Field", "Value"),
             [
                 {"Field": "Code", "Value": response.metadata.code},
-                {"Field": "Stock name", "Value": response.metadata.name or "DATA NOT AVAILABLE"},
+                {"Field": "Stock name", "Value": response.metadata.name or translate_text(locale, "report.data_not_available")},
                 {"Field": "Issue ID", "Value": response.metadata.issue_id},
-                {"Field": "Holdings date", "Value": response.metadata.holdings_date or "DATA NOT AVAILABLE"},
+                {"Field": "Holdings date", "Value": response.metadata.holdings_date or translate_text(locale, "report.data_not_available")},
                 {"Field": "Participant count", "Value": response.holdings_summary.participant_count},
             ],
         ),
@@ -730,53 +733,55 @@ def _table_to_csv_bytes(table: RawPreviewTable) -> bytes:
     return buffer.getvalue().encode("utf-8-sig")
 
 
-def _summary_preview_rows(response: CcassResponse) -> list[dict[str, object]]:
+def _summary_preview_rows(response: CcassResponse, locale: str) -> list[dict[str, object]]:
     summary = response.holdings_summary
     metadata = response.metadata
+    metric_label = ui_text(locale, "raw_previews_metric")
+    value_label = ui_text(locale, "raw_previews_value")
     return [
-        {"Metric": "Code", "Value": metadata.code},
-        {"Metric": "Stock name", "Value": metadata.name or "DATA NOT AVAILABLE"},
-        {"Metric": "Issue ID", "Value": metadata.issue_id},
-        {"Metric": "Holdings date", "Value": metadata.holdings_date or "DATA NOT AVAILABLE"},
-        {"Metric": "Participant count", "Value": summary.participant_count},
+        {metric_label: "Code", value_label: metadata.code},
+        {metric_label: "Stock name", value_label: metadata.name or translate_text(locale, "report.data_not_available")},
+        {metric_label: "Issue ID", value_label: metadata.issue_id},
+        {metric_label: "Holdings date", value_label: metadata.holdings_date or translate_text(locale, "report.data_not_available")},
+        {metric_label: "Participant count", value_label: summary.participant_count},
         {
-            "Metric": "Total in CCASS shares",
-            "Value": summary.total_in_ccass_shares or "DATA NOT AVAILABLE",
+            metric_label: "Total in CCASS shares",
+            value_label: summary.total_in_ccass_shares or translate_text(locale, "report.data_not_available"),
         },
         {
-            "Metric": "Issued shares",
-            "Value": summary.issued_shares or "DATA NOT AVAILABLE",
+            metric_label: "Issued shares",
+            value_label: summary.issued_shares or translate_text(locale, "report.data_not_available"),
         },
         {
-            "Metric": "Top 5 / issued",
-            "Value": _format_percent(summary.top5_pct_of_issued),
+            metric_label: "Top 5 / issued",
+            value_label: _format_percent(summary.top5_pct_of_issued, locale),
         },
         {
-            "Metric": "Top 10 / issued",
-            "Value": _format_percent(summary.top10_pct_of_issued),
+            metric_label: "Top 10 / issued",
+            value_label: _format_percent(summary.top10_pct_of_issued, locale),
         },
     ]
 
 
-def _holding_preview_rows(response: CcassResponse) -> list[dict[str, object]]:
+def _holding_preview_rows(response: CcassResponse, locale: str) -> list[dict[str, object]]:
     return [
         {
             "Rank": row.rank,
             "CCASS ID": row.participant_id,
             "Participant": row.participant,
             "Shares": row.shares,
-            "Last change": row.last_change or "DATA NOT AVAILABLE",
-            "% issued": _format_percent(row.pct_of_issued),
-            "% CCASS": _format_percent(row.pct_of_ccass),
-            "Cumulative %": _format_percent(row.cumulative_pct_of_issued),
-            "Category": row.participant_category or "DATA NOT AVAILABLE",
+            "Last change": row.last_change or translate_text(locale, "report.data_not_available"),
+            "% issued": _format_percent(row.pct_of_issued, locale),
+            "% CCASS": _format_percent(row.pct_of_ccass, locale),
+            "Cumulative %": _format_percent(row.cumulative_pct_of_issued, locale),
+            "Category": row.participant_category or translate_text(locale, "report.data_not_available"),
         }
         for row in response.holdings
     ]
 
 
-def _format_percent(value: float | None) -> str:
-    return f"{value:.4f}%" if value is not None else "DATA NOT AVAILABLE"
+def _format_percent(value: float | None, locale: str) -> str:
+    return f"{value:.4f}%" if value is not None else translate_text(locale, "report.data_not_available")
 
 
 def _progress(callback: Callable[[int, str], None] | None, value: int, label: str) -> None:

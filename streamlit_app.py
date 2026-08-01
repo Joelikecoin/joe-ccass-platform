@@ -396,7 +396,7 @@ if prepared is not None:
         if prepared.response is None:
             st.info(ui_text(current_locale, "downloads_unavailable"))
         else:
-            download_artifacts = build_download_artifacts(prepared.response)
+            download_artifacts = build_download_artifacts(prepared.response, locale=current_locale)
             st.caption(ui_text(current_locale, "downloads_caption"))
             combined_col, workbook_col, report_download_col = st.columns(3)
             with combined_col:
