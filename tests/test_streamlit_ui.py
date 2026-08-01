@@ -197,6 +197,7 @@ def test_streamlit_navigation_links_cover_required_sections():
     assert "#dt-rainbow" in links
     assert "#hkex-announcements" in links
     assert "#price-history" in links
+    assert "Price & Turnover" in streamlit_navigation_links("en")
     assert "#copy-for-chatgpt" in links
     assert "#downloads" in links
 
