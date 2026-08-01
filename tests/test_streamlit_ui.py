@@ -306,6 +306,10 @@ def test_streamlit_company_section_renders_identity_details(monkeypatch, current
         in block.value
         for block in app.markdown
     )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'report.company.metadata_resolution_note') in block.value
+        for block in app.markdown
+    )
     assert len(service.calls) == 1
 
 
