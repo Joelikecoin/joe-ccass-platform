@@ -441,6 +441,10 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
         for block in app.markdown
     )
     assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.full_summary_caption') in block.value
+        for block in app.caption
+    )
+    assert any(
         translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in block.value
         for block in app.markdown
     )

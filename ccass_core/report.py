@@ -76,7 +76,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.data_quality_no_warnings": "No data quality warnings were generated.",
         "ui.data_quality_unavailable": "Data quality warnings are unavailable for this result.",
         "ui.full_summary_heading": "Full Summary",
-        "ui.full_summary_caption": "Summary of the currently loaded result and visible surfaces.",
+        "ui.full_summary_caption": "總結顯示目前載入結果及可見區段的概覽。",
         "ui.full_summary_table_section": "Section",
         "ui.full_summary_table_status": "Status",
         "ui.full_summary_table_note": "Note",
