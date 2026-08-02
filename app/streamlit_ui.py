@@ -14,6 +14,7 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
+from app.data_quality import structured_warning
 from app.models import CcassResponse
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
@@ -156,7 +157,11 @@ async def prepare_report(
         previous = previous_loader(response) if previous_loader else None
     except Exception as exc:
         response.data_quality_warnings.append(
-            f"Previous-snapshot enrichment is unavailable ({type(exc).__name__})."
+            structured_warning(
+                "DATA_LIMITATION",
+                "PREVIOUS_SNAPSHOT_ENRICHMENT_UNAVAILABLE",
+                f"Previous-snapshot enrichment is unavailable ({type(exc).__name__}).",
+            )
         )
         previous = None
     analysis = compute_analysis(

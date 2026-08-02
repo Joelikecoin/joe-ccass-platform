@@ -4,6 +4,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from enum import StrEnum
 
+from app.data_quality import parse_warning, structured_warning
 from app.domain.history import HistoricalSnapshot
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
@@ -83,8 +84,11 @@ class PersistentLatestHoldingsSource:
                 self.repository.save(snapshot)
             except Exception as error:
                 persistence_warning = (
-                    "LKG_PERSISTENCE_ERROR: verified live data was served, but the "
-                    f"transactional LKG write failed ({type(error).__name__})."
+                    structured_warning(
+                        "LKG_PERSISTENCE_ERROR",
+                        type(error).__name__,
+                        "Verified live data was served, but the transactional LKG write failed.",
+                    )
                 )
 
         result = response.model_copy(deep=True)
@@ -92,8 +96,16 @@ class PersistentLatestHoldingsSource:
         result.data_quality_warnings = _without_freshness(result.data_quality_warnings)
         result.data_quality_warnings.extend(
             (
-                f"{FRESHNESS_PREFIX} {FreshnessStatus.FRESH.value}",
-                f"{SERVED_AT_PREFIX} {served_at.isoformat()}",
+                structured_warning(
+                    "FRESHNESS_STATUS",
+                    FreshnessStatus.FRESH.value,
+                    "The current result came from a fresh live source.",
+                ),
+                structured_warning(
+                    "SERVED_AT",
+                    served_at.isoformat(),
+                    f"Served at {served_at.isoformat()}.",
+                ),
             )
         )
         if persistence_warning:
@@ -212,16 +224,47 @@ class PersistentLatestHoldingsSource:
         result.data_quality_warnings = _without_freshness(result.data_quality_warnings)
         result.data_quality_warnings.extend(
             (
-                f"{FRESHNESS_PREFIX} {FreshnessStatus.STALE_LKG.value}",
-                f"{SOURCE_ERROR_CODE_PREFIX} {error.code.value}",
-                f"{SOURCE_ERROR_MESSAGE_PREFIX} {error.message}",
-                f"{SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX} "
-                f"{str(error.retry_recommended).lower()}",
-                f"{SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX} "
-                f"{error.retry_after_seconds if error.retry_after_seconds is not None else 'none'}",
-                f"{LKG_RETRIEVED_AT_PREFIX} {retrieved_at.isoformat()}",
-                f"{LKG_AGE_SECONDS_PREFIX} {age_seconds}",
-                f"{SERVED_AT_PREFIX} {served_at.isoformat()}",
+                structured_warning(
+                    "FRESHNESS_STATUS",
+                    FreshnessStatus.STALE_LKG.value,
+                    "The current result came from a cached or snapshot data source.",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_CODE",
+                    error.code.value,
+                    f"Source error code: {error.code.value}",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_MESSAGE",
+                    error.message,
+                    f"Source error message: {error.message}",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_RETRY_RECOMMENDED",
+                    str(error.retry_recommended).lower(),
+                    f"Source retry recommended: {str(error.retry_recommended).lower()}",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_RETRY_AFTER_SECONDS",
+                    error.retry_after_seconds if error.retry_after_seconds is not None else "none",
+                    "Source retry-after seconds: "
+                    f"{error.retry_after_seconds if error.retry_after_seconds is not None else 'none'}",
+                ),
+                structured_warning(
+                    "LKG_RETRIEVED_AT",
+                    retrieved_at.isoformat(),
+                    f"Last-known-good retrieved at: {retrieved_at.isoformat()}",
+                ),
+                structured_warning(
+                    "LKG_AGE_SECONDS",
+                    str(age_seconds),
+                    f"Last-known-good age seconds: {age_seconds}",
+                ),
+                structured_warning(
+                    "SERVED_AT",
+                    served_at.isoformat(),
+                    f"Served at: {served_at.isoformat()}",
+                ),
             )
         )
         return result
@@ -230,7 +273,8 @@ class PersistentLatestHoldingsSource:
 def freshness_status(response: CcassResponse) -> FreshnessStatus:
     for warning in response.data_quality_warnings:
         if warning.startswith(FRESHNESS_PREFIX):
-            value = warning.removeprefix(FRESHNESS_PREFIX).strip()
+            parsed = parse_warning(warning)
+            value = parsed.code if parsed is not None else warning.removeprefix(FRESHNESS_PREFIX).strip()
             try:
                 return FreshnessStatus(value)
             except ValueError:
@@ -241,6 +285,9 @@ def freshness_status(response: CcassResponse) -> FreshnessStatus:
 def freshness_detail(response: CcassResponse, prefix: str) -> str | None:
     for warning in response.data_quality_warnings:
         if warning.startswith(prefix):
+            parsed = parse_warning(warning)
+            if parsed is not None:
+                return parsed.code
             return warning.removeprefix(prefix).strip()
     return None
 

@@ -21,6 +21,11 @@ class SourceMetadata(BaseModel):
         "Data from Renavon/Webb-site mirror, originally compiled by Webb-site.com | CC-BY 4.0"
     )
 
+    @computed_field
+    @property
+    def data_as_of(self) -> date | None:
+        return self.holdings_date
+
 
 class HoldingRow(BaseModel):
     rank: int
@@ -76,6 +81,11 @@ class ChangesSourceMetadata(BaseModel):
     cached: bool
     stale: bool
     partial: bool
+
+    @computed_field
+    @property
+    def data_as_of(self) -> date:
+        return self.issued_shares_as_of
 
 
 class ChangesMetadata(BaseModel):

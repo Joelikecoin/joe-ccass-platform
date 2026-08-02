@@ -31,6 +31,7 @@ async def test_auto_source_uses_configured_csv_only_after_mirror_failure(current
     response = await source.get_holdings("01592", limit=20)
 
     assert response.metadata.source_name == "Offline test fixture"
+    assert response.data_quality_warnings[-1].startswith("SOURCE_STATUS: CSV_FALLBACK_USED")
     assert "Primary mirror failed (SOURCE_TIMEOUT)" in response.data_quality_warnings[-1]
 
 

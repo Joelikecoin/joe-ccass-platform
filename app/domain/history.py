@@ -46,6 +46,26 @@ class RawProvenance(BaseModel):
     byte_size: int = Field(ge=0)
 
 
+class HistoricalSnapshotKey(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    code: str = Field(pattern=r"^\d{5}$")
+    source_id: str = Field(min_length=1)
+    snapshot_date: date
+
+
+class HistoricalSnapshotBoundary(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    code: str = Field(pattern=r"^\d{5}$")
+    source_id: str | None = None
+    include_partial: bool = True
+    snapshot_count: int = Field(ge=0)
+    date_count: int = Field(ge=0)
+    earliest_snapshot_date: date | None = None
+    latest_snapshot_date: date | None = None
+
+
 class NormalizedHolding(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -137,6 +157,20 @@ class HistoricalSnapshot(BaseModel):
         if self.issued_shares_as_of and self.issued_shares is None:
             raise ValueError("issued_shares_as_of requires issued_shares")
         return self
+
+    @property
+    def identity_key(self) -> HistoricalSnapshotKey:
+        """Stable identity for a persisted historical snapshot."""
+        return HistoricalSnapshotKey(
+            code=self.stock.code,
+            source_id=self.source.source_id,
+            snapshot_date=self.snapshot_date,
+        )
+
+    @property
+    def data_as_of(self) -> date | None:
+        """Compatibility alias for the snapshot's verified denominator date."""
+        return self.issued_shares_as_of
 
     @classmethod
     def from_response(

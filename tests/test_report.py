@@ -28,6 +28,7 @@ def test_report_supports_english_locale(current_response, previous_response):
     report = build_markdown_report(current_response, code="01592", analysis=analysis, locale="en")
 
     assert report.startswith("# CCASS Report ? 01592 ")
+    assert "- Data as of:" in report
     assert [line for line in report.splitlines() if line.startswith("## ")] == list(
         report_section_headings("en")
     )
@@ -54,6 +55,11 @@ def test_report_includes_company_section_identity_details(current_response, prev
     assert translate_text(DEFAULT_LOCALE, "report.company.metadata_resolution_note") in report
     assert translate_text(DEFAULT_LOCALE, "report.section.metadata") in report
     assert translate_text(DEFAULT_LOCALE, "report.metadata.attribution", value=current_response.metadata.attribution) in report
+    assert translate_text(
+        DEFAULT_LOCALE,
+        "report.fetch.data_as_of",
+        value=current_response.metadata.data_as_of,
+    ) in report
 
 
 def test_report_includes_data_quality_warning_summary(current_response, previous_response):

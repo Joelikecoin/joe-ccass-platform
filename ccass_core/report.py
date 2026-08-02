@@ -5,6 +5,7 @@ import re
 import warnings
 from collections.abc import Sequence
 
+from app.data_quality import parse_warning
 from app.models import CcassResponse
 from ccass_core.compute import AnalysisResult, HoldingChange
 
@@ -220,7 +221,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.fetch.status_success": "- Status: SUCCESS",
         "report.fetch.source": "- Source: {value}",
         "report.fetch.fetched_at": "- Fetched at: {value}",
-        "report.fetch.holdings_date": "- Holdings date: {value}",
+        "report.fetch.data_as_of": "- Data as of: {value}",
         "report.fetch.cached_snapshot": "- Cached/snapshot: {value}",
         "report.metadata.code": "- Code: {value}",
         "report.metadata.stock_name": "- Stock name: {value}",
@@ -457,7 +458,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.fetch.status_success": "- ?????",
         "report.fetch.source": "- ???{value}",
         "report.fetch.fetched_at": "- ?????{value}",
-        "report.fetch.holdings_date": "- ?????{value}",
+        "report.fetch.data_as_of": "- 資料截至：{value}",
         "report.fetch.cached_snapshot": "- ??/???{value}",
         "report.metadata.code": "- ???{value}",
         "report.metadata.stock_name": "- ?????{value}",
@@ -599,7 +600,7 @@ def build_markdown_report(
             translate_text(locale, "report.fetch.status_success"),
             translate_text(locale, "report.fetch.source", value=_text(metadata.source_name, locale)),
             translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
-            translate_text(locale, "report.fetch.holdings_date", value=_text(metadata.holdings_date, locale)),
+            translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
             translate_text(locale, "report.fetch.cached_snapshot", value=_yes_no(metadata.cached, locale)),
             "",
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
@@ -840,6 +841,9 @@ def _yes_no(value: bool, locale: str) -> str:
 
 
 def _localize_warning(warning: str, locale: str) -> str:
+    parsed = parse_warning(warning)
+    if parsed is not None and parsed.message:
+        return parsed.message
     mapping = {
         "The current result came from a cached or snapshot data source.": "report.warning.cached_snapshot_source",
         "The holdings date is unavailable.": "report.warning.holdings_date_unavailable",
@@ -855,6 +859,29 @@ def _localize_warning(warning: str, locale: str) -> str:
             "report.warning.previous_snapshot_enrichment_unavailable",
             exception_name=exception_name,
         )
+    if parsed is not None:
+        if parsed.prefix == "SOURCE_ERROR_CODE":
+            return f"Source error code: {parsed.code}"
+        if parsed.prefix == "SOURCE_ERROR_MESSAGE":
+            return f"Source error message: {parsed.code}"
+        if parsed.prefix == "SOURCE_ERROR_RETRY_RECOMMENDED":
+            return f"Source retry recommended: {parsed.code}"
+        if parsed.prefix == "SOURCE_ERROR_RETRY_AFTER_SECONDS":
+            return f"Source retry-after seconds: {parsed.code}"
+        if parsed.prefix == "LKG_RETRIEVED_AT":
+            return f"Last-known-good retrieved at: {parsed.code}"
+        if parsed.prefix == "LKG_AGE_SECONDS":
+            return f"Last-known-good age seconds: {parsed.code}"
+        if parsed.prefix == "SERVED_AT":
+            return f"Served at: {parsed.code}"
+        if parsed.prefix == "DATA_LIMITATION" and parsed.code == "PARTIAL_DATA":
+            return "Partial data: participant rows are truncated or incomplete; missing rows remain absent."
+        if parsed.prefix == "PARTIAL_DATA":
+            return f"Partial data: {parsed.code}"
+        if parsed.prefix == "FRESHNESS_STATUS" and parsed.code == "FRESH":
+            return "The current result came from a fresh live source."
+        if parsed.prefix == "FRESHNESS_STATUS" and parsed.code == "STALE_LKG":
+            return "The current result came from a cached or snapshot data source."
     return warning
 
 

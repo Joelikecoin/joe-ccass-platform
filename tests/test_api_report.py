@@ -36,4 +36,8 @@ def test_markdown_report_endpoint_reuses_core_without_breaking_json_api(current_
     )
     assert json_response.status_code == 200
     assert json_response.json()["metadata"]["code"] == "01592"
+    assert (
+        json_response.json()["metadata"]["data_as_of"]
+        == current_response.metadata.holdings_date.isoformat()
+    )
     assert service.calls == [("01592", 25), ("1592", 25)]

@@ -133,6 +133,8 @@ def test_changes_report_preserves_source_dates_and_honest_relative_na(
 
     assert "- Compare date: 2026-07-19" in report
     assert "- Snapshot date: 2026-07-20" in report
+    assert "- Compare data as of: 2026-07-19" in report
+    assert "- Snapshot data as of: 2026-07-20" in report
     assert "DATA NOT AVAILABLE | new |" in report
     assert "CHANGES_VALIDATION: COMPLETE" in report
 

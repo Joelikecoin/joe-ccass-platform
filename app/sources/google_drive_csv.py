@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 import httpx
 
 from app.config import Settings, get_settings
+from app.data_quality import structured_warning
 from app.core.normalizers import normalize_stock_code
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
@@ -227,10 +228,20 @@ class GoogleDriveCsvSource:
         warnings = list(stock.warnings)
         if stock.partial and not any("partial" in warning.lower() for warning in warnings):
             warnings.append(
-                "PARTIAL_DATA: imported snapshot is incomplete; missing rows remain absent."
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "PARTIAL_DATA",
+                    "imported snapshot is incomplete; missing rows remain absent.",
+                )
             )
         if stale_warning:
-            warnings.append(stale_warning)
+            warnings.append(
+                structured_warning(
+                    "SOURCE_STATUS",
+                    "LKG_REFRESH_FAILED",
+                    stale_warning,
+                )
+            )
 
         return CcassResponse(
             metadata=SourceMetadata(

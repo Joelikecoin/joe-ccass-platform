@@ -1,5 +1,6 @@
 """Stable Markdown delivery for the Big Changes product response."""
 
+from app.data_quality import warning_message
 from app.models import BigChangesResponse
 
 
@@ -19,6 +20,8 @@ def build_big_changes_markdown_report(response: BigChangesResponse) -> str:
         f"({metadata.compare_source.source_id})",
         f"- Snapshot source: {_escape(metadata.snapshot_source.source_name)} "
         f"({metadata.snapshot_source.source_id})",
+        f"- Compare data as of: {metadata.compare_source.data_as_of}",
+        f"- Snapshot data as of: {metadata.snapshot_source.data_as_of}",
         f"- Compare issued shares: {metadata.compare_source.issued_shares:,} "
         f"(as of {metadata.compare_source.issued_shares_as_of})",
         f"- Snapshot issued shares: {metadata.snapshot_source.issued_shares:,} "
@@ -58,7 +61,7 @@ def build_big_changes_markdown_report(response: BigChangesResponse) -> str:
                 f"{relative} | {row.status} |"
             )
     lines.extend(["", "## Data Quality Warnings", ""])
-    lines.extend(f"- {_escape(warning)}" for warning in response.data_quality_warnings)
+    lines.extend(f"- {_escape(warning_message(warning))}" for warning in response.data_quality_warnings)
     return "\n".join(lines).rstrip() + "\n"
 
 

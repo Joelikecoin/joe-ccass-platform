@@ -2,6 +2,7 @@ from functools import lru_cache
 from typing import Protocol
 
 from app.config import Settings, get_settings
+from app.data_quality import structured_warning
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.services.holdings_lkg import PersistentLatestHoldingsSource
@@ -30,8 +31,12 @@ class MirrorWithCsvFallback:
         *,
         allow_process_lkg_on_error: bool = True,
     ) -> None:
-        selected = (registry or build_source_registry(settings)).select_holdings("auto")
-        source_ids = {source.source_id for source in selected}
+        selection = (registry or build_source_registry(settings)).select_holdings_sources("auto")
+        self.selection = selection
+        self.primary_source = selection.primary
+        self.fallback_sources = selection.fallback
+        self.unavailable_sources = selection.unavailable
+        source_ids = {source.source_id for source in selection.available}
         self.mirror = WebbsiteClient(settings) if WEBBSITE_SOURCE_ID in source_ids else None
         self.csv = None
         if GOOGLE_DRIVE_CSV_SOURCE_ID in source_ids:
@@ -66,7 +71,11 @@ class MirrorWithCsvFallback:
                     status_code=csv_error.status_code,
                 ) from csv_error
             response.data_quality_warnings.append(
-                f"Primary mirror failed ({error_code}); using the configured CSV snapshot fallback."
+                structured_warning(
+                    "SOURCE_STATUS",
+                    "CSV_FALLBACK_USED",
+                    f"Primary mirror failed ({error_code}); using the configured CSV snapshot fallback.",
+                )
             )
             return response
 
@@ -80,7 +89,8 @@ class CcassService:
     ) -> None:
         self.settings = settings or get_settings()
         registry = build_source_registry(self.settings)
-        selected = registry.select_holdings(self.settings.data_source)
+        selection = registry.select_holdings_sources(self.settings.data_source)
+        selected = selection.available
         if client is not None:
             self.source = client
         else:

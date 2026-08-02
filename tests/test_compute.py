@@ -30,5 +30,11 @@ def test_compute_concentration_and_warnings(current_response):
 
     assert analysis.concentration["top5_pct_of_issued"] == 33.0
     assert analysis.concentration["top10_pct_of_ccass"] == 100.0
-    assert any("cached or snapshot" in warning for warning in analysis.warnings)
-    assert any("no previous snapshot" in warning.lower() for warning in analysis.warnings)
+    assert any(
+        warning.startswith("FRESHNESS_STATUS: CACHED_SNAPSHOT")
+        for warning in analysis.warnings
+    )
+    assert any(
+        warning.startswith("DATA_LIMITATION: PREVIOUS_SNAPSHOT_UNAVAILABLE")
+        for warning in analysis.warnings
+    )

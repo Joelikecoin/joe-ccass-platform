@@ -10,6 +10,7 @@ from app.domain.history import (
     CollectorRunItemRecord,
     CollectorRunRecord,
     HistoricalSnapshot,
+    HistoricalSnapshotKey,
     SourceErrorRecord,
 )
 from app.models import CcassResponse
@@ -203,6 +204,51 @@ def test_latest_previous_and_date_range_return_source_neutral_snapshots(
         date(2026, 7, 20),
     ]
     assert all(isinstance(snapshot, HistoricalSnapshot) for snapshot in history)
+
+
+def test_historical_identity_and_bounds_are_explicit(tmp_path, current_response, previous_response):
+    repository = NormalizedSnapshotRepository(tmp_path / "history.db")
+    repository.save_response(previous_response, source_id="webbsite")
+    repository.save_response(current_response, source_id="webbsite")
+
+    partial_response = current_response.model_copy(deep=True)
+    partial_response.holdings = partial_response.holdings[:1]
+    partial_response.metadata.fetched_at += timedelta(minutes=5)
+    repository.save_response(partial_response, source_id="partial_fixture")
+
+    stored = repository.latest("01592", source_id="webbsite")
+    assert stored is not None
+    assert stored.identity_key == HistoricalSnapshotKey(
+        code="01592",
+        source_id="webbsite",
+        snapshot_date=date(2026, 7, 20),
+    )
+    assert stored.data_as_of == stored.issued_shares_as_of
+    assert repository.available_dates("01592", source_id="webbsite") == (
+        date(2026, 7, 19),
+        date(2026, 7, 20),
+    )
+
+    complete_bounds = repository.history_bounds("01592", source_id="webbsite")
+    partial_bounds = repository.history_bounds("01592", source_id="partial_fixture")
+    empty_partial_bounds = repository.history_bounds(
+        "01592",
+        source_id="partial_fixture",
+        include_partial=False,
+    )
+
+    assert complete_bounds.snapshot_count == 2
+    assert complete_bounds.date_count == 2
+    assert complete_bounds.earliest_snapshot_date == date(2026, 7, 19)
+    assert complete_bounds.latest_snapshot_date == date(2026, 7, 20)
+    assert partial_bounds.snapshot_count == 1
+    assert partial_bounds.date_count == 1
+    assert partial_bounds.earliest_snapshot_date == date(2026, 7, 20)
+    assert partial_bounds.latest_snapshot_date == date(2026, 7, 20)
+    assert empty_partial_bounds.snapshot_count == 0
+    assert empty_partial_bounds.date_count == 0
+    assert empty_partial_bounds.earliest_snapshot_date is None
+    assert empty_partial_bounds.latest_snapshot_date is None
 
 
 def test_partial_snapshot_keeps_missing_rows_absent_and_cannot_replace_complete(

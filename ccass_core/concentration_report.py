@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from app.data_quality import warning_message
 from app.models import ConcentrationResponse, HoldingRow
 
 
@@ -16,6 +17,7 @@ def build_concentration_markdown_report(response: ConcentrationResponse) -> str:
         "",
         f"- Snapshot date: {metadata.snapshot_date}",
         f"- Source: {_escape(source.source_name)} ({source.source_id})",
+        f"- Data as of: {source.data_as_of}",
         f"- Issue ID: {metadata.issue_id}",
         f"- Issued shares: {source.issued_shares:,} (as of {source.issued_shares_as_of})",
         f"- Percentage basis: {metadata.percentage_basis}",
@@ -43,7 +45,7 @@ def build_concentration_markdown_report(response: ConcentrationResponse) -> str:
     lines.extend(["", "## Participant Ranking", ""])
     lines.extend(_ranking_table(response.participant_ranking))
     lines.extend(["", "## Data Quality Warnings", ""])
-    lines.extend(f"- {_escape(warning)}" for warning in response.data_quality_warnings)
+    lines.extend(f"- {_escape(warning_message(warning))}" for warning in response.data_quality_warnings)
     return "\n".join(lines).rstrip() + "\n"
 
 

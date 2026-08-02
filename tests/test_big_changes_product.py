@@ -226,6 +226,8 @@ def test_big_changes_markdown_report_contains_threshold_metadata_and_rows(
     assert report.startswith("# CCASS Big Changes — 01592")
     assert "- Threshold: 500 shares (absolute, inclusive)" in report
     assert "- Compare date: 2026-07-19" in report
+    assert "- Compare data as of: 2026-07-19" in report
+    assert "- Snapshot data as of: 2026-07-20" in report
     assert "| B00003 | TEST FIXTURE BROKER THREE | 500 | 0 | -500 |" in report
     assert "BIG_CHANGES_VALIDATION: COMPLETE" in report
 

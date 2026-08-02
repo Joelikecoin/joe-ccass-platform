@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from app.data_quality import structured_warning
 from app.models import CcassResponse, HoldingRow
 
 
@@ -46,9 +47,21 @@ def compute_analysis(
     threshold = max(0, int(big_change_threshold))
     warnings = list(current.data_quality_warnings)
     if current.metadata.cached:
-        warnings.append("The current result came from a cached or snapshot data source.")
+        warnings.append(
+            structured_warning(
+                "FRESHNESS_STATUS",
+                "CACHED_SNAPSHOT",
+                "The current result came from a cached or snapshot data source.",
+            )
+        )
     if current.metadata.holdings_date is None:
-        warnings.append("The holdings date is unavailable.")
+        warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "HOLDINGS_DATE_UNAVAILABLE",
+                "The holdings date is unavailable.",
+            )
+        )
 
     concentration = {
         "participant_count": current.holdings_summary.participant_count,
@@ -58,7 +71,13 @@ def compute_analysis(
         "top10_pct_of_ccass": current.holdings_summary.top10_pct_of_ccass,
     }
     if previous is None:
-        warnings.append("Change analysis is unavailable because no previous snapshot was supplied.")
+        warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "PREVIOUS_SNAPSHOT_UNAVAILABLE",
+                "Change analysis is unavailable because no previous snapshot was supplied.",
+            )
+        )
         return AnalysisResult(
             warnings=tuple(_deduplicate(warnings)),
             big_change_threshold=threshold,

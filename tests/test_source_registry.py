@@ -78,6 +78,31 @@ def test_registry_has_truthful_capabilities_and_configured_policies():
     assert google.policy.lkg_max_age_seconds == 604_800
 
 
+def test_registry_exposes_holdings_selection_roles_and_provenance():
+    settings = Settings(ccass_csv_url=GOOGLE_URL)
+    registry = build_source_registry(settings)
+
+    selection = registry.select_holdings_sources("auto")
+    webbsite = registry.get(WEBBSITE_SOURCE_ID)
+    google = registry.get(GOOGLE_DRIVE_CSV_SOURCE_ID)
+
+    assert selection.primary is webbsite
+    assert selection.fallback == (google,)
+    assert selection.unavailable == ()
+    assert selection.available == (webbsite, google)
+    assert webbsite.availability.status == SourceStatus.ACTIVE
+    assert webbsite.provenance.parser_id
+    assert webbsite.provenance.attribution
+    assert webbsite.provenance.known_limitations
+    assert webbsite.safe_diagnostic()["availability"]["status"] == "active"
+    assert webbsite.safe_diagnostic()["provenance"]["parser_id"] == webbsite.parser_id
+
+    explicit = registry.select_holdings_sources("webbsite")
+    assert explicit.primary is webbsite
+    assert explicit.fallback == ()
+    assert explicit.unavailable == (google,)
+
+
 def test_safe_diagnostics_redact_urls_queries_credentials_and_private_paths():
     diagnostics = build_source_registry(
         Settings(

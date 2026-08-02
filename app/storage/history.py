@@ -9,6 +9,7 @@ from app.domain.history import (
     BackfillRunRecord,
     CollectorRunItemRecord,
     CollectorRunRecord,
+    HistoricalSnapshotBoundary,
     HistoricalSnapshot,
     NormalizedHolding,
     RawProvenance,
@@ -188,6 +189,73 @@ class NormalizedSnapshotRepository:
                 parameters,
             ).fetchall()
             return [self._load_snapshot(connection, row) for row in rows]
+
+    def available_dates(
+        self,
+        code: str,
+        *,
+        source_id: str | None = None,
+        include_partial: bool = True,
+    ) -> tuple[date, ...]:
+        clauses = ["stock_code = ?"]
+        parameters: list[object] = [code]
+        if source_id:
+            clauses.append("source_id = ?")
+            parameters.append(source_id)
+        if not include_partial:
+            clauses.append("partial = 0")
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT DISTINCT snapshot_date
+                FROM ccass_snapshots
+                WHERE {" AND ".join(clauses)}
+                ORDER BY snapshot_date
+                """,
+                parameters,
+            ).fetchall()
+        return tuple(date.fromisoformat(str(row["snapshot_date"])) for row in rows)
+
+    def history_bounds(
+        self,
+        code: str,
+        *,
+        source_id: str | None = None,
+        include_partial: bool = True,
+    ) -> HistoricalSnapshotBoundary:
+        clauses = ["stock_code = ?"]
+        parameters: list[object] = [code]
+        if source_id:
+            clauses.append("source_id = ?")
+            parameters.append(source_id)
+        if not include_partial:
+            clauses.append("partial = 0")
+        with self._connect() as connection:
+            row = connection.execute(
+                f"""
+                SELECT
+                    COUNT(*) AS snapshot_count,
+                    COUNT(DISTINCT snapshot_date) AS date_count,
+                    MIN(snapshot_date) AS earliest_snapshot_date,
+                    MAX(snapshot_date) AS latest_snapshot_date
+                FROM ccass_snapshots
+                WHERE {" AND ".join(clauses)}
+                """,
+                parameters,
+            ).fetchone()
+        earliest = row["earliest_snapshot_date"] if row else None
+        latest = row["latest_snapshot_date"] if row else None
+        return HistoricalSnapshotBoundary(
+            code=code,
+            source_id=source_id,
+            include_partial=include_partial,
+            snapshot_count=int(row["snapshot_count"]) if row else 0,
+            date_count=int(row["date_count"]) if row else 0,
+            earliest_snapshot_date=(
+                date.fromisoformat(str(earliest)) if earliest is not None else None
+            ),
+            latest_snapshot_date=date.fromisoformat(str(latest)) if latest is not None else None,
+        )
 
     def latest_all(self) -> list[HistoricalSnapshot]:
         with self._connect() as connection:

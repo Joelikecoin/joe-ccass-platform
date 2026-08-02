@@ -1,5 +1,7 @@
 """Configuration-driven metadata and capability registry for existing sources."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -39,6 +41,45 @@ class SourceStatus(StrEnum):
     FALLBACK = "fallback"
     DISABLED = "disabled"
     UNVERIFIED = "unverified"
+
+
+@dataclass(frozen=True, slots=True)
+class SourceAvailability:
+    source_id: str
+    status: SourceStatus
+    enabled: bool
+    configured: bool
+    fallback_eligible: bool
+    disabled_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceProvenance:
+    source_id: str
+    display_name: str
+    parser_id: str
+    parser_version: str
+    schema_version: str
+    attribution: str
+    terms_review: str
+    robots_review: str
+    known_limitations: tuple[str, ...]
+    safe_hostname: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceSelection:
+    capability: SourceCapability
+    primary: SourceDefinition | None
+    fallback: tuple[SourceDefinition, ...]
+    unavailable: tuple[SourceDefinition, ...]
+    mode: SourceMode
+
+    @property
+    def available(self) -> tuple[SourceDefinition, ...]:
+        if self.primary is None:
+            return ()
+        return (self.primary, *self.fallback)
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +140,32 @@ class SourceDefinition:
     def supports(self, capability: SourceCapability) -> bool:
         return self.enabled and capability in self.capabilities
 
+    @property
+    def availability(self) -> SourceAvailability:
+        return SourceAvailability(
+            source_id=self.source_id,
+            status=self.status,
+            enabled=self.enabled,
+            configured=self.configured,
+            fallback_eligible=self.fallback_eligible,
+            disabled_reason=self.disabled_reason,
+        )
+
+    @property
+    def provenance(self) -> SourceProvenance:
+        return SourceProvenance(
+            source_id=self.source_id,
+            display_name=self.display_name,
+            parser_id=self.parser_id,
+            parser_version=self.parser_version,
+            schema_version=self.schema_version,
+            attribution=self.audit.attribution,
+            terms_review=self.audit.terms_review,
+            robots_review=self.audit.robots_review,
+            known_limitations=self.audit.known_limitations,
+            safe_hostname=self.safe_hostname,
+        )
+
     def safe_diagnostic(self) -> dict[str, object]:
         """Return static safe metadata without performing a network probe."""
         return {
@@ -108,12 +175,32 @@ class SourceDefinition:
             "enabled": self.enabled,
             "configured": self.configured,
             "priority": self.priority,
+            "availability": {
+                "source_id": self.availability.source_id,
+                "status": self.availability.status.value,
+                "enabled": self.availability.enabled,
+                "configured": self.availability.configured,
+                "fallback_eligible": self.availability.fallback_eligible,
+                "disabled_reason": self.availability.disabled_reason,
+            },
             "capabilities": tuple(sorted(value.value for value in self.capabilities)),
             "supported_sections": tuple(sorted(self.supported_sections)),
             "fallback_eligible": self.fallback_eligible,
             "parser_id": self.parser_id,
             "parser_version": self.parser_version,
             "schema_version": self.schema_version,
+            "provenance": {
+                "source_id": self.provenance.source_id,
+                "display_name": self.provenance.display_name,
+                "parser_id": self.provenance.parser_id,
+                "parser_version": self.provenance.parser_version,
+                "schema_version": self.provenance.schema_version,
+                "attribution": self.provenance.attribution,
+                "terms_review": self.provenance.terms_review,
+                "robots_review": self.provenance.robots_review,
+                "known_limitations": self.provenance.known_limitations,
+                "safe_hostname": self.provenance.safe_hostname,
+            },
             "audit_state": self.audit.state.value,
             "audit_date": self.audit.audited_at.isoformat() if self.audit.audited_at else None,
             "attribution": self.audit.attribution,
@@ -169,20 +256,7 @@ class SourceRegistry:
         return source
 
     def select_holdings(self, mode: SourceMode) -> tuple[SourceDefinition, ...]:
-        if mode != "auto":
-            return (self.require(mode, SourceCapability.LATEST),)
-        selected = tuple(
-            source
-            for source in sorted(self._sources.values(), key=lambda value: value.priority)
-            if source.supports(SourceCapability.LATEST)
-        )
-        if not selected:
-            raise PlatformError(
-                ErrorCode.SOURCE_DISABLED,
-                "No registered source can provide latest CCASS holdings.",
-                status_code=503,
-            )
-        return selected
+        return self.classify_holdings(mode).available
 
     def select_historical(self, mode: SourceMode) -> SourceDefinition:
         if mode != "auto":
@@ -205,6 +279,45 @@ class SourceRegistry:
             source.safe_diagnostic()
             for source in sorted(self._sources.values(), key=lambda value: value.priority)
         )
+
+    def classify_holdings(self, mode: SourceMode) -> SourceSelection:
+        ordered = tuple(sorted(self._sources.values(), key=lambda value: value.priority))
+        if mode != "auto":
+            primary = self.require(mode, SourceCapability.LATEST)
+            unavailable = tuple(
+                source for source in ordered if source.source_id != primary.source_id
+            )
+            return SourceSelection(
+                capability=SourceCapability.LATEST,
+                primary=primary,
+                fallback=(),
+                unavailable=unavailable,
+                mode=mode,
+            )
+
+        available = tuple(
+            source for source in ordered if source.supports(SourceCapability.LATEST)
+        )
+        if not available:
+            raise PlatformError(
+                ErrorCode.SOURCE_DISABLED,
+                "No registered source can provide latest CCASS holdings.",
+                status_code=503,
+            )
+        available_ids = {item.source_id for item in available}
+        unavailable = tuple(
+            source for source in ordered if source.source_id not in available_ids
+        )
+        return SourceSelection(
+            capability=SourceCapability.LATEST,
+            primary=available[0],
+            fallback=available[1:],
+            unavailable=unavailable,
+            mode=mode,
+        )
+
+    def select_holdings_sources(self, mode: SourceMode) -> SourceSelection:
+        return self.classify_holdings(mode)
 
 
 def build_source_registry(settings: Settings) -> SourceRegistry:

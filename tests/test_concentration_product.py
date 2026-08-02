@@ -179,6 +179,7 @@ def test_concentration_markdown_report_contains_summary_ranking_and_provenance(
 
     assert report.startswith("# CCASS Concentration — 01592")
     assert "- Snapshot date: 2026-07-20" in report
+    assert "- Data as of: 2026-07-20" in report
     assert "- Total tracked shares: 3,300" in report
     assert "- Top 1: 15.0000% issued / 45.4545% CCASS" in report
     assert "## Participant Ranking" in report

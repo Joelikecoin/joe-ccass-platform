@@ -14,6 +14,7 @@ from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
 
 from app.config import Settings
+from app.data_quality import structured_warning
 from app.domain.history import (
     CollectorRunItemRecord,
     CollectorRunRecord,
@@ -506,7 +507,11 @@ def _persist_failure(
 def _append_partial_warning(response: CcassResponse) -> None:
     if not any("partial" in warning.lower() for warning in response.data_quality_warnings):
         response.data_quality_warnings.append(
-            "PARTIAL_DATA: participant rows are truncated or incomplete; missing rows remain absent."
+            structured_warning(
+                "DATA_LIMITATION",
+                "PARTIAL_DATA",
+                "participant rows are truncated or incomplete; missing rows remain absent.",
+            )
         )
 
 
