@@ -23,9 +23,12 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 pythonpath = ["."]
 testpaths = ["tests"]
+cache_dir = "work/.pytest-cache"
+markers = [
+  "asyncio: run coroutine tests with the local asyncio pytest hook",
+]
 
 [tool.ruff]
 line-length = 100

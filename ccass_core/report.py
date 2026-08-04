@@ -1,4 +1,4 @@
-
+﻿
 from __future__ import annotations
 
 import re
@@ -6,7 +6,7 @@ import warnings
 from collections.abc import Sequence
 
 from app.data_quality import parse_warning
-from app.models import CcassResponse
+from app.models import AnnouncementsResponse, CcassResponse, PriceHistoryResponse
 from ccass_core.compute import AnalysisResult, HoldingChange
 
 DEFAULT_LOCALE = "zh_HK"
@@ -26,6 +26,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.sidebar_input_type": "Input Type",
         "ui.sidebar_stock_code_issue_id": "Stock Code / Issue ID",
         "ui.sidebar_query_input_caption": "Enter a stock code for direct lookup, or switch to Webb-site Issue ID to resolve the stock code before fetching. Validation errors are shown below the form.",
+        "ui.fetch_guidance_caption": "Enter a stock code or Webb-site Issue ID, then press Fetch. The app validates the input, resolves the source, and renders the report below.",
         "ui.sidebar_timeout": "Timeout",
         "ui.sidebar_big_change_threshold": "Big change threshold (shares)",
         "ui.sidebar_announcement_period": "Announcement Period",
@@ -36,6 +37,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.sidebar_percentage_basis": "Percentage Basis",
         "ui.sidebar_show_rendered_markdown": "Show rendered Markdown",
         "ui.sidebar_use_local_history": "Use local SQLite history for Changes",
+        "ui.sidebar_load_price_history": "Load price history",
         "ui.sidebar_source_mode_caption": (
             "Source mode: {source_mode} | Timeout: {timeout_seconds:g}s | Announcement period: {announcement_period} | Data date: {data_date} | History range: {history_range} | Percentage basis: {percentage_basis}"
         ),
@@ -51,24 +53,47 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.chart_help_price_title": "Price",
         "ui.chart_help_price_body": "Use price history to compare market movement with dated holdings or announcements. Check volume, turnover, and the timing of changes. A price move by itself does not confirm an ownership change.",
         "ui.chart_help_announcements_title": "Announcements",
-        "ui.chart_help_announcements_body": "Use official announcement dates, categories, titles, file info, and URLs to align events with holdings and price movement. Tags are only objective classifications; they are not conclusions.",
+        "ui.chart_help_announcements_body": "Use official announcement dates, titles, sources, and links to align events with holdings and price movement. Links are factual references; they are not conclusions.",
         "ui.hkex_announcements_heading": "HKEX Announcements",
-        "ui.hkex_announcements_caption": "Read-only surface for official announcements. Columns cover publish time, category, title, file info / size, official URL, and objective event tags.",
+        "ui.hkex_announcements_caption": "Read-only surface for official announcements. Columns cover announcement date, title, source, and link when available.",
+        "ui.company_information_heading": "Company Information",
+        "ui.company_information_caption": "Company information sections are grouped here as expandable surfaces.",
+        "ui.report_details_heading": "Report Details",
+        "ui.report_details_caption": "Expandable sections keep the detailed report available without overwhelming the first view.",
+        "ui.report_details_unavailable": "Full Report Detail is unavailable until a result has been fetched.",
+        "ui.report_detail_holdings_detail": "Holdings Detail",
+        "ui.report_detail_historical_information": "Historical Information",
+        "ui.report_detail_download_copy": "Download / Copy",
+        "ui.visualization_heading": "Visualization Details",
+        "ui.visualization_caption": "Historical views and optional chart controls are separated so the core report can load first.",
+        "ui.rendered_markdown": "Rendered Markdown",
+        "ui.rendered_markdown_caption": "Open the fully rendered report only when you need the complete Markdown view.",
+        "ui.dt_rainbow_heading": "DT Rainbow",
+        "ui.dt_rainbow_caption": "Optional view only. The interaction frame is available, but the calculation engine is not included in this build.",
+        "ui.dt_rainbow_enable": "Enable DT Rainbow",
+        "ui.dt_rainbow_generate": "Generate DT Rainbow",
+        "ui.dt_rainbow_loading": "Preparing the optional DT Rainbow view...",
+        "ui.dt_rainbow_unavailable": "DT Rainbow calculation is not implemented in this build.",
         "ui.hkex_announcements_count": "Announcement count",
         "ui.hkex_announcements_rows_label": "Announcement rows",
-        "ui.hkex_announcements_sorting_note": "Sorted by publish time, newest first.",
+        "ui.hkex_announcements_sorting_note": "Sorted by announcement date, newest first.",
         "ui.hkex_announcements_empty": "No announcement rows are available in the approved read-only surface.",
         "ui.hkex_announcements_unavailable": "Announcement data is unavailable in the current fetch result.",
+        "ui.stock_events_heading": "Stock Events",
+        "ui.stock_events_caption": "Objective event records are grouped here when available.",
+        "ui.stock_events_unavailable": "Stock event data is unavailable in the current fetch result.",
+        "ui.officers_heading": "Officers",
+        "ui.officers_caption": "Officer information is grouped here when available.",
+        "ui.officers_unavailable": "Officer data is unavailable in the current fetch result.",
         "ui.hkex_announcements_export_heading": "Export labels",
         "ui.hkex_announcements_export_note": "Export-related labels remain available even when announcement rows are empty.",
         "ui.hkex_announcements_export_csv_label": "CSV export",
         "ui.hkex_announcements_export_excel_label": "Excel workbook export",
-        "ui.hkex_announcements_table_publish_time": "Publish time",
-        "ui.hkex_announcements_table_category": "Category",
+        "ui.hkex_announcements_table_announcement_date": "Announcement date",
         "ui.hkex_announcements_table_title": "Title",
-        "ui.hkex_announcements_table_file_info": "File info / size",
-        "ui.hkex_announcements_table_official_url": "Official URL",
-        "ui.hkex_announcements_table_event_tags": "Objective event tags",
+        "ui.hkex_announcements_table_source": "Source",
+        "ui.hkex_announcements_table_link": "Link",
+        "report.link_label": "Link",
         "ui.report_navigation_heading": "Report Navigation",
         "ui.report_navigation_caption": "Jump links follow the rendered report sections below.",
         "ui.data_quality_heading": "Data Quality / Warnings",
@@ -84,8 +109,14 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_status_available": "available",
         "ui.full_summary_status_unavailable": "unavailable",
         "ui.full_summary_unavailable": "Full Summary is unavailable until a result has been fetched.",
+        "ui.full_summary_note_analysis_ready_summary": "Analysis-ready summary is available.",
         "ui.full_summary_note_fetch_summary": "Report sections and metadata are ready.",
+        "ui.full_summary_note_metadata": "Source, data as of, and provenance details are available.",
         "ui.full_summary_note_company": "Code {code} / Issue ID {issue_id}",
+        "ui.full_summary_note_announcements": "Announcement surface is unavailable in the current result.",
+        "ui.full_summary_note_announcements_available": "{announcement_count} announcement rows are available.",
+        "ui.full_summary_note_stock_events": "Stock event surface is unavailable in the current result.",
+        "ui.full_summary_note_officers": "Officer surface is unavailable in the current result.",
         "ui.full_summary_note_holdings": "{participant_count} participant rows.",
         "ui.full_summary_note_changes_available": "Previous snapshot is available.",
         "ui.full_summary_note_changes_unavailable": "Previous snapshot is unavailable.",
@@ -94,12 +125,17 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_concentration": "Top 5 / issued {top5_pct_of_issued} | Top 10 / issued {top10_pct_of_issued}",
         "ui.full_summary_note_concentration_history": "{snapshot_count} dated snapshots.",
         "ui.full_summary_note_price_history": "Price history is unavailable in the current result.",
+        "ui.full_summary_note_price_history_available": (
+            "Price history is available from {price_date_from} to {price_date_to} via {source_name}."
+        ),
+        "ui.full_summary_note_price_history_unavailable": "Price history is unavailable in the current result.",
         "ui.full_summary_note_raw_previews": "{table_count} parsed tables.",
+        "ui.full_summary_note_copy_functions": "Copy the report or ChatGPT payload from the current result.",
         "ui.full_summary_note_downloads": "Combined CSV, workbook, and Markdown report.",
         "ui.full_summary_note_data_quality_no_warnings": "No data quality warnings were generated.",
         "ui.full_summary_note_data_quality_warnings": "{warning_count} data quality warning(s).",
-        "ui.all_parsed_tables_heading": "All Parsed Tables",
-        "ui.all_parsed_tables_caption": "The rendered report sections below follow the parsed-table order.",
+        "ui.all_parsed_tables_heading": "Full Report Detail",
+        "ui.all_parsed_tables_caption": "The rendered report sections below follow the approved detail hierarchy.",
         "ui.chart_help_cross_check_title": "Cross-check guidance",
         "ui.chart_help_cross_check_body": "Always compare charts with the report, raw tables, and official announcement context. If data is partial or missing, rely on the warnings and avoid drawing a final conclusion.",
         "ui.input_type.stock_code": "Stock Code",
@@ -122,6 +158,10 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.validation_error_prefix": "Validation error",
         "ui.unexpected_error_prefix": "UNEXPECTED_ERROR",
         "ui.fetch_summary_remaining": "The Fetch Summary and every required report section remain available below.",
+        "ui.fetch_status_running": "Fetching {source_mode} data for code {code}.",
+        "ui.fetch_status_success": "Fetch complete from {source}; data as of {data_as_of}.",
+        "ui.fetch_status_success_cached": "Fetch complete from cached/snapshot {source}; data as of {data_as_of}.",
+        "ui.fetch_status_failure": "Fetch failed: {error}",
         "ui.progress_starting": "Starting",
         "ui.progress_validated_stock_code": "Validated stock code",
         "ui.progress_fetching_source": "Fetching low-frequency CCASS source",
@@ -171,10 +211,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.locale_name.en": "English",
         "nav.fetch_summary": "Fetch Summary",
         "nav.full_summary": "Full Summary",
-        "nav.all_tables": "All Tables",
+        "nav.all_tables": "Full Report Detail",
         "nav.dt_rainbow": "DT Rainbow",
         "nav.hkex_announcements": "HKEX Announcements",
+        "nav.stock_events": "Stock Events",
+        "nav.officers": "Officers",
         "nav.company": "Company",
+        "nav.metadata": "Metadata",
         "nav.holdings": "Holdings",
         "nav.changes": "Changes",
         "nav.big_changes": "Big Changes",
@@ -194,6 +237,9 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.analysis_ready_summary": "## AI Analysis Ready Summary",
         "report.section.fetch_summary": "## Fetch Summary",
         "report.section.company": "## Company",
+        "report.section.announcements": "## HKEX Announcements",
+        "report.section.stock_events": "## Stock Events",
+        "report.section.officers": "## Officers",
         "report.company.lookup_status": "- Lookup status: {value}",
         "report.company.lookup_method": "- Lookup method: {value}",
         "report.company.lookup_status.success": "success",
@@ -217,18 +263,41 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.concentration_history.unavailable": "Concentration history is unavailable in the current result.",
         "report.section.price_history": "## Price History",
         "report.price_history.unavailable": "Price history is unavailable in the current result.",
+        "report.price_history.metadata_heading": "### Metadata",
+        "report.price_history.table_heading": "### Price Table",
+        "report.price_history.table_date": "Date",
+        "report.price_history.table_open": "Open",
+        "report.price_history.table_high": "High",
+        "report.price_history.table_low": "Low",
+        "report.price_history.table_close": "Close",
+        "report.price_history.table_adjusted_close": "Adjusted close",
+        "report.price_history.table_volume": "Volume",
+        "report.price_history.table_turnover": "Turnover",
+        "report.price_history.metadata_source": "- Source: {value}",
+        "report.price_history.metadata_source_url": "- Source URL: {value}",
+        "report.price_history.metadata_price_date_from": "- Price date from: {value}",
+        "report.price_history.metadata_price_date_to": "- Price date to: {value}",
+        "report.price_history.metadata_adjustment_state": "- Adjustment state: {value}",
+        "report.price_history.metadata_currency": "- Currency: {value}",
+        "report.price_history.metadata_adjustment_note": "- Adjustment note: {value}",
+        "report.price_history.metadata_fetched_at": "- Fetched at: {value}",
+        "report.price_history.no_rows": "Price history is unavailable in the current result.",
+        "report.warning.price_history_unavailable": "Price history is unavailable ({value}).",
         "report.section.data_quality_warnings": "## Data Quality Warnings",
         "report.fetch.status_success": "- Status: SUCCESS",
         "report.fetch.source": "- Source: {value}",
         "report.fetch.fetched_at": "- Fetched at: {value}",
         "report.fetch.data_as_of": "- Data as of: {value}",
         "report.fetch.cached_snapshot": "- Cached/snapshot: {value}",
+        "report.metadata.source": "- Source: {value}",
+        "report.metadata.data_as_of": "- Data as of: {value}",
         "report.metadata.code": "- Code: {value}",
         "report.metadata.stock_name": "- Stock name: {value}",
         "report.metadata.issue_id": "- Issue ID: {value}",
         "report.metadata.source_url": "- Source URL: {value}",
         "report.metadata.settlement_note": "- Settlement note: {value}",
         "report.metadata.attribution": "- Attribution: {value}",
+        "report.metadata.warning_count": "- Warning count: {value}",
         "report.table.metric": "Metric",
         "report.table.value": "Value",
         "report.no_participant_rows": "No participant rows were returned.",
@@ -265,6 +334,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.sidebar_input_type": "????",
         "ui.sidebar_stock_code_issue_id": "???? / Issue ID",
         "ui.sidebar_query_input_caption": "輸入股票代碼可直接查詢，或切換為 Webb-site Issue ID 以在查詢前解析股票代碼。無效輸入會在表單下方顯示。",
+        "ui.fetch_guidance_caption": "輸入股票代碼或 Webb-site Issue ID，然後按下擷取。系統會先驗證輸入、解析來源，再在下方渲染報告。",
         "ui.sidebar_timeout": "??",
         "ui.sidebar_big_change_threshold": "????????",
         "ui.sidebar_announcement_period": "????",
@@ -275,6 +345,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.sidebar_percentage_basis": "?????",
         "ui.sidebar_show_rendered_markdown": "????? Markdown",
         "ui.sidebar_use_local_history": "???? SQLite ????????",
+        "ui.sidebar_load_price_history": "?????",
         "ui.sidebar_source_mode_caption": (
             "???????{source_mode} | ???{timeout_seconds:g}s | ?????{announcement_period} | ?????{data_date} | ?????{history_range} | ??????{percentage_basis}"
         ),
@@ -290,24 +361,47 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.chart_help_price_title": "??",
         "ui.chart_help_price_body": "??????????????????????????????????????????????????????????????",
         "ui.chart_help_announcements_title": "??",
-        "ui.chart_help_announcements_body": "???????????????????? URL??????????????????????????????",
+        "ui.chart_help_announcements_body": "使用官方公告日期、標題、來源和連結去對照持倉與價格變化；連結只是客觀參考，不代表任何結論。",
         "ui.hkex_announcements_heading": "HKEX 公告",
-        "ui.hkex_announcements_caption": "只讀公告表面，用於顯示官方公告。欄位涵蓋發布時間、類別、標題、檔案資訊／大小、官方 URL 及客觀事件標籤。",
+        "ui.hkex_announcements_caption": "只讀公告表面，用於顯示官方公告。欄位涵蓋公告日期、標題、來源，以及可用時的連結。",
+        "ui.company_information_heading": "公司資訊",
+        "ui.company_information_caption": "公司資訊區塊會以可展開方式分組顯示。",
+        "ui.report_details_heading": "報告詳情",
+        "ui.report_details_caption": "可展開的章節讓詳細內容保留可讀性，同時不會在第一眼就造成資訊過載。",
+        "ui.report_details_unavailable": "尚未擷取結果，無法顯示完整報告詳情。",
+        "ui.report_detail_holdings_detail": "持股詳情",
+        "ui.report_detail_historical_information": "歷史資訊",
+        "ui.report_detail_download_copy": "下載／複製",
+        "ui.visualization_heading": "視覺化詳情",
+        "ui.visualization_caption": "歷史視圖與可選圖表控制分開呈現，讓核心報告可以先載入。",
+        "ui.rendered_markdown": "已渲染 Markdown",
+        "ui.rendered_markdown_caption": "只有在需要完整 Markdown 檢視時才打開。",
+        "ui.dt_rainbow_heading": "DT Rainbow",
+        "ui.dt_rainbow_caption": "僅提供可選互動框架；此版本不包含計算引擎。",
+        "ui.dt_rainbow_enable": "啟用 DT Rainbow",
+        "ui.dt_rainbow_generate": "產生 DT Rainbow",
+        "ui.dt_rainbow_loading": "正在準備可選的 DT Rainbow 視圖……",
+        "ui.dt_rainbow_unavailable": "此版本未實作 DT Rainbow 計算。",
         "ui.hkex_announcements_count": "公告數量",
         "ui.hkex_announcements_rows_label": "公告列表",
-        "ui.hkex_announcements_sorting_note": "按發布時間排序，最新在前。",
+        "ui.hkex_announcements_sorting_note": "按公告日期排序，最新在前。",
         "ui.hkex_announcements_empty": "在已批准的只讀表面中，目前沒有可用的公告列。",
         "ui.hkex_announcements_unavailable": "目前的抓取結果沒有公告資料。",
+        "ui.stock_events_heading": "股份事件",
+        "ui.stock_events_caption": "如有可用，客觀事件紀錄會在此分組顯示。",
+        "ui.stock_events_unavailable": "目前的抓取結果沒有股份事件資料。",
+        "ui.officers_heading": "高管資料",
+        "ui.officers_caption": "如有可用，高管資訊會在此分組顯示。",
+        "ui.officers_unavailable": "目前的抓取結果沒有高管資料。",
         "ui.hkex_announcements_export_heading": "匯出標籤",
         "ui.hkex_announcements_export_note": "即使公告列為空，相關匯出標籤仍會保留。",
         "ui.hkex_announcements_export_csv_label": "CSV 匯出",
         "ui.hkex_announcements_export_excel_label": "Excel 活頁簿匯出",
-        "ui.hkex_announcements_table_publish_time": "發布時間",
-        "ui.hkex_announcements_table_category": "類別",
+        "ui.hkex_announcements_table_announcement_date": "公告日期",
         "ui.hkex_announcements_table_title": "標題",
-        "ui.hkex_announcements_table_file_info": "檔案資訊／大小",
-        "ui.hkex_announcements_table_official_url": "官方 URL",
-        "ui.hkex_announcements_table_event_tags": "客觀事件標籤",
+        "ui.hkex_announcements_table_source": "來源",
+        "ui.hkex_announcements_table_link": "連結",
+        "report.link_label": "連結",
         "ui.report_navigation_heading": "報告導航",
         "ui.report_navigation_caption": "以下連結對應已渲染的報告章節。",
         "ui.data_quality_heading": "資料質量／警告",
@@ -337,6 +431,10 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.validation_error_prefix": "????",
         "ui.unexpected_error_prefix": "UNEXPECTED_ERROR",
         "ui.fetch_summary_remaining": "擴取摘要與所有必要報告章節仍可在下方查看。",
+        "ui.fetch_status_running": "正在擷取 {source_mode} 資料，代號 {code}。",
+        "ui.fetch_status_success": "已從 {source} 完成擷取；資料截至 {data_as_of}。",
+        "ui.fetch_status_success_cached": "已從快取／快照 {source} 完成擷取；資料截至 {data_as_of}。",
+        "ui.fetch_status_failure": "擷取失敗：{error}",
         "ui.progress_starting": "開始中",
         "ui.progress_validated_stock_code": "已驗證股票代碼",
         "ui.progress_fetching_source": "正在擷取低頻 CCASS 資料來源",
@@ -390,8 +488,14 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_status_available": "??",
         "ui.full_summary_status_unavailable": "???",
         "ui.full_summary_unavailable": "???????????????",
+        "ui.full_summary_note_analysis_ready_summary": "可提供可供分析的摘要。",
         "ui.full_summary_note_fetch_summary": "?????????????",
+        "ui.full_summary_note_metadata": "來源、資料截至與溯源詳情可用。",
         "ui.full_summary_note_company": "公司 {code} / Issue ID {issue_id}",
+        "ui.full_summary_note_announcements": "目前結果沒有可用的公告表面。",
+        "ui.full_summary_note_announcements_available": "目前有 {announcement_count} 條公告可用。",
+        "ui.full_summary_note_stock_events": "目前結果沒有可用的股份事件表面。",
+        "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
         "ui.full_summary_note_holdings": "{participant_count} ???????",
         "ui.full_summary_note_changes_available": "?????????",
         "ui.full_summary_note_changes_unavailable": "?????????",
@@ -400,18 +504,24 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_concentration": "? 5 / issued {top5_pct_of_issued} | ? 10 / issued {top10_pct_of_issued}",
         "ui.full_summary_note_concentration_history": "{snapshot_count} ??????",
         "ui.full_summary_note_price_history": "????????????",
+        "ui.full_summary_note_price_history_available": "????????? {price_date_from} ? {price_date_to} ??? {source_name}?",
+        "ui.full_summary_note_price_history_unavailable": "????????????",
         "ui.full_summary_note_raw_previews": "{table_count} ??????",
+        "ui.full_summary_note_copy_functions": "可從目前結果複製報告或 ChatGPT 負載。",
         "ui.full_summary_note_downloads": "?? CSV????? Markdown ???",
         "ui.full_summary_note_data_quality_no_warnings": "??????????",
         "ui.full_summary_note_data_quality_warnings": "{warning_count} 項資料質量警告。",
-        "ui.all_parsed_tables_heading": "??????",
-        "ui.all_parsed_tables_caption": "??????????????????",
+        "ui.all_parsed_tables_heading": "完整報告詳情",
+        "ui.all_parsed_tables_caption": "以下已渲染的報告章節依照已核准的詳情階層排列。",
         "nav.fetch_summary": "????",
         "nav.full_summary": "??????",
-        "nav.all_tables": "????",
+        "nav.all_tables": "完整報告詳情",
         "nav.dt_rainbow": "DT Rainbow",
-        "nav.hkex_announcements": "HKEX ??",
+        "nav.hkex_announcements": "HKEX 公告",
+        "nav.stock_events": "股份事件",
+        "nav.officers": "高管資料",
         "nav.company": "??",
+        "nav.metadata": "??",
         "nav.holdings": "??",
         "nav.changes": "??",
         "nav.big_changes": "???",
@@ -429,8 +539,11 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.comparison.available": "??",
         "report.comparison.unavailable": "???",
         "report.section.analysis_ready_summary": "## AI ??????",
-        "report.section.fetch_summary": "## ????",
+        "report.section.fetch_summary": "## 擷取摘要",
         "report.section.company": "## 公司",
+        "report.section.announcements": "## HKEX 公告",
+        "report.section.stock_events": "## 股份事件",
+        "report.section.officers": "## 高管資料",
         "report.company.lookup_status": "- 查詢狀態：{value}",
         "report.company.lookup_method": "- 查詢方法：{value}",
         "report.company.lookup_status.success": "成功",
@@ -454,18 +567,41 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.concentration_history.unavailable": "目前結果沒有可用的持股集中度歷史資料。",
         "report.section.price_history": "## 價格歷史",
         "report.price_history.unavailable": "目前結果沒有可用的價格歷史資料。",
+        "report.price_history.metadata_heading": "### 中繼資料",
+        "report.price_history.table_heading": "### 價格表",
+        "report.price_history.table_date": "日期",
+        "report.price_history.table_open": "開市",
+        "report.price_history.table_high": "最高",
+        "report.price_history.table_low": "最低",
+        "report.price_history.table_close": "收市",
+        "report.price_history.table_adjusted_close": "調整後收市",
+        "report.price_history.table_volume": "成交量",
+        "report.price_history.table_turnover": "成交額",
+        "report.price_history.metadata_source": "- 來源：{value}",
+        "report.price_history.metadata_source_url": "- 來源網址：{value}",
+        "report.price_history.metadata_price_date_from": "- 價格起始日：{value}",
+        "report.price_history.metadata_price_date_to": "- 價格結束日：{value}",
+        "report.price_history.metadata_adjustment_state": "- 調整狀態：{value}",
+        "report.price_history.metadata_currency": "- 貨幣：{value}",
+        "report.price_history.metadata_adjustment_note": "- 調整備註：{value}",
+        "report.price_history.metadata_fetched_at": "- 擷取時間：{value}",
+        "report.price_history.no_rows": "目前結果沒有可用的價格歷史資料。",
+        "report.warning.price_history_unavailable": "價格歷史不可用（{value}）。",
         "report.section.data_quality_warnings": "## ??????",
         "report.fetch.status_success": "- ?????",
         "report.fetch.source": "- ???{value}",
         "report.fetch.fetched_at": "- ?????{value}",
         "report.fetch.data_as_of": "- 資料截至：{value}",
         "report.fetch.cached_snapshot": "- ??/???{value}",
+        "report.metadata.source": "- 來源：{value}",
+        "report.metadata.data_as_of": "- 資料截至：{value}",
         "report.metadata.code": "- ???{value}",
         "report.metadata.stock_name": "- ?????{value}",
         "report.metadata.issue_id": "- Issue ID?{value}",
         "report.metadata.source_url": "- ?????{value}",
         "report.metadata.settlement_note": "- ?????{value}",
         "report.metadata.attribution": "- ?????{value}",
+        "report.metadata.warning_count": "- 警告數量：{value}",
         "report.table.metric": "??",
         "report.table.value": "?",
         "report.no_participant_rows": "?????????",
@@ -495,6 +631,9 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
 REPORT_SECTION_KEYS = (
     "analysis_ready_summary",
     "company",
+    "announcements",
+    "stock_events",
+    "officers",
     "metadata",
     "fetch_summary",
     "holdings_summary",
@@ -549,6 +688,8 @@ def build_markdown_report(
     analysis: AnalysisResult | None = None,
     fetch_error: str | None = None,
     history_snapshots: Sequence[CcassResponse] | None = None,
+    announcements: AnnouncementsResponse | None = None,
+    price_history: PriceHistoryResponse | None = None,
     locale: str = DEFAULT_LOCALE,
 ) -> str:
     stock_name = response.metadata.name if response and response.metadata.name else translate_text(locale, "report.data_not_available")
@@ -587,14 +728,22 @@ def build_markdown_report(
             translate_text(locale, "report.company.lookup_method", value=translate_text(locale, "report.company.lookup_method.extracted_from_url")),
             translate_text(locale, "report.company.metadata_resolution_note"),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[2])}'></a>",
+        ]
+    )
+    lines.extend(_company_information_section(announcements, locale))
+    lines.extend(
+        [
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
             translate_text(locale, "report.section.metadata"),
             "",
+            translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+            translate_text(locale, "report.metadata.data_as_of", value=_text(metadata.data_as_of, locale)),
             translate_text(locale, "report.metadata.source_url", value=_text(metadata.source_url, locale)),
             translate_text(locale, "report.metadata.settlement_note", value=_text(metadata.settlement_note, locale)),
             translate_text(locale, "report.metadata.attribution", value=_text(metadata.attribution, locale)),
+            translate_text(locale, "report.metadata.warning_count", value=len(computed.warnings)),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
             translate_text(locale, "report.section.fetch_summary"),
             "",
             translate_text(locale, "report.fetch.status_success"),
@@ -603,7 +752,7 @@ def build_markdown_report(
             translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
             translate_text(locale, "report.fetch.cached_snapshot", value=_yes_no(metadata.cached, locale)),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[7])}'></a>",
             translate_text(locale, "report.section.holdings_summary"),
             "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
@@ -616,7 +765,7 @@ def build_markdown_report(
             f"| Non-CCASS / issued | {_percent(summary.non_ccass_pct_of_issued, locale)} |",
             f"| Participant count | {summary.participant_count} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
             translate_text(locale, "report.section.holdings"),
             "",
         ]
@@ -624,14 +773,14 @@ def build_markdown_report(
     lines.extend(_holdings_table(response, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
         translate_text(locale, "report.section.changes"),
         "",
     ])
     lines.extend(_changes_section(computed, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[7])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
         translate_text(locale, "report.section.big_changes"),
         "",
     ])
@@ -639,7 +788,7 @@ def build_markdown_report(
     lines.extend(
         [
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[11])}'></a>",
             translate_text(locale, "report.section.concentration"),
             "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
@@ -649,24 +798,19 @@ def build_markdown_report(
             f"| Top 5 / CCASS | {_percent(summary.top5_pct_of_ccass, locale)} |",
             f"| Top 10 / CCASS | {_percent(summary.top10_pct_of_ccass, locale)} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[12])}'></a>",
             translate_text(locale, "report.section.concentration_history"),
             "",
         ]
     )
     lines.extend(_concentration_history_section(response, history_snapshots, locale))
+    lines.extend(_price_history_section(price_history, locale))
     lines.extend([
-            "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
-            translate_text(locale, "report.section.price_history"),
-            "",
-            translate_text(locale, "report.price_history.unavailable"),
-            "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[11])}'></a>",
-            translate_text(locale, "report.section.data_quality_warnings"),
-            "",
-        ]
-    )
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
+        translate_text(locale, "report.section.data_quality_warnings"),
+        "",
+    ])
     warnings_list = list(computed.warnings)
     if not warnings_list:
         lines.append(translate_text(locale, "report.no_additional_warning"))
@@ -804,6 +948,136 @@ def _concentration_history_section(
     return latest_values_lines + participant_count_lines
 
 
+def _company_information_section(
+    announcements: AnnouncementsResponse | None,
+    locale: str,
+) -> list[str]:
+    return [
+        *_announcements_section(announcements, locale),
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
+        translate_text(locale, "report.section.stock_events"),
+        "",
+        translate_text(locale, "ui.stock_events_unavailable"),
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+        translate_text(locale, "report.section.officers"),
+        "",
+        translate_text(locale, "ui.officers_unavailable"),
+        "",
+    ]
+
+
+def _announcements_section(
+    announcements: AnnouncementsResponse | None,
+    locale: str,
+) -> list[str]:
+    lines = [
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[2])}'></a>",
+        translate_text(locale, "report.section.announcements"),
+        "",
+    ]
+    if announcements is None:
+        lines.append(translate_text(locale, "ui.hkex_announcements_unavailable"))
+        lines.append("")
+        return lines
+
+    metadata = announcements.metadata
+    lines.extend(
+        [
+            translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+            translate_text(locale, "report.metadata.data_as_of", value=_text(metadata.data_as_of, locale)),
+            translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
+            f"{translate_text(locale, 'ui.hkex_announcements_count')}: {metadata.announcement_count}",
+            "",
+        ]
+    )
+    if not announcements.announcements:
+        lines.extend([translate_text(locale, "ui.hkex_announcements_empty"), ""])
+        return lines
+
+    lines.extend(
+        [
+            f"| {translate_text(locale, 'ui.hkex_announcements_table_announcement_date')} | {translate_text(locale, 'ui.hkex_announcements_table_title')} | {translate_text(locale, 'ui.hkex_announcements_table_source')} | {translate_text(locale, 'ui.hkex_announcements_table_link')} |",
+            "|---|---|---|---|",
+        ]
+    )
+    for row in announcements.announcements:
+        link = (
+            f"[{translate_text(locale, 'report.link_label')}]({row.link})"
+            if row.link
+            else translate_text(locale, "report.data_not_available")
+        )
+        lines.append(
+            f"| {_text(row.announcement_date, locale)} | {_escape(row.title)} | {_escape(row.source)} | {link} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _price_history_section(price_history: PriceHistoryResponse | None, locale: str) -> list[str]:
+    lines = [
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[13])}'></a>",
+        translate_text(locale, "report.section.price_history"),
+        "",
+    ]
+    if price_history is None:
+        lines.append(translate_text(locale, "report.price_history.unavailable"))
+        return lines + [""]
+
+    metadata = price_history.metadata
+    lines.extend(
+        [
+            translate_text(locale, "report.price_history.metadata_heading"),
+            "",
+            f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+            "|---|---|",
+            translate_text(locale, "report.price_history.metadata_source", value=_text(metadata.source_name, locale)),
+            translate_text(locale, "report.price_history.metadata_source_url", value=_text(metadata.source_url, locale)),
+            translate_text(locale, "report.price_history.metadata_price_date_from", value=_text(metadata.price_date_from, locale)),
+            translate_text(locale, "report.price_history.metadata_price_date_to", value=_text(metadata.price_date_to, locale)),
+            translate_text(locale, "report.price_history.metadata_adjustment_state", value=metadata.adjustment_state),
+            translate_text(locale, "report.price_history.metadata_currency", value=_text(metadata.currency, locale)),
+            translate_text(locale, "report.price_history.metadata_adjustment_note", value=_text(metadata.adjustment_note, locale)),
+            translate_text(locale, "report.price_history.metadata_fetched_at", value=_datetime(metadata.fetched_at, locale)),
+            "",
+            translate_text(locale, "report.price_history.table_heading"),
+            "",
+        ]
+    )
+    if not price_history.prices:
+        lines.extend([translate_text(locale, "report.price_history.no_rows"), ""])
+        return lines
+
+    lines.extend(
+        [
+            f"| {translate_text(locale, 'report.price_history.table_date')} | {translate_text(locale, 'report.price_history.table_open')} | {translate_text(locale, 'report.price_history.table_high')} | {translate_text(locale, 'report.price_history.table_low')} | {translate_text(locale, 'report.price_history.table_close')} | {translate_text(locale, 'report.price_history.table_adjusted_close')} | {translate_text(locale, 'report.price_history.table_volume')} | {translate_text(locale, 'report.price_history.table_turnover')} |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+    )
+    for row in price_history.prices:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    _text(row.price_date, locale),
+                    _decimal(row.open, locale),
+                    _decimal(row.high, locale),
+                    _decimal(row.low, locale),
+                    _decimal(row.close, locale),
+                    _decimal(row.adjusted_close, locale),
+                    _integer(row.volume, locale),
+                    _money(row.turnover, locale),
+                ]
+            )
+            + " |"
+        )
+    lines.append("")
+    return lines
+
+
 def _change_table(changes: tuple[HoldingChange, ...], locale: str) -> list[str]:
     if not changes:
         return [translate_text(locale, "report.no_participant_changes")]
@@ -824,6 +1098,14 @@ def _integer(value: int | None, locale: str) -> str:
     return f"{value:,}" if value is not None else translate_text(locale, "report.data_not_available")
 
 
+def _decimal(value: float | None, locale: str) -> str:
+    return f"{value:.4f}" if value is not None else translate_text(locale, "report.data_not_available")
+
+
+def _money(value: float | None, locale: str) -> str:
+    return f"{value:,.2f}" if value is not None else translate_text(locale, "report.data_not_available")
+
+
 def _percent(value: float | None, locale: str) -> str:
     return f"{value:.4f}%" if value is not None else translate_text(locale, "report.data_not_available")
 
@@ -842,8 +1124,6 @@ def _yes_no(value: bool, locale: str) -> str:
 
 def _localize_warning(warning: str, locale: str) -> str:
     parsed = parse_warning(warning)
-    if parsed is not None and parsed.message:
-        return parsed.message
     mapping = {
         "The current result came from a cached or snapshot data source.": "report.warning.cached_snapshot_source",
         "The holdings date is unavailable.": "report.warning.holdings_date_unavailable",
@@ -859,6 +1139,20 @@ def _localize_warning(warning: str, locale: str) -> str:
             "report.warning.previous_snapshot_enrichment_unavailable",
             exception_name=exception_name,
         )
+    if parsed is not None and parsed.prefix == "DATA_LIMITATION" and parsed.code == "PREVIOUS_SNAPSHOT_ENRICHMENT_UNAVAILABLE":
+        exception_name = parsed.message
+        prefix = "Previous-snapshot enrichment is unavailable ("
+        if exception_name.startswith(prefix) and exception_name.endswith(")."):
+            exception_name = exception_name[len(prefix):-2]
+        return translate_text(
+            locale,
+            "report.warning.previous_snapshot_enrichment_unavailable",
+            exception_name=exception_name,
+        )
+    if parsed is not None and parsed.prefix == "DATA_LIMITATION" and parsed.code == "PRICE_HISTORY_UNAVAILABLE":
+        return translate_text(locale, "report.warning.price_history_unavailable", value=parsed.message or parsed.code)
+    if parsed is not None and parsed.message:
+        return parsed.message
     if parsed is not None:
         if parsed.prefix == "SOURCE_ERROR_CODE":
             return f"Source error code: {parsed.code}"

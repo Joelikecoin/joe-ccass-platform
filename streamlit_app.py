@@ -28,11 +28,12 @@ from app.streamlit_ui import (
     streamlit_hkex_announcements_columns,
     streamlit_navigation_links,
     streamlit_responsive_layout_css,
+    split_report_markdown_sections,
     ui_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import SnapshotStore
-from ccass_core.report import localized_report_anchor
+from ccass_core.report import localized_report_anchor, translate_text
 
 
 def _load_streamlit_secrets() -> None:
@@ -79,6 +80,147 @@ def _render_fallback_warning(captured: list[warnings.WarningMessage]) -> None:
         st.warning("\n".join(messages))
 
 
+def _report_section_title(locale: str, section_key: str) -> str:
+    return translate_text(locale, f"report.section.{section_key}").removeprefix("## ").strip()
+
+
+def _render_section_expanders(
+    *,
+    locale: str,
+    section_keys: tuple[str, ...],
+    sections: dict[str, str],
+) -> None:
+    for section_key in section_keys:
+        section_markdown = sections.get(section_key)
+        if not section_markdown:
+            continue
+        with st.expander(_report_section_title(locale, section_key), expanded=False):
+            st.markdown(section_markdown)
+
+
+def _render_markdown_sections(section_keys: tuple[str, ...], sections: dict[str, str]) -> None:
+    for section_key in section_keys:
+        section_markdown = sections.get(section_key)
+        if section_markdown:
+            st.markdown(section_markdown)
+
+
+def _render_named_expander(label: str, section_markdown: str | None) -> None:
+    if not section_markdown:
+        return
+    with st.expander(label, expanded=False):
+        st.markdown(section_markdown)
+
+
+def _render_dt_rainbow_framework(locale: str) -> None:
+    with st.expander(ui_text(locale, "dt_rainbow_heading"), expanded=False):
+        st.caption(ui_text(locale, "dt_rainbow_caption"))
+        enabled = st.checkbox(ui_text(locale, "dt_rainbow_enable"), value=False, key="dt_rainbow_enabled")
+        if not enabled:
+            st.session_state.pop("dt_rainbow_requested", None)
+            return
+
+        if st.button(ui_text(locale, "dt_rainbow_generate"), key="dt_rainbow_generate_button"):
+            st.session_state["dt_rainbow_requested"] = True
+
+        if st.session_state.get("dt_rainbow_requested"):
+            with st.spinner(ui_text(locale, "dt_rainbow_loading")):
+                st.info(ui_text(locale, "dt_rainbow_unavailable"))
+
+
+def _render_download_copy_controls(
+    *,
+    locale: str,
+    prepared: object,
+    localized_markdown: str,
+    localized_chatgpt_payload: str,
+) -> None:
+    st.markdown(f"<a id='{localized_report_anchor('copy_for_chatgpt')}'></a>", unsafe_allow_html=True)
+    with st.expander(ui_text(locale, "report_detail_download_copy"), expanded=False):
+        st.markdown(f"## {ui_text(locale, 'copy_for_chatgpt')}")
+        st.caption(ui_text(locale, "copy_for_chatgpt_caption"))
+        copy_col, report_col = st.columns(2)
+        with copy_col:
+            st.markdown(f"**{ui_text(locale, 'copy_for_chatgpt')}**")
+            components.html(
+                copy_button_html(
+                    ui_text(locale, "copy_for_chatgpt"),
+                    localized_chatgpt_payload,
+                    element_id="copy-chatgpt",
+                ),
+                height=55,
+            )
+        with report_col:
+            st.markdown(f"**{ui_text(locale, 'copy_report')}**")
+            components.html(
+                copy_button_html(ui_text(locale, "copy_report"), localized_markdown, element_id="copy-report"),
+                height=55,
+            )
+
+        st.markdown(f"## {ui_text(locale, 'downloads_heading')}")
+        st.markdown(f"### {ui_text(locale, 'downloads_workflow_heading')}")
+        st.caption(ui_text(locale, "downloads_workflow_caption"))
+        response = getattr(prepared, "response", None)
+        if response is None:
+            st.info(ui_text(locale, "downloads_unavailable"))
+        else:
+            download_artifacts = build_download_artifacts(response, locale=locale)
+            st.caption(ui_text(locale, "downloads_caption"))
+            combined_col, workbook_col, report_download_col = st.columns(3)
+            with combined_col:
+                st.markdown(f"**{ui_text(locale, 'downloads_combined_csv')}**")
+                st.download_button(
+                    ui_text(locale, "downloads_download_combined_csv"),
+                    data=download_artifacts.combined_csv_bytes,
+                    file_name=download_artifacts.combined_csv_filename,
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+            with workbook_col:
+                st.markdown(f"**{ui_text(locale, 'downloads_excel_workbook')}**")
+                st.download_button(
+                    ui_text(locale, "downloads_download_excel_workbook"),
+                    data=download_artifacts.workbook_bytes,
+                    file_name=download_artifacts.workbook_filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            with report_download_col:
+                st.markdown(f"**{ui_text(locale, 'downloads_report_markdown')}**")
+                st.download_button(
+                    ui_text(locale, "downloads_download_markdown_report"),
+                    data=localized_markdown,
+                    file_name=getattr(prepared, "filename", "report.md"),
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
+
+            with st.expander(ui_text(locale, "downloads_csv_preview"), expanded=False):
+                st.caption(ui_text(locale, "downloads_first_80_csv_lines"))
+                st.code(download_artifacts.combined_csv_preview, language="csv")
+
+            with st.expander(ui_text(locale, "downloads_section_specific"), expanded=False):
+                section_summary_col, section_holdings_col = st.columns(2)
+                with section_summary_col:
+                    st.markdown(f"**{ui_text(locale, 'downloads_raw_preview_summary_csv')}**")
+                    st.download_button(
+                        ui_text(locale, "downloads_download_raw_preview_summary_csv"),
+                        data=download_artifacts.raw_preview_summary_bytes,
+                        file_name=download_artifacts.raw_preview_summary_filename,
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+                with section_holdings_col:
+                    st.markdown(f"**{ui_text(locale, 'downloads_raw_preview_holdings_csv')}**")
+                    st.download_button(
+                        ui_text(locale, "downloads_download_raw_preview_holdings_csv"),
+                        data=download_artifacts.raw_preview_holdings_bytes,
+                        file_name=download_artifacts.raw_preview_holdings_filename,
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+
+
 def _history_range_start(end_date: date, history_range: str) -> date:
     windows = {
         "7 days": 7,
@@ -88,6 +230,24 @@ def _history_range_start(end_date: date, history_range: str) -> date:
     days = windows.get(history_range)
     if days is None:
         return date(1900, 1, 1)
+    return end_date - timedelta(days=days)
+
+
+def _price_history_range_start(end_date: date, history_range: str) -> date:
+    if history_range in {"Latest", "Custom"}:
+        return end_date - timedelta(days=90)
+    return _history_range_start(end_date, history_range)
+
+
+def _announcement_period_start(end_date: date, announcement_period: str) -> date:
+    windows = {
+        "7 days": 7,
+        "30 days": 30,
+        "90 days": 90,
+    }
+    days = windows.get(announcement_period)
+    if days is None:
+        return date(1999, 4, 1)
     return end_date - timedelta(days=days)
 
 
@@ -158,6 +318,7 @@ with st.sidebar:
     )
     show_rendered_markdown = st.checkbox(ui_text(current_locale, "sidebar_show_rendered_markdown"), value=True)
     use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=True)
+    load_price_history = st.checkbox(ui_text(current_locale, "sidebar_load_price_history"), value=False)
     st.caption(
         ui_text(
             current_locale,
@@ -174,6 +335,7 @@ with st.sidebar:
     st.caption(ui_text(current_locale, "data_source_mode", source_mode=_choice_label(current_locale, "source_mode", source_mode)))
     st.caption(ui_text(current_locale, "hkex_manual_verification"))
     st.caption(ui_text(current_locale, "sidebar_query_input_caption"))
+    st.info(ui_text(current_locale, "fetch_guidance_caption"))
 
     with st.form("ccass-query"):
         if input_type == "Webb-site Issue ID":
@@ -193,6 +355,7 @@ with st.sidebar:
 if submitted:
     st.session_state.pop("prepared_report", None)
     progress_bar = st.progress(0, text=ui_text(current_locale, "progress_starting"))
+    fetch_status = st.empty()
 
     def update_progress(value: int, label: str) -> None:
         progress_bar.progress(value, text=label)
@@ -219,6 +382,14 @@ if submitted:
             )
         else:
             resolved_code = resolve_streamlit_query_input(raw_code, input_type)
+        fetch_status.info(
+            ui_text(
+                current_locale,
+                "fetch_status_running",
+                source_mode=_choice_label(current_locale, "source_mode", source_mode),
+                code=resolved_code,
+            )
+        )
         previous_loader = None
         history_snapshots = None
         if use_local_history and sqlite_path.is_file():
@@ -246,17 +417,51 @@ if submitted:
                 locale=current_locale,
                 history_snapshots=history_snapshots,
                 previous_loader=previous_loader,
+                announcements_enabled=True,
+                announcement_start_date=_announcement_period_start(data_date, announcement_period),
+                announcement_end_date=data_date,
+                price_history_enabled=load_price_history,
+                price_history_start_date=_price_history_range_start(data_date, history_range),
+                price_history_end_date=data_date,
                 progress=update_progress,
             )
         )
     except PlatformError as exc:
         progress_bar.empty()
+        fetch_status.error(ui_text(current_locale, "fetch_status_failure", error=exc.message))
         st.error(f"{ui_text(current_locale, 'validation_error_prefix')} ? {exc.message}")
     except Exception as exc:
         progress_bar.empty()
+        fetch_status.error(ui_text(current_locale, "fetch_status_failure", error=type(exc).__name__))
         st.error(f"{ui_text(current_locale, 'unexpected_error_prefix')}: {type(exc).__name__}")
     else:
         st.session_state.prepared_report = prepared
+        if prepared.response is None:
+            fetch_status.error(
+                ui_text(
+                    current_locale,
+                    "fetch_status_failure",
+                    error=prepared.fetch_error or translate_text(current_locale, "report.data_not_available"),
+                )
+            )
+        elif prepared.response.metadata.cached:
+            fetch_status.warning(
+                ui_text(
+                    current_locale,
+                    "fetch_status_success_cached",
+                    source=prepared.response.metadata.source_name or prepared.response.metadata.source_url,
+                    data_as_of=prepared.response.metadata.data_as_of or ui_text(current_locale, "data_not_available"),
+                )
+            )
+        else:
+            fetch_status.success(
+                ui_text(
+                    current_locale,
+                    "fetch_status_success",
+                    source=prepared.response.metadata.source_name or prepared.response.metadata.source_url,
+                    data_as_of=prepared.response.metadata.data_as_of or ui_text(current_locale, "data_not_available"),
+                )
+            )
 
 prepared = st.session_state.get("prepared_report")
 history_snapshots = st.session_state.get("history_snapshots")
@@ -268,6 +473,19 @@ if prepared is not None:
         if prepared.fetch_error:
             st.error(prepared.fetch_error)
             st.info(ui_text(current_locale, "fetch_summary_remaining"))
+        st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
+        st.markdown(f"## {ui_text(current_locale, 'full_summary_heading')}")
+        st.caption(ui_text(current_locale, 'full_summary_caption'))
+        if prepared.response is None:
+            st.info(ui_text(current_locale, 'full_summary_unavailable'))
+        else:
+            st.markdown(
+                build_full_summary_markdown(
+                    prepared,
+                    history_snapshots=history_snapshots,
+                    locale=current_locale,
+                )
+            )
         st.markdown(f"<a id='{localized_report_anchor('all_tables')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {nav_text(current_locale, 'all_tables')}")
         st.markdown(f"### {ui_text(current_locale, 'report_navigation_heading')}")
@@ -284,24 +502,61 @@ if prepared is not None:
                 st.warning("\n".join(f"- {warning}" for warning in quality_warnings))
             else:
                 st.info(ui_text(current_locale, 'data_quality_no_warnings'))
-        st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
-        st.markdown(f"## {ui_text(current_locale, 'full_summary_heading')}")
-        st.caption(ui_text(current_locale, 'full_summary_caption'))
-        if prepared.response is None:
-            st.info(ui_text(current_locale, 'full_summary_unavailable'))
-        else:
-            st.markdown(
-                build_full_summary_markdown(
-                    prepared,
-                    history_snapshots=history_snapshots,
-                    locale=current_locale,
-                )
-            )
         st.markdown(f"<a id='{localized_report_anchor('all_parsed_tables')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'all_parsed_tables_heading')}")
         st.caption(ui_text(current_locale, 'all_parsed_tables_caption'))
+        report_sections = split_report_markdown_sections(localized_markdown, locale=current_locale)
+        if prepared.response is None:
+            st.info(ui_text(current_locale, "report_details_unavailable"))
+        else:
+            st.markdown(f"### {ui_text(current_locale, 'report_details_heading')}")
+            st.caption(ui_text(current_locale, "report_details_caption"))
+            _render_markdown_sections(("company",), report_sections)
+            st.markdown(f"### {ui_text(current_locale, 'company_information_heading')}")
+            st.caption(ui_text(current_locale, "company_information_caption"))
+            _render_named_expander(
+                ui_text(current_locale, "hkex_announcements_heading"),
+                report_sections.get("announcements"),
+            )
+            _render_named_expander(
+                ui_text(current_locale, "stock_events_heading"),
+                report_sections.get("stock_events"),
+            )
+            _render_named_expander(
+                ui_text(current_locale, "officers_heading"),
+                report_sections.get("officers"),
+            )
+            _render_markdown_sections(("metadata", "holdings_summary", "concentration"), report_sections)
+            _render_named_expander(
+                ui_text(current_locale, "report_detail_holdings_detail"),
+                report_sections.get("holdings"),
+            )
+            _render_named_expander(
+                _report_section_title(current_locale, "changes"),
+                report_sections.get("changes"),
+            )
+            _render_named_expander(
+                _report_section_title(current_locale, "big_changes"),
+                report_sections.get("big_changes"),
+            )
+            with st.expander(ui_text(current_locale, "report_detail_historical_information"), expanded=False):
+                _render_markdown_sections(("concentration_history", "price_history"), report_sections)
+            _render_download_copy_controls(
+                locale=current_locale,
+                prepared=prepared,
+                localized_markdown=localized_markdown,
+                localized_chatgpt_payload=localized_chatgpt_payload,
+            )
+
         if show_rendered_markdown:
-            st.markdown(localized_markdown)
+            st.markdown(f"### {ui_text(current_locale, 'rendered_markdown')}")
+            st.caption(ui_text(current_locale, "rendered_markdown_caption"))
+            with st.expander(ui_text(current_locale, "rendered_markdown"), expanded=False):
+                st.markdown(localized_markdown)
+
+        st.markdown(f"### {ui_text(current_locale, 'visualization_heading')}")
+        st.caption(ui_text(current_locale, 'visualization_caption'))
+        _render_dt_rainbow_framework(current_locale)
 
         st.markdown(f"<a id='{localized_report_anchor('raw_previews')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'raw_previews_heading')}")
@@ -331,27 +586,6 @@ if prepared is not None:
                     else:
                         st.info(ui_text(current_locale, "raw_previews_no_sample_rows"))
 
-        st.markdown(f"<a id='{localized_report_anchor('copy_for_chatgpt')}'></a>", unsafe_allow_html=True)
-        st.markdown(f"## {ui_text(current_locale, 'copy_for_chatgpt')}")
-        st.caption(ui_text(current_locale, 'copy_for_chatgpt_caption'))
-        copy_col, report_col = st.columns(2)
-        with copy_col:
-            st.markdown(f"**{ui_text(current_locale, 'copy_for_chatgpt')}**")
-            components.html(
-                copy_button_html(
-                    ui_text(current_locale, "copy_for_chatgpt"),
-                    localized_chatgpt_payload,
-                    element_id="copy-chatgpt",
-                ),
-                height=55,
-            )
-        with report_col:
-            st.markdown(f"**{ui_text(current_locale, 'copy_report')}**")
-            components.html(
-                copy_button_html(ui_text(current_locale, "copy_report"), localized_markdown, element_id="copy-report"),
-                height=55,
-            )
-
         st.markdown(f"<a id='{localized_report_anchor('chart_help')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'chart_help_heading')}")
         st.caption(ui_text(current_locale, 'chart_help_caption'))
@@ -363,10 +597,22 @@ if prepared is not None:
         st.markdown(f"<a id='{localized_report_anchor('hkex_announcements')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'hkex_announcements_heading')}")
         st.caption(ui_text(current_locale, 'hkex_announcements_caption'))
-        if prepared.response is None:
+        announcements = getattr(prepared, "announcements", None)
+        if announcements is None:
             st.warning(ui_text(current_locale, 'hkex_announcements_unavailable'))
+            announcement_rows: list[dict[str, object]] = []
+        else:
+            announcement_rows = [
+                {
+                    ui_text(current_locale, "hkex_announcements_table_announcement_date"): row.announcement_date.isoformat(),
+                    ui_text(current_locale, "hkex_announcements_table_title"): row.title,
+                    ui_text(current_locale, "hkex_announcements_table_source"): row.source,
+                    ui_text(current_locale, "hkex_announcements_table_link"): row.link
+                    or translate_text(current_locale, "report.data_not_available"),
+                }
+                for row in announcements.announcements
+            ]
         announcement_columns = streamlit_hkex_announcements_columns(current_locale)
-        announcement_rows: list[dict[str, object]] = []
         st.metric(ui_text(current_locale, 'hkex_announcements_count'), len(announcement_rows))
         st.markdown(f"### {ui_text(current_locale, 'hkex_announcements_rows_label')}")
         st.caption(ui_text(current_locale, 'hkex_announcements_sorting_note'))
@@ -381,76 +627,14 @@ if prepared is not None:
             st.markdown(
                 "| " + " | ".join(['---'] * len(announcement_columns)) + " |"
             )
-        st.info(ui_text(current_locale, 'hkex_announcements_empty'))
+        if announcements is not None and not announcement_rows:
+            st.info(ui_text(current_locale, 'hkex_announcements_empty'))
         st.markdown(f"**{ui_text(current_locale, 'hkex_announcements_export_heading')}**")
         st.caption(ui_text(current_locale, 'hkex_announcements_export_note'))
         st.caption(
             f"{ui_text(current_locale, 'hkex_announcements_export_csv_label')} | "
             f"{ui_text(current_locale, 'hkex_announcements_export_excel_label')}"
         )
-
-        st.markdown(f"<a id='{localized_report_anchor('downloads')}'></a>", unsafe_allow_html=True)
-        st.markdown(f"## {ui_text(current_locale, 'downloads_heading')}")
-        st.markdown(f"### {ui_text(current_locale, 'downloads_workflow_heading')}")
-        st.caption(ui_text(current_locale, 'downloads_workflow_caption'))
-        if prepared.response is None:
-            st.info(ui_text(current_locale, "downloads_unavailable"))
-        else:
-            download_artifacts = build_download_artifacts(prepared.response, locale=current_locale)
-            st.caption(ui_text(current_locale, "downloads_caption"))
-            combined_col, workbook_col, report_download_col = st.columns(3)
-            with combined_col:
-                st.markdown(f"**{ui_text(current_locale, 'downloads_combined_csv')}**")
-                st.download_button(
-                    ui_text(current_locale, "downloads_download_combined_csv"),
-                    data=download_artifacts.combined_csv_bytes,
-                    file_name=download_artifacts.combined_csv_filename,
-                    mime="text/csv",
-                    use_container_width=True,
-                )
-            with workbook_col:
-                st.markdown(f"**{ui_text(current_locale, 'downloads_excel_workbook')}**")
-                st.download_button(
-                    ui_text(current_locale, "downloads_download_excel_workbook"),
-                    data=download_artifacts.workbook_bytes,
-                    file_name=download_artifacts.workbook_filename,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                )
-            with report_download_col:
-                st.markdown(f"**{ui_text(current_locale, 'downloads_report_markdown')}**")
-                st.download_button(
-                    ui_text(current_locale, "downloads_download_markdown_report"),
-                    data=localized_markdown,
-                    file_name=prepared.filename,
-                    mime="text/markdown",
-                    use_container_width=True,
-                )
-
-            with st.expander(ui_text(current_locale, "downloads_csv_preview"), expanded=False):
-                st.caption(ui_text(current_locale, "downloads_first_80_csv_lines"))
-                st.code(download_artifacts.combined_csv_preview, language="csv")
-
-            with st.expander(ui_text(current_locale, "downloads_section_specific"), expanded=False):
-                section_summary_col, section_holdings_col = st.columns(2)
-                with section_summary_col:
-                    st.markdown(f"**{ui_text(current_locale, 'downloads_raw_preview_summary_csv')}**")
-                    st.download_button(
-                        ui_text(current_locale, "downloads_download_raw_preview_summary_csv"),
-                        data=download_artifacts.raw_preview_summary_bytes,
-                        file_name=download_artifacts.raw_preview_summary_filename,
-                        mime="text/csv",
-                        use_container_width=True,
-                    )
-                with section_holdings_col:
-                    st.markdown(f"**{ui_text(current_locale, 'downloads_raw_preview_holdings_csv')}**")
-                    st.download_button(
-                        ui_text(current_locale, "downloads_download_raw_preview_holdings_csv"),
-                        data=download_artifacts.raw_preview_holdings_bytes,
-                        file_name=download_artifacts.raw_preview_holdings_filename,
-                        mime="text/csv",
-                        use_container_width=True,
-                    )
 
         with st.expander(ui_text(current_locale, "raw_markdown"), expanded=False):
             st.code(localized_markdown, language="markdown")

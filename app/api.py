@@ -8,15 +8,19 @@ from app import __version__
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
 from app.models import (
+    AnnouncementsResponse,
     BigChangesResponse,
     CcassResponse,
     ChangesResponse,
     ConcentrationResponse,
+    PriceHistoryResponse,
 )
+from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.big_changes import BigChangesService, get_big_changes_service
 from app.services.ccass import CcassService, get_ccass_service
 from app.services.changes import ChangesService, get_changes_service
 from app.services.concentration import ConcentrationService, get_concentration_service
+from app.services.price_history import PriceHistoryService, get_price_history_service
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.changes_report import build_changes_markdown_report
 from ccass_core.compute import compute_analysis
@@ -203,6 +207,44 @@ async def get_stock_concentration_report(
 
 
 @app.get(
+    "/api/v1/stocks/{stock_code}/prices",
+    response_model=PriceHistoryResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["prices"],
+)
+async def get_stock_prices(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    service: PriceHistoryService = Depends(get_price_history_service),
+) -> PriceHistoryResponse:
+    return await service.get_price_history(
+        stock_code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/announcements",
+    response_model=AnnouncementsResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["announcements"],
+)
+async def get_stock_announcements(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    service: AnnouncementsService = Depends(get_announcements_service),
+) -> AnnouncementsResponse:
+    return await service.get_announcements(
+        stock_code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
+
+@app.get(
     "/api/v1/ccass/{code}",
     response_model=CcassResponse,
     dependencies=[Depends(verify_api_key)],
@@ -226,6 +268,7 @@ async def get_ccass_stock_report(
     code: str,
     holdings_limit: int = Query(default=20, ge=1, le=100),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
+    announcements_service: AnnouncementsService = Depends(get_announcements_service),
     service: CcassService = Depends(get_ccass_service),
 ) -> PlainTextResponse:
     normalized = normalize_stock_code(code)
@@ -235,5 +278,15 @@ async def get_ccass_stock_report(
         previous=None,
         big_change_threshold=big_change_threshold,
     )
-    report = build_markdown_report(response, code=normalized, analysis=analysis)
+    announcements = None
+    try:
+        announcements = await announcements_service.get_announcements(normalized)
+    except PlatformError:
+        announcements = None
+    report = build_markdown_report(
+        response,
+        code=normalized,
+        analysis=analysis,
+        announcements=announcements,
+    )
     return PlainTextResponse(report, media_type="text/markdown; charset=utf-8")

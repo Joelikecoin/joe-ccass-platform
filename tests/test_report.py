@@ -1,6 +1,7 @@
 import warnings
 
 from app.errors import ErrorCode, PlatformError
+from app.models import AnnouncementRow, AnnouncementsMetadata, AnnouncementsResponse, PriceHistoryMetadata, PriceHistoryResponse, PriceHistoryRow
 from ccass_core.compute import compute_analysis
 from ccass_core.report import (
     CHATGPT_COPY_HEADER,
@@ -62,6 +63,55 @@ def test_report_includes_company_section_identity_details(current_response, prev
     ) in report
 
 
+def test_report_includes_company_information_sections_as_unavailable(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.announcements") in report
+    assert translate_text(DEFAULT_LOCALE, "report.section.stock_events") in report
+    assert translate_text(DEFAULT_LOCALE, "report.section.officers") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.hkex_announcements_unavailable") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.stock_events_unavailable") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.officers_unavailable") in report
+
+
+def test_report_includes_announcements_surface_when_available(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    announcements = AnnouncementsResponse(
+        metadata=AnnouncementsMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name="HKEXnews",
+            source_url="https://www1.hkexnews.hk/search/titlesearch.xhtml?category=0&lang=EN&market=SEHK&stockId=189695",
+            fetched_at=current_response.metadata.fetched_at,
+            earliest_announcement_date=current_response.metadata.holdings_date,
+            latest_announcement_date=current_response.metadata.holdings_date,
+            announcement_count=1,
+        ),
+        announcements=[
+            AnnouncementRow(
+                announcement_date=current_response.metadata.holdings_date,
+                title="Sample HKEX announcement",
+                source="HKEXnews",
+                link="https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0720/2026072000123.pdf",
+            )
+        ],
+    )
+    report = build_markdown_report(
+        current_response,
+        code="01592",
+        analysis=analysis,
+        announcements=announcements,
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.announcements") in report
+    assert "Sample HKEX announcement" in report
+    assert "HKEXnews" in report
+    assert "2026-07-20" in report
+    assert "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0720/2026072000123.pdf" in report
+
+
 def test_report_includes_data_quality_warning_summary(current_response, previous_response):
     analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
     report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
@@ -76,6 +126,51 @@ def test_report_includes_price_history_surface_as_unavailable(current_response, 
 
     assert translate_text(DEFAULT_LOCALE, "report.section.price_history") in report
     assert translate_text(DEFAULT_LOCALE, "report.price_history.unavailable") in report
+
+
+def test_report_includes_price_history_surface_when_available(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    price_history = PriceHistoryResponse(
+        metadata=PriceHistoryMetadata(
+            code="01592",
+            name="Sample Company",
+            ticker="01592.HK",
+            price_date_from=current_response.metadata.holdings_date,
+            price_date_to=current_response.metadata.holdings_date,
+            source_name="Yahoo Finance",
+            source_url="https://query1.finance.yahoo.com/v8/finance/chart/01592.HK",
+            fetched_at=current_response.metadata.fetched_at,
+            adjustment_state="adjusted",
+            currency="HKD",
+            adjustment_note="Adjusted close values are available from Yahoo Finance.",
+        ),
+        prices=[
+            PriceHistoryRow(
+                price_date=current_response.metadata.holdings_date,
+                open=1.0,
+                high=1.1,
+                low=0.9,
+                close=1.05,
+                adjusted_close=1.01,
+                volume=1000,
+                turnover=1050.0,
+            )
+        ],
+    )
+    report = build_markdown_report(
+        current_response,
+        code="01592",
+        analysis=analysis,
+        price_history=price_history,
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.price_history") in report
+    assert translate_text(DEFAULT_LOCALE, "report.price_history.metadata_heading") in report
+    assert translate_text(DEFAULT_LOCALE, "report.price_history.table_heading") in report
+    assert translate_text(DEFAULT_LOCALE, "report.price_history.unavailable") not in report
+    assert "Yahoo Finance" in report
+    assert current_response.metadata.holdings_date.isoformat() in report
 
 
 def test_report_includes_concentration_history_surface_from_snapshots(current_response, previous_response):

@@ -1,8 +1,33 @@
+import asyncio
+import os
+import tempfile
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 
 from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_PYTEST_TEMP_ROOT = _REPO_ROOT / "work" / ".pytest-tmp"
+_PYTEST_TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+for _env_name in ("TMPDIR", "TEMP", "TMP"):
+    os.environ[_env_name] = str(_PYTEST_TEMP_ROOT)
+tempfile.tempdir = str(_PYTEST_TEMP_ROOT)
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "asyncio: run coroutine tests with the local asyncio hook")
+
+
+def pytest_pyfunc_call(pyfuncitem):
+    testfunction = pyfuncitem.obj
+    if asyncio.iscoroutinefunction(testfunction):
+        funcargs = {name: pyfuncitem.funcargs[name] for name in pyfuncitem._fixtureinfo.argnames}
+        asyncio.run(testfunction(**funcargs))
+        return True
+    return None
 
 
 def _response(*, current: bool, cached: bool = False) -> CcassResponse:

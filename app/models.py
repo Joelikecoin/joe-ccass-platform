@@ -199,3 +199,68 @@ class ConcentrationResponse(BaseModel):
     top_holders: list[HoldingRow] = Field(default_factory=list)
     diagnostics: ConcentrationDiagnostics
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class PriceHistoryRow(BaseModel):
+    price_date: date
+    open: float | None = None
+    high: float | None = None
+    low: float | None = None
+    close: float | None = None
+    adjusted_close: float | None = None
+    volume: int | None = None
+    turnover: float | None = None
+
+
+class PriceHistoryMetadata(BaseModel):
+    code: str
+    name: str | None = None
+    ticker: str
+    price_date_from: date
+    price_date_to: date
+    source_name: str
+    source_url: str
+    fetched_at: datetime
+    adjustment_state: Literal["adjusted", "unadjusted"] = "adjusted"
+    currency: str | None = None
+    adjustment_note: str | None = None
+
+    @computed_field
+    @property
+    def data_as_of(self) -> date:
+        return self.price_date_to
+
+
+class PriceHistoryResponse(BaseModel):
+    metadata: PriceHistoryMetadata
+    prices: list[PriceHistoryRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class AnnouncementRow(BaseModel):
+    announcement_date: date
+    title: str
+    source: str
+    link: str | None = None
+
+
+class AnnouncementsMetadata(BaseModel):
+    code: str
+    name: str | None = None
+    source_name: str
+    source_url: str
+    fetched_at: datetime
+    earliest_announcement_date: date | None = None
+    latest_announcement_date: date | None = None
+    announcement_count: int = 0
+
+    @computed_field
+    @property
+    def data_as_of(self) -> date | None:
+        return self.latest_announcement_date
+
+
+class AnnouncementsResponse(BaseModel):
+    metadata: AnnouncementsMetadata
+    announcements: list[AnnouncementRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)

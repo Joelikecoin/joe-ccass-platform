@@ -1,6 +1,10 @@
+from datetime import date
+
 from fastmcp import FastMCP
 
+from app.services.announcements import get_announcements_service
 from app.services.ccass import get_ccass_service
+from app.services.price_history import get_price_history_service
 
 mcp = FastMCP("Joe CCASS Platform")
 
@@ -14,6 +18,32 @@ async def get_ccass_stock_data(code: str, holdings_limit: int = 15) -> dict:
     it is never guessed.
     """
     result = await get_ccass_service().get_stock_data(code, holdings_limit=holdings_limit)
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_price_history(code: str, start_date: date | None = None, end_date: date | None = None) -> dict:
+    """Return historical price records for a Hong Kong stock code."""
+    result = await get_price_history_service().get_price_history(
+        code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_announcements(
+    code: str,
+    start_date: date | None = None,
+    end_date: date | None = None,
+) -> dict:
+    """Return HKEXnews announcements for a Hong Kong stock code."""
+    result = await get_announcements_service().get_announcements(
+        code,
+        start_date=start_date,
+        end_date=end_date,
+    )
     return result.model_dump(mode="json")
 
 

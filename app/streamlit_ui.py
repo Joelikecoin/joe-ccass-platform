@@ -5,6 +5,7 @@ import io
 import re
 import tempfile
 import warnings
+from datetime import date
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,9 @@ from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
 from app.data_quality import structured_warning
-from app.models import CcassResponse
+from app.models import AnnouncementsResponse, CcassResponse, PriceHistoryResponse
+from app.services.announcements import get_announcements_service
+from app.services.price_history import get_price_history_service
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import export_latest_csv
@@ -34,12 +37,15 @@ from ccass_core.report import (
 )
 
 NAV_SECTION_KEYS = (
-    "fetch_summary",
     "full_summary",
+    "company",
+    "metadata",
+    "fetch_summary",
     "all_tables",
     "dt_rainbow",
     "hkex_announcements",
-    "company",
+    "stock_events",
+    "officers",
     "holdings",
     "changes",
     "big_changes",
@@ -97,6 +103,8 @@ class PreparedReport:
     filename: str
     response: CcassResponse | None
     analysis: AnalysisResult | None = None
+    announcements: AnnouncementsResponse | None = None
+    price_history: PriceHistoryResponse | None = None
     fetch_error: str | None = None
 
 
@@ -131,6 +139,12 @@ async def prepare_report(
     locale: str = DEFAULT_LOCALE,
     history_snapshots: Sequence[CcassResponse] | None = None,
     previous_loader: Callable[[CcassResponse], CcassResponse | None] | None = None,
+    announcements_enabled: bool = False,
+    announcement_start_date: date | None = None,
+    announcement_end_date: date | None = None,
+    price_history_enabled: bool = False,
+    price_history_start_date: date | None = None,
+    price_history_end_date: date | None = None,
     progress: Callable[[int, str], None] | None = None,
 ) -> PreparedReport:
     code = normalize_stock_code(raw_code)
@@ -164,6 +178,56 @@ async def prepare_report(
             )
         )
         previous = None
+    announcements: AnnouncementsResponse | None = None
+    price_history: PriceHistoryResponse | None = None
+    if announcements_enabled:
+        try:
+            announcements = await get_announcements_service().get_announcements(
+                code,
+                start_date=announcement_start_date,
+                end_date=announcement_end_date,
+            )
+        except PlatformError as exc:
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "ANNOUNCEMENTS_UNAVAILABLE",
+                    f"Announcements are unavailable ({exc.code}: {exc.message}).",
+                )
+            )
+        except Exception as exc:
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "ANNOUNCEMENTS_UNAVAILABLE",
+                    f"Announcements are unavailable ({type(exc).__name__}).",
+                )
+            )
+    if price_history_enabled:
+        try:
+            price_history = await get_price_history_service().get_price_history(
+                code,
+                start_date=price_history_start_date,
+                end_date=price_history_end_date,
+            )
+        except PlatformError as exc:
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "PRICE_HISTORY_UNAVAILABLE",
+                    f"Price history is unavailable ({exc.code}: {exc.message}).",
+                )
+            )
+        except Exception as exc:
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "PRICE_HISTORY_UNAVAILABLE",
+                    f"Price history is unavailable ({type(exc).__name__}).",
+                )
+            )
+        else:
+            response.data_quality_warnings.extend(price_history.data_quality_warnings)
     analysis = compute_analysis(
         response,
         previous=previous,
@@ -175,6 +239,8 @@ async def prepare_report(
         code=code,
         analysis=analysis,
         history_snapshots=history_snapshots,
+        announcements=announcements,
+        price_history=price_history,
         locale=locale,
     )
     _progress(progress, 100, ui_text(locale, "progress_ready"))
@@ -185,6 +251,8 @@ async def prepare_report(
         filename=report_filename(code),
         response=response,
         analysis=analysis,
+        announcements=announcements,
+        price_history=price_history,
     )
 
 
@@ -242,12 +310,10 @@ STREAMLIT_SIDEBAR_CONTROL_LABELS = streamlit_sidebar_control_labels(DEFAULT_LOCA
 
 def streamlit_hkex_announcements_columns(locale: str = DEFAULT_LOCALE) -> tuple[str, ...]:
     return (
-        ui_text(locale, "hkex_announcements_table_publish_time"),
-        ui_text(locale, "hkex_announcements_table_category"),
+        ui_text(locale, "hkex_announcements_table_announcement_date"),
         ui_text(locale, "hkex_announcements_table_title"),
-        ui_text(locale, "hkex_announcements_table_file_info"),
-        ui_text(locale, "hkex_announcements_table_official_url"),
-        ui_text(locale, "hkex_announcements_table_event_tags"),
+        ui_text(locale, "hkex_announcements_table_source"),
+        ui_text(locale, "hkex_announcements_table_link"),
     )
 
 
@@ -259,6 +325,36 @@ def streamlit_chart_help_sections(locale: str = DEFAULT_LOCALE) -> tuple[tuple[s
         (ui_text(locale, "chart_help_announcements_title"), ui_text(locale, "chart_help_announcements_body")),
         (ui_text(locale, "chart_help_cross_check_title"), ui_text(locale, "chart_help_cross_check_body")),
     )
+
+
+def split_report_markdown_sections(markdown: str, locale: str = DEFAULT_LOCALE) -> dict[str, str]:
+    anchor_to_key = {localized_report_anchor(section_key): section_key for section_key in REPORT_SECTION_KEYS}
+    anchor_pattern = re.compile(r"""<a id=['"]([^'"]+)['"]></a>""")
+    sections: dict[str, str] = {}
+    current_key: str | None = None
+    current_lines: list[str] = []
+
+    for line in markdown.splitlines():
+        normalized = line.strip()
+        match = anchor_pattern.fullmatch(normalized)
+        if match is not None:
+            section_key = anchor_to_key.get(match.group(1))
+        else:
+            section_key = None
+
+        if section_key is not None:
+            if current_key is not None and current_lines:
+                sections[current_key] = "\n".join(current_lines).rstrip()
+            current_key = section_key
+            current_lines = []
+            continue
+        if current_key is not None:
+            current_lines.append(line)
+
+    if current_key is not None and current_lines:
+        sections[current_key] = "\n".join(current_lines).rstrip()
+
+    return sections
 
 
 def streamlit_responsive_layout_css() -> str:
@@ -381,11 +477,17 @@ def build_full_summary_markdown(
     raw_preview_count = len(build_raw_preview_tables(response, locale=locale))
     snapshot_count = len(tuple(history_snapshots or ())) + 1
     warning_count = len(response.data_quality_warnings)
+    announcements = prepared.announcements
 
     def section_label(key: str) -> str:
         return translate_text(locale, key).removeprefix("## ")
 
     rows = [
+        (
+            section_label("report.section.analysis_ready_summary"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_analysis_ready_summary"),
+        ),
         (
             section_label("report.section.company"),
             ui_text(locale, "full_summary_status_available"),
@@ -395,6 +497,35 @@ def build_full_summary_markdown(
                 code=response.metadata.code,
                 issue_id=response.metadata.issue_id,
             ),
+        ),
+        (
+            section_label("report.section.announcements"),
+            ui_text(
+                locale,
+                "full_summary_status_available" if announcements is not None else "full_summary_status_unavailable",
+            ),
+            ui_text(
+                locale,
+                "full_summary_note_announcements_available"
+                if announcements is not None
+                else "full_summary_note_announcements",
+                announcement_count=len(announcements.announcements) if announcements is not None else 0,
+            ),
+        ),
+        (
+            section_label("report.section.stock_events"),
+            ui_text(locale, "full_summary_status_unavailable"),
+            ui_text(locale, "full_summary_note_stock_events"),
+        ),
+        (
+            section_label("report.section.officers"),
+            ui_text(locale, "full_summary_status_unavailable"),
+            ui_text(locale, "full_summary_note_officers"),
+        ),
+        (
+            section_label("report.section.metadata"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_metadata"),
         ),
         (
             section_label("report.section.fetch_summary"),
@@ -445,13 +576,29 @@ def build_full_summary_markdown(
         ),
         (
             section_label("report.section.price_history"),
-            ui_text(locale, "full_summary_status_unavailable"),
-            ui_text(locale, "full_summary_note_price_history"),
+            ui_text(
+                locale,
+                "full_summary_status_available" if prepared.price_history is not None else "full_summary_status_unavailable",
+            ),
+            ui_text(
+                locale,
+                "full_summary_note_price_history_available"
+                if prepared.price_history is not None
+                else "full_summary_note_price_history_unavailable",
+                price_date_from=prepared.price_history.metadata.price_date_from if prepared.price_history else "",
+                price_date_to=prepared.price_history.metadata.price_date_to if prepared.price_history else "",
+                source_name=prepared.price_history.metadata.source_name if prepared.price_history else "",
+            ),
         ),
         (
             ui_text(locale, "raw_previews_heading"),
             ui_text(locale, "full_summary_status_available"),
             ui_text(locale, "full_summary_note_raw_previews", table_count=raw_preview_count),
+        ),
+        (
+            ui_text(locale, "copy_for_chatgpt"),
+            ui_text(locale, "full_summary_status_available"),
+            ui_text(locale, "full_summary_note_copy_functions"),
         ),
         (
             ui_text(locale, "downloads_heading"),
@@ -812,6 +959,8 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             prepared.response,
             code=prepared.code,
             analysis=prepared.analysis,
+            announcements=prepared.announcements,
+            price_history=prepared.price_history,
             locale=locale,
         )
     return markdown, build_chatgpt_copy_payload(markdown)

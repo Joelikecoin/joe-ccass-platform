@@ -1,7 +1,8 @@
+import asyncio
 import base64
 import re
 import zipfile
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from io import BytesIO
@@ -10,7 +11,18 @@ from xml.etree import ElementTree as ET
 from streamlit.testing.v1 import AppTest
 
 from app.errors import ErrorCode, PlatformError
-from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
+from app.models import (
+    AnnouncementRow,
+    AnnouncementsMetadata,
+    AnnouncementsResponse,
+    CcassResponse,
+    HoldingRow,
+    HoldingsSummary,
+    PriceHistoryMetadata,
+    PriceHistoryResponse,
+    PriceHistoryRow,
+    SourceMetadata,
+)
 from app.streamlit_ui import (
     DEFAULT_LOCALE,
     STREAMLIT_NAV_SECTIONS,
@@ -28,11 +40,12 @@ from app.streamlit_ui import (
     streamlit_navigation_sections,
     streamlit_responsive_layout_css,
     streamlit_sidebar_control_labels,
+    split_report_markdown_sections,
     translate_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.compute import AnalysisResult
-from ccass_core.report import CHATGPT_COPY_HEADER, localized_report_anchor, report_section_headings
+from ccass_core.report import CHATGPT_COPY_HEADER, build_markdown_report, localized_report_anchor, report_section_headings
 
 
 class SuccessfulService:
@@ -54,16 +67,86 @@ class FailingService:
         )
 
 
-async def test_prepare_report_normalizes_1592_and_applies_holdings_limit(current_response):
+class SuccessfulPriceHistoryService:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    async def get_price_history(self, code, start_date=None, end_date=None):
+        self.calls.append((code, start_date, end_date))
+        return self.response
+
+
+class EmptyAnnouncementsService:
+    def __init__(self, response: AnnouncementsResponse):
+        self.response = response
+        self.calls = []
+
+    async def get_announcements(self, code, start_date=None, end_date=None):
+        self.calls.append((code, start_date, end_date))
+        return self.response
+
+
+def _empty_announcements_response() -> AnnouncementsResponse:
+    return AnnouncementsResponse(
+        metadata=AnnouncementsMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name="HKEXnews",
+            source_url="https://www1.hkexnews.hk/search/titlesearch.xhtml?category=0&lang=EN&market=SEHK&stockId=189695",
+            fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+        ),
+        announcements=[],
+        data_quality_warnings=[],
+    )
+
+
+def _sample_announcements_response() -> AnnouncementsResponse:
+    return AnnouncementsResponse(
+        metadata=AnnouncementsMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name="HKEXnews",
+            source_url="https://www1.hkexnews.hk/search/titlesearch.xhtml?category=0&lang=EN&market=SEHK&stockId=189695",
+            fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+            earliest_announcement_date=date(2026, 7, 20),
+            latest_announcement_date=date(2026, 7, 20),
+            announcement_count=1,
+        ),
+        announcements=[
+            AnnouncementRow(
+                announcement_date=date(2026, 7, 20),
+                title="Sample HKEX announcement",
+                source="HKEXnews",
+                link="https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0720/2026072000123.pdf",
+            )
+        ],
+        data_quality_warnings=[],
+    )
+
+
+@pytest.fixture(autouse=True)
+def _stub_announcements_service(monkeypatch):
+    import app.streamlit_ui as streamlit_ui
+    import app.services.announcements as announcements_service
+
+    empty_service = EmptyAnnouncementsService(_empty_announcements_response())
+    monkeypatch.setattr(streamlit_ui, "get_announcements_service", lambda: empty_service)
+    monkeypatch.setattr(announcements_service, "get_announcements_service", lambda: empty_service)
+
+
+def test_prepare_report_normalizes_1592_and_applies_holdings_limit(current_response):
     service = SuccessfulService(current_response)
     progress = []
 
-    prepared = await prepare_report(
-        "1592",
-        holdings_limit=25,
-        big_change_threshold=500,
-        service=service,
-        progress=lambda value, label: progress.append((value, label)),
+    prepared = asyncio.run(
+        prepare_report(
+            "1592",
+            holdings_limit=25,
+            big_change_threshold=500,
+            service=service,
+            progress=lambda value, label: progress.append((value, label)),
+        )
     )
 
     assert prepared.code == "01592"
@@ -72,17 +155,19 @@ async def test_prepare_report_normalizes_1592_and_applies_holdings_limit(current
     assert progress[-1] == (100, translate_text(DEFAULT_LOCALE, "ui.progress_ready"))
 
 @pytest.mark.parametrize("locale", [DEFAULT_LOCALE, "en"])
-async def test_prepare_report_uses_localized_progress_labels(current_response, locale):
+def test_prepare_report_uses_localized_progress_labels(current_response, locale):
     service = SuccessfulService(current_response)
     progress = []
 
-    prepared = await prepare_report(
-        "1592",
-        holdings_limit=25,
-        big_change_threshold=500,
-        service=service,
-        locale=locale,
-        progress=lambda value, label: progress.append((value, label)),
+    prepared = asyncio.run(
+        prepare_report(
+            "1592",
+            holdings_limit=25,
+            big_change_threshold=500,
+            service=service,
+            locale=locale,
+            progress=lambda value, label: progress.append((value, label)),
+        )
     )
 
     assert prepared.code == "01592"
@@ -95,13 +180,15 @@ async def test_prepare_report_uses_localized_progress_labels(current_response, l
     ]
 
 
-async def test_prepare_report_network_failure_keeps_all_sections():
-    prepared = await prepare_report(
-        "1592",
-        holdings_limit=20,
-        big_change_threshold=500,
-        service=FailingService(),
-        locale=DEFAULT_LOCALE,
+def test_prepare_report_network_failure_keeps_all_sections():
+    prepared = asyncio.run(
+        prepare_report(
+            "1592",
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=FailingService(),
+            locale=DEFAULT_LOCALE,
+        )
     )
 
     assert prepared.fetch_error.startswith("SOURCE_UNAVAILABLE:")
@@ -111,17 +198,19 @@ async def test_prepare_report_network_failure_keeps_all_sections():
     )
 
 
-async def test_optional_previous_snapshot_failure_preserves_report(current_response):
+def test_optional_previous_snapshot_failure_preserves_report(current_response):
     def broken_previous_loader(response):
         raise OSError("Offline fixture database unavailable")
 
-    prepared = await prepare_report(
-        "1592",
-        holdings_limit=20,
-        big_change_threshold=500,
-        service=SuccessfulService(current_response),
-        locale=DEFAULT_LOCALE,
-        previous_loader=broken_previous_loader,
+    prepared = asyncio.run(
+        prepare_report(
+            "1592",
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=SuccessfulService(current_response),
+            locale=DEFAULT_LOCALE,
+            previous_loader=broken_previous_loader,
+        )
     )
 
     assert (
@@ -187,6 +276,7 @@ def test_streamlit_query_input_surface_renders_help_caption():
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_query_input_caption") in block.value for block in app.caption)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.fetch_guidance_caption") in block.value for block in app.info)
     assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_stock_code_issue_id") in widget.label for widget in app.text_input)
 
 
@@ -221,6 +311,8 @@ def test_streamlit_navigation_links_cover_required_sections():
     assert "#all-tables" in links
     assert "#dt-rainbow" in links
     assert "#hkex-announcements" in links
+    assert "#stock-events" in links
+    assert "#officers" in links
     assert "#price-history" in links
     assert "Price & Turnover" in streamlit_navigation_links("en")
     assert "#copy-for-chatgpt" in links
@@ -291,12 +383,10 @@ def test_streamlit_chart_help_surface_renders_help_caption(monkeypatch, current_
 
 def test_streamlit_hkex_announcements_columns_cover_target_surface():
     assert streamlit_hkex_announcements_columns(DEFAULT_LOCALE) == (
-        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_publish_time'),
-        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_category'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_announcement_date'),
         translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_title'),
-        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_file_info'),
-        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_official_url'),
-        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_event_tags'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_source'),
+        translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_table_link'),
     )
 
 
@@ -314,6 +404,27 @@ def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, c
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.info)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_export_heading') in block.value for block in app.markdown)
+    assert len(service.calls) == 1
+
+
+def test_streamlit_company_information_surface_renders_grouped_sections(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.company_information_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'report.section.announcements') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'report.section.stock_events') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'report.section.officers') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_unavailable') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.officers_unavailable') in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
 
@@ -391,6 +502,11 @@ def test_streamlit_fetch_summary_remaining_message_renders_on_error(monkeypatch)
     app.button[0].click().run(timeout=10)
 
     assert not app.exception
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.fetch_status_failure', error='SOURCE_UNAVAILABLE: Offline fixture: source unavailable.')
+        in block.value
+        for block in app.error
+    )
     assert any(translate_text(DEFAULT_LOCALE, 'ui.fetch_summary_remaining') in block.value for block in app.info)
 
 
@@ -402,6 +518,7 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
         filename='01592_ccass_report.md',
         response=current_response,
         analysis=AnalysisResult(previous_available=True),
+        announcements=_sample_announcements_response(),
     )
 
     markdown = build_full_summary_markdown(
@@ -413,9 +530,19 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_status') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_note') in markdown
-    assert markdown.index(translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ')) < markdown.index(
-        translate_text(DEFAULT_LOCALE, 'report.section.fetch_summary').removeprefix('## ')
+    row_lines = [line for line in markdown.splitlines() if line.startswith('| ') and '---' not in line]
+    company_index = next(
+        index for index, line in enumerate(row_lines)
+        if translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in line
     )
+    fetch_index = next(
+        index for index, line in enumerate(row_lines)
+        if translate_text(DEFAULT_LOCALE, 'report.section.fetch_summary').removeprefix('## ') in line
+    )
+    assert company_index < fetch_index
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_announcements_available', announcement_count=1) in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_stock_events') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_officers') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
 
@@ -486,6 +613,25 @@ def test_streamlit_all_parsed_tables_surface_renders_heading_and_sections(monkey
     assert len(service.calls) == 1
 
 
+def test_split_report_markdown_sections_extracts_detail_and_visual_sections(current_response):
+    markdown = build_markdown_report(
+        current_response,
+        code=current_response.metadata.code,
+        analysis=AnalysisResult(),
+        locale=DEFAULT_LOCALE,
+    )
+    sections = split_report_markdown_sections(markdown, locale=DEFAULT_LOCALE)
+
+    assert sections["holdings"].startswith(translate_text(DEFAULT_LOCALE, "report.section.holdings"))
+    assert translate_text(DEFAULT_LOCALE, "report.section.announcements") in sections["announcements"]
+    assert translate_text(DEFAULT_LOCALE, "report.section.stock_events") in sections["stock_events"]
+    assert translate_text(DEFAULT_LOCALE, "report.section.officers") in sections["officers"]
+    assert translate_text(DEFAULT_LOCALE, "report.section.changes") in sections["changes"]
+    assert translate_text(DEFAULT_LOCALE, "report.section.big_changes") in sections["big_changes"]
+    assert translate_text(DEFAULT_LOCALE, "report.section.concentration_history") in sections["concentration_history"]
+    assert translate_text(DEFAULT_LOCALE, "report.section.price_history") in sections["price_history"]
+
+
 def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 
@@ -508,6 +654,41 @@ def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, cu
     assert len(service.calls) == 1
 
 
+def test_streamlit_visualization_alignment_surfaces_render_collapsed_sections_and_dt_rainbow(
+    monkeypatch,
+    current_response,
+):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app.text_input[0].input("1592")
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, "ui.report_details_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.visualization_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.rendered_markdown") in block.value for block in app.markdown)
+    assert any(
+        translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_enable") == widget.label
+        for widget in app.checkbox
+    )
+    assert len(service.calls) == 1
+
+    dt_rainbow_checkbox = next(widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_enable"))
+    dt_rainbow_checkbox.check().run(timeout=10)
+    assert any(
+        translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_generate") == widget.label
+        for widget in app.button
+    )
+    dt_rainbow_button = next(widget for widget in app.button if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_generate"))
+    dt_rainbow_button.click().run(timeout=10)
+
+    assert any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_unavailable") in block.value for block in app.info)
+
+
 def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 
@@ -522,6 +703,57 @@ def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, 
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.price_history') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'report.price_history.unavailable') in block.value for block in app.markdown)
     assert len(service.calls) == 1
+
+
+def test_streamlit_price_history_surface_renders_loaded_state(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+    import app.streamlit_ui as streamlit_ui
+
+    service = SuccessfulService(current_response)
+    price_history = PriceHistoryResponse(
+        metadata=PriceHistoryMetadata(
+            code="01592",
+            name=current_response.metadata.name,
+            ticker="01592.HK",
+            price_date_from=current_response.metadata.holdings_date,
+            price_date_to=current_response.metadata.holdings_date,
+            source_name="Yahoo Finance",
+            source_url="https://query1.finance.yahoo.com/v8/finance/chart/01592.HK",
+            fetched_at=current_response.metadata.fetched_at,
+            adjustment_state="adjusted",
+            currency="HKD",
+            adjustment_note="Adjusted close values are available from Yahoo Finance.",
+        ),
+        prices=[
+            PriceHistoryRow(
+                price_date=current_response.metadata.holdings_date,
+                open=1.0,
+                high=1.1,
+                low=0.9,
+                close=1.05,
+                adjusted_close=1.01,
+                volume=1000,
+                turnover=1050.0,
+            )
+        ],
+    )
+    price_service = SuccessfulPriceHistoryService(price_history)
+    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+    monkeypatch.setattr(streamlit_ui, "get_price_history_service", lambda: price_service)
+
+    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    price_history_checkbox = next(
+        widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.sidebar_load_price_history")
+    )
+    price_history_checkbox.check().run(timeout=10)
+    app.text_input[0].input("1592")
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, "report.price_history.table_heading") in block.value for block in app.markdown)
+    assert any("Yahoo Finance" in block.value for block in app.markdown)
+    assert len(service.calls) == 1
+    assert price_service.calls and price_service.calls[0][0] == "01592"
 
 
 def test_streamlit_concentration_history_surface_renders_history_tables(monkeypatch, tmp_path, current_response, previous_response):
@@ -551,6 +783,9 @@ def test_streamlit_report_navigation_links_cover_report_sections():
 
     links = streamlit_report_navigation_links(DEFAULT_LOCALE)
 
+    assert '#announcements' in links
+    assert '#stock-events' in links
+    assert '#officers' in links
     assert '#company' in links
     assert '#metadata' in links
     assert '#fetch-summary' in links
