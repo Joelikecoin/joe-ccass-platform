@@ -1,7 +1,21 @@
 from datetime import date
 
-from fastmcp import FastMCP
+try:
+    from fastmcp import FastMCP
+except ModuleNotFoundError:  # pragma: no cover - test environment fallback
+    class FastMCP:  # type: ignore[override]
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
 
+        def tool(self, func=None):
+            if func is None:
+                return lambda inner: inner
+            return func
+
+        def run(self, *_args, **_kwargs) -> None:
+            raise RuntimeError("fastmcp is not installed")
+
+from app.services.ai_read_model import get_ai_read_model_service
 from app.services.announcements import get_announcements_service
 from app.services.ccass import get_ccass_service
 from app.services.price_history import get_price_history_service
@@ -44,6 +58,13 @@ async def get_announcements(
         start_date=start_date,
         end_date=end_date,
     )
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_ai_read_model(code: str) -> dict:
+    """Return the normalized AI read model for a Hong Kong stock code."""
+    result = await get_ai_read_model_service().get_read_model(code)
     return result.model_dump(mode="json")
 
 

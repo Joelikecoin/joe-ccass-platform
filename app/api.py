@@ -15,6 +15,7 @@ from app.models import (
     ConcentrationResponse,
     PriceHistoryResponse,
 )
+from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.big_changes import BigChangesService, get_big_changes_service
 from app.services.ccass import CcassService, get_ccass_service
@@ -22,6 +23,7 @@ from app.services.changes import ChangesService, get_changes_service
 from app.services.concentration import ConcentrationService, get_concentration_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
 from ccass_core.big_changes_report import build_big_changes_markdown_report
+from ccass_core.ai_read_model import AIReadModelV0_1
 from ccass_core.changes_report import build_changes_markdown_report
 from ccass_core.compute import compute_analysis
 from ccass_core.concentration_report import build_concentration_markdown_report
@@ -256,6 +258,19 @@ async def get_ccass_stock_data(
     service: CcassService = Depends(get_ccass_service),
 ) -> CcassResponse:
     return await service.get_stock_data(code, holdings_limit=holdings_limit)
+
+
+@app.get(
+    "/api/v1/ccass/{code}/ai-read-model",
+    response_model=AIReadModelV0_1,
+    dependencies=[Depends(verify_api_key)],
+    tags=["ccass"],
+)
+async def get_ccass_ai_read_model(
+    code: str,
+    service: AIReadModelService = Depends(get_ai_read_model_service),
+) -> AIReadModelV0_1:
+    return await service.get_read_model(code)
 
 
 @app.get(
