@@ -36,8 +36,8 @@ class PendingOfficersSource:
         return OfficersResponse(
             metadata=OfficersMetadata(
                 code=normalized,
-                source_name="Officers source pending",
-                source_url=None,
+                source_name=OFFICERS_SOURCE_NAME,
+                source_url=OFFICERS_SOURCE_URL_TEMPLATE.format(code=normalized.lstrip("0") or "0"),
                 fetched_at=datetime.now(UTC),
                 data_as_of=None,
                 officers_count=0,

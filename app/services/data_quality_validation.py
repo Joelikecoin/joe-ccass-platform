@@ -1,25 +1,56 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from datetime import date
+from datetime import UTC, date, datetime
 
 from app.data_quality import structured_warning
-from app.models import (
-    CapitalInformationResponse,
-    OfficersResponse,
-    StockEventsResponse,
-)
+from app.models import CapitalInformationResponse, OfficersResponse, StockEventsResponse
+from app.sources.capital_information import CAPITAL_INFORMATION_SOURCE_NAME, CAPITAL_INFORMATION_SOURCE_URL_TEMPLATE
+from app.sources.officers import OFFICERS_SOURCE_NAME, OFFICERS_SOURCE_URL_TEMPLATE
+from app.sources.stock_events import STOCK_EVENTS_SOURCE_NAME, STOCK_EVENTS_SOURCE_PENDING_URL
 
 OFFICERS_VALIDATION_PREFIX = "OFFICERS_VALIDATION"
 STOCK_EVENTS_VALIDATION_PREFIX = "STOCK_EVENTS_VALIDATION"
 CAPITAL_INFORMATION_VALIDATION_PREFIX = "CAPITAL_INFORMATION_VALIDATION"
 
 _CAPITAL_EXPECTED_UNITS = {
-    "Total shares": {"股"},
-    "Board lot size": {"股"},
+    "Total shares": {"?"},
+    "Board lot size": {"?"},
     "Diluted ROE": {"%"},
     "Debt ratio": {"%"},
 }
+
+
+def normalize_officers_response(response: OfficersResponse) -> OfficersResponse:
+    result = response.model_copy(deep=True)
+    result.metadata.source_name = OFFICERS_SOURCE_NAME
+    result.metadata.source_url = result.metadata.source_url or _build_officers_source_url(result.metadata.code)
+    result.metadata.fetched_at = _ensure_utc(result.metadata.fetched_at)
+    if result.metadata.source_status != "ready":
+        result.metadata.data_as_of = None
+    return result
+
+
+def normalize_stock_events_response(response: StockEventsResponse) -> StockEventsResponse:
+    result = response.model_copy(deep=True)
+    result.metadata.source_name = STOCK_EVENTS_SOURCE_NAME
+    result.metadata.source_url = result.metadata.source_url or STOCK_EVENTS_SOURCE_PENDING_URL
+    result.metadata.fetched_at = _ensure_utc(result.metadata.fetched_at)
+    if result.metadata.source_status != "ready":
+        result.metadata.data_as_of = None
+    return result
+
+
+def normalize_capital_information_response(
+    response: CapitalInformationResponse,
+) -> CapitalInformationResponse:
+    result = response.model_copy(deep=True)
+    result.metadata.source_name = CAPITAL_INFORMATION_SOURCE_NAME
+    result.metadata.source_url = result.metadata.source_url or _build_capital_information_source_url(result.metadata.code)
+    result.metadata.fetched_at = _ensure_utc(result.metadata.fetched_at)
+    if result.metadata.source_status != "ready":
+        result.metadata.data_as_of = None
+    return result
 
 
 def validate_officers_response(response: OfficersResponse) -> OfficersResponse:
@@ -141,6 +172,22 @@ def validate_capital_information_response(
             )
     result.data_quality_warnings = list(dict.fromkeys(warnings))
     return result
+
+
+def _build_officers_source_url(code: str) -> str:
+    compact = code.lstrip("0") or "0"
+    return OFFICERS_SOURCE_URL_TEMPLATE.format(code=compact)
+
+
+def _build_capital_information_source_url(code: str) -> str:
+    compact = code.lstrip("0") or "0"
+    return CAPITAL_INFORMATION_SOURCE_URL_TEMPLATE.format(code=compact)
+
+
+def _ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _non_empty_items(values: Iterable[str]) -> list[str]:

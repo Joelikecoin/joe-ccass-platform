@@ -169,6 +169,34 @@ def test_officers_service_adds_validation_warnings_without_blocking():
     assert any("OFFICERS_INVALID_ROW" in warning for warning in response.data_quality_warnings)
 
 
+def test_officers_service_normalizes_pending_metadata():
+    class FixtureOfficersSource:
+        async def get_officers(self, code):
+            return OfficersResponse(
+                metadata=OfficersMetadata(
+                    code="01592",
+                    name=None,
+                    source_name="Officers source pending",
+                    source_url=None,
+                    fetched_at=datetime(2026, 7, 21, 9, 0),
+                    data_as_of=date(2026, 4, 15),
+                    officers_count=0,
+                    source_status="pending",
+                ),
+                officers=[],
+                data_quality_warnings=[],
+            )
+
+    service = OfficersService(source=FixtureOfficersSource())
+    response = asyncio.run(service.get_officers("1592"))
+
+    assert response.metadata.source_name == OFFICERS_SOURCE_NAME
+    assert response.metadata.source_url == "https://stockpage.10jqka.com.cn/basicweb/176/HK1592/manager.html"
+    assert response.metadata.source_status == "pending"
+    assert response.metadata.data_as_of is None
+    assert response.metadata.fetched_at.tzinfo is not None
+
+
 def test_ths_f10_officers_source_skips_broken_block_and_returns_partial_rows(monkeypatch):
     source = ThsF10OfficersSource()
     calls = {"count": 0}

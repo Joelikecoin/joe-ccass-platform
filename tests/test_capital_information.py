@@ -200,6 +200,35 @@ def test_capital_information_service_adds_validation_warnings_without_blocking()
     assert any("CAPITAL_INFORMATION_UNIT_INCONSISTENT" in warning for warning in response.data_quality_warnings)
     assert any("CAPITAL_INFORMATION_METRIC_MISSING" in warning for warning in response.data_quality_warnings)
 
+
+def test_capital_information_service_normalizes_pending_metadata():
+    class FixtureCapitalInformationSource:
+        async def get_capital_information(self, code):
+            return CapitalInformationResponse(
+                metadata=CapitalInformationMetadata(
+                    code="01592",
+                    name=None,
+                    source_name="Capital information source pending",
+                    source_url=None,
+                    fetched_at=datetime(2026, 7, 21, 9, 30),
+                    data_as_of=date(2025, 12, 31),
+                    capital_information_count=0,
+                    source_status="pending",
+                ),
+                capital_information=[],
+                data_quality_warnings=[],
+            )
+
+    service = CapitalInformationService(source=FixtureCapitalInformationSource())
+    response = asyncio.run(service.get_capital_information("1592"))
+
+    assert response.metadata.source_name == CAPITAL_INFORMATION_SOURCE_NAME
+    assert response.metadata.source_url == "https://stockpage.10jqka.com.cn/basicweb/176/HK1592/"
+    assert response.metadata.source_status == "pending"
+    assert response.metadata.data_as_of is None
+    assert response.metadata.fetched_at.tzinfo is not None
+
+
 def test_ths_f10_capital_information_source_parses_split_summary_lines(monkeypatch):
     source = ThsF10CapitalInformationSource()
 

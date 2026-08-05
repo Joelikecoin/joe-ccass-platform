@@ -233,6 +233,34 @@ def test_stock_events_service_adds_validation_warnings_without_blocking():
     assert any("STOCK_EVENTS_INVALID_ROW" in warning for warning in response.data_quality_warnings)
 
 
+def test_stock_events_service_normalizes_pending_metadata():
+    class FixtureStockEventsSource:
+        async def get_stock_events(self, code):
+            return StockEventsResponse(
+                metadata=StockEventsMetadata(
+                    code="01592",
+                    name=None,
+                    source_name="Stock events source pending",
+                    source_url=None,
+                    fetched_at=datetime(2026, 7, 21, 9, 15),
+                    data_as_of=date(2024, 3, 22),
+                    stock_events_count=0,
+                    source_status="pending",
+                ),
+                stock_events=[],
+                data_quality_warnings=[],
+            )
+
+    service = StockEventsService(source=FixtureStockEventsSource())
+    response = asyncio.run(service.get_stock_events("1592"))
+
+    assert response.metadata.source_name == STOCK_EVENTS_SOURCE_NAME
+    assert response.metadata.source_url == "https://webbsite.0xmd.com/dbpub/events.asp"
+    assert response.metadata.source_status == "pending"
+    assert response.metadata.data_as_of is None
+    assert response.metadata.fetched_at.tzinfo is not None
+
+
 def test_webbsite_stock_events_source_skips_broken_row_and_returns_partial_rows(monkeypatch):
     source = WebbsiteStockEventsSource()
     calls = {"count": 0}

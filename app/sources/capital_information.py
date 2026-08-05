@@ -41,8 +41,8 @@ class PendingCapitalInformationSource:
         return CapitalInformationResponse(
             metadata=CapitalInformationMetadata(
                 code=normalized,
-                source_name=CAPITAL_INFORMATION_SOURCE_PENDING_NAME,
-                source_url=CAPITAL_INFORMATION_SOURCE_PENDING_URL,
+                source_name=CAPITAL_INFORMATION_SOURCE_NAME,
+                source_url=CAPITAL_INFORMATION_SOURCE_URL_TEMPLATE.format(code=normalized.lstrip("0") or "0"),
                 fetched_at=datetime.now(UTC),
                 data_as_of=None,
                 capital_information_count=0,

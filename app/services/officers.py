@@ -3,7 +3,10 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.models import OfficersResponse
-from app.services.data_quality_validation import validate_officers_response
+from app.services.data_quality_validation import (
+    normalize_officers_response,
+    validate_officers_response,
+)
 from app.sources.officers import OfficersSource, ThsF10OfficersSource
 
 
@@ -13,6 +16,7 @@ class OfficersService:
 
     async def get_officers(self, code: str | int) -> OfficersResponse:
         response = await self.source.get_officers(code)
+        response = normalize_officers_response(response)
         return validate_officers_response(response)
 
 
