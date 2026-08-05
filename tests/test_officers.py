@@ -12,6 +12,7 @@ from app.errors import ErrorCode, PlatformError
 from ccass_core.compute import AnalysisResult
 from ccass_core.report import DEFAULT_LOCALE, build_markdown_report, translate_text
 from app.models import OfficerRow
+from app.services.officers import OfficersService
 
 
 OFFICERS_SAMPLE_HTML = """
@@ -135,6 +136,37 @@ def test_ths_f10_officers_source_returns_unavailable_payload(monkeypatch):
     assert response.metadata.source_status == "unavailable"
     assert response.officers == []
     assert any("OFFICERS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
+
+
+def test_officers_service_adds_validation_warnings_without_blocking():
+    class FixtureOfficersSource:
+        async def get_officers(self, code):
+            return OfficersResponse(
+                metadata=OfficersMetadata(
+                    code="01592",
+                    name="ANCHORSTONE",
+                    source_name=OFFICERS_SOURCE_NAME,
+                    source_url="https://example.invalid/officers",
+                    fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+                    data_as_of=date(2026, 4, 15),
+                    officers_count=2,
+                    source_status="ready",
+                ),
+                officers=[
+                    OfficerRow(name=" ", positions=[]),
+                    OfficerRow(name="Valid Officer", positions=["Director"]),
+                ],
+                data_quality_warnings=[],
+            )
+
+    service = OfficersService(source=FixtureOfficersSource())
+    response = asyncio.run(service.get_officers("1592"))
+
+    assert response.metadata.source_status == "ready"
+    assert len(response.officers) == 2
+    assert any("OFFICERS_NAME_MISSING" in warning for warning in response.data_quality_warnings)
+    assert any("OFFICERS_POSITION_MISSING" in warning for warning in response.data_quality_warnings)
+    assert any("OFFICERS_INVALID_ROW" in warning for warning in response.data_quality_warnings)
 
 
 def test_ths_f10_officers_source_skips_broken_block_and_returns_partial_rows(monkeypatch):

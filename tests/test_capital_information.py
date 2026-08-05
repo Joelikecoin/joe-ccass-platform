@@ -6,7 +6,8 @@ from fastapi.testclient import TestClient
 from app.api import app
 from app.errors import ErrorCode, PlatformError
 from app.mcp_server import get_capital_information
-from app.models import CapitalInformationMetadata, CapitalInformationResponse
+from app.models import CapitalInformationMetadata, CapitalInformationResponse, CapitalInformationRow
+from app.services.capital_information import CapitalInformationService
 from app.services.capital_information import get_capital_information_service
 from app.sources.capital_information import CAPITAL_INFORMATION_SOURCE_NAME, ThsF10CapitalInformationSource
 from ccass_core.compute import AnalysisResult
@@ -141,6 +142,63 @@ def test_ths_f10_capital_information_source_returns_unavailable_payload(monkeypa
 
 
 
+
+
+
+def test_capital_information_service_adds_validation_warnings_without_blocking():
+    class FixtureCapitalInformationSource:
+        async def get_capital_information(self, code):
+            return CapitalInformationResponse(
+                metadata=CapitalInformationMetadata(
+                    code="01592",
+                    name="ANCHORSTONE",
+                    source_name=CAPITAL_INFORMATION_SOURCE_NAME,
+                    source_url="https://example.invalid/capital-information",
+                    fetched_at=datetime(2026, 7, 21, 9, 30, tzinfo=UTC),
+                    data_as_of=date(2025, 12, 31),
+                    capital_information_count=3,
+                    source_status="ready",
+                ),
+                capital_information=[
+                    CapitalInformationRow.model_construct(
+                        label="Total shares",
+                        value="abc",
+                        unit="shares",
+                        as_of=date(2025, 12, 31),
+                        source=CAPITAL_INFORMATION_SOURCE_NAME,
+                        note=None,
+                        link=None,
+                    ),
+                    CapitalInformationRow(
+                        label="Board lot size",
+                        value="1000",
+                        unit="?",
+                        as_of=date(2025, 12, 31),
+                        source=CAPITAL_INFORMATION_SOURCE_NAME,
+                        note=None,
+                        link=None,
+                    ),
+                    CapitalInformationRow(
+                        label="Debt ratio",
+                        value="40.37",
+                        unit="%",
+                        as_of=date(2025, 12, 31),
+                        source=CAPITAL_INFORMATION_SOURCE_NAME,
+                        note=None,
+                        link=None,
+                    ),
+                ],
+                data_quality_warnings=[],
+            )
+
+    service = CapitalInformationService(source=FixtureCapitalInformationSource())
+    response = asyncio.run(service.get_capital_information("1592"))
+
+    assert response.metadata.source_status == "ready"
+    assert len(response.capital_information) == 3
+    assert any("CAPITAL_INFORMATION_NUMERIC_VALUE_INVALID" in warning for warning in response.data_quality_warnings)
+    assert any("CAPITAL_INFORMATION_UNIT_INCONSISTENT" in warning for warning in response.data_quality_warnings)
+    assert any("CAPITAL_INFORMATION_METRIC_MISSING" in warning for warning in response.data_quality_warnings)
 
 def test_ths_f10_capital_information_source_parses_split_summary_lines(monkeypatch):
     source = ThsF10CapitalInformationSource()

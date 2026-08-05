@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 from app.api import app
 from app.errors import ErrorCode, PlatformError
 from app.mcp_server import get_stock_events
-from app.models import StockEventsMetadata, StockEventsResponse
+from app.models import StockEventRow, StockEventsMetadata, StockEventsResponse
+from app.services.stock_events import StockEventsService
 from app.services.stock_events import get_stock_events_service
 from app.sources.stock_events import STOCK_EVENTS_SOURCE_NAME, WebbsiteStockEventsSource
 from app.sources.webbsite import FetchedPage
@@ -185,6 +186,51 @@ def test_webbsite_stock_events_source_returns_unavailable_payload(monkeypatch):
     assert response.metadata.source_url == "https://webbsite.0xmd.com/dbpub/events.asp?i=25297"
     assert response.stock_events == []
     assert any("STOCK_EVENTS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
+
+
+def test_stock_events_service_adds_validation_warnings_without_blocking():
+    class FixtureStockEventsSource:
+        async def get_stock_events(self, code):
+            return StockEventsResponse(
+                metadata=StockEventsMetadata(
+                    code="01592",
+                    name="ANCHORSTONE",
+                    source_name=STOCK_EVENTS_SOURCE_NAME,
+                    source_url="https://example.invalid/stock-events",
+                    fetched_at=datetime(2026, 7, 21, 9, 15, tzinfo=UTC),
+                    data_as_of=date(2024, 3, 22),
+                    stock_events_count=2,
+                    source_status="ready",
+                ),
+                stock_events=[
+                    StockEventRow.model_construct(
+                        event_date="2026-13-01",
+                        title="",
+                        event_type=None,
+                        source=STOCK_EVENTS_SOURCE_NAME,
+                        link=None,
+                        details=None,
+                    ),
+                    StockEventRow(
+                        event_date=date(2024, 3, 22),
+                        title="Final dividend",
+                        event_type="Dividend",
+                        source=STOCK_EVENTS_SOURCE_NAME,
+                        link=None,
+                        details=None,
+                    ),
+                ],
+                data_quality_warnings=[],
+            )
+
+    service = StockEventsService(source=FixtureStockEventsSource())
+    response = asyncio.run(service.get_stock_events("1592"))
+
+    assert response.metadata.source_status == "ready"
+    assert len(response.stock_events) == 2
+    assert any("STOCK_EVENTS_EVENT_DATE_INVALID" in warning for warning in response.data_quality_warnings)
+    assert any("STOCK_EVENTS_TITLE_MISSING" in warning for warning in response.data_quality_warnings)
+    assert any("STOCK_EVENTS_INVALID_ROW" in warning for warning in response.data_quality_warnings)
 
 
 def test_webbsite_stock_events_source_skips_broken_row_and_returns_partial_rows(monkeypatch):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.models import CapitalInformationResponse
+from app.services.data_quality_validation import validate_capital_information_response
 from app.sources.capital_information import (
     CapitalInformationSource,
     PendingCapitalInformationSource,
@@ -15,7 +16,8 @@ class CapitalInformationService:
         self.source = source or ThsF10CapitalInformationSource()
 
     async def get_capital_information(self, code: str | int) -> CapitalInformationResponse:
-        return await self.source.get_capital_information(code)
+        response = await self.source.get_capital_information(code)
+        return validate_capital_information_response(response)
 
 
 @lru_cache

@@ -3,6 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.models import StockEventsResponse
+from app.services.data_quality_validation import validate_stock_events_response
 from app.sources.stock_events import (
     PendingStockEventsSource,
     StockEventsSource,
@@ -15,7 +16,8 @@ class StockEventsService:
         self.source = source or WebbsiteStockEventsSource()
 
     async def get_stock_events(self, code: str | int) -> StockEventsResponse:
-        return await self.source.get_stock_events(code)
+        response = await self.source.get_stock_events(code)
+        return validate_stock_events_response(response)
 
 
 @lru_cache
