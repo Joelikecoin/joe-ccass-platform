@@ -16,8 +16,10 @@ from app.streamlit_ui import (
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
     build_download_artifacts,
+    build_data_confidence_markdown,
     build_full_summary_markdown,
     build_raw_preview_tables,
+    build_report_flow_markdown,
     copy_button_html,
     prepare_report,
     render_prepared_report,
@@ -486,6 +488,9 @@ if prepared is not None:
                     locale=current_locale,
                 )
             )
+            st.markdown(f"### {ui_text(current_locale, 'data_confidence_heading')}")
+            st.caption(ui_text(current_locale, 'data_confidence_caption'))
+            st.markdown(build_data_confidence_markdown(prepared, locale=current_locale))
         st.markdown(f"<a id='{localized_report_anchor('all_tables')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {nav_text(current_locale, 'all_tables')}")
         st.markdown(f"### {ui_text(current_locale, 'report_navigation_heading')}")
@@ -511,9 +516,18 @@ if prepared is not None:
         else:
             st.markdown(f"### {ui_text(current_locale, 'report_details_heading')}")
             st.caption(ui_text(current_locale, "report_details_caption"))
+            st.markdown(f"### {ui_text(current_locale, 'report_flow_heading')}")
+            st.caption(ui_text(current_locale, 'report_flow_caption'))
+            st.markdown(build_report_flow_markdown(locale=current_locale))
             _render_markdown_sections(("company",), report_sections)
             st.markdown(f"### {ui_text(current_locale, 'company_information_heading')}")
             st.caption(ui_text(current_locale, "company_information_caption"))
+            _render_download_copy_controls(
+                locale=current_locale,
+                prepared=prepared,
+                localized_markdown=localized_markdown,
+                localized_chatgpt_payload=localized_chatgpt_payload,
+            )
             _render_named_expander(
                 ui_text(current_locale, "hkex_announcements_heading"),
                 report_sections.get("announcements"),
@@ -541,12 +555,6 @@ if prepared is not None:
             )
             with st.expander(ui_text(current_locale, "report_detail_historical_information"), expanded=False):
                 _render_markdown_sections(("concentration_history", "price_history"), report_sections)
-            _render_download_copy_controls(
-                locale=current_locale,
-                prepared=prepared,
-                localized_markdown=localized_markdown,
-                localized_chatgpt_payload=localized_chatgpt_payload,
-            )
 
         if show_rendered_markdown:
             st.markdown(f"### {ui_text(current_locale, 'rendered_markdown')}")

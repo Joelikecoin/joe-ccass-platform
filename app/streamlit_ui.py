@@ -15,7 +15,7 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
-from app.data_quality import structured_warning
+from app.data_quality import structured_warning, warning_code
 from app.models import AnnouncementsResponse, CcassResponse, PriceHistoryResponse
 from app.services.announcements import get_announcements_service
 from app.services.price_history import get_price_history_service
@@ -623,6 +623,117 @@ def build_full_summary_markdown(
     ]
     lines.extend(f"| {section} | {status} | {note} |" for section, status, note in rows)
     return "\n".join(lines)
+
+
+def build_data_confidence_markdown(
+    prepared: PreparedReport,
+    *,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "report.data_not_available")
+
+    metadata = response.metadata
+    rows: list[tuple[str, str]] = [
+        (translate_text(locale, "report.metadata.source", value=_display_text(metadata.source_name, locale)), _display_text(metadata.source_name, locale)),
+        (translate_text(locale, "report.metadata.source_url", value=_display_text(metadata.source_url, locale)), _display_text(metadata.source_url, locale)),
+        (translate_text(locale, "report.metadata.settlement_note", value=_display_text(metadata.settlement_note, locale)), _display_text(metadata.settlement_note, locale)),
+        (translate_text(locale, "report.metadata.attribution", value=_display_text(metadata.attribution, locale)), _display_text(metadata.attribution, locale)),
+        (translate_text(locale, "report.fetch.data_as_of", value=_display_text(metadata.data_as_of, locale)), _display_text(metadata.data_as_of, locale)),
+        (translate_text(locale, "report.fetch.fetched_at", value=_display_text(metadata.fetched_at, locale)), _display_text(metadata.fetched_at, locale)),
+        (ui_text(locale, "data_confidence_freshness"), _response_freshness_label(response)),
+        (ui_text(locale, "data_confidence_provenance"), _response_provenance_label(response)),
+        (ui_text(locale, "data_confidence_fallback"), _yes_no(metadata.cached, locale)),
+        (translate_text(locale, "report.metadata.warning_count", value=len(response.data_quality_warnings)), str(len(response.data_quality_warnings))),
+    ]
+    lines = [
+        f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+        "|---|---|",
+    ]
+    lines.extend(f"| {label} | {value} |" for label, value in rows)
+    return "\n".join(lines)
+
+
+def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
+    def section_title(section_key: str) -> str:
+        return translate_text(locale, f"report.section.{section_key}").removeprefix("## ").strip()
+
+    visible_first = ", ".join(
+        f"[{section_title(key)}](#{localized_report_anchor(key)})"
+        for key in ("analysis_ready_summary", "company", "metadata", "fetch_summary", "holdings_summary", "concentration")
+    )
+    collapsed_details = ", ".join(
+        f"[{section_title(key)}](#{localized_report_anchor(key)})"
+        for key in ("announcements", "stock_events", "officers", "holdings", "changes", "big_changes", "concentration_history", "price_history")
+    )
+    actions = ", ".join(
+        [
+            translate_text(locale, "ui.report_detail_download_copy"),
+            translate_text(locale, "ui.copy_for_chatgpt"),
+            translate_text(locale, "ui.copy_report"),
+            translate_text(locale, "ui.raw_markdown"),
+        ]
+    )
+    lines = [
+        f"| {translate_text(locale, 'ui.report_flow_visible_first')} | {visible_first} |",
+        f"| {translate_text(locale, 'ui.report_flow_collapsed_details')} | {collapsed_details} |",
+        f"| {translate_text(locale, 'ui.report_flow_actions')} | {actions} |",
+    ]
+    return "\n".join(
+        [
+            f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+            "|---|---|",
+            *lines,
+        ]
+    )
+
+
+def _display_text(value: object | None, locale: str) -> str:
+    if value is None or value == "":
+        return translate_text(locale, "report.data_not_available")
+    if hasattr(value, "isoformat") and not isinstance(value, (str, bytes)):
+        return str(value.isoformat())
+    return str(value)
+
+
+def _yes_no(value: bool | None, locale: str) -> str:
+    if value is None:
+        return translate_text(locale, "report.data_not_available")
+    return "Yes" if locale == "en" and value else "No" if locale == "en" else "是" if value else "否"
+
+
+def _response_warning_codes(response: CcassResponse) -> set[str]:
+    codes: set[str] = set()
+    for warning in response.data_quality_warnings:
+        code = warning_code(warning)
+        if code:
+            codes.add(code)
+    return codes
+
+
+def _response_freshness_label(response: CcassResponse) -> str:
+    warning_codes = _response_warning_codes(response)
+    if response.metadata.cached or {"CSV_FALLBACK_USED", "CACHED_SNAPSHOT"} & warning_codes:
+        return "cached"
+    if {"STALE_DATA", "STALE_LKG"} & warning_codes:
+        return "stale"
+    if warning_codes & {
+        "ANNOUNCEMENTS_UNAVAILABLE",
+        "PRICE_HISTORY_UNAVAILABLE",
+        "PREVIOUS_SNAPSHOT_ENRICHMENT_UNAVAILABLE",
+    }:
+        return "partial"
+    if response.data_quality_warnings:
+        return "unknown"
+    return "fresh"
+
+
+def _response_provenance_label(response: CcassResponse) -> str:
+    warning_codes = _response_warning_codes(response)
+    if response.metadata.cached or {"CSV_FALLBACK_USED", "CACHED_SNAPSHOT"} & warning_codes:
+        return "fallback"
+    return "primary"
 
 
 def resolve_streamlit_query_input(

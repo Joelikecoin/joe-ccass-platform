@@ -28,8 +28,10 @@ from app.streamlit_ui import (
     STREAMLIT_NAV_SECTIONS,
     STREAMLIT_SIDEBAR_CONTROL_LABELS,
     build_download_artifacts,
+    build_data_confidence_markdown,
     build_full_summary_markdown,
     build_raw_preview_tables,
+    build_report_flow_markdown,
     PreparedReport,
     copy_button_html,
     prepare_report,
@@ -547,6 +549,39 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
 
 
+def test_build_data_confidence_markdown_renders_source_and_freshness(current_response, previous_response):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown='',
+        chatgpt_payload='',
+        filename='01592_ccass_report.md',
+        response=current_response,
+        analysis=AnalysisResult(previous_available=True),
+        announcements=_sample_announcements_response(),
+    )
+
+    markdown = build_data_confidence_markdown(prepared, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, 'report.metadata.source', value=current_response.metadata.source_name) in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.metadata.source_url', value=current_response.metadata.source_url) in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.fetch.fetched_at', value=current_response.metadata.fetched_at.isoformat()) in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.data_confidence_freshness') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.data_confidence_provenance') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.data_confidence_fallback') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.metadata.warning_count', value=len(current_response.data_quality_warnings)) in markdown
+
+
+def test_build_report_flow_markdown_renders_visible_and_collapsed_groups():
+    markdown = build_report_flow_markdown(locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_visible_first') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_collapsed_details') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_actions') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.analysis_ready_summary').removeprefix('## ') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.price_history').removeprefix('## ') in markdown
+
+
 
 def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, current_response):
     import app.services.ccass as ccass_service
@@ -580,6 +615,24 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
         in block.value
         for block in app.markdown
     )
+    assert len(service.calls) == 1
+
+
+def test_streamlit_m008_overviews_render_data_confidence_and_report_flow(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_confidence_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.report_flow_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_confidence_freshness') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.report_flow_visible_first') in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
 
