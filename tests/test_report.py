@@ -1,7 +1,16 @@
 import warnings
 
 from app.errors import ErrorCode, PlatformError
-from app.models import AnnouncementRow, AnnouncementsMetadata, AnnouncementsResponse, PriceHistoryMetadata, PriceHistoryResponse, PriceHistoryRow
+from app.models import (
+    AnnouncementRow,
+    AnnouncementsMetadata,
+    AnnouncementsResponse,
+    CapitalInformationMetadata,
+    CapitalInformationResponse,
+    PriceHistoryMetadata,
+    PriceHistoryResponse,
+    PriceHistoryRow,
+)
 from ccass_core.compute import compute_analysis
 from ccass_core.report import (
     CHATGPT_COPY_HEADER,
@@ -69,9 +78,11 @@ def test_report_includes_company_information_sections_as_unavailable(current_res
 
     assert translate_text(DEFAULT_LOCALE, "report.section.announcements") in report
     assert translate_text(DEFAULT_LOCALE, "report.section.stock_events") in report
+    assert translate_text(DEFAULT_LOCALE, "report.section.capital_information") in report
     assert translate_text(DEFAULT_LOCALE, "report.section.officers") in report
     assert translate_text(DEFAULT_LOCALE, "ui.hkex_announcements_unavailable") in report
     assert translate_text(DEFAULT_LOCALE, "ui.stock_events_unavailable") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.capital_information_unavailable") in report
     assert translate_text(DEFAULT_LOCALE, "ui.officers_unavailable") in report
 
 

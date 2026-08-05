@@ -11,6 +11,7 @@ from app.errors import ErrorCode, PlatformError
 from app.models import (
     AnnouncementsResponse,
     BigChangesResponse,
+    CapitalInformationResponse,
     CcassResponse,
     ChangesResponse,
     ConcentrationResponse,
@@ -24,6 +25,7 @@ from app.services.big_changes import BigChangesService, get_big_changes_service
 from app.services.ccass import CcassService, get_ccass_service
 from app.services.changes import ChangesService, get_changes_service
 from app.services.concentration import ConcentrationService, get_concentration_service
+from app.services.capital_information import CapitalInformationService, get_capital_information_service
 from app.services.officers import OfficersService, get_officers_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
 from app.services.stock_events import StockEventsService, get_stock_events_service
@@ -278,6 +280,19 @@ async def get_stock_events(
 
 
 @app.get(
+    "/api/v1/stocks/{stock_code}/capital-information",
+    response_model=CapitalInformationResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["capital-information"],
+)
+async def get_capital_information(
+    stock_code: str,
+    service: CapitalInformationService = Depends(get_capital_information_service),
+) -> CapitalInformationResponse:
+    return await service.get_capital_information(stock_code)
+
+
+@app.get(
     "/api/v1/ccass/{code}",
     response_model=CcassResponse,
     dependencies=[Depends(verify_api_key)],
@@ -316,6 +331,7 @@ async def get_ccass_stock_report(
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     announcements_service: AnnouncementsService = Depends(get_announcements_service),
     stock_events_service: StockEventsService = Depends(get_stock_events_service),
+    capital_information_service: CapitalInformationService = Depends(get_capital_information_service),
     officers_service: OfficersService = Depends(get_officers_service),
     service: CcassService = Depends(get_ccass_service),
 ) -> PlainTextResponse:
@@ -354,6 +370,29 @@ async def get_ccass_stock_report(
         )
     else:
         response.data_quality_warnings.extend(stock_events.data_quality_warnings)
+    capital_information = None
+    try:
+        capital_information = await capital_information_service.get_capital_information(normalized)
+    except PlatformError as exc:
+        capital_information = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "CAPITAL_INFORMATION_UNAVAILABLE",
+                f"Capital information is unavailable ({exc.code}: {exc.message}).",
+            )
+        )
+    except Exception as exc:
+        capital_information = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "CAPITAL_INFORMATION_UNAVAILABLE",
+                f"Capital information is unavailable ({type(exc).__name__}).",
+            )
+        )
+    else:
+        response.data_quality_warnings.extend(capital_information.data_quality_warnings)
     officers = None
     try:
         officers = await officers_service.get_officers(normalized)
@@ -367,6 +406,7 @@ async def get_ccass_stock_report(
         analysis=analysis,
         announcements=announcements,
         stock_events=stock_events,
+        capital_information=capital_information,
         officers=officers,
     )
     return PlainTextResponse(report, media_type="text/markdown; charset=utf-8")

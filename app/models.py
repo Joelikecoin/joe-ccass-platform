@@ -320,3 +320,30 @@ class OfficersResponse(BaseModel):
     metadata: OfficersMetadata
     officers: list[OfficerRow] = Field(default_factory=list)
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class CapitalInformationRow(BaseModel):
+    label: str
+    value: str | None = None
+    unit: str | None = None
+    as_of: date | None = None
+    source: str | None = None
+    note: str | None = None
+    link: str | None = None
+
+
+class CapitalInformationMetadata(BaseModel):
+    code: str
+    name: str | None = None
+    source_name: str
+    source_url: str | None = None
+    fetched_at: datetime
+    data_as_of: date | None = None
+    capital_information_count: int = 0
+    source_status: Literal["ready", "pending", "unavailable"] = "pending"
+
+
+class CapitalInformationResponse(BaseModel):
+    metadata: CapitalInformationMetadata
+    capital_information: list[CapitalInformationRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)

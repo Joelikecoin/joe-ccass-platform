@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from app.data_quality import parse_warning
 from app.models import (
     AnnouncementsResponse,
+    CapitalInformationResponse,
     CcassResponse,
     OfficersResponse,
     PriceHistoryResponse,
@@ -102,6 +103,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.stock_events_source_pending": "Stock events source is pending; the read path is wired but no live source is connected yet.",
         "ui.stock_events_empty": "No stock event rows are available in the current result.",
         "ui.stock_events_unavailable": "Stock event data is unavailable in the current fetch result.",
+        "ui.capital_information_heading": "Capital Information",
+        "ui.capital_information_caption": "Capital structure facts are grouped here when available.",
+        "ui.capital_information_rows_label": "Capital information rows",
+        "ui.capital_information_sorting_note": "Rows will be ordered by label when live data is available.",
+        "ui.capital_information_source_pending": "Capital information source is pending; the read path is wired but no live source is connected yet.",
+        "ui.capital_information_empty": "No capital information rows are available in the current result.",
+        "ui.capital_information_unavailable": "Capital information data is unavailable in the current fetch result.",
         "ui.officers_heading": "Officers",
         "ui.officers_caption": "Officer information is grouped here when available.",
         "ui.officers_unavailable": "Officer data is unavailable in the current fetch result.",
@@ -133,6 +141,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.stock_events_table_source": "Source",
         "ui.stock_events_table_link": "Link",
         "ui.stock_events_table_details": "Details",
+        "ui.capital_information_table_label": "Label",
+        "ui.capital_information_table_value": "Value",
+        "ui.capital_information_table_unit": "Unit",
+        "ui.capital_information_table_as_of": "As of",
+        "ui.capital_information_table_source": "Source",
+        "ui.capital_information_table_note": "Note",
+        "ui.capital_information_table_link": "Link",
         "report.link_label": "Link",
         "ui.report_navigation_heading": "Report Navigation",
         "ui.report_navigation_caption": "Jump links follow the rendered report sections below.",
@@ -157,6 +172,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements_available": "{announcement_count} announcement rows are available.",
         "ui.full_summary_note_stock_events": "Stock event surface is unavailable in the current result.",
         "ui.full_summary_note_stock_events_pending": "Stock event surface is present but the source is still pending.",
+        "ui.full_summary_note_capital_information": "Capital information surface is unavailable in the current result.",
+        "ui.full_summary_note_capital_information_pending": "Capital information surface is present but the source is still pending.",
         "ui.full_summary_note_officers": "Officer surface is unavailable in the current result.",
         "ui.full_summary_note_officers_pending": "Officer surface is present but the source is still pending.",
         "ui.full_summary_note_holdings": "{participant_count} participant rows.",
@@ -257,6 +274,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "nav.dt_rainbow": "DT Rainbow",
         "nav.hkex_announcements": "HKEX Announcements",
         "nav.stock_events": "Stock Events",
+        "nav.capital_information": "Capital Information",
         "nav.officers": "Officers",
         "nav.company": "Company",
         "nav.metadata": "Metadata",
@@ -281,6 +299,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.company": "## Company",
         "report.section.announcements": "## HKEX Announcements",
         "report.section.stock_events": "## Stock Events",
+        "report.section.capital_information": "## Capital Information",
         "report.section.officers": "## Officers",
         "report.company.lookup_status": "- Lookup status: {value}",
         "report.company.lookup_method": "- Lookup method: {value}",
@@ -446,6 +465,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.stock_events_source_pending": "股份事件資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
         "ui.stock_events_empty": "目前結果沒有可用的股份事件列。",
         "ui.stock_events_unavailable": "目前的抓取結果沒有股份事件資料。",
+        "ui.capital_information_heading": "資本資料",
+        "ui.capital_information_caption": "如有可用，資本結構事實會在此分組顯示。",
+        "ui.capital_information_rows_label": "資本資料列表",
+        "ui.capital_information_sorting_note": "當正式資料可用時，列會按標題排序。",
+        "ui.capital_information_source_pending": "資本資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
+        "ui.capital_information_empty": "目前結果沒有可用的資本資料列。",
+        "ui.capital_information_unavailable": "目前的抓取結果沒有資本資料。",
         "ui.officers_heading": "高管資料",
         "ui.officers_caption": "如有可用，高管資訊會在此分組顯示。",
         "ui.officers_unavailable": "目前的抓取結果沒有高管資料。",
@@ -477,6 +503,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.stock_events_table_source": "來源",
         "ui.stock_events_table_link": "連結",
         "ui.stock_events_table_details": "詳情",
+        "ui.capital_information_table_label": "標題",
+        "ui.capital_information_table_value": "數值",
+        "ui.capital_information_table_unit": "單位",
+        "ui.capital_information_table_as_of": "截至",
+        "ui.capital_information_table_source": "來源",
+        "ui.capital_information_table_note": "備註",
+        "ui.capital_information_table_link": "連結",
         "report.link_label": "連結",
         "ui.report_navigation_heading": "報告導航",
         "ui.report_navigation_caption": "以下連結對應已渲染的報告章節。",
@@ -572,6 +605,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements_available": "目前有 {announcement_count} 條公告可用。",
         "ui.full_summary_note_stock_events": "目前結果沒有可用的股份事件表面。",
         "ui.full_summary_note_stock_events_pending": "股份事件表面已就位，但資料來源仍在等待接通。",
+        "ui.full_summary_note_capital_information": "目前結果沒有可用的資本資料表面。",
+        "ui.full_summary_note_capital_information_pending": "資本資料表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
         "ui.full_summary_note_officers_pending": "高管表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_holdings": "{participant_count} ???????",
@@ -597,6 +632,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "nav.dt_rainbow": "DT Rainbow",
         "nav.hkex_announcements": "HKEX 公告",
         "nav.stock_events": "股份事件",
+        "nav.capital_information": "資本資料",
         "nav.officers": "高管資料",
         "nav.company": "??",
         "nav.metadata": "??",
@@ -621,6 +657,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.company": "## 公司",
         "report.section.announcements": "## HKEX 公告",
         "report.section.stock_events": "## 股份事件",
+        "report.section.capital_information": "## 資本資料",
         "report.section.officers": "## 高管資料",
         "report.company.lookup_status": "- 查詢狀態：{value}",
         "report.company.lookup_method": "- 查詢方法：{value}",
@@ -711,6 +748,7 @@ REPORT_SECTION_KEYS = (
     "company",
     "announcements",
     "stock_events",
+    "capital_information",
     "officers",
     "metadata",
     "fetch_summary",
@@ -768,6 +806,7 @@ def build_markdown_report(
     history_snapshots: Sequence[CcassResponse] | None = None,
     announcements: AnnouncementsResponse | None = None,
     stock_events: StockEventsResponse | None = None,
+    capital_information: CapitalInformationResponse | None = None,
     officers: OfficersResponse | None = None,
     price_history: PriceHistoryResponse | None = None,
     locale: str = DEFAULT_LOCALE,
@@ -810,10 +849,10 @@ def build_markdown_report(
             "",
         ]
     )
-    lines.extend(_company_information_section(announcements, stock_events, officers, locale))
+    lines.extend(_company_information_section(announcements, stock_events, capital_information, officers, locale))
     lines.extend(
         [
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
             translate_text(locale, "report.section.metadata"),
             "",
             translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
@@ -823,7 +862,7 @@ def build_markdown_report(
             translate_text(locale, "report.metadata.attribution", value=_text(metadata.attribution, locale)),
             translate_text(locale, "report.metadata.warning_count", value=len(computed.warnings)),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[7])}'></a>",
             translate_text(locale, "report.section.fetch_summary"),
             "",
             translate_text(locale, "report.fetch.status_success"),
@@ -832,7 +871,7 @@ def build_markdown_report(
             translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
             translate_text(locale, "report.fetch.cached_snapshot", value=_yes_no(metadata.cached, locale)),
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[7])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
             translate_text(locale, "report.section.holdings_summary"),
             "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
@@ -845,7 +884,7 @@ def build_markdown_report(
             f"| Non-CCASS / issued | {_percent(summary.non_ccass_pct_of_issued, locale)} |",
             f"| Participant count | {summary.participant_count} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[8])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
             translate_text(locale, "report.section.holdings"),
             "",
         ]
@@ -853,14 +892,14 @@ def build_markdown_report(
     lines.extend(_holdings_table(response, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
         translate_text(locale, "report.section.changes"),
         "",
     ])
     lines.extend(_changes_section(computed, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[10])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[11])}'></a>",
         translate_text(locale, "report.section.big_changes"),
         "",
     ])
@@ -868,7 +907,7 @@ def build_markdown_report(
     lines.extend(
         [
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[11])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[12])}'></a>",
             translate_text(locale, "report.section.concentration"),
             "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
@@ -878,7 +917,7 @@ def build_markdown_report(
             f"| Top 5 / CCASS | {_percent(summary.top5_pct_of_ccass, locale)} |",
             f"| Top 10 / CCASS | {_percent(summary.top10_pct_of_ccass, locale)} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[12])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[13])}'></a>",
             translate_text(locale, "report.section.concentration_history"),
             "",
         ]
@@ -887,7 +926,7 @@ def build_markdown_report(
     lines.extend(_price_history_section(price_history, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[15])}'></a>",
         translate_text(locale, "report.section.data_quality_warnings"),
         "",
     ])
@@ -1031,6 +1070,7 @@ def _concentration_history_section(
 def _company_information_section(
     announcements: AnnouncementsResponse | None,
     stock_events: StockEventsResponse | None,
+    capital_information: CapitalInformationResponse | None,
     officers: OfficersResponse | None,
     locale: str,
 ) -> list[str]:
@@ -1041,6 +1081,11 @@ def _company_information_section(
         translate_text(locale, "report.section.stock_events"),
         "",
         *_stock_events_section(stock_events, locale),
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+        translate_text(locale, "report.section.capital_information"),
+        "",
+        *_capital_information_section(capital_information, locale),
         *_officers_section(officers, locale),
     ]
 
@@ -1136,13 +1181,56 @@ def _stock_events_section(
     return lines
 
 
+def _capital_information_section(
+    capital_information: CapitalInformationResponse | None,
+    locale: str,
+) -> list[str]:
+    if capital_information is None:
+        return [
+            translate_text(locale, "ui.capital_information_unavailable"),
+            "",
+        ]
+
+    metadata = capital_information.metadata
+    lines = [
+        translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+        translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
+        translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
+        f"{translate_text(locale, 'ui.capital_information_rows_label')}: {metadata.capital_information_count}",
+        translate_text(locale, "ui.capital_information_source_pending"),
+        translate_text(locale, "ui.capital_information_sorting_note"),
+        "",
+    ]
+    if not capital_information.capital_information:
+        lines.extend([translate_text(locale, "ui.capital_information_empty"), ""])
+        return lines
+
+    lines.extend(
+        [
+            f"| {translate_text(locale, 'ui.capital_information_table_label')} | {translate_text(locale, 'ui.capital_information_table_value')} | {translate_text(locale, 'ui.capital_information_table_unit')} | {translate_text(locale, 'ui.capital_information_table_as_of')} | {translate_text(locale, 'ui.capital_information_table_source')} | {translate_text(locale, 'ui.capital_information_table_note')} | {translate_text(locale, 'ui.capital_information_table_link')} |",
+            "|---|---|---|---|---|---|---|",
+        ]
+    )
+    for row in capital_information.capital_information:
+        link = (
+            f"[{translate_text(locale, 'report.link_label')}]({row.link})"
+            if row.link
+            else translate_text(locale, "report.data_not_available")
+        )
+        lines.append(
+            f"| {_escape(row.label)} | {_escape(_text(row.value, locale))} | {_escape(_text(row.unit, locale))} | {_escape(_text(row.as_of, locale))} | {_escape(_text(row.source, locale))} | {_escape(_text(row.note, locale))} | {link} |"
+        )
+    lines.append("")
+    return lines
+
+
 def _officers_section(
     officers: OfficersResponse | None,
     locale: str,
 ) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
         translate_text(locale, "report.section.officers"),
         "",
     ]
@@ -1193,7 +1281,7 @@ def _officers_section(
 def _price_history_section(price_history: PriceHistoryResponse | None, locale: str) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[13])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
         translate_text(locale, "report.section.price_history"),
         "",
     ]

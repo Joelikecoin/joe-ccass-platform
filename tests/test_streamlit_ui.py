@@ -15,6 +15,8 @@ from app.models import (
     AnnouncementRow,
     AnnouncementsMetadata,
     AnnouncementsResponse,
+    CapitalInformationMetadata,
+    CapitalInformationResponse,
     CcassResponse,
     HoldingRow,
     HoldingsSummary,
@@ -145,6 +147,25 @@ def _stock_events_response() -> StockEventsResponse:
         stock_events=[],
         data_quality_warnings=[
             "SOURCE_STATUS:STOCK_EVENTS_SOURCE_PENDING: Stock events source is pending approval; placeholder read path only.",
+        ],
+    )
+
+
+def _capital_information_response() -> CapitalInformationResponse:
+    return CapitalInformationResponse(
+        metadata=CapitalInformationMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name="Capital information source pending",
+            source_url=None,
+            fetched_at=datetime(2026, 7, 21, 9, 30, tzinfo=UTC),
+            data_as_of=None,
+            capital_information_count=0,
+            source_status="pending",
+        ),
+        capital_information=[],
+        data_quality_warnings=[
+            "SOURCE_STATUS:CAPITAL_INFORMATION_SOURCE_PENDING: Capital information source is pending approval; placeholder read path only.",
         ],
     )
 
@@ -336,6 +357,7 @@ def test_streamlit_navigation_links_cover_required_sections():
     assert "#dt-rainbow" in links
     assert "#hkex-announcements" in links
     assert "#stock-events" in links
+    assert "#capital-information" in links
     assert "#officers" in links
     assert "#price-history" in links
     assert "Price & Turnover" in streamlit_navigation_links("en")
@@ -445,9 +467,11 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     assert any(translate_text(DEFAULT_LOCALE, 'ui.company_information_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.announcements') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.stock_events') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'report.section.capital_information') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.officers') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_source_pending') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.capital_information_source_pending') in block.value for block in app.markdown)
     assert any("Officers source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
@@ -513,6 +537,7 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
     assert any("Officers source is pending approval" in block.value for block in app.warning)
     assert any("Stock events source is pending approval" in block.value for block in app.warning)
+    assert any("Capital information source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
 
@@ -545,6 +570,7 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
         analysis=AnalysisResult(previous_available=True),
         announcements=_sample_announcements_response(),
         stock_events=_stock_events_response(),
+        capital_information=_capital_information_response(),
     )
 
     markdown = build_full_summary_markdown(
@@ -568,6 +594,7 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     assert company_index < fetch_index
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_announcements_available', announcement_count=1) in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_stock_events_pending') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_capital_information_pending') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_officers') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
@@ -603,6 +630,7 @@ def test_build_report_flow_markdown_renders_visible_and_collapsed_groups():
     assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_actions') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.analysis_ready_summary').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.capital_information').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.price_history').removeprefix('## ') in markdown
 
 

@@ -18,6 +18,7 @@ except ModuleNotFoundError:  # pragma: no cover - test environment fallback
 from app.services.ai_read_model import get_ai_read_model_service
 from app.services.announcements import get_announcements_service
 from app.services.ccass import get_ccass_service
+from app.services.capital_information import get_capital_information_service
 from app.services.officers import get_officers_service
 from app.services.price_history import get_price_history_service
 from app.services.stock_events import get_stock_events_service
@@ -82,6 +83,17 @@ async def get_stock_events(code: str) -> dict:
     boundary is awaiting a confirmed live data path.
     """
     result = await get_stock_events_service().get_stock_events(code)
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_capital_information(code: str) -> dict:
+    """Return capital information data for a Hong Kong stock code.
+
+    The current build exposes a placeholder capital-information slice while the source
+    boundary is awaiting a confirmed live data path.
+    """
+    result = await get_capital_information_service().get_capital_information(code)
     return result.model_dump(mode="json")
 
 

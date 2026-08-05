@@ -18,12 +18,14 @@ from app.errors import ErrorCode, PlatformError
 from app.data_quality import structured_warning, warning_code
 from app.models import (
     AnnouncementsResponse,
+    CapitalInformationResponse,
     CcassResponse,
     OfficersResponse,
     PriceHistoryResponse,
     StockEventsResponse,
 )
 from app.services.announcements import get_announcements_service
+from app.services.capital_information import get_capital_information_service
 from app.services.officers import get_officers_service
 from app.services.stock_events import get_stock_events_service
 from app.services.price_history import get_price_history_service
@@ -53,6 +55,7 @@ NAV_SECTION_KEYS = (
     "dt_rainbow",
     "hkex_announcements",
     "stock_events",
+    "capital_information",
     "officers",
     "holdings",
     "changes",
@@ -113,6 +116,7 @@ class PreparedReport:
     analysis: AnalysisResult | None = None
     announcements: AnnouncementsResponse | None = None
     stock_events: StockEventsResponse | None = None
+    capital_information: CapitalInformationResponse | None = None
     officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     fetch_error: str | None = None
@@ -190,6 +194,7 @@ async def prepare_report(
         previous = None
     announcements: AnnouncementsResponse | None = None
     stock_events: StockEventsResponse | None = None
+    capital_information: CapitalInformationResponse | None = None
     officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     if announcements_enabled:
@@ -237,6 +242,28 @@ async def prepare_report(
         )
     else:
         response.data_quality_warnings.extend(stock_events.data_quality_warnings)
+    try:
+        capital_information = await get_capital_information_service().get_capital_information(code)
+    except PlatformError as exc:
+        capital_information = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "CAPITAL_INFORMATION_UNAVAILABLE",
+                f"Capital information is unavailable ({exc.code}: {exc.message}).",
+            )
+        )
+    except Exception as exc:
+        capital_information = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "CAPITAL_INFORMATION_UNAVAILABLE",
+                f"Capital information is unavailable ({type(exc).__name__}).",
+            )
+        )
+    else:
+        response.data_quality_warnings.extend(capital_information.data_quality_warnings)
     try:
         officers = await get_officers_service().get_officers(code)
     except PlatformError as exc:
@@ -297,6 +324,7 @@ async def prepare_report(
         history_snapshots=history_snapshots,
         announcements=announcements,
         stock_events=stock_events,
+        capital_information=capital_information,
         officers=officers,
         price_history=price_history,
         locale=locale,
@@ -311,6 +339,7 @@ async def prepare_report(
         analysis=analysis,
         announcements=announcements,
         stock_events=stock_events,
+        capital_information=capital_information,
         officers=officers,
         price_history=price_history,
     )
@@ -539,6 +568,7 @@ def build_full_summary_markdown(
     warning_count = len(response.data_quality_warnings)
     announcements = prepared.announcements
     stock_events = prepared.stock_events
+    capital_information = prepared.capital_information
     officers = prepared.officers
 
     def section_label(key: str) -> str:
@@ -585,6 +615,19 @@ def build_full_summary_markdown(
                 "full_summary_note_stock_events_pending"
                 if stock_events is not None
                 else "full_summary_note_stock_events",
+            ),
+        ),
+        (
+            section_label("report.section.capital_information"),
+            ui_text(
+                locale,
+                "full_summary_status_available" if capital_information is not None else "full_summary_status_unavailable",
+            ),
+            ui_text(
+                locale,
+                "full_summary_note_capital_information_pending"
+                if capital_information is not None
+                else "full_summary_note_capital_information",
             ),
         ),
         (
@@ -738,7 +781,7 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
     )
     collapsed_details = ", ".join(
         f"[{section_title(key)}](#{localized_report_anchor(key)})"
-        for key in ("announcements", "stock_events", "officers", "holdings", "changes", "big_changes", "concentration_history", "price_history")
+        for key in ("announcements", "stock_events", "capital_information", "officers", "holdings", "changes", "big_changes", "concentration_history", "price_history")
     )
     actions = ", ".join(
         [
@@ -1156,6 +1199,7 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             analysis=prepared.analysis,
             announcements=prepared.announcements,
             stock_events=prepared.stock_events,
+            capital_information=prepared.capital_information,
             price_history=prepared.price_history,
             locale=locale,
         )
