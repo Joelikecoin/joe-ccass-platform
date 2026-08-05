@@ -20,6 +20,9 @@ from app.models import (
     CcassResponse,
     HoldingRow,
     HoldingsSummary,
+    OfficerRow,
+    OfficersMetadata,
+    OfficersResponse,
     PriceHistoryMetadata,
     PriceHistoryResponse,
     PriceHistoryRow,
@@ -167,6 +170,36 @@ def _capital_information_response() -> CapitalInformationResponse:
         data_quality_warnings=[
             "SOURCE_STATUS:CAPITAL_INFORMATION_SOURCE_PENDING: Capital information source is pending approval; placeholder read path only.",
         ],
+    )
+
+
+def _ready_officers_response() -> OfficersResponse:
+    return OfficersResponse(
+        metadata=OfficersMetadata(
+            code="01351",
+            name="輝煌明天",
+            source_name="同花順 F10 managers",
+            source_url="https://stockpage.10jqka.com.cn/basicweb/176/HK1351/manager.html",
+            fetched_at=datetime(2026, 7, 21, 9, 45, tzinfo=UTC),
+            data_as_of=date(2026, 4, 15),
+            officers_count=1,
+            source_status="ready",
+        ),
+        officers=[
+            OfficerRow(
+                name="董晖",
+                positions=["主席", "执行董事", "行政总裁"],
+                tenure_from=date(2019, 3, 25),
+                tenure_to=None,
+                is_current=True,
+                sex="男",
+                age=39,
+                education="本科",
+                salary="178.80万",
+                biography="董晖先生，于2018年11月8日获委任。",
+            )
+        ],
+        data_quality_warnings=[],
     )
 
 
@@ -472,7 +505,7 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_source_pending') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.capital_information_source_pending') in block.value for block in app.markdown)
-    assert any("Officers source is pending approval" in block.value for block in app.warning)
+    assert any("OFFICERS_SOURCE_UNAVAILABLE" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
 
@@ -535,7 +568,7 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
-    assert any("Officers source is pending approval" in block.value for block in app.warning)
+    assert any("OFFICERS_SOURCE_UNAVAILABLE" in block.value for block in app.warning)
     assert any("Stock events source is pending approval" in block.value for block in app.warning)
     assert any("Capital information source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
@@ -598,6 +631,27 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_officers') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
+
+
+def test_build_full_summary_markdown_marks_ready_officers_surface(current_response, previous_response):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown='',
+        chatgpt_payload='',
+        filename='01592_ccass_report.md',
+        response=current_response,
+        analysis=AnalysisResult(previous_available=True),
+        officers=_ready_officers_response(),
+    )
+
+    markdown = build_full_summary_markdown(
+        prepared,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_status_available') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_officers_ready', source_name='同花順 F10 managers') in markdown
 
 
 def test_build_data_confidence_markdown_renders_source_and_freshness(current_response, previous_response):

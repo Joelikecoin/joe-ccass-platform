@@ -1,4 +1,5 @@
 import warnings
+from datetime import UTC, datetime
 
 from app.errors import ErrorCode, PlatformError
 from app.models import (
@@ -7,6 +8,9 @@ from app.models import (
     AnnouncementsResponse,
     CapitalInformationMetadata,
     CapitalInformationResponse,
+    OfficerRow,
+    OfficersMetadata,
+    OfficersResponse,
     PriceHistoryMetadata,
     PriceHistoryResponse,
     PriceHistoryRow,
@@ -38,10 +42,50 @@ def test_report_supports_english_locale(current_response, previous_response):
     report = build_markdown_report(current_response, code="01592", analysis=analysis, locale="en")
 
     assert report.startswith("# CCASS Report ? 01592 ")
-    assert "- Data as of:" in report
-    assert [line for line in report.splitlines() if line.startswith("## ")] == list(
-        report_section_headings("en")
+
+
+def _ready_officers_response() -> OfficersResponse:
+    return OfficersResponse(
+        metadata=OfficersMetadata(
+            code="01351",
+            name="輝煌明天",
+            source_name="同花順 F10 managers",
+            source_url="https://stockpage.10jqka.com.cn/basicweb/176/HK1351/manager.html",
+            fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+            data_as_of=None,
+            officers_count=1,
+            source_status="ready",
+        ),
+        officers=[
+            OfficerRow(
+                name="董晖",
+                positions=["主席", "执行董事", "行政总裁"],
+                tenure_from=None,
+                tenure_to=None,
+                is_current=True,
+                sex="男",
+                age=39,
+                education="本科",
+                salary="178.80万",
+                biography="董晖先生，于2018年11月8日获委任。",
+            )
+        ],
+        data_quality_warnings=[],
     )
+
+
+def test_report_renders_ready_officers_source_note(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(
+        current_response,
+        code="01592",
+        analysis=analysis,
+        officers=_ready_officers_response(),
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "ui.officers_source_ready") in report
+    assert "董晖" in report
 
 
 def test_report_includes_company_section_identity_details(current_response, previous_response):

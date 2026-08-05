@@ -112,6 +112,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.capital_information_unavailable": "Capital information data is unavailable in the current fetch result.",
         "ui.officers_heading": "Officers",
         "ui.officers_caption": "Officer information is grouped here when available.",
+        "ui.officers_source_ready": "Officers source is connected.",
         "ui.officers_unavailable": "Officer data is unavailable in the current fetch result.",
         "ui.officers_source_pending": "Officers source is pending; the read path is wired but no live source is connected yet.",
         "ui.officers_empty": "No officer rows are available in the current result.",
@@ -176,6 +177,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_capital_information_pending": "Capital information surface is present but the source is still pending.",
         "ui.full_summary_note_officers": "Officer surface is unavailable in the current result.",
         "ui.full_summary_note_officers_pending": "Officer surface is present but the source is still pending.",
+        "ui.full_summary_note_officers_ready": "Officer surface is available from {source_name}.",
         "ui.full_summary_note_holdings": "{participant_count} participant rows.",
         "ui.full_summary_note_changes_available": "Previous snapshot is available.",
         "ui.full_summary_note_changes_unavailable": "Previous snapshot is unavailable.",
@@ -474,6 +476,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.capital_information_unavailable": "目前的抓取結果沒有資本資料。",
         "ui.officers_heading": "高管資料",
         "ui.officers_caption": "如有可用，高管資訊會在此分組顯示。",
+        "ui.officers_source_ready": "高管資料來源已接通。",
         "ui.officers_unavailable": "目前的抓取結果沒有高管資料。",
         "ui.officers_source_pending": "高管資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
         "ui.officers_empty": "目前結果沒有可用的高管列。",
@@ -609,6 +612,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_capital_information_pending": "資本資料表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
         "ui.full_summary_note_officers_pending": "高管表面已就位，但資料來源仍在等待接通。",
+        "ui.full_summary_note_officers_ready": "高管表面已由 {source_name} 提供。",
         "ui.full_summary_note_holdings": "{participant_count} ???????",
         "ui.full_summary_note_changes_available": "?????????",
         "ui.full_summary_note_changes_unavailable": "?????????",
@@ -1239,13 +1243,19 @@ def _officers_section(
         return lines
 
     metadata = officers.metadata
+    if metadata.source_status == "ready":
+        source_note = translate_text(locale, "ui.officers_source_ready")
+    elif metadata.source_status == "pending":
+        source_note = translate_text(locale, "ui.officers_source_pending")
+    else:
+        source_note = translate_text(locale, "ui.officers_unavailable")
     lines.extend(
         [
             translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
             translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
             translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
             f"{translate_text(locale, 'ui.officers_rows_label')}: {metadata.officers_count}",
-            translate_text(locale, "ui.officers_source_pending"),
+            source_note,
             "",
         ]
     )

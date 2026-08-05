@@ -571,6 +571,29 @@ def build_full_summary_markdown(
     capital_information = prepared.capital_information
     officers = prepared.officers
 
+    def _surface_status(surface) -> str:
+        if surface is None:
+            return "unavailable"
+        return getattr(surface.metadata, "source_status", "pending")
+
+    def _officers_summary_status() -> str:
+        status = _surface_status(officers)
+        if status == "unavailable":
+            return "full_summary_status_unavailable"
+        return "full_summary_status_available"
+
+    def _officers_summary_note() -> str:
+        status = _surface_status(officers)
+        if status == "ready":
+            return ui_text(
+                locale,
+                "full_summary_note_officers_ready",
+                source_name=officers.metadata.source_name if officers is not None else "",
+            )
+        if status == "pending":
+            return ui_text(locale, "full_summary_note_officers_pending")
+        return ui_text(locale, "full_summary_note_officers")
+
     def section_label(key: str) -> str:
         return translate_text(locale, key).removeprefix("## ")
 
@@ -632,11 +655,8 @@ def build_full_summary_markdown(
         ),
         (
             section_label("report.section.officers"),
-            ui_text(locale, "full_summary_status_available" if officers is not None else "full_summary_status_unavailable"),
-            ui_text(
-                locale,
-                "full_summary_note_officers_pending" if officers is not None else "full_summary_note_officers",
-            ),
+            ui_text(locale, _officers_summary_status()),
+            _officers_summary_note(),
         ),
         (
             section_label("report.section.metadata"),

@@ -1,5 +1,5 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
 
@@ -7,8 +7,32 @@ from app.api import app
 from app.models import OfficersMetadata, OfficersResponse
 from app.mcp_server import get_officers
 from app.services.officers import get_officers_service
+from app.sources.officers import OFFICERS_SOURCE_NAME, ThsF10OfficersSource
+from app.errors import ErrorCode, PlatformError
 from ccass_core.compute import AnalysisResult
 from ccass_core.report import DEFAULT_LOCALE, build_markdown_report, translate_text
+
+
+OFFICERS_SAMPLE_HTML = """
+<html>
+  <head>
+    <title>輝煌明天(HK1351) 高管介紹_F10_同花順金融服務網</title>
+  </head>
+  <body>
+    <h1>輝煌明天 01351</h1>
+    <h2>高管簡介</h2>
+    <p>高管 2 人 注：薪酬收入通常包含薪金、袍金、花紅、股票期權、福利津貼等。</p>
+    <h3>董晖</h3>
+    <p>主席，执行董事，行政总裁 | 本届任期：2019-03-25 至今</p>
+    <p>男 39 本科 | 报酬：178.80万 | 截止日期：2026-04-15</p>
+    <p>董晖先生，于2018年11月8日获委任为辉煌明天科技控股有限公司董事，并于2019年3月25日调任执行董事、董事会主席兼行政总裁。</p>
+    <h3>杨登峰</h3>
+    <p>执行董事，技术总监 | 本届任期：2019-03-25 至今</p>
+    <p>男 44 本科 | 报酬：92.10万 | 截止日期：2026-04-15</p>
+    <p>杨登峰先生，于2018年11月8日获委任为辉煌明天科技控股有限公司董事，并于2019年3月25日调任执行董事兼技术总监。</p>
+  </body>
+</html>
+"""
 
 
 def _officers_response() -> OfficersResponse:
@@ -30,6 +54,23 @@ def _officers_response() -> OfficersResponse:
     )
 
 
+def _ready_officers_response() -> OfficersResponse:
+    return OfficersResponse(
+        metadata=OfficersMetadata(
+            code="01351",
+            name="輝煌明天",
+            source_name=OFFICERS_SOURCE_NAME,
+            source_url="https://stockpage.10jqka.com.cn/basicweb/176/HK1351/manager.html",
+            fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+            data_as_of=date(2026, 4, 15),
+            officers_count=2,
+            source_status="ready",
+        ),
+        officers=[],
+        data_quality_warnings=[],
+    )
+
+
 def test_officers_placeholder_response_renders_in_markdown(current_response):
     report = build_markdown_report(
         current_response,
@@ -42,6 +83,57 @@ def test_officers_placeholder_response_renders_in_markdown(current_response):
     assert translate_text(DEFAULT_LOCALE, "report.section.officers") in report
     assert translate_text(DEFAULT_LOCALE, "ui.officers_source_pending") in report
     assert translate_text(DEFAULT_LOCALE, "ui.officers_empty") in report
+
+
+def test_ths_f10_officers_source_parses_ready_page(monkeypatch):
+    source = ThsF10OfficersSource()
+
+    async def fake_fetch_html(source_url: str) -> str:
+        assert source_url == "https://stockpage.10jqka.com.cn/basicweb/176/HK1351/manager.html"
+        return OFFICERS_SAMPLE_HTML
+
+    monkeypatch.setattr(source, "_fetch_html", fake_fetch_html)
+
+    response = asyncio.run(source.get_officers("1351"))
+
+    assert response.metadata.code == "01351"
+    assert response.metadata.name == "輝煌明天"
+    assert response.metadata.source_name == OFFICERS_SOURCE_NAME
+    assert response.metadata.source_status == "ready"
+    assert response.metadata.data_as_of == date(2026, 4, 15)
+    assert response.metadata.officers_count == 2
+    assert response.data_quality_warnings == []
+    assert [row.name for row in response.officers] == ["董晖", "杨登峰"]
+    assert response.officers[0].positions == ["主席", "执行董事", "行政总裁"]
+    assert response.officers[0].tenure_from == date(2019, 3, 25)
+    assert response.officers[0].tenure_to is None
+    assert response.officers[0].is_current is True
+    assert response.officers[0].sex == "男"
+    assert response.officers[0].age == 39
+    assert response.officers[0].education == "本科"
+    assert response.officers[0].salary == "178.80万"
+    assert response.officers[0].biography.startswith("董晖先生")
+
+
+def test_ths_f10_officers_source_returns_unavailable_payload(monkeypatch):
+    source = ThsF10OfficersSource()
+
+    async def fake_fetch_html(_: str) -> str:
+        raise PlatformError(
+            ErrorCode.SOURCE_UNAVAILABLE,
+            "network unavailable",
+            retry_recommended=True,
+            status_code=503,
+        )
+
+    monkeypatch.setattr(source, "_fetch_html", fake_fetch_html)
+
+    response = asyncio.run(source.get_officers("1351"))
+
+    assert response.metadata.source_name == OFFICERS_SOURCE_NAME
+    assert response.metadata.source_status == "unavailable"
+    assert response.officers == []
+    assert any("OFFICERS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
 
 
 def test_api_officers_endpoint_returns_placeholder_payload():
