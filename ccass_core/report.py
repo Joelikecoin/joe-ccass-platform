@@ -108,6 +108,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.capital_information_caption": "Capital structure facts are grouped here when available.",
         "ui.capital_information_rows_label": "Capital information rows",
         "ui.capital_information_sorting_note": "Rows will be ordered by label when live data is available.",
+        "ui.capital_information_source_ready": "Capital information source is connected.",
         "ui.capital_information_source_pending": "Capital information source is pending; the read path is wired but no live source is connected yet.",
         "ui.capital_information_empty": "No capital information rows are available in the current result.",
         "ui.capital_information_unavailable": "Capital information data is unavailable in the current fetch result.",
@@ -176,6 +177,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_stock_events_ready": "Stock event surface is available from {source_name}.",
         "ui.full_summary_note_stock_events_pending": "Stock event surface is present but the source is still pending.",
         "ui.full_summary_note_capital_information": "Capital information surface is unavailable in the current result.",
+        "ui.full_summary_note_capital_information_ready": "Capital information surface is available from {source_name}.",
         "ui.full_summary_note_capital_information_pending": "Capital information surface is present but the source is still pending.",
         "ui.full_summary_note_officers": "Officer surface is unavailable in the current result.",
         "ui.full_summary_note_officers_pending": "Officer surface is present but the source is still pending.",
@@ -474,6 +476,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.capital_information_caption": "如有可用，資本結構事實會在此分組顯示。",
         "ui.capital_information_rows_label": "資本資料列表",
         "ui.capital_information_sorting_note": "當正式資料可用時，列會按標題排序。",
+        "ui.capital_information_source_ready": "資本資料來源已接通。",
         "ui.capital_information_source_pending": "資本資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
         "ui.capital_information_empty": "目前結果沒有可用的資本資料列。",
         "ui.capital_information_unavailable": "目前的抓取結果沒有資本資料。",
@@ -613,6 +616,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_stock_events_ready": "股份事件表面已由 {source_name} 提供。",
         "ui.full_summary_note_stock_events_pending": "股份事件表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_capital_information": "目前結果沒有可用的資本資料表面。",
+        "ui.full_summary_note_capital_information_ready": "資本資料表面已由 {source_name} 提供。",
         "ui.full_summary_note_capital_information_pending": "資本資料表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
         "ui.full_summary_note_officers_pending": "高管表面已就位，但資料來源仍在等待接通。",
@@ -1214,15 +1218,26 @@ def _capital_information_section(
         ]
 
     metadata = capital_information.metadata
+    source_status = getattr(metadata, "source_status", "pending")
+    if source_status == "ready":
+        source_note = translate_text(locale, "ui.capital_information_source_ready")
+    elif source_status == "pending":
+        source_note = translate_text(locale, "ui.capital_information_source_pending")
+    else:
+        source_note = translate_text(locale, "ui.capital_information_unavailable")
+
     lines = [
         translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
         translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
         translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
         f"{translate_text(locale, 'ui.capital_information_rows_label')}: {metadata.capital_information_count}",
-        translate_text(locale, "ui.capital_information_source_pending"),
+        source_note,
         translate_text(locale, "ui.capital_information_sorting_note"),
         "",
     ]
+    if source_status == "unavailable" and not capital_information.capital_information:
+        lines.extend([translate_text(locale, "ui.capital_information_unavailable"), ""])
+        return lines
     if not capital_information.capital_information:
         lines.extend([translate_text(locale, "ui.capital_information_empty"), ""])
         return lines

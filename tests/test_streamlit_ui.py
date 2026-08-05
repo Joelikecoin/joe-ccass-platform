@@ -107,6 +107,16 @@ class EmptyStockEventsService:
         return self.response
 
 
+class EmptyCapitalInformationService:
+    def __init__(self, response: CapitalInformationResponse):
+        self.response = response
+        self.calls = []
+
+    async def get_capital_information(self, code):
+        self.calls.append(code)
+        return self.response
+
+
 def _empty_announcements_response() -> AnnouncementsResponse:
     return AnnouncementsResponse(
         metadata=AnnouncementsMetadata(
@@ -181,6 +191,16 @@ def _capital_information_response() -> CapitalInformationResponse:
             "SOURCE_STATUS:CAPITAL_INFORMATION_SOURCE_PENDING: Capital information source is pending approval; placeholder read path only.",
         ],
     )
+
+
+@pytest.fixture(autouse=True)
+def _mock_company_information_services(monkeypatch):
+    import app.streamlit_ui as streamlit_ui
+
+    stock_events_service = EmptyStockEventsService(_stock_events_response())
+    capital_information_service = EmptyCapitalInformationService(_capital_information_response())
+    monkeypatch.setattr(streamlit_ui, "get_stock_events_service", lambda: stock_events_service)
+    monkeypatch.setattr(streamlit_ui, "get_capital_information_service", lambda: capital_information_service)
 
 
 def _ready_officers_response() -> OfficersResponse:
