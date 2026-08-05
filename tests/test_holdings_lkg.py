@@ -262,7 +262,7 @@ async def test_collector_records_stale_lkg_without_rewriting_snapshot_or_csv_dat
         csv_output_path=output,
         source_mode="webbsite",
     )
-    settings = _settings()
+    settings = _settings(holdings_lkg_max_age_seconds=30 * 24 * 60 * 60)
 
     await collect_watchlist(config, settings=settings)
     collected, failures = await collect_watchlist(config, settings=settings)
