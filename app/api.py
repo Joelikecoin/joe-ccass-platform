@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app import __version__
+from app.data_quality import structured_warning
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
 from app.models import (
@@ -15,6 +16,7 @@ from app.models import (
     ConcentrationResponse,
     OfficersResponse,
     PriceHistoryResponse,
+    StockEventsResponse,
 )
 from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
@@ -24,6 +26,7 @@ from app.services.changes import ChangesService, get_changes_service
 from app.services.concentration import ConcentrationService, get_concentration_service
 from app.services.officers import OfficersService, get_officers_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
+from app.services.stock_events import StockEventsService, get_stock_events_service
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.ai_read_model import AIReadModelV0_1
 from ccass_core.changes_report import build_changes_markdown_report
@@ -262,6 +265,19 @@ async def get_stock_officers(
 
 
 @app.get(
+    "/api/v1/stocks/{stock_code}/stock-events",
+    response_model=StockEventsResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["stock-events"],
+)
+async def get_stock_events(
+    stock_code: str,
+    service: StockEventsService = Depends(get_stock_events_service),
+) -> StockEventsResponse:
+    return await service.get_stock_events(stock_code)
+
+
+@app.get(
     "/api/v1/ccass/{code}",
     response_model=CcassResponse,
     dependencies=[Depends(verify_api_key)],
@@ -299,6 +315,7 @@ async def get_ccass_stock_report(
     holdings_limit: int = Query(default=20, ge=1, le=100),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     announcements_service: AnnouncementsService = Depends(get_announcements_service),
+    stock_events_service: StockEventsService = Depends(get_stock_events_service),
     officers_service: OfficersService = Depends(get_officers_service),
     service: CcassService = Depends(get_ccass_service),
 ) -> PlainTextResponse:
@@ -314,6 +331,29 @@ async def get_ccass_stock_report(
         announcements = await announcements_service.get_announcements(normalized)
     except PlatformError:
         announcements = None
+    stock_events = None
+    try:
+        stock_events = await stock_events_service.get_stock_events(normalized)
+    except PlatformError as exc:
+        stock_events = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "STOCK_EVENTS_UNAVAILABLE",
+                f"Stock events are unavailable ({exc.code}: {exc.message}).",
+            )
+        )
+    except Exception as exc:
+        stock_events = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "STOCK_EVENTS_UNAVAILABLE",
+                f"Stock events are unavailable ({type(exc).__name__}).",
+            )
+        )
+    else:
+        response.data_quality_warnings.extend(stock_events.data_quality_warnings)
     officers = None
     try:
         officers = await officers_service.get_officers(normalized)
@@ -326,6 +366,7 @@ async def get_ccass_stock_report(
         code=normalized,
         analysis=analysis,
         announcements=announcements,
+        stock_events=stock_events,
         officers=officers,
     )
     return PlainTextResponse(report, media_type="text/markdown; charset=utf-8")

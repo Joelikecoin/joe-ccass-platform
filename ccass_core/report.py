@@ -6,7 +6,13 @@ import warnings
 from collections.abc import Sequence
 
 from app.data_quality import parse_warning
-from app.models import AnnouncementsResponse, CcassResponse, OfficersResponse, PriceHistoryResponse
+from app.models import (
+    AnnouncementsResponse,
+    CcassResponse,
+    OfficersResponse,
+    PriceHistoryResponse,
+    StockEventsResponse,
+)
 from ccass_core.compute import AnalysisResult, HoldingChange
 
 DEFAULT_LOCALE = "zh_HK"
@@ -91,6 +97,10 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.hkex_announcements_unavailable": "Announcement data is unavailable in the current fetch result.",
         "ui.stock_events_heading": "Stock Events",
         "ui.stock_events_caption": "Objective event records are grouped here when available.",
+        "ui.stock_events_rows_label": "Stock event rows",
+        "ui.stock_events_sorting_note": "Rows will be ordered by event date, newest first, when live data is available.",
+        "ui.stock_events_source_pending": "Stock events source is pending; the read path is wired but no live source is connected yet.",
+        "ui.stock_events_empty": "No stock event rows are available in the current result.",
         "ui.stock_events_unavailable": "Stock event data is unavailable in the current fetch result.",
         "ui.officers_heading": "Officers",
         "ui.officers_caption": "Officer information is grouped here when available.",
@@ -117,6 +127,12 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.hkex_announcements_table_title": "Title",
         "ui.hkex_announcements_table_source": "Source",
         "ui.hkex_announcements_table_link": "Link",
+        "ui.stock_events_table_event_date": "Event date",
+        "ui.stock_events_table_title": "Title",
+        "ui.stock_events_table_type": "Type",
+        "ui.stock_events_table_source": "Source",
+        "ui.stock_events_table_link": "Link",
+        "ui.stock_events_table_details": "Details",
         "report.link_label": "Link",
         "ui.report_navigation_heading": "Report Navigation",
         "ui.report_navigation_caption": "Jump links follow the rendered report sections below.",
@@ -140,6 +156,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements": "Announcement surface is unavailable in the current result.",
         "ui.full_summary_note_announcements_available": "{announcement_count} announcement rows are available.",
         "ui.full_summary_note_stock_events": "Stock event surface is unavailable in the current result.",
+        "ui.full_summary_note_stock_events_pending": "Stock event surface is present but the source is still pending.",
         "ui.full_summary_note_officers": "Officer surface is unavailable in the current result.",
         "ui.full_summary_note_officers_pending": "Officer surface is present but the source is still pending.",
         "ui.full_summary_note_holdings": "{participant_count} participant rows.",
@@ -424,6 +441,10 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.hkex_announcements_unavailable": "目前的抓取結果沒有公告資料。",
         "ui.stock_events_heading": "股份事件",
         "ui.stock_events_caption": "如有可用，客觀事件紀錄會在此分組顯示。",
+        "ui.stock_events_rows_label": "股份事件列表",
+        "ui.stock_events_sorting_note": "當正式資料可用時，列會按事件日期由新到舊排序。",
+        "ui.stock_events_source_pending": "股份事件資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
+        "ui.stock_events_empty": "目前結果沒有可用的股份事件列。",
         "ui.stock_events_unavailable": "目前的抓取結果沒有股份事件資料。",
         "ui.officers_heading": "高管資料",
         "ui.officers_caption": "如有可用，高管資訊會在此分組顯示。",
@@ -450,6 +471,12 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.hkex_announcements_table_title": "標題",
         "ui.hkex_announcements_table_source": "來源",
         "ui.hkex_announcements_table_link": "連結",
+        "ui.stock_events_table_event_date": "事件日期",
+        "ui.stock_events_table_title": "標題",
+        "ui.stock_events_table_type": "類型",
+        "ui.stock_events_table_source": "來源",
+        "ui.stock_events_table_link": "連結",
+        "ui.stock_events_table_details": "詳情",
         "report.link_label": "連結",
         "ui.report_navigation_heading": "報告導航",
         "ui.report_navigation_caption": "以下連結對應已渲染的報告章節。",
@@ -544,6 +571,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements": "目前結果沒有可用的公告表面。",
         "ui.full_summary_note_announcements_available": "目前有 {announcement_count} 條公告可用。",
         "ui.full_summary_note_stock_events": "目前結果沒有可用的股份事件表面。",
+        "ui.full_summary_note_stock_events_pending": "股份事件表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
         "ui.full_summary_note_officers_pending": "高管表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_holdings": "{participant_count} ???????",
@@ -739,6 +767,7 @@ def build_markdown_report(
     fetch_error: str | None = None,
     history_snapshots: Sequence[CcassResponse] | None = None,
     announcements: AnnouncementsResponse | None = None,
+    stock_events: StockEventsResponse | None = None,
     officers: OfficersResponse | None = None,
     price_history: PriceHistoryResponse | None = None,
     locale: str = DEFAULT_LOCALE,
@@ -781,7 +810,7 @@ def build_markdown_report(
             "",
         ]
     )
-    lines.extend(_company_information_section(announcements, officers, locale))
+    lines.extend(_company_information_section(announcements, stock_events, officers, locale))
     lines.extend(
         [
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
@@ -1001,6 +1030,7 @@ def _concentration_history_section(
 
 def _company_information_section(
     announcements: AnnouncementsResponse | None,
+    stock_events: StockEventsResponse | None,
     officers: OfficersResponse | None,
     locale: str,
 ) -> list[str]:
@@ -1010,8 +1040,7 @@ def _company_information_section(
         f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
         translate_text(locale, "report.section.stock_events"),
         "",
-        translate_text(locale, "ui.stock_events_unavailable"),
-        "",
+        *_stock_events_section(stock_events, locale),
         *_officers_section(officers, locale),
     ]
 
@@ -1059,6 +1088,49 @@ def _announcements_section(
         )
         lines.append(
             f"| {_text(row.announcement_date, locale)} | {_escape(row.title)} | {_escape(row.source)} | {link} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _stock_events_section(
+    stock_events: StockEventsResponse | None,
+    locale: str,
+) -> list[str]:
+    if stock_events is None:
+        return [
+            translate_text(locale, "ui.stock_events_unavailable"),
+            "",
+        ]
+
+    metadata = stock_events.metadata
+    lines = [
+        translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+        translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
+        translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
+        f"{translate_text(locale, 'ui.stock_events_rows_label')}: {metadata.stock_events_count}",
+        translate_text(locale, "ui.stock_events_source_pending"),
+        translate_text(locale, "ui.stock_events_sorting_note"),
+        "",
+    ]
+    if not stock_events.stock_events:
+        lines.extend([translate_text(locale, "ui.stock_events_empty"), ""])
+        return lines
+
+    lines.extend(
+        [
+            f"| {translate_text(locale, 'ui.stock_events_table_event_date')} | {translate_text(locale, 'ui.stock_events_table_title')} | {translate_text(locale, 'ui.stock_events_table_type')} | {translate_text(locale, 'ui.stock_events_table_source')} | {translate_text(locale, 'ui.stock_events_table_link')} | {translate_text(locale, 'ui.stock_events_table_details')} |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for row in stock_events.stock_events:
+        link = (
+            f"[{translate_text(locale, 'report.link_label')}]({row.link})"
+            if row.link
+            else translate_text(locale, "report.data_not_available")
+        )
+        lines.append(
+            f"| {_text(row.event_date, locale)} | {_escape(row.title)} | {_escape(row.event_type or translate_text(locale, 'report.data_not_available'))} | {_escape(row.source)} | {link} | {_escape(row.details or translate_text(locale, 'report.data_not_available'))} |"
         )
     lines.append("")
     return lines

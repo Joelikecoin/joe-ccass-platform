@@ -20,6 +20,7 @@ from app.services.announcements import get_announcements_service
 from app.services.ccass import get_ccass_service
 from app.services.officers import get_officers_service
 from app.services.price_history import get_price_history_service
+from app.services.stock_events import get_stock_events_service
 
 mcp = FastMCP("Joe CCASS Platform")
 
@@ -70,6 +71,17 @@ async def get_officers(code: str) -> dict:
     boundary is awaiting a confirmed live data path.
     """
     result = await get_officers_service().get_officers(code)
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_stock_events(code: str) -> dict:
+    """Return stock event data for a Hong Kong stock code.
+
+    The current build exposes a placeholder stock-events slice while the source
+    boundary is awaiting a confirmed live data path.
+    """
+    result = await get_stock_events_service().get_stock_events(code)
     return result.model_dump(mode="json")
 
 

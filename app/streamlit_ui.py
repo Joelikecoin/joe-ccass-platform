@@ -16,9 +16,16 @@ from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
 from app.data_quality import structured_warning, warning_code
-from app.models import AnnouncementsResponse, CcassResponse, OfficersResponse, PriceHistoryResponse
+from app.models import (
+    AnnouncementsResponse,
+    CcassResponse,
+    OfficersResponse,
+    PriceHistoryResponse,
+    StockEventsResponse,
+)
 from app.services.announcements import get_announcements_service
 from app.services.officers import get_officers_service
+from app.services.stock_events import get_stock_events_service
 from app.services.price_history import get_price_history_service
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
@@ -105,6 +112,7 @@ class PreparedReport:
     response: CcassResponse | None
     analysis: AnalysisResult | None = None
     announcements: AnnouncementsResponse | None = None
+    stock_events: StockEventsResponse | None = None
     officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     fetch_error: str | None = None
@@ -181,6 +189,7 @@ async def prepare_report(
         )
         previous = None
     announcements: AnnouncementsResponse | None = None
+    stock_events: StockEventsResponse | None = None
     officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     if announcements_enabled:
@@ -206,6 +215,28 @@ async def prepare_report(
                     f"Announcements are unavailable ({type(exc).__name__}).",
                 )
             )
+    try:
+        stock_events = await get_stock_events_service().get_stock_events(code)
+    except PlatformError as exc:
+        stock_events = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "STOCK_EVENTS_UNAVAILABLE",
+                f"Stock events are unavailable ({exc.code}: {exc.message}).",
+            )
+        )
+    except Exception as exc:
+        stock_events = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "STOCK_EVENTS_UNAVAILABLE",
+                f"Stock events are unavailable ({type(exc).__name__}).",
+            )
+        )
+    else:
+        response.data_quality_warnings.extend(stock_events.data_quality_warnings)
     try:
         officers = await get_officers_service().get_officers(code)
     except PlatformError as exc:
@@ -265,6 +296,7 @@ async def prepare_report(
         analysis=analysis,
         history_snapshots=history_snapshots,
         announcements=announcements,
+        stock_events=stock_events,
         officers=officers,
         price_history=price_history,
         locale=locale,
@@ -278,6 +310,7 @@ async def prepare_report(
         response=response,
         analysis=analysis,
         announcements=announcements,
+        stock_events=stock_events,
         officers=officers,
         price_history=price_history,
     )
@@ -505,6 +538,7 @@ def build_full_summary_markdown(
     snapshot_count = len(tuple(history_snapshots or ())) + 1
     warning_count = len(response.data_quality_warnings)
     announcements = prepared.announcements
+    stock_events = prepared.stock_events
     officers = prepared.officers
 
     def section_label(key: str) -> str:
@@ -542,8 +576,16 @@ def build_full_summary_markdown(
         ),
         (
             section_label("report.section.stock_events"),
-            ui_text(locale, "full_summary_status_unavailable"),
-            ui_text(locale, "full_summary_note_stock_events"),
+            ui_text(
+                locale,
+                "full_summary_status_available" if stock_events is not None else "full_summary_status_unavailable",
+            ),
+            ui_text(
+                locale,
+                "full_summary_note_stock_events_pending"
+                if stock_events is not None
+                else "full_summary_note_stock_events",
+            ),
         ),
         (
             section_label("report.section.officers"),
@@ -1113,6 +1155,7 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             code=prepared.code,
             analysis=prepared.analysis,
             announcements=prepared.announcements,
+            stock_events=prepared.stock_events,
             price_history=prepared.price_history,
             locale=locale,
         )

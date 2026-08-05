@@ -22,6 +22,8 @@ from app.models import (
     PriceHistoryResponse,
     PriceHistoryRow,
     SourceMetadata,
+    StockEventsMetadata,
+    StockEventsResponse,
 )
 from app.streamlit_ui import (
     DEFAULT_LOCALE,
@@ -125,6 +127,25 @@ def _sample_announcements_response() -> AnnouncementsResponse:
             )
         ],
         data_quality_warnings=[],
+    )
+
+
+def _stock_events_response() -> StockEventsResponse:
+    return StockEventsResponse(
+        metadata=StockEventsMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name="Stock events source pending",
+            source_url=None,
+            fetched_at=datetime(2026, 7, 21, 9, 15, tzinfo=UTC),
+            data_as_of=None,
+            stock_events_count=0,
+            source_status="pending",
+        ),
+        stock_events=[],
+        data_quality_warnings=[
+            "SOURCE_STATUS:STOCK_EVENTS_SOURCE_PENDING: Stock events source is pending approval; placeholder read path only.",
+        ],
     )
 
 
@@ -426,7 +447,7 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.stock_events') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.officers') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_unavailable') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_source_pending') in block.value for block in app.markdown)
     assert any("Officers source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
@@ -491,6 +512,7 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
     assert any("Officers source is pending approval" in block.value for block in app.warning)
+    assert any("Stock events source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
 
@@ -522,6 +544,7 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
         response=current_response,
         analysis=AnalysisResult(previous_available=True),
         announcements=_sample_announcements_response(),
+        stock_events=_stock_events_response(),
     )
 
     markdown = build_full_summary_markdown(
@@ -544,7 +567,7 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     )
     assert company_index < fetch_index
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_announcements_available', announcement_count=1) in markdown
-    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_stock_events') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_stock_events_pending') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_officers') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown

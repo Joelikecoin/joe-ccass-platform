@@ -266,6 +266,32 @@ class AnnouncementsResponse(BaseModel):
     data_quality_warnings: list[str] = Field(default_factory=list)
 
 
+class StockEventRow(BaseModel):
+    event_date: date
+    title: str
+    event_type: str | None = None
+    source: str
+    link: str | None = None
+    details: str | None = None
+
+
+class StockEventsMetadata(BaseModel):
+    code: str
+    name: str | None = None
+    source_name: str
+    source_url: str | None = None
+    fetched_at: datetime
+    data_as_of: date | None = None
+    stock_events_count: int = 0
+    source_status: Literal["ready", "pending", "unavailable"] = "pending"
+
+
+class StockEventsResponse(BaseModel):
+    metadata: StockEventsMetadata
+    stock_events: list[StockEventRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
 class OfficerRow(BaseModel):
     name: str
     positions: list[str] = Field(default_factory=list)
