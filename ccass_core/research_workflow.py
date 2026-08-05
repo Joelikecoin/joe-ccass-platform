@@ -5,7 +5,21 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
-from ccass_core.research_context import ResearchContextPackage
+from app.models import (
+    AnnouncementsResponse,
+    CapitalInformationResponse,
+    CcassResponse,
+    OfficersResponse,
+    PriceHistoryResponse,
+    StockEventsResponse,
+)
+from ccass_core.ai_read_model import build_ai_read_model_v0_1
+from ccass_core.compute import AnalysisResult
+from ccass_core.research_context import (
+    RESEARCH_CONTEXT_SURFACE as RESEARCH_CONTEXT_PACKAGE_SURFACE,
+    ResearchContextPackage,
+    build_research_context_package,
+)
 from ccass_core.research_context_consumer import (
     ResearchContextConsumerView,
     build_research_context_consumer_view,
@@ -126,6 +140,52 @@ def mark_research_workflow_ready(workflow: ResearchWorkflowSession) -> ResearchW
             ),
         },
     )
+
+
+def build_research_workflow_session_from_result(
+    *,
+    code: str,
+    response: CcassResponse | None,
+    analysis: AnalysisResult | None = None,
+    previous_response: CcassResponse | None = None,
+    snapshot_id: int | None = None,
+    previous_snapshot_id: int | None = None,
+    announcements: AnnouncementsResponse | None = None,
+    stock_events: StockEventsResponse | None = None,
+    capital_information: CapitalInformationResponse | None = None,
+    officers: OfficersResponse | None = None,
+    price_history: PriceHistoryResponse | None = None,
+    session_id: str | None = None,
+    surface: str = RESEARCH_WORKFLOW_SURFACE,
+    research_context_surface: str = RESEARCH_CONTEXT_PACKAGE_SURFACE,
+) -> ResearchWorkflowSession:
+    workflow = create_research_workflow_session(
+        stock_code=code,
+        session_id=session_id,
+        surface=surface,
+    )
+    if response is None:
+        return workflow
+
+    ai_read_model = build_ai_read_model_v0_1(
+        code=code,
+        response=response,
+        surface=research_context_surface,
+        analysis=analysis,
+        previous_response=previous_response,
+        snapshot_id=snapshot_id,
+        previous_snapshot_id=previous_snapshot_id,
+        announcements=announcements,
+        price_history=price_history,
+    )
+    research_context_package = build_research_context_package(
+        ai_read_model=ai_read_model,
+        stock_events=stock_events,
+        officers=officers,
+        capital_information=capital_information,
+    )
+    loaded = load_research_context_into_workflow(workflow, research_context_package)
+    return mark_research_workflow_ready(loaded)
 
 
 def _default_session_id(stock_code: str) -> str:

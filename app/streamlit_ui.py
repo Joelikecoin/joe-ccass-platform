@@ -46,6 +46,8 @@ from ccass_core.report import (
     report_section_headings,
     translate_text,
 )
+from ccass_core.research_workflow import ResearchWorkflowSession, build_research_workflow_session_from_result
+from ccass_core.research_workflow_presentation import build_research_workflow_summary_markdown
 
 NAV_SECTION_KEYS = (
     "full_summary",
@@ -120,6 +122,7 @@ class PreparedReport:
     capital_information: CapitalInformationResponse | None = None
     officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
+    workflow: ResearchWorkflowSession | None = None
     fetch_error: str | None = None
 
 
@@ -163,6 +166,11 @@ async def prepare_report(
     progress: Callable[[int, str], None] | None = None,
 ) -> PreparedReport:
     code = normalize_stock_code(raw_code)
+    workflow = build_research_workflow_session_from_result(
+        code=code,
+        response=None,
+        session_id=None,
+    )
     _progress(progress, 15, ui_text(locale, "progress_validated_stock_code"))
     try:
         _progress(progress, 30, ui_text(locale, "progress_fetching_source"))
@@ -178,6 +186,7 @@ async def prepare_report(
             chatgpt_payload=build_chatgpt_copy_payload(markdown),
             filename=report_filename(code),
             response=None,
+            workflow=workflow,
             fetch_error=error,
         )
 
@@ -317,6 +326,18 @@ async def prepare_report(
         previous=previous,
         big_change_threshold=big_change_threshold,
     )
+    workflow = build_research_workflow_session_from_result(
+        code=code,
+        response=response,
+        analysis=analysis,
+        previous_response=previous,
+        announcements=announcements,
+        stock_events=stock_events,
+        capital_information=capital_information,
+        officers=officers,
+        price_history=price_history,
+        session_id=workflow.metadata.session_id,
+    )
     _progress(progress, 85, ui_text(locale, "progress_rendering_report"))
     markdown = build_markdown_report(
         response,
@@ -328,6 +349,7 @@ async def prepare_report(
         capital_information=capital_information,
         officers=officers,
         price_history=price_history,
+        research_workflow=workflow,
         locale=locale,
     )
     _progress(progress, 100, ui_text(locale, "progress_ready"))
@@ -343,6 +365,7 @@ async def prepare_report(
         capital_information=capital_information,
         officers=officers,
         price_history=price_history,
+        workflow=workflow,
     )
 
 
@@ -1238,6 +1261,7 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             None,
             code=prepared.code,
             fetch_error=prepared.fetch_error,
+            research_workflow=prepared.workflow,
             locale=locale,
         )
     else:
@@ -1249,6 +1273,7 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             stock_events=prepared.stock_events,
             capital_information=prepared.capital_information,
             price_history=prepared.price_history,
+            research_workflow=prepared.workflow,
             locale=locale,
         )
     return markdown, build_chatgpt_copy_payload(markdown)

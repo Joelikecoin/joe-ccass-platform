@@ -787,6 +787,36 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
     assert len(service.calls) == 1
 
 
+def test_streamlit_research_workflow_summary_renders(monkeypatch, current_response):
+    import app.services.ccass as ccass_service
+
+    service = SuccessfulService(current_response)
+    monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app.text_input[0].input('1592')
+    app.button[0].click().run(timeout=10)
+
+    assert not app.exception
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_heading') in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_state_ready') in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_context_available') in block.value
+        for block in app.markdown
+    )
+    assert any(
+        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_warnings_summary') in block.value
+        for block in app.markdown
+    )
+    assert len(service.calls) == 1
+
+
 def test_streamlit_m008_overviews_render_data_confidence_and_report_flow(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 
