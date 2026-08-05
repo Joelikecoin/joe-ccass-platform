@@ -201,6 +201,10 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_data_quality_warnings": "{warning_count} data quality warning(s).",
         "ui.related_context_heading": "Related context",
         "ui.related_context_caption": "Use the linked surfaces to move between adjacent report sections.",
+        "ui.related_context_company": "Company context",
+        "ui.related_context_movement": "Movement context",
+        "ui.related_context_history": "Historical context",
+        "ui.related_context_operations": "Operational context",
         "ui.all_parsed_tables_heading": "Full Report Detail",
         "ui.all_parsed_tables_caption": "The rendered report sections below follow the approved detail hierarchy.",
         "ui.chart_help_cross_check_title": "Cross-check guidance",
@@ -640,6 +644,10 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_data_quality_warnings": "{warning_count} 項資料質量警告。",
         "ui.related_context_heading": "關聯脈絡",
         "ui.related_context_caption": "可使用下列連結在相鄰的報告區段之間切換。",
+        "ui.related_context_company": "公司脈絡",
+        "ui.related_context_movement": "持股變動脈絡",
+        "ui.related_context_history": "歷史脈絡",
+        "ui.related_context_operations": "營運脈絡",
         "ui.all_parsed_tables_heading": "完整報告詳情",
         "ui.all_parsed_tables_caption": "以下已渲染的報告章節依照已核准的詳情階層排列。",
         "nav.fetch_summary": "????",
@@ -825,20 +833,54 @@ def section_related_context_markdown(locale: str, section_key: str) -> str:
 
 
 def cross_surface_context_markdown(locale: str) -> str:
-    clusters = (
-        ("holdings", ("changes", "big_changes", "concentration")),
-        ("company", ("announcements", "stock_events", "capital_information", "officers")),
-        ("concentration_history", ("price_history",)),
+    def group_line(label_key: str, items: tuple[tuple[str, str], ...]) -> str:
+        links = " · ".join(f"[{label}](#{anchor_key})" for label, anchor_key in items)
+        return f"{translate_text(locale, label_key)}: {links}"
+
+    groups = (
+        group_line(
+            "ui.related_context_company",
+            tuple(
+                (
+                    translate_text(locale, f"report.section.{key}").removeprefix("## "),
+                    localized_report_anchor(key),
+                )
+                for key in ("announcements", "stock_events", "capital_information", "officers")
+            ),
+        ),
+        group_line(
+            "ui.related_context_movement",
+            tuple(
+                (
+                    translate_text(locale, f"report.section.{key}").removeprefix("## "),
+                    localized_report_anchor(key),
+                )
+                for key in ("holdings", "changes", "big_changes", "concentration")
+            ),
+        ),
+        group_line(
+            "ui.related_context_history",
+            tuple(
+                (
+                    translate_text(locale, f"report.section.{key}").removeprefix("## "),
+                    localized_report_anchor(key),
+                )
+                for key in ("concentration_history", "price_history")
+            ),
+        ),
+        group_line(
+            "ui.related_context_operations",
+            (
+                (translate_text(locale, "report.section.metadata").removeprefix("## "), localized_report_anchor("metadata")),
+                (translate_text(locale, "report.section.fetch_summary").removeprefix("## "), localized_report_anchor("fetch_summary")),
+                (translate_text(locale, "report.section.data_quality_warnings").removeprefix("## "), localized_report_anchor("data_quality_warnings")),
+                (translate_text(locale, "ui.raw_previews_heading"), localized_report_anchor("raw_previews")),
+                (translate_text(locale, "ui.copy_for_chatgpt"), localized_report_anchor("copy_for_chatgpt")),
+                (translate_text(locale, "ui.downloads_heading"), localized_report_anchor("downloads")),
+            ),
+        ),
     )
-    parts: list[str] = []
-    for anchor_key, related_keys in clusters:
-        group_keys = (anchor_key, *related_keys)
-        links = " ↔ ".join(
-            f"[{translate_text(locale, f'report.section.{key}').removeprefix('## ')}](#{localized_report_anchor(key)})"
-            for key in group_keys
-        )
-        parts.append(links)
-    return f"{translate_text(locale, 'ui.related_context_caption')} " + " ; ".join(parts)
+    return f"{translate_text(locale, 'ui.related_context_caption')} " + " ; ".join(groups)
 
 
 def _related_sections_for(section_key: str) -> tuple[str, ...]:
@@ -897,6 +939,8 @@ def build_markdown_report(
             translate_text(locale, "report.section.analysis_ready_summary"),
             "",
             _analysis_summary(response, computed, locale),
+            "",
+            cross_surface_context_markdown(locale),
             "",
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[1])}'></a>",
             translate_text(locale, "report.section.company"),

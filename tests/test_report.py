@@ -135,14 +135,23 @@ def test_report_includes_related_context_hints(current_response, previous_respon
     report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
 
     assert translate_text(DEFAULT_LOCALE, "ui.related_context_caption") in report
-    assert "(#changes)" in report
-    assert "(#big-changes)" in report
-    assert "(#concentration-history)" in report
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_company") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_movement") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_history") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_operations") in report
     assert "(#announcements)" in report
     assert "(#stock-events)" in report
     assert "(#capital-information)" in report
     assert "(#officers)" in report
+    assert "(#holdings)" in report
+    assert "(#changes)" in report
+    assert "(#big-changes)" in report
+    assert "(#concentration)" in report
+    assert "(#concentration-history)" in report
     assert "(#price-history)" in report
+    assert "(#metadata)" in report
+    assert "(#fetch-summary)" in report
+    assert "(#data-quality-warnings)" in report
 
 
 def test_report_includes_announcements_surface_when_available(current_response, previous_response):
