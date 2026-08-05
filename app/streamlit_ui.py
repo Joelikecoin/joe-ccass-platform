@@ -689,6 +689,17 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
     )
 
 
+def build_report_action_strip(*, locale: str = DEFAULT_LOCALE) -> str:
+    return " | ".join(
+        [
+            f"[{ui_text(locale, 'copy_for_chatgpt')}](#{localized_report_anchor('copy_for_chatgpt')})",
+            f"[{ui_text(locale, 'copy_report')}](#{localized_report_anchor('copy_for_chatgpt')})",
+            f"[{ui_text(locale, 'raw_previews_heading')}](#{localized_report_anchor('raw_previews')})",
+            f"[{ui_text(locale, 'raw_markdown')}](#{localized_report_anchor('raw_markdown')})",
+        ]
+    )
+
+
 def _display_text(value: object | None, locale: str) -> str:
     if value is None or value == "":
         return translate_text(locale, "report.data_not_available")

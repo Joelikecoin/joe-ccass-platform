@@ -19,6 +19,7 @@ from app.streamlit_ui import (
     build_data_confidence_markdown,
     build_full_summary_markdown,
     build_raw_preview_tables,
+    build_report_action_strip,
     build_report_flow_markdown,
     copy_button_html,
     prepare_report,
@@ -516,6 +517,7 @@ if prepared is not None:
         else:
             st.markdown(f"### {ui_text(current_locale, 'report_details_heading')}")
             st.caption(ui_text(current_locale, "report_details_caption"))
+            st.markdown(build_report_action_strip(locale=current_locale))
             st.markdown(f"### {ui_text(current_locale, 'report_flow_heading')}")
             st.caption(ui_text(current_locale, 'report_flow_caption'))
             st.markdown(build_report_flow_markdown(locale=current_locale))
@@ -645,6 +647,7 @@ if prepared is not None:
         )
 
         with st.expander(ui_text(current_locale, "raw_markdown"), expanded=False):
+            st.markdown(f"<a id='{localized_report_anchor('raw_markdown')}'></a>", unsafe_allow_html=True)
             st.code(localized_markdown, language="markdown")
 
     _render_fallback_warning(caught)

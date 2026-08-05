@@ -31,6 +31,7 @@ from app.streamlit_ui import (
     build_data_confidence_markdown,
     build_full_summary_markdown,
     build_raw_preview_tables,
+    build_report_action_strip,
     build_report_flow_markdown,
     PreparedReport,
     copy_button_html,
@@ -580,6 +581,18 @@ def test_build_report_flow_markdown_renders_visible_and_collapsed_groups():
     assert translate_text(DEFAULT_LOCALE, 'report.section.analysis_ready_summary').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.price_history').removeprefix('## ') in markdown
+
+
+def test_build_report_action_strip_exposes_copy_preview_and_raw_markdown_links():
+    strip = build_report_action_strip(locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, 'ui.copy_for_chatgpt') in strip
+    assert translate_text(DEFAULT_LOCALE, 'ui.copy_report') in strip
+    assert translate_text(DEFAULT_LOCALE, 'ui.raw_previews_heading') in strip
+    assert translate_text(DEFAULT_LOCALE, 'ui.raw_markdown') in strip
+    assert '#copy-for-chatgpt' in strip
+    assert '#raw-previews' in strip
+    assert '#raw-markdown' in strip
 
 
 
