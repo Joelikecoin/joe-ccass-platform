@@ -6,7 +6,7 @@ import warnings
 from collections.abc import Sequence
 
 from app.data_quality import parse_warning
-from app.models import AnnouncementsResponse, CcassResponse, PriceHistoryResponse
+from app.models import AnnouncementsResponse, CcassResponse, OfficersResponse, PriceHistoryResponse
 from ccass_core.compute import AnalysisResult, HoldingChange
 
 DEFAULT_LOCALE = "zh_HK"
@@ -95,6 +95,20 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.officers_heading": "Officers",
         "ui.officers_caption": "Officer information is grouped here when available.",
         "ui.officers_unavailable": "Officer data is unavailable in the current fetch result.",
+        "ui.officers_source_pending": "Officers source is pending; the read path is wired but no live source is connected yet.",
+        "ui.officers_empty": "No officer rows are available in the current result.",
+        "ui.officers_rows_label": "Officer rows",
+        "ui.officers_sorting_note": "Rows will be ordered by current status and tenure dates when live data is available.",
+        "ui.officers_table_name": "Name",
+        "ui.officers_table_positions": "Positions",
+        "ui.officers_table_tenure_from": "Tenure from",
+        "ui.officers_table_tenure_to": "Tenure to",
+        "ui.officers_table_is_current": "Current",
+        "ui.officers_table_sex": "Sex",
+        "ui.officers_table_age": "Age",
+        "ui.officers_table_education": "Education",
+        "ui.officers_table_salary": "Salary",
+        "ui.officers_table_biography": "Biography",
         "ui.hkex_announcements_export_heading": "Export labels",
         "ui.hkex_announcements_export_note": "Export-related labels remain available even when announcement rows are empty.",
         "ui.hkex_announcements_export_csv_label": "CSV export",
@@ -127,6 +141,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements_available": "{announcement_count} announcement rows are available.",
         "ui.full_summary_note_stock_events": "Stock event surface is unavailable in the current result.",
         "ui.full_summary_note_officers": "Officer surface is unavailable in the current result.",
+        "ui.full_summary_note_officers_pending": "Officer surface is present but the source is still pending.",
         "ui.full_summary_note_holdings": "{participant_count} participant rows.",
         "ui.full_summary_note_changes_available": "Previous snapshot is available.",
         "ui.full_summary_note_changes_unavailable": "Previous snapshot is unavailable.",
@@ -413,6 +428,20 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.officers_heading": "高管資料",
         "ui.officers_caption": "如有可用，高管資訊會在此分組顯示。",
         "ui.officers_unavailable": "目前的抓取結果沒有高管資料。",
+        "ui.officers_source_pending": "高管資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
+        "ui.officers_empty": "目前結果沒有可用的高管列。",
+        "ui.officers_rows_label": "高管列表",
+        "ui.officers_sorting_note": "正式資料可用時，列會依現任狀態與任期日期排序。",
+        "ui.officers_table_name": "姓名",
+        "ui.officers_table_positions": "職位",
+        "ui.officers_table_tenure_from": "任期開始",
+        "ui.officers_table_tenure_to": "任期結束",
+        "ui.officers_table_is_current": "現任",
+        "ui.officers_table_sex": "性別",
+        "ui.officers_table_age": "年齡",
+        "ui.officers_table_education": "學歷",
+        "ui.officers_table_salary": "薪酬",
+        "ui.officers_table_biography": "簡介",
         "ui.hkex_announcements_export_heading": "匯出標籤",
         "ui.hkex_announcements_export_note": "即使公告列為空，相關匯出標籤仍會保留。",
         "ui.hkex_announcements_export_csv_label": "CSV 匯出",
@@ -516,6 +545,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements_available": "目前有 {announcement_count} 條公告可用。",
         "ui.full_summary_note_stock_events": "目前結果沒有可用的股份事件表面。",
         "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
+        "ui.full_summary_note_officers_pending": "高管表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_holdings": "{participant_count} ???????",
         "ui.full_summary_note_changes_available": "?????????",
         "ui.full_summary_note_changes_unavailable": "?????????",
@@ -709,6 +739,7 @@ def build_markdown_report(
     fetch_error: str | None = None,
     history_snapshots: Sequence[CcassResponse] | None = None,
     announcements: AnnouncementsResponse | None = None,
+    officers: OfficersResponse | None = None,
     price_history: PriceHistoryResponse | None = None,
     locale: str = DEFAULT_LOCALE,
 ) -> str:
@@ -750,7 +781,7 @@ def build_markdown_report(
             "",
         ]
     )
-    lines.extend(_company_information_section(announcements, locale))
+    lines.extend(_company_information_section(announcements, officers, locale))
     lines.extend(
         [
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
@@ -970,6 +1001,7 @@ def _concentration_history_section(
 
 def _company_information_section(
     announcements: AnnouncementsResponse | None,
+    officers: OfficersResponse | None,
     locale: str,
 ) -> list[str]:
     return [
@@ -980,11 +1012,7 @@ def _company_information_section(
         "",
         translate_text(locale, "ui.stock_events_unavailable"),
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
-        translate_text(locale, "report.section.officers"),
-        "",
-        translate_text(locale, "ui.officers_unavailable"),
-        "",
+        *_officers_section(officers, locale),
     ]
 
 
@@ -1031,6 +1059,60 @@ def _announcements_section(
         )
         lines.append(
             f"| {_text(row.announcement_date, locale)} | {_escape(row.title)} | {_escape(row.source)} | {link} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _officers_section(
+    officers: OfficersResponse | None,
+    locale: str,
+) -> list[str]:
+    lines = [
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+        translate_text(locale, "report.section.officers"),
+        "",
+    ]
+    if officers is None:
+        lines.extend([translate_text(locale, "ui.officers_unavailable"), ""])
+        return lines
+
+    metadata = officers.metadata
+    lines.extend(
+        [
+            translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+            translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
+            translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
+            f"{translate_text(locale, 'ui.officers_rows_label')}: {metadata.officers_count}",
+            translate_text(locale, "ui.officers_source_pending"),
+            "",
+        ]
+    )
+    if not officers.officers:
+        lines.extend([translate_text(locale, "ui.officers_empty"), ""])
+        return lines
+
+    lines.extend(
+        [
+            f"| {translate_text(locale, 'ui.officers_table_name')} | {translate_text(locale, 'ui.officers_table_positions')} | {translate_text(locale, 'ui.officers_table_tenure_from')} | {translate_text(locale, 'ui.officers_table_tenure_to')} | {translate_text(locale, 'ui.officers_table_is_current')} | {translate_text(locale, 'ui.officers_table_sex')} | {translate_text(locale, 'ui.officers_table_age')} | {translate_text(locale, 'ui.officers_table_education')} | {translate_text(locale, 'ui.officers_table_salary')} | {translate_text(locale, 'ui.officers_table_biography')} |",
+            "|---|---|---|---|---|---|---:|---|---|---|",
+        ]
+    )
+    for row in officers.officers:
+        positions = ", ".join(row.positions) if row.positions else translate_text(locale, "report.data_not_available")
+        lines.append(
+            "| "
+            f"{_escape(row.name)} | "
+            f"{_escape(positions)} | "
+            f"{_escape(_text(row.tenure_from, locale))} | "
+            f"{_escape(_text(row.tenure_to, locale))} | "
+            f"{_yes_no(row.is_current, locale)} | "
+            f"{_escape(_text(row.sex, locale))} | "
+            f"{_escape(_text(row.age, locale))} | "
+            f"{_escape(_text(row.education, locale))} | "
+            f"{_escape(_text(row.salary, locale))} | "
+            f"{_escape(_text(row.biography, locale))} |"
         )
     lines.append("")
     return lines

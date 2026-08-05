@@ -427,7 +427,7 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.officers') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_unavailable') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.officers_unavailable') in block.value for block in app.markdown)
+    assert any("Officers source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
 
@@ -490,7 +490,7 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_no_warnings') in block.value for block in app.info)
+    assert any("Officers source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
 
 

@@ -264,3 +264,33 @@ class AnnouncementsResponse(BaseModel):
     metadata: AnnouncementsMetadata
     announcements: list[AnnouncementRow] = Field(default_factory=list)
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class OfficerRow(BaseModel):
+    name: str
+    positions: list[str] = Field(default_factory=list)
+    tenure_from: date | None = None
+    tenure_to: date | None = None
+    is_current: bool | None = None
+    sex: str | None = None
+    age: int | None = None
+    education: str | None = None
+    salary: str | None = None
+    biography: str | None = None
+
+
+class OfficersMetadata(BaseModel):
+    code: str
+    name: str | None = None
+    source_name: str
+    source_url: str | None = None
+    fetched_at: datetime
+    data_as_of: date | None = None
+    officers_count: int = 0
+    source_status: Literal["ready", "pending", "unavailable"] = "pending"
+
+
+class OfficersResponse(BaseModel):
+    metadata: OfficersMetadata
+    officers: list[OfficerRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)

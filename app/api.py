@@ -13,6 +13,7 @@ from app.models import (
     CcassResponse,
     ChangesResponse,
     ConcentrationResponse,
+    OfficersResponse,
     PriceHistoryResponse,
 )
 from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
@@ -21,6 +22,7 @@ from app.services.big_changes import BigChangesService, get_big_changes_service
 from app.services.ccass import CcassService, get_ccass_service
 from app.services.changes import ChangesService, get_changes_service
 from app.services.concentration import ConcentrationService, get_concentration_service
+from app.services.officers import OfficersService, get_officers_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.ai_read_model import AIReadModelV0_1
@@ -247,6 +249,19 @@ async def get_stock_announcements(
 
 
 @app.get(
+    "/api/v1/stocks/{stock_code}/officers",
+    response_model=OfficersResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["officers"],
+)
+async def get_stock_officers(
+    stock_code: str,
+    service: OfficersService = Depends(get_officers_service),
+) -> OfficersResponse:
+    return await service.get_officers(stock_code)
+
+
+@app.get(
     "/api/v1/ccass/{code}",
     response_model=CcassResponse,
     dependencies=[Depends(verify_api_key)],
@@ -284,6 +299,7 @@ async def get_ccass_stock_report(
     holdings_limit: int = Query(default=20, ge=1, le=100),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     announcements_service: AnnouncementsService = Depends(get_announcements_service),
+    officers_service: OfficersService = Depends(get_officers_service),
     service: CcassService = Depends(get_ccass_service),
 ) -> PlainTextResponse:
     normalized = normalize_stock_code(code)
@@ -298,10 +314,18 @@ async def get_ccass_stock_report(
         announcements = await announcements_service.get_announcements(normalized)
     except PlatformError:
         announcements = None
+    officers = None
+    try:
+        officers = await officers_service.get_officers(normalized)
+    except PlatformError:
+        officers = None
+    else:
+        response.data_quality_warnings.extend(officers.data_quality_warnings)
     report = build_markdown_report(
         response,
         code=normalized,
         analysis=analysis,
         announcements=announcements,
+        officers=officers,
     )
     return PlainTextResponse(report, media_type="text/markdown; charset=utf-8")

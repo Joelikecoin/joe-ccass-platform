@@ -16,8 +16,9 @@ from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
 from app.data_quality import structured_warning, warning_code
-from app.models import AnnouncementsResponse, CcassResponse, PriceHistoryResponse
+from app.models import AnnouncementsResponse, CcassResponse, OfficersResponse, PriceHistoryResponse
 from app.services.announcements import get_announcements_service
+from app.services.officers import get_officers_service
 from app.services.price_history import get_price_history_service
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
@@ -104,6 +105,7 @@ class PreparedReport:
     response: CcassResponse | None
     analysis: AnalysisResult | None = None
     announcements: AnnouncementsResponse | None = None
+    officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     fetch_error: str | None = None
 
@@ -179,6 +181,7 @@ async def prepare_report(
         )
         previous = None
     announcements: AnnouncementsResponse | None = None
+    officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     if announcements_enabled:
         try:
@@ -203,6 +206,28 @@ async def prepare_report(
                     f"Announcements are unavailable ({type(exc).__name__}).",
                 )
             )
+    try:
+        officers = await get_officers_service().get_officers(code)
+    except PlatformError as exc:
+        officers = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "OFFICERS_UNAVAILABLE",
+                f"Officers are unavailable ({exc.code}: {exc.message}).",
+            )
+        )
+    except Exception as exc:
+        officers = None
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "OFFICERS_UNAVAILABLE",
+                f"Officers are unavailable ({type(exc).__name__}).",
+            )
+        )
+    else:
+        response.data_quality_warnings.extend(officers.data_quality_warnings)
     if price_history_enabled:
         try:
             price_history = await get_price_history_service().get_price_history(
@@ -240,6 +265,7 @@ async def prepare_report(
         analysis=analysis,
         history_snapshots=history_snapshots,
         announcements=announcements,
+        officers=officers,
         price_history=price_history,
         locale=locale,
     )
@@ -252,6 +278,7 @@ async def prepare_report(
         response=response,
         analysis=analysis,
         announcements=announcements,
+        officers=officers,
         price_history=price_history,
     )
 
@@ -478,6 +505,7 @@ def build_full_summary_markdown(
     snapshot_count = len(tuple(history_snapshots or ())) + 1
     warning_count = len(response.data_quality_warnings)
     announcements = prepared.announcements
+    officers = prepared.officers
 
     def section_label(key: str) -> str:
         return translate_text(locale, key).removeprefix("## ")
@@ -519,8 +547,11 @@ def build_full_summary_markdown(
         ),
         (
             section_label("report.section.officers"),
-            ui_text(locale, "full_summary_status_unavailable"),
-            ui_text(locale, "full_summary_note_officers"),
+            ui_text(locale, "full_summary_status_available" if officers is not None else "full_summary_status_unavailable"),
+            ui_text(
+                locale,
+                "full_summary_note_officers_pending" if officers is not None else "full_summary_note_officers",
+            ),
         ),
         (
             section_label("report.section.metadata"),
