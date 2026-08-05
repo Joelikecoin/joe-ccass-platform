@@ -594,6 +594,24 @@ def build_full_summary_markdown(
             return ui_text(locale, "full_summary_note_officers_pending")
         return ui_text(locale, "full_summary_note_officers")
 
+    def _stock_events_summary_status() -> str:
+        status = _surface_status(stock_events)
+        if status == "unavailable":
+            return "full_summary_status_unavailable"
+        return "full_summary_status_available"
+
+    def _stock_events_summary_note() -> str:
+        status = _surface_status(stock_events)
+        if status == "ready":
+            return ui_text(
+                locale,
+                "full_summary_note_stock_events_ready",
+                source_name=stock_events.metadata.source_name if stock_events is not None else "",
+            )
+        if status == "pending":
+            return ui_text(locale, "full_summary_note_stock_events_pending")
+        return ui_text(locale, "full_summary_note_stock_events")
+
     def section_label(key: str) -> str:
         return translate_text(locale, key).removeprefix("## ")
 
@@ -629,16 +647,8 @@ def build_full_summary_markdown(
         ),
         (
             section_label("report.section.stock_events"),
-            ui_text(
-                locale,
-                "full_summary_status_available" if stock_events is not None else "full_summary_status_unavailable",
-            ),
-            ui_text(
-                locale,
-                "full_summary_note_stock_events_pending"
-                if stock_events is not None
-                else "full_summary_note_stock_events",
-            ),
+            ui_text(locale, _stock_events_summary_status()),
+            _stock_events_summary_note(),
         ),
         (
             section_label("report.section.capital_information"),

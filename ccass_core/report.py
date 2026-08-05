@@ -100,6 +100,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.stock_events_caption": "Objective event records are grouped here when available.",
         "ui.stock_events_rows_label": "Stock event rows",
         "ui.stock_events_sorting_note": "Rows will be ordered by event date, newest first, when live data is available.",
+        "ui.stock_events_source_ready": "Stock events source is connected.",
         "ui.stock_events_source_pending": "Stock events source is pending; the read path is wired but no live source is connected yet.",
         "ui.stock_events_empty": "No stock event rows are available in the current result.",
         "ui.stock_events_unavailable": "Stock event data is unavailable in the current fetch result.",
@@ -172,6 +173,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements": "Announcement surface is unavailable in the current result.",
         "ui.full_summary_note_announcements_available": "{announcement_count} announcement rows are available.",
         "ui.full_summary_note_stock_events": "Stock event surface is unavailable in the current result.",
+        "ui.full_summary_note_stock_events_ready": "Stock event surface is available from {source_name}.",
         "ui.full_summary_note_stock_events_pending": "Stock event surface is present but the source is still pending.",
         "ui.full_summary_note_capital_information": "Capital information surface is unavailable in the current result.",
         "ui.full_summary_note_capital_information_pending": "Capital information surface is present but the source is still pending.",
@@ -464,6 +466,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.stock_events_caption": "如有可用，客觀事件紀錄會在此分組顯示。",
         "ui.stock_events_rows_label": "股份事件列表",
         "ui.stock_events_sorting_note": "當正式資料可用時，列會按事件日期由新到舊排序。",
+        "ui.stock_events_source_ready": "股份事件資料來源已接通。",
         "ui.stock_events_source_pending": "股份事件資料來源仍在等待接通；讀取路徑已建立，但尚未連接正式資料源。",
         "ui.stock_events_empty": "目前結果沒有可用的股份事件列。",
         "ui.stock_events_unavailable": "目前的抓取結果沒有股份事件資料。",
@@ -607,6 +610,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_announcements": "目前結果沒有可用的公告表面。",
         "ui.full_summary_note_announcements_available": "目前有 {announcement_count} 條公告可用。",
         "ui.full_summary_note_stock_events": "目前結果沒有可用的股份事件表面。",
+        "ui.full_summary_note_stock_events_ready": "股份事件表面已由 {source_name} 提供。",
         "ui.full_summary_note_stock_events_pending": "股份事件表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_capital_information": "目前結果沒有可用的資本資料表面。",
         "ui.full_summary_note_capital_information_pending": "資本資料表面已就位，但資料來源仍在等待接通。",
@@ -1153,15 +1157,29 @@ def _stock_events_section(
         ]
 
     metadata = stock_events.metadata
+    source_status = getattr(metadata, "source_status", "pending")
+    if source_status == "ready":
+        source_note = translate_text(
+            locale,
+            "ui.stock_events_source_ready",
+        )
+    elif source_status == "pending":
+        source_note = translate_text(locale, "ui.stock_events_source_pending")
+    else:
+        source_note = translate_text(locale, "ui.stock_events_unavailable")
+
     lines = [
         translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
         translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
         translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
         f"{translate_text(locale, 'ui.stock_events_rows_label')}: {metadata.stock_events_count}",
-        translate_text(locale, "ui.stock_events_source_pending"),
+        source_note,
         translate_text(locale, "ui.stock_events_sorting_note"),
         "",
     ]
+    if source_status == "unavailable" and not stock_events.stock_events:
+        lines.extend([translate_text(locale, "ui.stock_events_unavailable"), ""])
+        return lines
     if not stock_events.stock_events:
         lines.extend([translate_text(locale, "ui.stock_events_empty"), ""])
         return lines

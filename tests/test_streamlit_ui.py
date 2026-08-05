@@ -97,6 +97,16 @@ class EmptyAnnouncementsService:
         return self.response
 
 
+class EmptyStockEventsService:
+    def __init__(self, response: StockEventsResponse):
+        self.response = response
+        self.calls = []
+
+    async def get_stock_events(self, code):
+        self.calls.append(code)
+        return self.response
+
+
 def _empty_announcements_response() -> AnnouncementsResponse:
     return AnnouncementsResponse(
         metadata=AnnouncementsMetadata(
@@ -488,9 +498,11 @@ def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, c
 
 def test_streamlit_company_information_surface_renders_grouped_sections(monkeypatch, current_response):
     import app.services.ccass as ccass_service
+    import app.streamlit_ui as streamlit_ui
 
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+    monkeypatch.setattr(streamlit_ui, 'get_stock_events_service', lambda: EmptyStockEventsService(_stock_events_response()))
 
     app = AppTest.from_file('streamlit_app.py').run(timeout=10)
     app.text_input[0].input('1592')
@@ -557,9 +569,11 @@ def test_streamlit_data_quality_surface_renders_warning_summary(monkeypatch, cur
 
 def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previous_response):
     import app.services.ccass as ccass_service
+    import app.streamlit_ui as streamlit_ui
 
     service = SuccessfulService(previous_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+    monkeypatch.setattr(streamlit_ui, 'get_stock_events_service', lambda: EmptyStockEventsService(_stock_events_response()))
 
     app = AppTest.from_file('streamlit_app.py').run(timeout=10)
     app.text_input[0].input('1592')

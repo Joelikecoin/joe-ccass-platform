@@ -1,14 +1,63 @@
 import asyncio
 from datetime import UTC, datetime
+from datetime import date
 
 from fastapi.testclient import TestClient
 
 from app.api import app
+from app.errors import ErrorCode, PlatformError
 from app.mcp_server import get_stock_events
 from app.models import StockEventsMetadata, StockEventsResponse
 from app.services.stock_events import get_stock_events_service
+from app.sources.stock_events import STOCK_EVENTS_SOURCE_NAME, WebbsiteStockEventsSource
+from app.sources.webbsite import FetchedPage
 from ccass_core.compute import AnalysisResult
 from ccass_core.report import DEFAULT_LOCALE, build_markdown_report, translate_text
+
+
+STOCK_EVENTS_SAMPLE_HTML = """
+<html>
+  <head><title>Events: FURNIWEB HOLDINGS LIMITED: O HKD</title></head>
+  <body>
+    <h2>FURNIWEB HOLDINGS LIMITED</h2>
+    <table>
+      <tr>
+        <th>Announced</th>
+        <th>Year-end</th>
+        <th>Type</th>
+        <th>Amount</th>
+        <th>Value in quote curr.</th>
+        <th>New: Old</th>
+        <th>ex-Date</th>
+        <th>Distribution</th>
+        <th>Notes</th>
+      </tr>
+      <tr>
+        <td>2024-03-22</td>
+        <td>2023-12-31</td>
+        <td><a href="/dbpub/eventdets.asp?e=12345">Final dividend</a></td>
+        <td>HKD 0.1000</td>
+        <td></td>
+        <td></td>
+        <td>2024-05-28</td>
+        <td>2024-06-14</td>
+        <td>Board recommendation</td>
+      </tr>
+      <tr>
+        <td>2023-08-25</td>
+        <td>2023-12-31</td>
+        <td>Int (Semi-annual) dividend</td>
+        <td>HKD 0.1500</td>
+        <td></td>
+        <td></td>
+        <td>2023-09-15</td>
+        <td>2023-10-06</td>
+        <td>Interim payout</td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
 
 
 def _stock_events_response() -> StockEventsResponse:
@@ -30,6 +79,23 @@ def _stock_events_response() -> StockEventsResponse:
     )
 
 
+def _ready_stock_events_response() -> StockEventsResponse:
+    return StockEventsResponse(
+        metadata=StockEventsMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name=STOCK_EVENTS_SOURCE_NAME,
+            source_url="https://webbsite.0xmd.com/dbpub/events.asp?i=25297",
+            fetched_at=datetime(2026, 7, 21, 9, 15, tzinfo=UTC),
+            data_as_of=date(2024, 3, 22),
+            stock_events_count=2,
+            source_status="ready",
+        ),
+        stock_events=[],
+        data_quality_warnings=[],
+    )
+
+
 def test_stock_events_placeholder_response_renders_in_markdown(current_response):
     report = build_markdown_report(
         current_response,
@@ -42,6 +108,83 @@ def test_stock_events_placeholder_response_renders_in_markdown(current_response)
     assert translate_text(DEFAULT_LOCALE, "report.section.stock_events") in report
     assert translate_text(DEFAULT_LOCALE, "ui.stock_events_source_pending") in report
     assert translate_text(DEFAULT_LOCALE, "ui.stock_events_empty") in report
+
+
+def test_stock_events_ready_response_renders_in_markdown(current_response):
+    report = build_markdown_report(
+        current_response,
+        code="01592",
+        analysis=AnalysisResult(previous_available=True),
+        stock_events=_ready_stock_events_response(),
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.stock_events") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.stock_events_source_ready") in report
+    assert translate_text(DEFAULT_LOCALE, "ui.stock_events_empty") in report
+
+
+def test_webbsite_stock_events_source_parses_ready_page(monkeypatch):
+    source = WebbsiteStockEventsSource()
+
+    async def fake_resolve_issue_id(code):
+        assert code == "01592"
+        return 25297, "FURNIWEB HOLDINGS LIMITED"
+
+    async def fake_get_stock_events_page(issue_id: int):
+        assert issue_id == 25297
+        return FetchedPage(
+            html=STOCK_EVENTS_SAMPLE_HTML,
+            source_url="https://webbsite.0xmd.com/dbpub/events.asp?i=25297",
+            cached=False,
+        )
+
+    monkeypatch.setattr(source.client, "resolve_issue_id", fake_resolve_issue_id)
+    monkeypatch.setattr(source.client, "get_stock_events_page", fake_get_stock_events_page)
+
+    response = asyncio.run(source.get_stock_events("1592"))
+
+    assert response.metadata.code == "01592"
+    assert response.metadata.name == "FURNIWEB HOLDINGS LIMITED"
+    assert response.metadata.source_name == STOCK_EVENTS_SOURCE_NAME
+    assert response.metadata.source_status == "ready"
+    assert response.metadata.data_as_of == date(2024, 3, 22)
+    assert response.metadata.stock_events_count == 2
+    assert response.data_quality_warnings == []
+    assert [row.title for row in response.stock_events] == [
+        "Final dividend",
+        "Int (Semi-annual) dividend",
+    ]
+    assert response.stock_events[0].event_type == "Dividend"
+    assert response.stock_events[0].link == "https://webbsite.0xmd.com/dbpub/eventdets.asp?e=12345"
+    assert "Year-end 2023-12-31" in (response.stock_events[0].details or "")
+
+
+def test_webbsite_stock_events_source_returns_unavailable_payload(monkeypatch):
+    source = WebbsiteStockEventsSource()
+
+    async def fake_resolve_issue_id(code):
+        assert code == "01592"
+        return 25297, "FURNIWEB HOLDINGS LIMITED"
+
+    async def fake_get_stock_events_page(_: int):
+        raise PlatformError(
+            ErrorCode.SOURCE_UNAVAILABLE,
+            "network unavailable",
+            retry_recommended=True,
+            status_code=503,
+        )
+
+    monkeypatch.setattr(source.client, "resolve_issue_id", fake_resolve_issue_id)
+    monkeypatch.setattr(source.client, "get_stock_events_page", fake_get_stock_events_page)
+
+    response = asyncio.run(source.get_stock_events("1592"))
+
+    assert response.metadata.source_name == STOCK_EVENTS_SOURCE_NAME
+    assert response.metadata.source_status == "unavailable"
+    assert response.metadata.source_url == "https://webbsite.0xmd.com/dbpub/events.asp?i=25297"
+    assert response.stock_events == []
+    assert any("STOCK_EVENTS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
 
 
 def test_api_stock_events_endpoint_returns_placeholder_payload():

@@ -3,12 +3,16 @@ from __future__ import annotations
 from functools import lru_cache
 
 from app.models import StockEventsResponse
-from app.sources.stock_events import PendingStockEventsSource, StockEventsSource
+from app.sources.stock_events import (
+    PendingStockEventsSource,
+    StockEventsSource,
+    WebbsiteStockEventsSource,
+)
 
 
 class StockEventsService:
     def __init__(self, source: StockEventsSource | None = None) -> None:
-        self.source = source or PendingStockEventsSource()
+        self.source = source or WebbsiteStockEventsSource()
 
     async def get_stock_events(self, code: str | int) -> StockEventsResponse:
         return await self.source.get_stock_events(code)

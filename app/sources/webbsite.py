@@ -393,6 +393,9 @@ class WebbsiteClient:
             )
         return candidates[0]
 
+    async def get_stock_events_page(self, issue_id: int) -> FetchedPage:
+        return await self._fetch("/dbpub/events.asp", {"i": issue_id})
+
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
         # The stock-code route resolves and verifies the issue in one upstream response.
         page = await self._fetch(
