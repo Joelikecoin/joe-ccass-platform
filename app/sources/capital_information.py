@@ -191,22 +191,6 @@ class ThsF10CapitalInformationSource:
         soup = BeautifulSoup(html, "html.parser")
         company_name = self._extract_company_name(soup)
         lines = self._text_lines(soup)
-        summary_line = next(
-            (
-                line
-                for line in lines
-                if _TOTAL_SHARES_RE.search(line)
-                and _BOARD_LOT_RE.search(line)
-                and _ROE_RE.search(line)
-                and _DEBT_RE.search(line)
-            ),
-            None,
-        )
-        if summary_line is None:
-            raise PlatformError(
-                ErrorCode.SOURCE_CHANGED,
-                "The 10jqka capital information summary line was not found.",
-            )
 
         note_line = next(
             (
@@ -246,14 +230,30 @@ class ThsF10CapitalInformationSource:
             )
 
         rows: list[CapitalInformationRow] = []
+        metric_lines = {
+            "Total shares": self._find_metric_line(lines, _TOTAL_SHARES_RE),
+            "Board lot size": self._find_metric_line(lines, _BOARD_LOT_RE),
+            "Diluted ROE": self._find_metric_line(lines, _ROE_RE),
+            "Debt ratio": self._find_metric_line(lines, _DEBT_RE),
+        }
         row_specs = (
-            ("Total shares", _TOTAL_SHARES_RE, "reporting capital", "股"),
-            ("Board lot size", _BOARD_LOT_RE, "board lot", "股"),
+            ("Total shares", _TOTAL_SHARES_RE, "reporting capital", "?"),
+            ("Board lot size", _BOARD_LOT_RE, "board lot", "?"),
             ("Diluted ROE", _ROE_RE, "profitability", "%"),
             ("Debt ratio", _DEBT_RE, "leverage", "%"),
         )
         for label, pattern, note_label, default_unit in row_specs:
-            match = pattern.search(summary_line)
+            metric_line = metric_lines.get(label)
+            if metric_line is None:
+                warnings.append(
+                    structured_warning(
+                        "SOURCE_STATUS",
+                        f"CAPITAL_INFORMATION_{_warning_key(label)}_MISSING",
+                        f"The 10jqka capital information page did not expose {label.lower()}.",
+                    )
+                )
+                continue
+            match = pattern.search(metric_line)
             if match is None:
                 warnings.append(
                     structured_warning(
@@ -329,6 +329,10 @@ class ThsF10CapitalInformationSource:
             return None
         note = note_line.replace("\u6ce8\u91ca\uff1a", "").strip()
         return note or None
+
+    @staticmethod
+    def _find_metric_line(lines: list[str], pattern: re.Pattern[str]) -> str | None:
+        return next((line for line in lines if pattern.search(line)), None)
 
     @staticmethod
     def _parse_report_period(note_line: str | None) -> date | None:

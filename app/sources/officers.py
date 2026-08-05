@@ -193,8 +193,9 @@ class ThsF10OfficersSource:
         soup = BeautifulSoup(html, "html.parser")
         company_name = self._extract_company_name(soup)
         lines = self._text_lines(soup)
-        officers = self._parse_officers_from_lines(lines)
+        officers, parse_warnings = self._parse_officers_from_lines(lines)
         warnings: list[str] = []
+        warnings.extend(parse_warnings)
         if company_name is None:
             warnings.append(
                 structured_warning(
@@ -217,25 +218,42 @@ class ThsF10OfficersSource:
             warnings=tuple(warnings),
         )
 
-    def _parse_officers_from_lines(self, lines: list[str]) -> list[ParsedOfficerRow]:
+    def _parse_officers_from_lines(self, lines: list[str]) -> tuple[list[ParsedOfficerRow], list[str]]:
         start_index = self._find_section_start(lines)
         if start_index is None:
-            return []
+            return [], [
+                structured_warning(
+                    "SOURCE_STATUS",
+                    "OFFICERS_SECTION_MISSING",
+                    "The 10jqka officers page did not expose a recognizable officers section.",
+                )
+            ]
 
         parsed: list[ParsedOfficerRow] = []
+        warnings: list[str] = []
         index = start_index + 1
         while index < len(lines):
             current = lines[index]
             if self._looks_like_name(current) and self._looks_like_positions_block(lines, index + 1):
                 block_end = self._find_next_name(lines, index + 1)
                 block = lines[index + 1 : block_end]
-                parsed_row = self._parse_officer_block(current, block)
+                try:
+                    parsed_row = self._parse_officer_block(current, block)
+                except Exception as exc:
+                    warnings.append(
+                        structured_warning(
+                            "SOURCE_STATUS",
+                            "OFFICERS_BLOCK_PARSE_FAILED",
+                            f"A 10jqka officers block could not be parsed ({type(exc).__name__}).",
+                        )
+                    )
+                    parsed_row = None
                 if parsed_row is not None:
                     parsed.append(parsed_row)
                 index = block_end
                 continue
             index += 1
-        return parsed
+        return parsed, warnings
 
     def _parse_officer_block(self, name: str, block: list[str]) -> ParsedOfficerRow | None:
         cleaned_block = [line for line in block if line and not self._is_boilerplate(line)]

@@ -7,10 +7,11 @@ from app.api import app
 from app.models import OfficersMetadata, OfficersResponse
 from app.mcp_server import get_officers
 from app.services.officers import get_officers_service
-from app.sources.officers import OFFICERS_SOURCE_NAME, ThsF10OfficersSource
+from app.sources.officers import OFFICERS_SOURCE_NAME, ParsedOfficerRow, ThsF10OfficersSource
 from app.errors import ErrorCode, PlatformError
 from ccass_core.compute import AnalysisResult
 from ccass_core.report import DEFAULT_LOCALE, build_markdown_report, translate_text
+from app.models import OfficerRow
 
 
 OFFICERS_SAMPLE_HTML = """
@@ -134,6 +135,38 @@ def test_ths_f10_officers_source_returns_unavailable_payload(monkeypatch):
     assert response.metadata.source_status == "unavailable"
     assert response.officers == []
     assert any("OFFICERS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
+
+
+def test_ths_f10_officers_source_skips_broken_block_and_returns_partial_rows(monkeypatch):
+    source = ThsF10OfficersSource()
+    calls = {"count": 0}
+
+    async def fake_fetch_html(source_url: str) -> str:
+        assert source_url == "https://stockpage.10jqka.com.cn/basicweb/176/HK1351/manager.html"
+        return OFFICERS_SAMPLE_HTML
+
+    def flaky_parse_officer_block(name, block):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ValueError("broken block")
+        return ParsedOfficerRow(
+            row=OfficerRow(
+                name="備援董事",
+                positions=["Director"],
+                is_current=True,
+            ),
+            cutoff_date=date(2026, 4, 15),
+        )
+
+    monkeypatch.setattr(source, "_fetch_html", fake_fetch_html)
+    monkeypatch.setattr(source, "_parse_officer_block", flaky_parse_officer_block)
+
+    response = asyncio.run(source.get_officers("1351"))
+
+    assert response.metadata.source_status == "ready"
+    assert response.metadata.officers_count == 1
+    assert [row.name for row in response.officers] == ["備援董事"]
+    assert any("OFFICERS_BLOCK_PARSE_FAILED" in warning for warning in response.data_quality_warnings)
 
 
 def test_api_officers_endpoint_returns_placeholder_payload():

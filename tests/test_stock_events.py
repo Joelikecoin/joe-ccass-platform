@@ -187,6 +187,42 @@ def test_webbsite_stock_events_source_returns_unavailable_payload(monkeypatch):
     assert any("STOCK_EVENTS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
 
 
+def test_webbsite_stock_events_source_skips_broken_row_and_returns_partial_rows(monkeypatch):
+    source = WebbsiteStockEventsSource()
+    calls = {"count": 0}
+
+    async def fake_resolve_issue_id(code):
+        assert code == "01592"
+        return 25297, "FURNIWEB HOLDINGS LIMITED"
+
+    async def fake_get_stock_events_page(issue_id: int):
+        assert issue_id == 25297
+        return FetchedPage(
+            html=STOCK_EVENTS_SAMPLE_HTML,
+            source_url="https://webbsite.0xmd.com/dbpub/events.asp?i=25297",
+            cached=False,
+        )
+
+    original_parse_event_row = source._parse_event_row
+
+    def flaky_parse_event_row(row, header_map, *, source_url: str):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise ValueError("broken row")
+        return original_parse_event_row(row, header_map, source_url=source_url)
+
+    monkeypatch.setattr(source.client, "resolve_issue_id", fake_resolve_issue_id)
+    monkeypatch.setattr(source.client, "get_stock_events_page", fake_get_stock_events_page)
+    monkeypatch.setattr(source, "_parse_event_row", flaky_parse_event_row)
+
+    response = asyncio.run(source.get_stock_events("1592"))
+
+    assert response.metadata.source_status == "ready"
+    assert response.metadata.stock_events_count == 1
+    assert [row.title for row in response.stock_events] == ["Int (Semi-annual) dividend"]
+    assert any("STOCK_EVENTS_ROW_PARSE_FAILED" in warning for warning in response.data_quality_warnings)
+
+
 def test_api_stock_events_endpoint_returns_placeholder_payload():
     class FixtureStockEventsService:
         def __init__(self, response: StockEventsResponse):

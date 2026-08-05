@@ -24,6 +24,20 @@ CAPITAL_INFORMATION_SAMPLE_HTML = """
 </html>
 """
 
+CAPITAL_INFORMATION_SPLIT_SAMPLE_HTML = """
+<html>
+  <head><title>Split Capital (HK1969) _F10_\u540c\u82b1\u987a\u91d1\u878d\u670d\u52a1\u7f51</title></head>
+  <body>
+    <h1>Split Capital</h1>
+    <div>\u603b\u80a1\u672c: 12.00 \u4ebf\u80a1</div>
+    <div>\u6bcf\u624b\u80a1\u6570: 1000 \u80a1</div>
+    <div>\u51c0\u8d44\u4ea7\u6536\u76ca\u7387(\u644a\u8584): 18.12%</div>
+    <div>\u8d44\u4ea7\u8d1f\u503a\u7387: 40.37%</div>
+    <div>\u6ce8\u91ca\uff1a\u4e0a\u8ff0\u6570\u636e\u6765\u6e90\u4e8e2025\u5e74\u5e74\u62a5</div>
+  </body>
+</html>
+"""
+
 
 def _capital_information_response() -> CapitalInformationResponse:
     return CapitalInformationResponse(
@@ -124,6 +138,30 @@ def test_ths_f10_capital_information_source_returns_unavailable_payload(monkeypa
     assert response.metadata.source_url == "https://stockpage.10jqka.com.cn/basicweb/176/HK1592/"
     assert response.capital_information == []
     assert any("CAPITAL_INFORMATION_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
+
+
+
+
+def test_ths_f10_capital_information_source_parses_split_summary_lines(monkeypatch):
+    source = ThsF10CapitalInformationSource()
+
+    async def fake_fetch_html(source_url: str) -> str:
+        assert source_url == "https://stockpage.10jqka.com.cn/basicweb/176/HK1592/"
+        return CAPITAL_INFORMATION_SPLIT_SAMPLE_HTML
+
+    monkeypatch.setattr(source, "_fetch_html", fake_fetch_html)
+
+    response = asyncio.run(source.get_capital_information("1592"))
+
+    assert response.metadata.source_status == "ready"
+    assert response.metadata.capital_information_count == 4
+    assert [row.label for row in response.capital_information] == [
+        "Total shares",
+        "Board lot size",
+        "Diluted ROE",
+        "Debt ratio",
+    ]
+    assert response.data_quality_warnings == []
 
 
 def test_api_capital_information_endpoint_returns_placeholder_payload():

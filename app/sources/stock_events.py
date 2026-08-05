@@ -130,8 +130,20 @@ class WebbsiteStockEventsSource:
         ]
         events: list[StockEventRow] = []
         skipped_rows = 0
-        for row in candidate_rows:
-            parsed = self._parse_event_row(row, header_map, source_url=source_url)
+        warnings: list[str] = []
+        for row_index, row in enumerate(candidate_rows, start=1):
+            try:
+                parsed = self._parse_event_row(row, header_map, source_url=source_url)
+            except Exception as exc:
+                skipped_rows += 1
+                warnings.append(
+                    structured_warning(
+                        "SOURCE_STATUS",
+                        "STOCK_EVENTS_ROW_PARSE_FAILED",
+                        f"A Webb-site stock event row could not be parsed ({type(exc).__name__}).",
+                    )
+                )
+                continue
             if parsed is None:
                 skipped_rows += 1
                 continue
@@ -143,7 +155,6 @@ class WebbsiteStockEventsSource:
                 "The Webb-site stock events table did not contain parseable event rows.",
             )
 
-        warnings: list[str] = []
         if skipped_rows:
             warnings.append(
                 structured_warning(
