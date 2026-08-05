@@ -199,6 +199,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_downloads": "Combined CSV, workbook, and Markdown report.",
         "ui.full_summary_note_data_quality_no_warnings": "No data quality warnings were generated.",
         "ui.full_summary_note_data_quality_warnings": "{warning_count} data quality warning(s).",
+        "ui.related_context_heading": "Related context",
+        "ui.related_context_caption": "Use the linked surfaces to move between adjacent report sections.",
         "ui.all_parsed_tables_heading": "Full Report Detail",
         "ui.all_parsed_tables_caption": "The rendered report sections below follow the approved detail hierarchy.",
         "ui.chart_help_cross_check_title": "Cross-check guidance",
@@ -636,6 +638,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_downloads": "?? CSV????? Markdown ???",
         "ui.full_summary_note_data_quality_no_warnings": "??????????",
         "ui.full_summary_note_data_quality_warnings": "{warning_count} 項資料質量警告。",
+        "ui.related_context_heading": "關聯脈絡",
+        "ui.related_context_caption": "可使用下列連結在相鄰的報告區段之間切換。",
         "ui.all_parsed_tables_heading": "完整報告詳情",
         "ui.all_parsed_tables_caption": "以下已渲染的報告章節依照已核准的詳情階層排列。",
         "nav.fetch_summary": "????",
@@ -809,6 +813,51 @@ def localized_report_anchor(section_key: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", section_key.lower()).strip("-")
 
 
+def section_related_context_markdown(locale: str, section_key: str) -> str:
+    related = _related_sections_for(section_key)
+    if not related:
+        return ""
+    links = " · ".join(
+        f"[{translate_text(locale, f'report.section.{related_key}').removeprefix('## ')}](#{localized_report_anchor(related_key)})"
+        for related_key in related
+    )
+    return f"{translate_text(locale, 'ui.related_context_caption')} {links}"
+
+
+def cross_surface_context_markdown(locale: str) -> str:
+    clusters = (
+        ("holdings", ("changes", "big_changes", "concentration")),
+        ("company", ("announcements", "stock_events", "capital_information", "officers")),
+        ("concentration_history", ("price_history",)),
+    )
+    parts: list[str] = []
+    for anchor_key, related_keys in clusters:
+        group_keys = (anchor_key, *related_keys)
+        links = " ↔ ".join(
+            f"[{translate_text(locale, f'report.section.{key}').removeprefix('## ')}](#{localized_report_anchor(key)})"
+            for key in group_keys
+        )
+        parts.append(links)
+    return f"{translate_text(locale, 'ui.related_context_caption')} " + " ; ".join(parts)
+
+
+def _related_sections_for(section_key: str) -> tuple[str, ...]:
+    related_map: dict[str, tuple[str, ...]] = {
+        "company": ("announcements", "stock_events", "capital_information", "officers"),
+        "announcements": ("company", "stock_events", "capital_information", "officers"),
+        "stock_events": ("company", "announcements", "capital_information", "officers"),
+        "capital_information": ("company", "announcements", "stock_events", "officers"),
+        "officers": ("company", "announcements", "stock_events", "capital_information"),
+        "holdings": ("changes", "big_changes", "concentration", "concentration_history"),
+        "changes": ("holdings", "big_changes", "concentration_history"),
+        "big_changes": ("holdings", "changes", "concentration_history"),
+        "concentration": ("holdings", "concentration_history", "price_history"),
+        "concentration_history": ("holdings", "concentration", "price_history"),
+        "price_history": ("holdings", "concentration_history", "announcements"),
+    }
+    return related_map.get(section_key, ())
+
+
 def build_markdown_report(
     response: CcassResponse | None,
     *,
@@ -851,6 +900,8 @@ def build_markdown_report(
             "",
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[1])}'></a>",
             translate_text(locale, "report.section.company"),
+            "",
+            section_related_context_markdown(locale, "company"),
             "",
             translate_text(locale, "report.metadata.stock_name", value=_text(metadata.name, locale)),
             translate_text(locale, "report.metadata.code", value=metadata.code),
@@ -899,6 +950,8 @@ def build_markdown_report(
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[9])}'></a>",
             translate_text(locale, "report.section.holdings"),
             "",
+            section_related_context_markdown(locale, "holdings"),
+            "",
         ]
     )
     lines.extend(_holdings_table(response, locale))
@@ -922,6 +975,8 @@ def build_markdown_report(
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[12])}'></a>",
             translate_text(locale, "report.section.concentration"),
             "",
+            section_related_context_markdown(locale, "concentration"),
+            "",
             f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
             "|---|---:|",
             f"| Top 5 / issued | {_percent(summary.top5_pct_of_issued, locale)} |",
@@ -931,6 +986,8 @@ def build_markdown_report(
             "",
             f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[13])}'></a>",
             translate_text(locale, "report.section.concentration_history"),
+            "",
+            section_related_context_markdown(locale, "concentration_history"),
             "",
         ]
     )
@@ -1007,7 +1064,11 @@ def _changes_section(analysis: AnalysisResult, locale: str) -> list[str]:
         return [
             f"{translate_text(locale, 'report.data_not_available')} ? {translate_text(locale, 'report.previous_snapshot_unavailable')}"
         ]
-    lines = _change_table(analysis.changes, locale)
+    lines = [
+        section_related_context_markdown(locale, "changes"),
+        "",
+    ]
+    lines.extend(_change_table(analysis.changes, locale))
     lines.extend([
         "",
         translate_text(locale, "report.subheading.possible_transfer_patterns"),
@@ -1034,7 +1095,11 @@ def _big_changes_section(analysis: AnalysisResult, locale: str) -> list[str]:
         ]
     if not analysis.big_changes:
         return [translate_text(locale, "report.no_changes_met_threshold", threshold=analysis.big_change_threshold)]
-    return _change_table(analysis.big_changes, locale)
+    return [
+        section_related_context_markdown(locale, "big_changes"),
+        "",
+        *_change_table(analysis.big_changes, locale),
+    ]
 
 
 def _concentration_history_section(
@@ -1053,6 +1118,8 @@ def _concentration_history_section(
 
     ordered_snapshots = [snapshots_by_date[key] for key in sorted(snapshots_by_date)]
     latest_values_lines = [
+        section_related_context_markdown(locale, "concentration_history"),
+        "",
         translate_text(locale, "report.concentration_history.latest_values"),
         "",
         f"| {translate_text(locale, 'report.concentration_history.table_date')} | {translate_text(locale, 'report.concentration_history.table_top5_issued')} | {translate_text(locale, 'report.concentration_history.table_top10_issued')} | {translate_text(locale, 'report.concentration_history.table_top5_ccass')} | {translate_text(locale, 'report.concentration_history.table_top10_ccass')} |",
@@ -1088,15 +1155,7 @@ def _company_information_section(
 ) -> list[str]:
     return [
         *_announcements_section(announcements, locale),
-        "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
-        translate_text(locale, "report.section.stock_events"),
-        "",
         *_stock_events_section(stock_events, locale),
-        "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
-        translate_text(locale, "report.section.capital_information"),
-        "",
         *_capital_information_section(capital_information, locale),
         *_officers_section(officers, locale),
     ]
@@ -1110,6 +1169,8 @@ def _announcements_section(
         "",
         f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[2])}'></a>",
         translate_text(locale, "report.section.announcements"),
+        "",
+        section_related_context_markdown(locale, "announcements"),
         "",
     ]
     if announcements is None:
@@ -1154,11 +1215,17 @@ def _stock_events_section(
     stock_events: StockEventsResponse | None,
     locale: str,
 ) -> list[str]:
+    lines = [
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
+        translate_text(locale, "report.section.stock_events"),
+        "",
+        section_related_context_markdown(locale, "stock_events"),
+        "",
+    ]
     if stock_events is None:
-        return [
-            translate_text(locale, "ui.stock_events_unavailable"),
-            "",
-        ]
+        lines.extend([translate_text(locale, "ui.stock_events_unavailable"), ""])
+        return lines
 
     metadata = stock_events.metadata
     source_status = getattr(metadata, "source_status", "pending")
@@ -1172,15 +1239,17 @@ def _stock_events_section(
     else:
         source_note = translate_text(locale, "ui.stock_events_unavailable")
 
-    lines = [
-        translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
-        translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
-        translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
-        f"{translate_text(locale, 'ui.stock_events_rows_label')}: {metadata.stock_events_count}",
-        source_note,
-        translate_text(locale, "ui.stock_events_sorting_note"),
-        "",
-    ]
+    lines.extend(
+        [
+            translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+            translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
+            translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
+            f"{translate_text(locale, 'ui.stock_events_rows_label')}: {metadata.stock_events_count}",
+            source_note,
+            translate_text(locale, "ui.stock_events_sorting_note"),
+            "",
+        ]
+    )
     if source_status == "unavailable" and not stock_events.stock_events:
         lines.extend([translate_text(locale, "ui.stock_events_unavailable"), ""])
         return lines
@@ -1211,11 +1280,17 @@ def _capital_information_section(
     capital_information: CapitalInformationResponse | None,
     locale: str,
 ) -> list[str]:
+    lines = [
+        "",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+        translate_text(locale, "report.section.capital_information"),
+        "",
+        section_related_context_markdown(locale, "capital_information"),
+        "",
+    ]
     if capital_information is None:
-        return [
-            translate_text(locale, "ui.capital_information_unavailable"),
-            "",
-        ]
+        lines.extend([translate_text(locale, "ui.capital_information_unavailable"), ""])
+        return lines
 
     metadata = capital_information.metadata
     source_status = getattr(metadata, "source_status", "pending")
@@ -1226,15 +1301,17 @@ def _capital_information_section(
     else:
         source_note = translate_text(locale, "ui.capital_information_unavailable")
 
-    lines = [
-        translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
-        translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
-        translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
-        f"{translate_text(locale, 'ui.capital_information_rows_label')}: {metadata.capital_information_count}",
-        source_note,
-        translate_text(locale, "ui.capital_information_sorting_note"),
-        "",
-    ]
+    lines.extend(
+        [
+            translate_text(locale, "report.metadata.source", value=_text(metadata.source_name, locale)),
+            translate_text(locale, "report.fetch.fetched_at", value=_datetime(metadata.fetched_at, locale)),
+            translate_text(locale, "report.fetch.data_as_of", value=_text(metadata.data_as_of, locale)),
+            f"{translate_text(locale, 'ui.capital_information_rows_label')}: {metadata.capital_information_count}",
+            source_note,
+            translate_text(locale, "ui.capital_information_sorting_note"),
+            "",
+        ]
+    )
     if source_status == "unavailable" and not capital_information.capital_information:
         lines.extend([translate_text(locale, "ui.capital_information_unavailable"), ""])
         return lines
@@ -1269,6 +1346,8 @@ def _officers_section(
         "",
         f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
         translate_text(locale, "report.section.officers"),
+        "",
+        section_related_context_markdown(locale, "officers"),
         "",
     ]
     if officers is None:
@@ -1326,6 +1405,8 @@ def _price_history_section(price_history: PriceHistoryResponse | None, locale: s
         "",
         f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
         translate_text(locale, "report.section.price_history"),
+        "",
+        section_related_context_markdown(locale, "price_history"),
         "",
     ]
     if price_history is None:

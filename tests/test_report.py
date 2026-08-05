@@ -130,6 +130,21 @@ def test_report_includes_company_information_sections_as_unavailable(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.officers_unavailable") in report
 
 
+def test_report_includes_related_context_hints(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_caption") in report
+    assert "(#changes)" in report
+    assert "(#big-changes)" in report
+    assert "(#concentration-history)" in report
+    assert "(#announcements)" in report
+    assert "(#stock-events)" in report
+    assert "(#capital-information)" in report
+    assert "(#officers)" in report
+    assert "(#price-history)" in report
+
+
 def test_report_includes_announcements_surface_when_available(current_response, previous_response):
     analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
     announcements = AnnouncementsResponse(

@@ -39,6 +39,7 @@ from ccass_core.report import (
     REPORT_SECTION_KEYS,
     SUPPORTED_LOCALES,
     build_chatgpt_copy_payload,
+    cross_surface_context_markdown,
     build_markdown_report,
     localized_report_anchor,
     report_filename,
@@ -650,6 +651,11 @@ def build_full_summary_markdown(
             ),
         ),
         (
+            ui_text(locale, "related_context_heading"),
+            ui_text(locale, "full_summary_status_available"),
+            cross_surface_context_markdown(locale),
+        ),
+        (
             section_label("report.section.announcements"),
             ui_text(
                 locale,
@@ -831,10 +837,12 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
             translate_text(locale, "ui.raw_markdown"),
         ]
     )
+    related_context = cross_surface_context_markdown(locale)
     lines = [
         f"| {translate_text(locale, 'ui.report_flow_visible_first')} | {visible_first} |",
         f"| {translate_text(locale, 'ui.report_flow_collapsed_details')} | {collapsed_details} |",
         f"| {translate_text(locale, 'ui.report_flow_actions')} | {actions} |",
+        f"| {ui_text(locale, 'related_context_heading')} | {related_context} |",
     ]
     return "\n".join(
         [

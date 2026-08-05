@@ -663,6 +663,14 @@ def test_build_full_summary_markdown_renders_status_table(current_response, prev
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_stock_events_pending') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_capital_information_pending') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_officers') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.related_context_heading') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.related_context_caption') in markdown
+    assert '(#changes)' in markdown
+    assert '(#big-changes)' in markdown
+    assert '(#announcements)' in markdown
+    assert '(#stock-events)' in markdown
+    assert '(#capital-information)' in markdown
+    assert '(#officers)' in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_changes_available') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_concentration_history', snapshot_count=2) in markdown
 
@@ -716,6 +724,7 @@ def test_build_report_flow_markdown_renders_visible_and_collapsed_groups():
     assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_visible_first') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_collapsed_details') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.report_flow_actions') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.related_context_heading') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.analysis_ready_summary').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.capital_information').removeprefix('## ') in markdown
