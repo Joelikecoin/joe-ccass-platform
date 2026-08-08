@@ -5,8 +5,14 @@ from app.config import Settings, get_settings
 from app.data_quality import structured_warning
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
+from app.services.data_gateway import CcassDataGateway, GatewayRequest
 from app.services.holdings_lkg import PersistentLatestHoldingsSource
 from app.services.latest_holdings import finalize_latest_holdings
+from ccass_core.source_trace import (
+    SourceTraceView,
+    build_source_trace_view,
+    validate_ccass_date_convention,
+)
 from app.sources.google_drive_csv import GoogleDriveCsvSource
 from app.sources.registry import (
     GOOGLE_DRIVE_CSV_SOURCE_ID,
@@ -16,7 +22,6 @@ from app.sources.registry import (
 )
 from app.sources.webbsite import WebbsiteClient
 from app.storage.history import NormalizedSnapshotRepository
-from ccass_core.normalize import normalize_stock_code
 
 
 class HoldingsSource(Protocol):
@@ -113,21 +118,79 @@ class CcassService:
                 definitions=selected,
             )
         self.client = self.source
+        self.gateway = CcassDataGateway(source_backend=self.source)
 
     async def get_stock_data(self, code: str | int, holdings_limit: int = 15) -> CcassResponse:
-        normalized = normalize_stock_code(code)
+        gateway_response = await self.get_stock_gateway_response(code, holdings_limit=holdings_limit)
+        return gateway_response.normalized_response
+
+    async def get_stock_gateway_response(
+        self,
+        code: str | int,
+        holdings_limit: int = 15,
+    ) -> "GatewayResponse":
         if holdings_limit < 1:
             raise PlatformError(
                 ErrorCode.INVALID_SCHEMA,
                 "holdings_limit must be at least 1.",
                 status_code=400,
             )
-        response = await self.source.get_holdings(normalized, limit=10_000)
-        return finalize_latest_holdings(
-            response,
+        request = GatewayRequest(
+            stock_code=code,
+            holdings_limit=holdings_limit,
+            request_surface="service",
+        )
+        gateway_response = await self.gateway.get_holdings(request)
+        normalized = gateway_response.request.normalized_stock_code
+        normalized_response = finalize_latest_holdings(
+            gateway_response.normalized_response,
             requested_code=normalized,
             holdings_limit=holdings_limit,
         )
+        gateway_response = gateway_response.model_copy(update={"normalized_response": normalized_response})
+        source_trace_view = build_source_trace_view(gateway_response)
+        validation = validate_ccass_date_convention(
+            source_trace_view,
+            data_as_of=normalized_response.metadata.data_as_of,
+        )
+        if validation.warnings:
+            normalized_response = normalized_response.model_copy(
+                update={
+                    "data_quality_warnings": list(
+                        dict.fromkeys(
+                            [
+                                *normalized_response.data_quality_warnings,
+                                *validation.warnings,
+                            ]
+                        )
+                    )
+                }
+            )
+        if validation.notes:
+            updated_notes = tuple(
+                dict.fromkeys(
+                    [
+                        *gateway_response.source_trace.notes,
+                        *validation.notes,
+                    ]
+                )
+            )
+            gateway_response = gateway_response.model_copy(
+                update={
+                    "source_trace": gateway_response.source_trace.model_copy(
+                        update={"notes": updated_notes}
+                    )
+                }
+            )
+        return gateway_response.model_copy(update={"normalized_response": normalized_response})
+
+    async def get_stock_source_trace(
+        self,
+        code: str | int,
+        holdings_limit: int = 15,
+    ) -> SourceTraceView:
+        gateway_response = await self.get_stock_gateway_response(code, holdings_limit=holdings_limit)
+        return build_source_trace_view(gateway_response)
 
 
 @lru_cache
