@@ -211,7 +211,13 @@ def test_ai_read_model_consumer_view_exposes_governance_interpretation(current_r
         f"{current_response.metadata.source_name} / ccass_holdings / primary"
     )
     assert consumer_view.governance_interpretation.warning_summary == consumer_view.governance_context.warning_summary
+    assert consumer_view.consumer_guidance is not None
+    assert consumer_view.consumer_guidance.availability_state == "partial"
+    assert consumer_view.consumer_guidance.freshness_state == "partial"
+    assert "payload" in " ".join(consumer_view.consumer_guidance.usage_steps)
+    assert "context" in " ".join(consumer_view.consumer_guidance.usage_steps)
     assert consumer_view.summary == consumer_view.governance_interpretation.summary
+    assert "Consumer guidance:" in consumer_view.consumer_guidance.summary
 
 
 def test_ai_read_model_consumer_view_handles_missing_model():
@@ -220,6 +226,7 @@ def test_ai_read_model_consumer_view_handles_missing_model():
     assert consumer_view.available is False
     assert consumer_view.governance_context is None
     assert consumer_view.governance_interpretation is None
+    assert consumer_view.consumer_guidance is None
     assert consumer_view.warnings == []
 
 
@@ -239,3 +246,24 @@ def test_ai_read_model_service_exposes_consumer_readable_governance_context(curr
     assert consumer_view.governance_context == governance_context
     assert consumer_view.governance_interpretation is not None
     assert consumer_view.governance_interpretation.source_trace_reference == governance_context.source_trace_reference
+    assert consumer_view.consumer_guidance is not None
+    assert consumer_view.consumer_guidance.source_trace_reference == governance_context.source_trace_reference
+
+
+def test_ai_read_model_service_exposes_consumer_guidance(current_response):
+    service = _service(current_response)
+    source_trace = _source_trace(current_response)
+
+    guidance = __import__("asyncio").run(
+        service.get_read_model_consumer_guidance("1592", source_trace=source_trace)
+    )
+
+    assert guidance.availability_state == "partial"
+    assert guidance.freshness_state == "partial"
+    assert guidance.provenance_summary == (
+        f"{current_response.metadata.source_name} / ccass_holdings / primary"
+    )
+    assert guidance.source_trace_reference == source_trace.request_id + " / " + source_trace.route + " / existing_service"
+    assert guidance.usage_steps
+    assert "trading signal" not in " ".join(guidance.usage_steps).lower()
+    assert "recommendation" not in " ".join(guidance.usage_steps).lower()

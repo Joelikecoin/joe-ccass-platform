@@ -40,11 +40,27 @@ class AIReadModelGovernanceInterpretation(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class AIReadModelConsumerUsageGuidance(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    availability_state: Literal["available", "partial", "unavailable", "unknown"] = "unknown"
+    freshness_state: Literal["fresh", "cached", "stale", "partial", "unavailable", "unknown"] = (
+        "unknown"
+    )
+    provenance_summary: str = "unavailable"
+    warning_summary: str = "0 warning(s)"
+    limitation_summary: str = "Consumer guidance is unavailable."
+    source_trace_reference: str = "not available"
+    usage_steps: list[str] = Field(default_factory=list)
+    summary: str = "Consumer guidance is unavailable."
+
+
 class AIReadModelConsumerView(BaseModel):
     available: bool = False
     read_model: AIReadModelV0_1 | None = None
     governance_context: AIReadModelGovernanceContext | None = None
     governance_interpretation: AIReadModelGovernanceInterpretation | None = None
+    consumer_guidance: AIReadModelConsumerUsageGuidance | None = None
     warnings: list[str] = Field(default_factory=list)
     summary: str | None = None
 
@@ -109,6 +125,41 @@ def build_ai_read_model_governance_interpretation(
     )
 
 
+def build_ai_read_model_consumer_guidance(
+    governance_context: AIReadModelGovernanceContext | None,
+    governance_interpretation: AIReadModelGovernanceInterpretation | None,
+) -> AIReadModelConsumerUsageGuidance:
+    if governance_context is None or governance_interpretation is None:
+        return AIReadModelConsumerUsageGuidance()
+
+    usage_steps = [
+        "Check availability state before reading the payload.",
+        "Read freshness state to understand whether the data is current, cached, stale, or partial.",
+        "Use the provenance summary to identify the source and source type.",
+        "Review warnings before treating the payload as complete.",
+        "Treat limitation summary as a usage boundary, not an investment conclusion.",
+        "Use the payload as the data consumer plane and the context as supporting information.",
+    ]
+    summary = (
+        "Consumer guidance: "
+        f"availability={governance_interpretation.data_availability_state}; "
+        f"freshness={governance_interpretation.freshness_state}; "
+        f"provenance={governance_interpretation.provenance_summary}; "
+        f"warnings={governance_interpretation.warning_summary}; "
+        f"limitations={governance_interpretation.limitation_summary}"
+    )
+    return AIReadModelConsumerUsageGuidance(
+        availability_state=governance_interpretation.data_availability_state,
+        freshness_state=governance_interpretation.freshness_state,
+        provenance_summary=governance_interpretation.provenance_summary,
+        warning_summary=governance_interpretation.warning_summary,
+        limitation_summary=governance_interpretation.limitation_summary,
+        source_trace_reference=governance_interpretation.source_trace_reference,
+        usage_steps=usage_steps,
+        summary=summary,
+    )
+
+
 def build_ai_read_model_consumer_view(
     read_model: AIReadModelV0_1 | None,
     *,
@@ -122,12 +173,17 @@ def build_ai_read_model_consumer_view(
         source_trace=source_trace,
     )
     governance_interpretation = build_ai_read_model_governance_interpretation(governance_context)
+    consumer_guidance = build_ai_read_model_consumer_guidance(
+        governance_context,
+        governance_interpretation,
+    )
     warnings = list(dict.fromkeys(read_model.quality.warnings))
     return AIReadModelConsumerView(
         available=True,
         read_model=read_model,
         governance_context=governance_context,
         governance_interpretation=governance_interpretation,
+        consumer_guidance=consumer_guidance,
         warnings=warnings,
         summary=governance_interpretation.summary,
     )
