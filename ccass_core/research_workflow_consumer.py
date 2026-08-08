@@ -11,6 +11,10 @@ from ccass_core.research_governance_bridge import (
     ResearchGovernanceContext,
     build_research_governance_context,
 )
+from ccass_core.research_governance_interpretation import (
+    ResearchGovernanceInterpretation,
+    build_research_governance_interpretation,
+)
 from ccass_core.research_workflow import (
     ResearchWorkflowContractMeta,
     ResearchWorkflowSession,
@@ -27,6 +31,7 @@ class ResearchWorkflowConsumerView(BaseModel):
     research_context_package: ResearchContextPackage | None = None
     research_context_consumer_view: ResearchContextConsumerView | None = None
     governance_context: ResearchGovernanceContext | None = None
+    governance_interpretation: ResearchGovernanceInterpretation | None = None
     context_available: bool = False
     quality_context: ResearchContextQualityContext | None = None
     warnings: list[str] = Field(default_factory=list)
@@ -53,14 +58,27 @@ def build_research_workflow_consumer_view(
         research_context_package is not None
         and research_context_consumer_view is not None
         and source_trace is not None
-        and research_context_consumer_view.governance_context is None
+        and (
+            research_context_consumer_view.governance_context is None
+            or research_context_consumer_view.governance_interpretation is None
+        )
     ):
+        governance_context = build_research_governance_context(
+            research_context_package,
+            source_trace,
+        )
+        governance_interpretation = build_research_governance_interpretation(
+            research_context_consumer_view.model_copy(
+                update={
+                    "governance_context": governance_context,
+                }
+            ),
+            governance_context,
+        )
         research_context_consumer_view = research_context_consumer_view.model_copy(
             update={
-                "governance_context": build_research_governance_context(
-                    research_context_package,
-                    source_trace,
-                )
+                "governance_context": governance_context,
+                "governance_interpretation": governance_interpretation,
             }
         )
 
@@ -69,6 +87,11 @@ def build_research_workflow_consumer_view(
     )
     governance_context = (
         research_context_consumer_view.governance_context if research_context_consumer_view else None
+    )
+    governance_interpretation = (
+        research_context_consumer_view.governance_interpretation
+        if research_context_consumer_view
+        else None
     )
     warnings = (
         list(research_context_consumer_view.warnings)
@@ -87,6 +110,7 @@ def build_research_workflow_consumer_view(
         research_context_package=research_context_package,
         research_context_consumer_view=research_context_consumer_view,
         governance_context=governance_context,
+        governance_interpretation=governance_interpretation,
         context_available=context_available,
         quality_context=quality_context,
         warnings=warnings,
@@ -96,6 +120,7 @@ def build_research_workflow_consumer_view(
             context_available=context_available,
             quality_context=quality_context,
             governance_context=governance_context,
+            governance_interpretation=governance_interpretation,
         ),
         contract_meta=workflow.contract_meta,
     )
@@ -108,14 +133,16 @@ def _workflow_summary(
     context_available: bool,
     quality_context: ResearchContextQualityContext | None,
     governance_context,
+    governance_interpretation,
 ) -> str:
     summary = f"Research workflow {state.value} for {metadata.stock_code}."
     if not context_available:
         return f"{summary} Research context is not yet available."
     freshness = quality_context.freshness_status if quality_context else "unknown"
-    if governance_context is None:
+    if governance_context is None or governance_interpretation is None:
         return f"{summary} Research context is available with {freshness} quality."
     return (
         f"{summary} Research context is available with {freshness} quality. "
-        f"Governance context is linked."
+        f"Governance context is linked. "
+        f"{governance_interpretation.summary}"
     )

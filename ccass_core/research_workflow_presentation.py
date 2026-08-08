@@ -45,6 +45,7 @@ def build_research_workflow_summary_markdown(
     )
     package_label = _package_reference_label(workflow, locale)
     governance_context = consumer_view.governance_context
+    governance_interpretation = consumer_view.governance_interpretation
     rows = [
         (translate_text(locale, "ui.research_workflow_state"), state_label),
         (translate_text(locale, "ui.research_workflow_session_id"), workflow.metadata.session_id),
@@ -65,6 +66,14 @@ def build_research_workflow_summary_markdown(
                 ("Governance summary", governance_context.summary),
                 ("Source trace reference", governance_context.source_trace_reference),
                 ("Date convention status", governance_context.date_convention_status),
+            ]
+        )
+    if governance_interpretation is not None:
+        rows.extend(
+            [
+                ("Data availability state", governance_interpretation.data_availability_state),
+                ("Freshness state", governance_interpretation.freshness_state),
+                ("Governance limitation summary", governance_interpretation.limitation_summary),
             ]
         )
     lines = [
