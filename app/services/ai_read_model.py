@@ -15,8 +15,15 @@ from ccass_core.ai_read_model import (
     context_unavailable_warning,
     _source_id,
 )
+from ccass_core.ai_read_model_governance import (
+    AIReadModelConsumerView,
+    AIReadModelGovernanceContext,
+    build_ai_read_model_consumer_view,
+    build_ai_read_model_governance_context,
+)
 from ccass_core.compute import compute_analysis
 from ccass_core.normalize import normalize_stock_code
+from ccass_core.source_trace import SourceTraceView
 
 
 class AIReadModelService:
@@ -79,6 +86,26 @@ class AIReadModelService:
             price_history=price_history,
             extra_warnings=extra_warnings,
         )
+
+    async def get_read_model_governance_context(
+        self,
+        code: str | int,
+        *,
+        surface: str = "ccass_ai_read_model",
+        source_trace: SourceTraceView | None = None,
+    ) -> AIReadModelGovernanceContext:
+        read_model = await self.get_read_model(code, surface=surface)
+        return build_ai_read_model_governance_context(read_model, source_trace=source_trace)
+
+    async def get_read_model_consumer_view(
+        self,
+        code: str | int,
+        *,
+        surface: str = "ccass_ai_read_model",
+        source_trace: SourceTraceView | None = None,
+    ) -> AIReadModelConsumerView:
+        read_model = await self.get_read_model(code, surface=surface)
+        return build_ai_read_model_consumer_view(read_model, source_trace=source_trace)
 
     def _snapshot_id(self, response: CcassResponse | None, *, source_id: str) -> int | None:
         if response is None or response.metadata.data_as_of is None:
