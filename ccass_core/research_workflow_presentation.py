@@ -4,12 +4,14 @@ from datetime import date, datetime
 
 from ccass_core.research_workflow import ResearchWorkflowSession
 from ccass_core.research_workflow_consumer import build_research_workflow_consumer_view
+from ccass_core.source_trace import SourceTraceView
 from ccass_core.report import DEFAULT_LOCALE, translate_text
 
 
 def build_research_workflow_summary_markdown(
     workflow: ResearchWorkflowSession | None,
     *,
+    source_trace: SourceTraceView | None = None,
     locale: str = DEFAULT_LOCALE,
 ) -> str:
     heading = translate_text(locale, "ui.research_workflow_heading")
@@ -24,7 +26,7 @@ def build_research_workflow_summary_markdown(
             ]
         )
 
-    consumer_view = build_research_workflow_consumer_view(workflow)
+    consumer_view = build_research_workflow_consumer_view(workflow, source_trace=source_trace)
     quality_context = consumer_view.quality_context
     provenance = quality_context.provenance if quality_context else None
     state_label = _workflow_state_label(workflow.state.value, locale)
@@ -42,6 +44,7 @@ def build_research_workflow_summary_markdown(
         else f"{len(consumer_view.warnings)} warning(s)"
     )
     package_label = _package_reference_label(workflow, locale)
+    governance_context = consumer_view.governance_context
     rows = [
         (translate_text(locale, "ui.research_workflow_state"), state_label),
         (translate_text(locale, "ui.research_workflow_session_id"), workflow.metadata.session_id),
@@ -56,6 +59,14 @@ def build_research_workflow_summary_markdown(
         (translate_text(locale, "ui.research_workflow_provenance_reference"), provenance_label),
         (translate_text(locale, "ui.research_workflow_warnings_summary"), warnings_label),
     ]
+    if governance_context is not None:
+        rows.extend(
+            [
+                ("Governance summary", governance_context.summary),
+                ("Source trace reference", governance_context.source_trace_reference),
+                ("Date convention status", governance_context.date_convention_status),
+            ]
+        )
     lines = [
         f"### {heading}",
         caption,
