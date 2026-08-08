@@ -52,6 +52,7 @@ class AIReadModelConsumerUsageGuidance(BaseModel):
     limitation_summary: str = "Consumer guidance is unavailable."
     source_trace_reference: str = "not available"
     usage_steps: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
     summary: str = "Consumer guidance is unavailable."
 
 
@@ -156,6 +157,7 @@ def build_ai_read_model_consumer_guidance(
         limitation_summary=governance_interpretation.limitation_summary,
         source_trace_reference=governance_interpretation.source_trace_reference,
         usage_steps=usage_steps,
+        warnings=list(governance_context.warnings),
         summary=summary,
     )
 
