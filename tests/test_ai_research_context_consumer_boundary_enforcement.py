@@ -6,8 +6,9 @@ from tests.test_ai_research_context_entry import _assembly
 
 
 def test_ai_research_context_consumer_usage_contract_requires_approved_boundary():
-    contract = Path(
-        "codecopy/docs_reference_evidence/04_Evidence_Index/M027_AI_RESEARCH_CONTEXT_CONSUMER_USAGE_CONTRACT.md"
+    contract = (
+        Path(__file__).resolve().parents[1]
+        / "docs_reference_evidence/04_Evidence_Index/M027_AI_RESEARCH_CONTEXT_CONSUMER_USAGE_CONTRACT.md"
     ).read_text(encoding="utf-8")
 
     assert "Approved Consumer Entry Point" in contract
@@ -43,6 +44,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.historical_context is entry.historical_delivery
     assert boundary.consumer_context is entry.consumer_context
     assert boundary.quality_summary is entry.quality_summary
+    assert boundary.surface_version_reference == boundary.contract_meta.version
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -50,6 +52,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "historical_context",
             "consumer_context",
             "quality_summary",
+            "surface_version_reference",
         }
     )
     assert "comparison" not in type(boundary).model_fields
@@ -73,6 +76,7 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert entry.consumer_boundary.current_context is entry.delivery
     assert entry.consumer_boundary.historical_context is entry.historical_delivery
     assert "AI research context consumer boundary:" in entry.summary
+    assert "surface_version_reference=v0.1" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
