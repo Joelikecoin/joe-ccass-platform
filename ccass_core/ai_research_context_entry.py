@@ -73,6 +73,10 @@ from ccass_core.ai_research_context_consumer_health import (
     AIResearchContextConsumerHealthIndicator,
     build_ai_research_context_consumer_health_indicator_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_summary import (
+    AIResearchContextConsumerGovernanceSummary,
+    build_ai_research_context_consumer_governance_summary_markdown,
+)
 from ccass_core.ai_research_context_consumer_readiness import (
     AIResearchContextConsumerReadinessStatus,
     build_ai_research_context_consumer_readiness_status_markdown,
@@ -137,11 +141,13 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_capability_validation: AIResearchContextConsumerCapabilityValidation | None = None
     consumer_boundary_readiness_status: AIResearchContextConsumerReadinessStatus | None = None
     consumer_boundary_health_indicator: AIResearchContextConsumerHealthIndicator | None = None
+    consumer_boundary_governance_summary: AIResearchContextConsumerGovernanceSummary | None = None
     consumer_boundary_version_reference: str = "not available"
     consumer_boundary_compatibility_reference: str = "not available"
     consumer_boundary_capability_reference: str = "not available"
     consumer_boundary_readiness_reference: str = "not available"
     consumer_boundary_health_reference: str = "not available"
+    consumer_boundary_governance_reference: str = "not available"
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -231,6 +237,9 @@ def build_ai_research_context_consumer_entry(
             consumer_boundary_health_indicator=consumer_boundary.health_indicator
             if consumer_boundary is not None
             else None,
+            consumer_boundary_governance_summary=consumer_boundary.governance_summary
+            if consumer_boundary is not None
+            else None,
             consumer_boundary_version_reference=(
                 consumer_boundary.surface_version_reference
                 if consumer_boundary is not None
@@ -253,6 +262,11 @@ def build_ai_research_context_consumer_entry(
             ),
             consumer_boundary_health_reference=(
                 consumer_boundary.health_indicator.health_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
+            consumer_boundary_governance_reference=(
+                consumer_boundary.governance_summary.governance_reference
                 if consumer_boundary is not None
                 else "not available"
             ),
@@ -293,6 +307,9 @@ def build_ai_research_context_consumer_entry(
         consumer_boundary_health_indicator=consumer_boundary.health_indicator
         if consumer_boundary is not None
         else None,
+        consumer_boundary_governance_summary=consumer_boundary.governance_summary
+        if consumer_boundary is not None
+        else None,
         consumer_boundary_version_reference=(
             consumer_boundary.surface_version_reference
             if consumer_boundary is not None
@@ -315,6 +332,11 @@ def build_ai_research_context_consumer_entry(
         ),
         consumer_boundary_health_reference=(
             consumer_boundary.health_indicator.health_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_governance_reference=(
+            consumer_boundary.governance_summary.governance_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -387,6 +409,18 @@ def build_ai_research_context_consumer_entry_markdown(
         (
             "Consumer boundary health reference",
             entry.consumer_boundary_health_reference,
+        ),
+        (
+            "Consumer boundary governance status",
+            (
+                entry.consumer_boundary_governance_summary.governance_status
+                if entry.consumer_boundary_governance_summary is not None
+                else "not available"
+            ),
+        ),
+        (
+            "Consumer boundary governance reference",
+            entry.consumer_boundary_governance_reference,
         ),
         ("Consumer boundary version reference", entry.consumer_boundary_version_reference),
         (
@@ -480,6 +514,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 "",
                 build_ai_research_context_consumer_health_indicator_markdown(
                     entry.consumer_boundary_health_indicator
+                ),
+            ]
+        )
+    if entry.consumer_boundary_governance_summary is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_summary_markdown(
+                    entry.consumer_boundary_governance_summary
                 ),
             ]
         )

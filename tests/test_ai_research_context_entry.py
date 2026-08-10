@@ -138,6 +138,9 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_boundary.health_indicator is not None
     assert entry.consumer_boundary.health_indicator.health_status == "healthy"
     assert entry.consumer_boundary_health_indicator is entry.consumer_boundary.health_indicator
+    assert entry.consumer_boundary.governance_summary is not None
+    assert entry.consumer_boundary.governance_summary.governance_status == "complete"
+    assert entry.consumer_boundary_governance_summary is entry.consumer_boundary.governance_summary
     assert entry.consumer_boundary_version_reference == entry.consumer_boundary.contract_meta.version
     assert (
         entry.consumer_boundary_compatibility_reference
@@ -155,6 +158,10 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
         entry.consumer_boundary_health_reference
         == entry.consumer_boundary.health_indicator.health_reference
     )
+    assert (
+        entry.consumer_boundary_governance_reference
+        == entry.consumer_boundary.governance_summary.governance_reference
+    )
     assert "consumer boundary:" in entry.summary
     assert "current_context_visible=" in entry.summary
     assert "historical_context_visible=" in entry.summary
@@ -164,6 +171,7 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "capability_validation_state=consistent" in entry.summary
     assert "readiness_status=ready" in entry.summary
     assert "health_status=healthy" in entry.summary
+    assert "governance_status=complete" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
@@ -247,6 +255,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Consumer Capability Validation" in markdown
     assert "AI Research Context Consumer Readiness" in markdown
     assert "AI Research Context Consumer Health" in markdown
+    assert "AI Research Context Consumer Governance Summary" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "Surface version reference" in markdown
@@ -277,6 +286,7 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
     assert "Historical context visible" in markdown
     assert "Quality visible" in markdown
     assert "Health status" in markdown
+    assert "Governance status" in markdown
     assert "Approved surface" in markdown
     assert "Consumer boundary contract" in markdown
     assert set(type(entry.consumer_boundary).model_fields).issuperset(
@@ -287,6 +297,7 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
             "consumer_context",
             "quality_summary",
             "health_indicator",
+            "governance_summary",
         }
     )
     assert "comparison" not in type(entry.consumer_boundary).model_fields
