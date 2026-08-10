@@ -955,6 +955,7 @@ def build_markdown_report(
     officers: OfficersResponse | None = None,
     price_history: PriceHistoryResponse | None = None,
     research_workflow: object | None = None,
+    research_context_entry: object | None = None,
     locale: str = DEFAULT_LOCALE,
 ) -> str:
     stock_name = response.metadata.name if response and response.metadata.name else translate_text(locale, "report.data_not_available")
@@ -963,6 +964,10 @@ def build_markdown_report(
         from ccass_core.research_workflow_presentation import build_research_workflow_summary_markdown
 
         lines.extend([build_research_workflow_summary_markdown(research_workflow, locale=locale), ""])
+    if research_context_entry is not None:
+        from ccass_core.ai_research_context_entry import build_ai_research_context_consumer_entry_markdown
+
+        lines.extend([build_ai_research_context_consumer_entry_markdown(research_context_entry), ""])
 
     if response is None:
         reason = fetch_error or translate_text(locale, "report.no_source_response")

@@ -33,6 +33,14 @@ from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import export_latest_csv
 from ccass_core.compute import AnalysisResult, compute_analysis
+from ccass_core.ai_read_model import build_ai_read_model_v0_1
+from ccass_core.ai_read_model_governance import build_ai_read_model_consumer_view
+from ccass_core.ai_research_context_assembly import build_ai_research_context_assembly
+from ccass_core.ai_research_context_consumer import build_ai_research_context_consumer_view
+from ccass_core.ai_research_context_entry import (
+    AIResearchContextConsumerEntry,
+    build_ai_research_context_consumer_entry,
+)
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import (
     DEFAULT_LOCALE,
@@ -48,6 +56,7 @@ from ccass_core.report import (
 )
 from ccass_core.research_workflow import ResearchWorkflowSession, build_research_workflow_session_from_result
 from ccass_core.research_workflow_presentation import build_research_workflow_summary_markdown
+from ccass_core.source_trace import SourceTraceView, build_source_trace_markdown, build_source_trace_view
 
 NAV_SECTION_KEYS = (
     "full_summary",
@@ -116,6 +125,8 @@ class PreparedReport:
     chatgpt_payload: str
     filename: str
     response: CcassResponse | None
+    previous_response: CcassResponse | None = None
+    source_trace: SourceTraceView | None = None
     analysis: AnalysisResult | None = None
     announcements: AnnouncementsResponse | None = None
     stock_events: StockEventsResponse | None = None
@@ -123,6 +134,7 @@ class PreparedReport:
     officers: OfficersResponse | None = None
     price_history: PriceHistoryResponse | None = None
     workflow: ResearchWorkflowSession | None = None
+    research_context_entry: AIResearchContextConsumerEntry | None = None
     fetch_error: str | None = None
 
 
@@ -172,9 +184,17 @@ async def prepare_report(
         session_id=None,
     )
     _progress(progress, 15, ui_text(locale, "progress_validated_stock_code"))
+    gateway_response = None
+    source_trace = None
     try:
         _progress(progress, 30, ui_text(locale, "progress_fetching_source"))
-        response = await service.get_stock_data(code, holdings_limit=holdings_limit)
+        gateway_getter = getattr(service, "get_stock_gateway_response", None)
+        if callable(gateway_getter):
+            gateway_response = await gateway_getter(code, holdings_limit=holdings_limit)
+            response = gateway_response.normalized_response
+            source_trace = build_source_trace_view(gateway_response)
+        else:
+            response = await service.get_stock_data(code, holdings_limit=holdings_limit)
     except PlatformError as exc:
         error = f"{exc.code}: {exc.message}"
         _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))
@@ -186,6 +206,8 @@ async def prepare_report(
             chatgpt_payload=build_chatgpt_copy_payload(markdown),
             filename=report_filename(code),
             response=None,
+            previous_response=None,
+            source_trace=None,
             workflow=workflow,
             fetch_error=error,
         )
@@ -352,6 +374,21 @@ async def prepare_report(
         research_workflow=workflow,
         locale=locale,
     )
+    research_context_entry = build_ai_research_context_consumer_entry_for_result(
+        code=code,
+        response=response,
+        analysis=analysis,
+        previous_response=previous,
+        announcements=announcements,
+        stock_events=stock_events,
+        capital_information=capital_information,
+        officers=officers,
+        price_history=price_history,
+        workflow=workflow,
+        source_trace=source_trace,
+    )
+    if source_trace is not None:
+        markdown = "\n\n".join((markdown.rstrip(), build_source_trace_markdown(source_trace)))
     _progress(progress, 100, ui_text(locale, "progress_ready"))
     return PreparedReport(
         code=code,
@@ -359,6 +396,8 @@ async def prepare_report(
         chatgpt_payload=build_chatgpt_copy_payload(markdown),
         filename=report_filename(code),
         response=response,
+        previous_response=previous,
+        source_trace=source_trace,
         analysis=analysis,
         announcements=announcements,
         stock_events=stock_events,
@@ -366,6 +405,7 @@ async def prepare_report(
         officers=officers,
         price_history=price_history,
         workflow=workflow,
+        research_context_entry=research_context_entry,
     )
 
 
@@ -573,6 +613,73 @@ def build_download_artifacts(
         raw_preview_holdings_bytes=_table_to_csv_bytes(raw_preview_tables[1]),
         raw_preview_holdings_filename=f"{response.metadata.code}_raw_preview_holdings.csv",
     )
+
+
+def build_ai_research_context_consumer_entry_from_prepared_report(
+    prepared: PreparedReport,
+) -> AIResearchContextConsumerEntry | None:
+    return build_ai_research_context_consumer_entry_for_result(
+        code=prepared.code,
+        response=prepared.response,
+        analysis=prepared.analysis,
+        previous_response=prepared.previous_response,
+        announcements=prepared.announcements,
+        stock_events=prepared.stock_events,
+        capital_information=prepared.capital_information,
+        officers=prepared.officers,
+        price_history=prepared.price_history,
+        workflow=prepared.workflow,
+        source_trace=prepared.source_trace,
+    )
+
+
+def build_ai_research_context_consumer_entry_for_result(
+    *,
+    code: str,
+    response: CcassResponse | None,
+    analysis: AnalysisResult | None,
+    previous_response: CcassResponse | None,
+    announcements: AnnouncementsResponse | None,
+    stock_events: StockEventsResponse | None,
+    capital_information: CapitalInformationResponse | None,
+    officers: OfficersResponse | None,
+    price_history: PriceHistoryResponse | None,
+    workflow: ResearchWorkflowSession | None,
+    source_trace: SourceTraceView | None,
+) -> AIResearchContextConsumerEntry | None:
+    if response is None or workflow is None:
+        return None
+
+    research_context_package = workflow.research_context_package
+    if research_context_package is None:
+        return None
+
+    research_context_consumer_view = workflow.consumer_view
+    if research_context_consumer_view is None:
+        research_context_consumer_view = build_research_context_consumer_view(research_context_package)
+
+    ai_read_model = build_ai_read_model_v0_1(
+        code=code,
+        response=response,
+        surface="ccass_ai_read_model",
+        analysis=analysis,
+        previous_response=previous_response,
+        snapshot_id=None,
+        previous_snapshot_id=None,
+        announcements=announcements,
+        price_history=price_history,
+    )
+    ai_read_model_consumer_view = build_ai_read_model_consumer_view(
+        ai_read_model,
+        source_trace=source_trace,
+    )
+    assembly = build_ai_research_context_assembly(
+        research_context_package=research_context_package,
+        research_context_consumer_view=research_context_consumer_view,
+        ai_read_model_consumer_view=ai_read_model_consumer_view,
+        source_trace=source_trace,
+    )
+    return build_ai_research_context_consumer_entry(assembly)
 
 
 def build_full_summary_markdown(
@@ -837,6 +944,8 @@ def build_data_confidence_markdown(
         "|---|---|",
     ]
     lines.extend(f"| {label} | {value} |" for label, value in rows)
+    if prepared.source_trace is not None:
+        lines.extend(["", build_source_trace_markdown(prepared.source_trace)])
     return "\n".join(lines)
 
 
@@ -1256,12 +1365,18 @@ def _streamlit_anchor_id(label: str) -> str:
 
 
 def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LOCALE) -> tuple[str, str]:
+    research_context_entry = (
+        prepared.research_context_entry
+        if prepared.research_context_entry is not None
+        else build_ai_research_context_consumer_entry_from_prepared_report(prepared)
+    )
     if prepared.response is None:
         markdown = build_markdown_report(
             None,
             code=prepared.code,
             fetch_error=prepared.fetch_error,
             research_workflow=prepared.workflow,
+            research_context_entry=research_context_entry,
             locale=locale,
         )
     else:
@@ -1274,6 +1389,9 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             capital_information=prepared.capital_information,
             price_history=prepared.price_history,
             research_workflow=prepared.workflow,
+            research_context_entry=research_context_entry,
             locale=locale,
         )
+    if prepared.source_trace is not None:
+        markdown = "\n\n".join((markdown.rstrip(), build_source_trace_markdown(prepared.source_trace)))
     return markdown, build_chatgpt_copy_payload(markdown)

@@ -22,6 +22,8 @@ from app.streamlit_ui import (
     build_report_action_strip,
     build_report_flow_markdown,
     build_research_workflow_summary_markdown,
+    build_ai_research_context_consumer_entry_from_prepared_report,
+    build_ai_research_context_consumer_entry_markdown,
     copy_button_html,
     prepare_report,
     render_prepared_report,
@@ -478,6 +480,13 @@ if prepared is not None:
             st.error(prepared.fetch_error)
             st.info(ui_text(current_locale, "fetch_summary_remaining"))
         st.markdown(build_research_workflow_summary_markdown(prepared.workflow, locale=current_locale))
+        research_context_entry = (
+            prepared.research_context_entry
+            if prepared.research_context_entry is not None
+            else build_ai_research_context_consumer_entry_from_prepared_report(prepared)
+        )
+        if research_context_entry is not None:
+            st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))
         st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'full_summary_heading')}")
         st.caption(ui_text(current_locale, 'full_summary_caption'))
