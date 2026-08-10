@@ -36,6 +36,15 @@ class AIResearchContextAccess(BaseModel):
     quality_status: Literal["ready", "partial", "unavailable", "unknown"] = "unknown"
     consumer_ready: bool = False
     context_available: bool = False
+    availability_state: Literal["available", "partial", "unavailable", "unknown"] = "unknown"
+    freshness_state: Literal[
+        "fresh",
+        "cached",
+        "stale",
+        "partial",
+        "unavailable",
+        "unknown",
+    ] = "unknown"
     provenance_reference: str = "not available"
     freshness_reference: str = "unavailable"
     warning_summary: str = "0 warning(s)"
@@ -52,7 +61,10 @@ def build_ai_research_context_access(
     assembly: AIResearchContextAssembly | None,
 ) -> AIResearchContextAccess:
     if assembly is None:
-        return AIResearchContextAccess()
+        return AIResearchContextAccess(
+            availability_state="unavailable",
+            freshness_state="unavailable",
+        )
 
     consumer_view = build_ai_research_context_consumer_view(assembly)
     validation = consumer_view.validation
@@ -63,12 +75,16 @@ def build_ai_research_context_access(
     )
     consumer_ready = bool(
         (validation.consumer_ready if validation is not None else False)
-        or (quality_summary.consumer_ready if quality_summary is not None else False)
+        and (quality_summary.consumer_ready if quality_summary is not None else False)
     )
+    availability_state = consumer_view.availability_state
+    freshness_state = consumer_view.freshness_state
     summary = _summary_text(
         validation_status=validation_status,
         quality_status=quality_status,
         context_available=consumer_view.context_available,
+        availability_state=availability_state,
+        freshness_state=freshness_state,
         provenance_reference=consumer_view.provenance_reference,
         freshness_reference=consumer_view.freshness_reference,
         warning_summary=consumer_view.warning_summary,
@@ -85,6 +101,8 @@ def build_ai_research_context_access(
         quality_status=quality_status,
         consumer_ready=consumer_ready,
         context_available=consumer_view.context_available,
+        availability_state=availability_state,
+        freshness_state=freshness_state,
         provenance_reference=consumer_view.provenance_reference,
         freshness_reference=consumer_view.freshness_reference,
         warning_summary=consumer_view.warning_summary,
@@ -101,6 +119,8 @@ def _summary_text(
     validation_status: str,
     quality_status: str,
     context_available: bool,
+    availability_state: str,
+    freshness_state: str,
     provenance_reference: str,
     freshness_reference: str,
     warning_summary: str,
@@ -114,9 +134,11 @@ def _summary_text(
         f"context={context_state}; "
         f"validation={validation_status}; "
         f"quality={quality_status}; "
+        f"availability={availability_state}; "
+        f"freshness_state={freshness_state}; "
         f"consumer_ready={ready_state}; "
         f"provenance={provenance_reference}; "
-        f"freshness={freshness_reference}; "
+        f"freshness_reference={freshness_reference}; "
         f"warnings={warning_summary}; "
         f"limitations={limitation_summary}"
     )

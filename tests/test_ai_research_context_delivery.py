@@ -117,6 +117,8 @@ def test_ai_research_context_delivery_handles_missing_assembly():
     assert delivery.quality_visible is False
     assert delivery.consumer_ready is False
     assert delivery.context_available is False
+    assert delivery.availability_state == "unavailable"
+    assert delivery.freshness_state == "unavailable"
     assert delivery.provenance_reference == "not available"
     assert delivery.freshness_reference == "unavailable"
     assert delivery.warning_summary == "0 warning(s)"

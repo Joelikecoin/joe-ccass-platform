@@ -12,6 +12,8 @@ from ccass_core.ai_research_context_consumer import (
     build_ai_research_context_consumer_view,
     build_ai_research_context_usage_markdown,
 )
+from ccass_core.ai_research_context_delivery import build_ai_research_context_delivery
+from ccass_core.ai_research_context_entry import build_ai_research_context_consumer_entry
 from ccass_core.compute import compute_analysis
 from ccass_core.research_context import build_research_context_package
 from ccass_core.research_context_consumer import build_research_context_consumer_view
@@ -109,6 +111,8 @@ def test_ai_research_context_consumer_view_handles_missing_assembly():
     assert consumer_view.available is False
     assert consumer_view.assembly is None
     assert consumer_view.context_available is False
+    assert consumer_view.availability_state == "unavailable"
+    assert consumer_view.freshness_state == "unavailable"
     assert consumer_view.governance_summary == "AI research context assembly is unavailable."
     assert consumer_view.provenance_reference == "not available"
     assert consumer_view.freshness_reference == "unavailable"
@@ -135,6 +139,7 @@ def test_ai_research_context_consumer_view_handles_empty_data():
 
     assert consumer_view.available is True
     assert consumer_view.context_available is True
+    assert consumer_view.availability_state == "partial"
     assert consumer_view.freshness_reference == "unavailable"
     assert consumer_view.warning_summary == "0 warning(s)"
     assert consumer_view.validation is not None
@@ -180,6 +185,49 @@ def test_ai_research_context_consumer_view_propagates_warnings(current_response,
     assert consumer_view.quality_summary.validation_summary == consumer_view.validation.summary
     assert "recommendation" not in build_ai_research_context_usage_markdown(consumer_view).lower()
     assert "trading signal" not in build_ai_research_context_usage_markdown(consumer_view).lower()
+
+
+def test_ai_research_context_consumer_view_surfaces_stale_freshness_state(current_response, previous_response):
+    stale_response = current_response.model_copy(
+        deep=True,
+        update={
+            "data_quality_warnings": [
+                structured_warning(
+                    "FRESHNESS_STATUS",
+                    "STALE_DATA",
+                    "The current result is stale.",
+                )
+            ]
+        },
+    )
+    ai_read_model = _build_read_model(stale_response, previous_response)
+    research_package = build_research_context_package(ai_read_model=ai_read_model)
+    source_trace = _source_trace(stale_response)
+    assembly = build_ai_research_context_assembly(
+        research_context_package=research_package,
+        research_context_consumer_view=build_research_context_consumer_view(research_package),
+        ai_read_model_consumer_view=build_ai_read_model_consumer_view(
+            ai_read_model,
+            source_trace=source_trace,
+        ),
+        source_trace=source_trace,
+    )
+
+    consumer_view = build_ai_research_context_consumer_view(assembly)
+    access = build_ai_research_context_access(assembly)
+    delivery = build_ai_research_context_delivery(assembly)
+    entry = build_ai_research_context_consumer_entry(assembly)
+
+    assert consumer_view.available is True
+    assert consumer_view.availability_state == "partial"
+    assert consumer_view.freshness_state == "stale"
+    assert access.availability_state == "partial"
+    assert access.freshness_state == "stale"
+    assert delivery.availability_state == "partial"
+    assert delivery.freshness_state == "stale"
+    assert entry.availability_state == "partial"
+    assert entry.freshness_state == "stale"
+    assert "freshness_state=stale" in consumer_view.summary
 
 
 def test_ai_research_context_usage_markdown_includes_governance_fields(current_response, previous_response):
@@ -256,6 +304,8 @@ def test_ai_research_context_access_bundle_handles_missing_assembly():
     assert access.validation_status == "unknown"
     assert access.quality_status == "unknown"
     assert access.context_available is False
+    assert access.availability_state == "unavailable"
+    assert access.freshness_state == "unavailable"
     assert access.provenance_reference == "not available"
     assert access.freshness_reference == "unavailable"
     assert access.warning_summary == "0 warning(s)"

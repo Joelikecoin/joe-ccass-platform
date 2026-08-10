@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from ccass_core.ai_read_model import AIReadModelIdentity
@@ -59,6 +61,15 @@ class AIResearchContextConsumerEntry(BaseModel):
     quality_visible: bool = False
     consumer_ready: bool = False
     context_available: bool = False
+    availability_state: Literal["available", "partial", "unavailable", "unknown"] = "unknown"
+    freshness_state: Literal[
+        "fresh",
+        "cached",
+        "stale",
+        "partial",
+        "unavailable",
+        "unknown",
+    ] = "unknown"
     provenance_reference: str = "not available"
     freshness_reference: str = "unavailable"
     warning_summary: str = "0 warning(s)"
@@ -80,12 +91,16 @@ def build_ai_research_context_consumer_entry(
         return AIResearchContextConsumerEntry(
             access=access,
             delivery=delivery,
+            availability_state=access.availability_state,
+            freshness_state=access.freshness_state,
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
             ),
             summary=_summary_text(
                 context_available=False,
+                availability_state="unavailable",
+                freshness_state="unavailable",
                 governance_visible=False,
                 quality_visible=False,
                 consumer_ready=False,
@@ -99,6 +114,8 @@ def build_ai_research_context_consumer_entry(
     consumer_metadata = _consumer_metadata(delivery)
     summary = _summary_text(
         context_available=delivery.context_available,
+        availability_state=delivery.availability_state,
+        freshness_state=delivery.freshness_state,
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
         consumer_ready=delivery.consumer_ready,
@@ -121,6 +138,8 @@ def build_ai_research_context_consumer_entry(
         quality_visible=delivery.quality_visible,
         consumer_ready=delivery.consumer_ready,
         context_available=delivery.context_available,
+        availability_state=delivery.availability_state,
+        freshness_state=delivery.freshness_state,
         provenance_reference=delivery.provenance_reference,
         freshness_reference=delivery.freshness_reference,
         warning_summary=delivery.warning_summary,
@@ -149,6 +168,8 @@ def build_ai_research_context_consumer_entry_markdown(
     consumer_metadata = entry.consumer_metadata
     rows = [
         ("Context availability", "available" if entry.context_available else "unavailable"),
+        ("Availability state", entry.availability_state),
+        ("Freshness state", entry.freshness_state),
         ("Governance visibility", "visible" if entry.governance_visible else "hidden"),
         ("Quality visibility", "visible" if entry.quality_visible else "hidden"),
         ("Consumer ready", "Yes" if entry.consumer_ready else "No"),
@@ -269,6 +290,8 @@ def _consumer_metadata(
 def _summary_text(
     *,
     context_available: bool,
+    availability_state: str,
+    freshness_state: str,
     governance_visible: bool,
     quality_visible: bool,
     consumer_ready: bool,
@@ -284,11 +307,13 @@ def _summary_text(
     return (
         "AI research context consumer entry: "
         f"context={context_state}; "
+        f"availability={availability_state}; "
+        f"freshness_state={freshness_state}; "
         f"governance={governance_state}; "
         f"quality={quality_state}; "
         f"consumer_ready={ready_state}; "
         f"provenance={provenance_reference}; "
-        f"freshness={freshness_reference}; "
+        f"freshness_reference={freshness_reference}; "
         f"warnings={warning_summary}; "
         f"limitations={limitation_summary}"
     )

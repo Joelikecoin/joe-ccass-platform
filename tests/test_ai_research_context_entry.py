@@ -115,6 +115,8 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_metadata is None
     assert entry.consumer_ready is False
     assert entry.context_available is False
+    assert entry.availability_state == "unavailable"
+    assert entry.freshness_state == "unavailable"
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"

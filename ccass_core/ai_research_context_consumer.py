@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from ccass_core.ai_research_context_assembly import (
@@ -23,6 +25,15 @@ class AIResearchContextConsumerView(BaseModel):
     available: bool = False
     assembly: AIResearchContextAssembly | None = None
     context_available: bool = False
+    availability_state: Literal["available", "partial", "unavailable", "unknown"] = "unknown"
+    freshness_state: Literal[
+        "fresh",
+        "cached",
+        "stale",
+        "partial",
+        "unavailable",
+        "unknown",
+    ] = "unknown"
     governance_summary: str = "AI research context assembly is unavailable."
     provenance_reference: str = "not available"
     freshness_reference: str = "unavailable"
@@ -41,7 +52,10 @@ def build_ai_research_context_consumer_view(
     assembly: AIResearchContextAssembly | None,
 ) -> AIResearchContextConsumerView:
     if assembly is None:
-        return AIResearchContextConsumerView()
+        return AIResearchContextConsumerView(
+            availability_state="unavailable",
+            freshness_state="unavailable",
+        )
 
     research_context_consumer_view = assembly.research_context_consumer_view
     research_governance_context = assembly.research_governance_context
@@ -61,6 +75,8 @@ def build_ai_research_context_consumer_view(
         ai_read_model_governance_context=ai_read_model_governance_context,
     )
     validation = build_ai_research_context_validation(assembly)
+    availability_state = _availability_state(assembly=assembly, validation=validation)
+    freshness_state = _freshness_state(assembly)
     warning_summary = f"{len(assembly.warnings)} warning(s)"
     limitation_summary = _limitation_summary(
         research_governance_interpretation=research_governance_interpretation,
@@ -87,6 +103,8 @@ def build_ai_research_context_consumer_view(
     ]
     summary = _summary_text(
         context_available=context_available,
+        availability_state=availability_state,
+        freshness_state=freshness_state,
         governance_summary=assembly.summary,
         provenance_reference=provenance_reference,
         freshness_reference=freshness_reference,
@@ -97,6 +115,8 @@ def build_ai_research_context_consumer_view(
         available=True,
         assembly=assembly,
         context_available=context_available,
+        availability_state=availability_state,
+        freshness_state=freshness_state,
         governance_summary=assembly.summary,
         provenance_reference=provenance_reference,
         freshness_reference=freshness_reference,
@@ -126,6 +146,8 @@ def build_ai_research_context_usage_markdown(
 
     rows = [
         ("Context availability", "available" if consumer_view.context_available else "unavailable"),
+        ("Availability state", consumer_view.availability_state),
+        ("Freshness state", consumer_view.freshness_state),
         ("Governance summary", consumer_view.governance_summary),
         ("Provenance reference", consumer_view.provenance_reference),
         ("Freshness reference", consumer_view.freshness_reference),
@@ -231,6 +253,51 @@ def _freshness_reference(
     return " | ".join(dict.fromkeys(references))
 
 
+def _availability_state(
+    *,
+    assembly: AIResearchContextAssembly,
+    validation: AIResearchContextValidationResult | None,
+) -> Literal["available", "partial", "unavailable", "unknown"]:
+    if not assembly.available:
+        return "unavailable"
+    if validation is None:
+        return "unknown"
+    if validation.status == "ready":
+        return "available"
+    if validation.status == "partial":
+        return "partial"
+    if validation.status == "unavailable":
+        return "unavailable"
+    return "unknown"
+
+
+def _freshness_state(
+    assembly: AIResearchContextAssembly,
+) -> Literal["fresh", "cached", "stale", "partial", "unavailable", "unknown"]:
+    states = [
+        getattr(
+            assembly.research_governance_interpretation,
+            "freshness_state",
+            None,
+        ),
+        getattr(
+            assembly.ai_read_model_governance_interpretation,
+            "freshness_state",
+            None,
+        ),
+        getattr(
+            assembly.ai_read_model_consumer_guidance,
+            "freshness_state",
+            None,
+        ),
+    ]
+    normalized = [state for state in states if state]
+    for candidate in ("stale", "partial", "cached", "fresh", "unavailable", "unknown"):
+        if candidate in normalized:
+            return candidate  # type: ignore[return-value]
+    return "unknown"
+
+
 def _limitation_summary(
     *,
     research_governance_interpretation,
@@ -253,6 +320,8 @@ def _limitation_summary(
 def _summary_text(
     *,
     context_available: bool,
+    availability_state: str,
+    freshness_state: str,
     governance_summary: str,
     provenance_reference: str,
     freshness_reference: str,
@@ -263,9 +332,11 @@ def _summary_text(
     return (
         "AI research context consumer view: "
         f"context={context_state}; "
+        f"availability={availability_state}; "
+        f"freshness_state={freshness_state}; "
         f"governance={governance_summary}; "
         f"provenance={provenance_reference}; "
-        f"freshness={freshness_reference}; "
+        f"freshness_reference={freshness_reference}; "
         f"warnings={warning_summary}; "
         f"limitations={limitation_summary}"
     )
