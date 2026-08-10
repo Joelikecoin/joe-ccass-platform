@@ -1,6 +1,9 @@
 from pathlib import Path
 
 from ccass_core.ai_research_context_entry import build_ai_research_context_consumer_entry
+from ccass_core.ai_research_context_consumer_capability_validation import (
+    build_ai_research_context_consumer_capability_validation,
+)
 
 from tests.test_ai_research_context_entry import _assembly
 
@@ -51,6 +54,10 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.capability_metadata is not None
     assert boundary.capability_metadata.supported_surface == boundary.approved_surface
     assert boundary.capability_metadata.capability_reference
+    assert boundary.capability_validation is not None
+    assert boundary.capability_validation.capability_consistent is True
+    assert boundary.capability_validation.validation_state == "consistent"
+    assert boundary.capability_validation.missing_capability_references == []
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -61,6 +68,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "surface_version_reference",
             "compatibility_metadata",
             "capability_metadata",
+            "capability_validation",
         }
     )
     assert "comparison" not in type(boundary).model_fields
@@ -87,6 +95,32 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "surface_version_reference=v0.1" in entry.summary
     assert "compatibility_reference=" in entry.summary
     assert "capability_reference=" in entry.summary
+    assert "capability_validation_state=consistent" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
+
+
+def test_ai_research_context_consumer_capability_validation_detects_missing_references():
+    validation = build_ai_research_context_consumer_capability_validation(
+        surface_version_reference="v0.1",
+        approved_surface=(
+            "current_context",
+            "historical_context",
+            "consumer_context",
+            "quality_summary",
+        ),
+        capability_supported_surface=("current_context",),
+        compatibility_supported_surface=("current_context", "historical_context"),
+        capability_reference="",
+        compatibility_reference="",
+        consumer_surface_declaration="",
+    )
+
+    assert validation.available is True
+    assert validation.capability_consistent is False
+    assert validation.validation_state == "inconsistent"
+    assert "capability_reference" in validation.missing_capability_references
+    assert "compatibility_reference" in validation.missing_capability_references
+    assert "consumer_surface_declaration" in validation.missing_capability_references
+    assert validation.consistency_warnings

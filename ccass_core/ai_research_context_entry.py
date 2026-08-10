@@ -65,6 +65,10 @@ from ccass_core.ai_research_context_consumer_boundary import (
     build_ai_research_context_consumer_boundary,
     build_ai_research_context_consumer_boundary_markdown,
 )
+from ccass_core.ai_research_context_consumer_capability_validation import (
+    AIResearchContextConsumerCapabilityValidation,
+    build_ai_research_context_consumer_capability_validation_markdown,
+)
 from ccass_core.ai_research_context_audit import (
     AIResearchContextAuditTrail,
 )
@@ -122,6 +126,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     historical_delivery: AIResearchContextHistoricalDelivery | None = None
     consumer_context: AIResearchContextConsumerEntryContext | None = None
     consumer_boundary: AIResearchContextConsumerBoundary | None = None
+    consumer_boundary_capability_validation: AIResearchContextConsumerCapabilityValidation | None = None
     consumer_boundary_version_reference: str = "not available"
     consumer_boundary_compatibility_reference: str = "not available"
     consumer_boundary_capability_reference: str = "not available"
@@ -205,6 +210,9 @@ def build_ai_research_context_consumer_entry(
             historical_delivery=historical_delivery,
             consumer_context=consumer_context,
             consumer_boundary=consumer_boundary,
+            consumer_boundary_capability_validation=consumer_boundary.capability_validation
+            if consumer_boundary is not None
+            else None,
             consumer_boundary_version_reference=(
                 consumer_boundary.surface_version_reference
                 if consumer_boundary is not None
@@ -248,6 +256,9 @@ def build_ai_research_context_consumer_entry(
         historical_delivery=historical_delivery,
         consumer_context=consumer_context,
         consumer_boundary=consumer_boundary,
+        consumer_boundary_capability_validation=consumer_boundary.capability_validation
+        if consumer_boundary is not None
+        else None,
         consumer_boundary_version_reference=(
             consumer_boundary.surface_version_reference
             if consumer_boundary is not None
@@ -303,6 +314,14 @@ def build_ai_research_context_consumer_entry_markdown(
         (
             "Consumer boundary state",
             entry.consumer_boundary.context_state if entry.consumer_boundary is not None else "unavailable",
+        ),
+        (
+            "Consumer boundary capability validation",
+            (
+                entry.consumer_boundary_capability_validation.summary
+                if entry.consumer_boundary_capability_validation is not None
+                else "not available"
+            ),
         ),
         ("Consumer boundary version reference", entry.consumer_boundary_version_reference),
         (
@@ -372,6 +391,15 @@ def build_ai_research_context_consumer_entry_markdown(
         lines.extend(f"- {step}" for step in entry.usage_steps)
     if entry.consumer_boundary is not None:
         lines.extend(["", build_ai_research_context_consumer_boundary_markdown(entry.consumer_boundary)])
+    if entry.consumer_boundary_capability_validation is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_capability_validation_markdown(
+                    entry.consumer_boundary_capability_validation
+                ),
+            ]
+        )
     if entry.validation is not None:
         lines.extend(["", "Validation warnings:"])
         if entry.validation.warnings:
