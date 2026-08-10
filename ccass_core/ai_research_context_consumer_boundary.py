@@ -27,11 +27,26 @@ class AIResearchContextConsumerBoundaryContractMeta(BaseModel):
     surface: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_SURFACE
 
 
+class AIResearchContextConsumerBoundaryCompatibilityMetadata(BaseModel):
+    version: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION
+    surface: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_SURFACE
+    supported_surface: tuple[str, ...] = Field(
+        default_factory=lambda: AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+    )
+    evolution_support: str = "additive consumer boundary evolution"
+    compatibility_reference: str = (
+        "AI research context consumer boundary supports additive consumer evolution."
+    )
+
+
 class AIResearchContextConsumerBoundary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     available: bool = False
     surface_version_reference: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION
+    compatibility_metadata: AIResearchContextConsumerBoundaryCompatibilityMetadata = Field(
+        default_factory=AIResearchContextConsumerBoundaryCompatibilityMetadata
+    )
     approved_surface: tuple[str, ...] = Field(
         default_factory=lambda: AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
     )
@@ -83,6 +98,9 @@ def build_ai_research_context_consumer_boundary(
     if not available:
         return AIResearchContextConsumerBoundary(
             surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
+            compatibility_metadata=AIResearchContextConsumerBoundaryCompatibilityMetadata(
+                supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+            ),
             approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
             current_context=current_context,
             historical_context=historical_context,
@@ -157,6 +175,9 @@ def build_ai_research_context_consumer_boundary(
     return AIResearchContextConsumerBoundary(
         available=True,
         surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
+        compatibility_metadata=AIResearchContextConsumerBoundaryCompatibilityMetadata(
+            supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+        ),
         approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
         current_context=current_context,
         historical_context=historical_context,
@@ -207,6 +228,14 @@ def build_ai_research_context_consumer_boundary_markdown(
         ("Quality visible", "Yes" if consumer_boundary.quality_visible else "No"),
         ("Summary visible", "Yes" if consumer_boundary.summary_visible else "No"),
         ("Surface version reference", consumer_boundary.surface_version_reference),
+        (
+            "Compatibility reference",
+            consumer_boundary.compatibility_metadata.compatibility_reference,
+        ),
+        (
+            "Supported surface",
+            _join_list(consumer_boundary.compatibility_metadata.supported_surface),
+        ),
         ("Approved surface", _join_list(consumer_boundary.approved_surface)),
         ("Consumer ready", "Yes" if consumer_boundary.consumer_ready else "No"),
         ("Context state", consumer_boundary.context_state),
@@ -290,6 +319,7 @@ def _summary_text(
         f"quality_visible={quality_visible}; "
         f"summary_visible={summary_visible}; "
         f"surface_version_reference={AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION}; "
+        f"compatibility_reference={AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference}; "
         f"approved_surface={_join_list(AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE)}; "
         f"consumer_ready={'ready' if consumer_ready else 'not ready'}; "
         f"context_state={context_state}; "

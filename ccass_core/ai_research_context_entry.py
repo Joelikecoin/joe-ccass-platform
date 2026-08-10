@@ -123,6 +123,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_context: AIResearchContextConsumerEntryContext | None = None
     consumer_boundary: AIResearchContextConsumerBoundary | None = None
     consumer_boundary_version_reference: str = "not available"
+    consumer_boundary_compatibility_reference: str = "not available"
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -208,6 +209,11 @@ def build_ai_research_context_consumer_entry(
                 if consumer_boundary is not None
                 else "not available"
             ),
+            consumer_boundary_compatibility_reference=(
+                consumer_boundary.compatibility_metadata.compatibility_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
@@ -238,6 +244,11 @@ def build_ai_research_context_consumer_entry(
         consumer_boundary=consumer_boundary,
         consumer_boundary_version_reference=(
             consumer_boundary.surface_version_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_compatibility_reference=(
+            consumer_boundary.compatibility_metadata.compatibility_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -283,6 +294,10 @@ def build_ai_research_context_consumer_entry_markdown(
             entry.consumer_boundary.context_state if entry.consumer_boundary is not None else "unavailable",
         ),
         ("Consumer boundary version reference", entry.consumer_boundary_version_reference),
+        (
+            "Consumer boundary compatibility reference",
+            entry.consumer_boundary_compatibility_reference,
+        ),
         ("Governance visibility", "visible" if entry.governance_visible else "hidden"),
         ("Quality visibility", "visible" if entry.quality_visible else "hidden"),
         ("Consumer ready", "Yes" if entry.consumer_ready else "No"),
