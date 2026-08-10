@@ -85,6 +85,10 @@ from ccass_core.ai_research_context_consumer_governance_status_validation import
     AIResearchContextConsumerGovernanceStatusValidation,
     build_ai_research_context_consumer_governance_status_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_snapshot import (
+    AIResearchContextConsumerGovernanceSnapshot,
+    build_ai_research_context_consumer_governance_snapshot_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_validation import (
     AIResearchContextConsumerGovernanceValidation,
     build_ai_research_context_consumer_governance_validation_markdown,
@@ -156,6 +160,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_summary: AIResearchContextConsumerGovernanceSummary | None = None
     consumer_boundary_governance_status: AIResearchContextConsumerGovernanceStatus | None = None
     consumer_boundary_governance_status_validation: AIResearchContextConsumerGovernanceStatusValidation | None = None
+    consumer_boundary_governance_snapshot: AIResearchContextConsumerGovernanceSnapshot | None = None
     consumer_boundary_governance_validation: AIResearchContextConsumerGovernanceValidation | None = None
     consumer_boundary_version_reference: str = "not available"
     consumer_boundary_compatibility_reference: str = "not available"
@@ -165,6 +170,8 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_reference: str = "not available"
     consumer_boundary_governance_status_reference: str = "not available"
     consumer_boundary_governance_status_validation_reference: str = "not available"
+    consumer_boundary_governance_snapshot_reference: str = "not available"
+    consumer_boundary_governance_continuity_reference: str = "not available"
     consumer_boundary_governance_validation_reference: str = "not available"
     governance_visible: bool = False
     quality_visible: bool = False
@@ -264,6 +271,9 @@ def build_ai_research_context_consumer_entry(
             consumer_boundary_governance_status_validation=consumer_boundary.governance_status_validation
             if consumer_boundary is not None
             else None,
+            consumer_boundary_governance_snapshot=consumer_boundary.governance_snapshot
+            if consumer_boundary is not None
+            else None,
             consumer_boundary_governance_validation=consumer_boundary.governance_validation
             if consumer_boundary is not None
             else None,
@@ -304,6 +314,16 @@ def build_ai_research_context_consumer_entry(
             ),
             consumer_boundary_governance_status_validation_reference=(
                 consumer_boundary.governance_status_validation.validation_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
+            consumer_boundary_governance_snapshot_reference=(
+                consumer_boundary.governance_snapshot.governance_snapshot_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
+            consumer_boundary_governance_continuity_reference=(
+                consumer_boundary.governance_snapshot.governance_continuity_reference
                 if consumer_boundary is not None
                 else "not available"
             ),
@@ -358,6 +378,9 @@ def build_ai_research_context_consumer_entry(
         consumer_boundary_governance_status_validation=consumer_boundary.governance_status_validation
         if consumer_boundary is not None
         else None,
+        consumer_boundary_governance_snapshot=consumer_boundary.governance_snapshot
+        if consumer_boundary is not None
+        else None,
         consumer_boundary_governance_validation=consumer_boundary.governance_validation
         if consumer_boundary is not None
         else None,
@@ -398,6 +421,16 @@ def build_ai_research_context_consumer_entry(
         ),
         consumer_boundary_governance_status_validation_reference=(
             consumer_boundary.governance_status_validation.validation_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_governance_snapshot_reference=(
+            consumer_boundary.governance_snapshot.governance_snapshot_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_governance_continuity_reference=(
+            consumer_boundary.governance_snapshot.governance_continuity_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -499,6 +532,22 @@ def build_ai_research_context_consumer_entry_markdown(
         (
             "Consumer boundary governance status validation reference",
             entry.consumer_boundary_governance_status_validation_reference,
+        ),
+        (
+            "Consumer boundary governance snapshot state",
+            (
+                entry.consumer_boundary_governance_snapshot.governance_snapshot_state
+                if entry.consumer_boundary_governance_snapshot is not None
+                else "not available"
+            ),
+        ),
+        (
+            "Consumer boundary governance snapshot reference",
+            entry.consumer_boundary_governance_snapshot_reference,
+        ),
+        (
+            "Consumer boundary governance continuity reference",
+            entry.consumer_boundary_governance_continuity_reference,
         ),
         (
             "Consumer boundary governance reference",
@@ -635,6 +684,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 "",
                 build_ai_research_context_consumer_governance_status_validation_markdown(
                     entry.consumer_boundary_governance_status_validation
+                ),
+            ]
+        )
+    if entry.consumer_boundary_governance_snapshot is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_snapshot_markdown(
+                    entry.consumer_boundary_governance_snapshot
                 ),
             ]
         )
