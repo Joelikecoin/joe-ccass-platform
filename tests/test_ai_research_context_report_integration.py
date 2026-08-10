@@ -37,6 +37,7 @@ def test_render_prepared_report_includes_ai_research_context_consumer_entry(curr
     assert "Current context visible" in markdown
     assert "Historical context visible" in markdown
     assert "Quality visible" in markdown
+    assert "Approved surface" in markdown
     assert "Consumer boundary contract" in markdown
     assert "AI Research Context Timeline" not in markdown
     assert "AI Research Context Historical Query" not in markdown

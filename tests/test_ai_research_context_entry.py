@@ -107,6 +107,12 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_context.context_state == "available"
     assert entry.consumer_boundary is not None
     assert entry.consumer_boundary.available is True
+    assert entry.consumer_boundary.approved_surface == (
+        "current_context",
+        "historical_context",
+        "consumer_context",
+        "quality_summary",
+    )
     assert entry.consumer_boundary.current_context is entry.delivery
     assert entry.consumer_boundary.historical_context is entry.historical_delivery
     assert entry.consumer_boundary.consumer_context is entry.consumer_context
@@ -121,6 +127,7 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "consumer boundary:" in entry.summary
     assert "current_context_visible=" in entry.summary
     assert "historical_context_visible=" in entry.summary
+    assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
     assert entry.consumer_ready == entry.delivery.consumer_ready
@@ -178,6 +185,12 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_context.available is False
     assert entry.consumer_boundary is not None
     assert entry.consumer_boundary.available is False
+    assert entry.consumer_boundary.approved_surface == (
+        "current_context",
+        "historical_context",
+        "consumer_context",
+        "quality_summary",
+    )
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"
@@ -220,4 +233,18 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
     assert "Current context visible" in markdown
     assert "Historical context visible" in markdown
     assert "Quality visible" in markdown
+    assert "Approved surface" in markdown
     assert "Consumer boundary contract" in markdown
+    assert set(type(entry.consumer_boundary).model_fields).issuperset(
+        {
+            "approved_surface",
+            "current_context",
+            "historical_context",
+            "consumer_context",
+            "quality_summary",
+        }
+    )
+    assert "comparison" not in type(entry.consumer_boundary).model_fields
+    assert "timeline" not in type(entry.consumer_boundary).model_fields
+    assert "timeline_summary" not in type(entry.consumer_boundary).model_fields
+    assert "historical_query" not in type(entry.consumer_boundary).model_fields

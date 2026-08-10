@@ -14,6 +14,12 @@ from ccass_core.ai_research_context_quality import AIResearchContextQualitySumma
 
 AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION = "v0.1"
 AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_SURFACE = "ai_research_context_consumer_boundary"
+AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE = (
+    "current_context",
+    "historical_context",
+    "consumer_context",
+    "quality_summary",
+)
 
 
 class AIResearchContextConsumerBoundaryContractMeta(BaseModel):
@@ -25,6 +31,9 @@ class AIResearchContextConsumerBoundary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     available: bool = False
+    approved_surface: tuple[str, ...] = Field(
+        default_factory=lambda: AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+    )
     current_context: AIResearchContextDelivery | None = None
     historical_context: AIResearchContextHistoricalDelivery | None = None
     consumer_context: AIResearchContextConsumerEntryContext | None = None
@@ -72,6 +81,7 @@ def build_ai_research_context_consumer_boundary(
     )
     if not available:
         return AIResearchContextConsumerBoundary(
+            approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
             current_context=current_context,
             historical_context=historical_context,
             consumer_context=consumer_context,
@@ -144,6 +154,7 @@ def build_ai_research_context_consumer_boundary(
     )
     return AIResearchContextConsumerBoundary(
         available=True,
+        approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
         current_context=current_context,
         historical_context=historical_context,
         consumer_context=consumer_context,
@@ -192,6 +203,7 @@ def build_ai_research_context_consumer_boundary_markdown(
         ("Timeline visible", "Yes" if consumer_boundary.timeline_visible else "No"),
         ("Quality visible", "Yes" if consumer_boundary.quality_visible else "No"),
         ("Summary visible", "Yes" if consumer_boundary.summary_visible else "No"),
+        ("Approved surface", _join_list(consumer_boundary.approved_surface)),
         ("Consumer ready", "Yes" if consumer_boundary.consumer_ready else "No"),
         ("Context state", consumer_boundary.context_state),
         ("Current context reference", consumer_boundary.current_context_reference),
@@ -273,6 +285,7 @@ def _summary_text(
         f"timeline_visible={timeline_visible}; "
         f"quality_visible={quality_visible}; "
         f"summary_visible={summary_visible}; "
+        f"approved_surface={_join_list(AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE)}; "
         f"consumer_ready={'ready' if consumer_ready else 'not ready'}; "
         f"context_state={context_state}; "
         f"current_context={current_context_reference}; "
@@ -282,3 +295,9 @@ def _summary_text(
         f"warnings={warning_summary}; "
         f"limitations={limitation_summary}"
     )
+
+
+def _join_list(values: tuple[str, ...] | list[str]) -> str:
+    if not values:
+        return "none"
+    return " | ".join(values)
