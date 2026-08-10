@@ -88,7 +88,11 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_metadata is not None
     assert entry.audit_trail is not None
     assert entry.audit_trail.available is True
+    assert entry.audit_trail.snapshot_id == 101
+    assert entry.audit_trail.previous_snapshot_id == 100
+    assert entry.audit_trail.context_version_reference
     assert "ai_research_context_delivery" in entry.audit_trail.creation_reference
+    assert entry.audit_trail.linked_audit_reference
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
     assert entry.consumer_ready == entry.delivery.consumer_ready
@@ -122,6 +126,7 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.freshness_state == "unavailable"
     assert entry.audit_trail is not None
     assert entry.audit_trail.available is False
+    assert entry.audit_trail.snapshot_id is None
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"

@@ -90,8 +90,22 @@ def build_ai_research_context_delivery(
     if not access.available:
         audit_trail = build_ai_research_context_audit_trail(
             available=False,
+            snapshot_id=access.audit_trail.snapshot_id if access.audit_trail is not None else None,
+            previous_snapshot_id=(
+                access.audit_trail.previous_snapshot_id if access.audit_trail is not None else None
+            ),
+            context_version_reference=(
+                access.audit_trail.context_version_reference
+                if access.audit_trail is not None
+                else "not available"
+            ),
             creation_reference=(
                 f"{AI_RESEARCH_CONTEXT_ACCESS_VERSION} / {AI_RESEARCH_CONTEXT_ACCESS_SURFACE}"
+            ),
+            linked_audit_reference=(
+                access.audit_trail.creation_reference
+                if access.audit_trail is not None
+                else "not available"
             ),
             provenance_reference=access.provenance_reference,
             governance_reference=access.limitation_summary,
@@ -131,9 +145,23 @@ def build_ai_research_context_delivery(
     quality_visible = access.quality_summary is not None
     audit_trail = build_ai_research_context_audit_trail(
         available=True,
+        snapshot_id=access.audit_trail.snapshot_id if access.audit_trail is not None else None,
+        previous_snapshot_id=(
+            access.audit_trail.previous_snapshot_id if access.audit_trail is not None else None
+        ),
+        context_version_reference=(
+            access.audit_trail.context_version_reference
+            if access.audit_trail is not None
+            else "not available"
+        ),
         creation_reference=(
             f"{access.audit_trail.creation_reference if access.audit_trail is not None else f'{AI_RESEARCH_CONTEXT_ACCESS_VERSION} / {AI_RESEARCH_CONTEXT_ACCESS_SURFACE}'}"
             f" -> {AI_RESEARCH_CONTEXT_DELIVERY_VERSION} / {AI_RESEARCH_CONTEXT_DELIVERY_SURFACE}"
+        ),
+        linked_audit_reference=(
+            access.audit_trail.creation_reference
+            if access.audit_trail is not None
+            else "not available"
         ),
         provenance_reference=access.provenance_reference,
         governance_reference=access.audit_trail.governance_reference if access.audit_trail is not None else access.limitation_summary,

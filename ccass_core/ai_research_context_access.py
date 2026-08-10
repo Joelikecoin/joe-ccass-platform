@@ -71,7 +71,11 @@ def build_ai_research_context_access(
             freshness_state="unavailable",
             audit_trail=build_ai_research_context_audit_trail(
                 available=False,
+                snapshot_id=None,
+                previous_snapshot_id=None,
+                context_version_reference="not available",
                 creation_reference="not available",
+                linked_audit_reference="not available",
                 provenance_reference="not available",
                 governance_reference="unavailable",
                 validation_reference="unavailable",
@@ -93,12 +97,19 @@ def build_ai_research_context_access(
     )
     availability_state = consumer_view.availability_state
     freshness_state = consumer_view.freshness_state
+    snapshot_id, previous_snapshot_id, context_version_reference = _snapshot_identity_reference(
+        assembly
+    )
     audit_trail = build_ai_research_context_audit_trail(
         available=True,
+        snapshot_id=snapshot_id,
+        previous_snapshot_id=previous_snapshot_id,
+        context_version_reference=context_version_reference,
         creation_reference=(
             f"{assembly.contract_meta.version} / {assembly.contract_meta.surface} -> "
             f"{AI_RESEARCH_CONTEXT_ACCESS_VERSION} / {AI_RESEARCH_CONTEXT_ACCESS_SURFACE}"
         ),
+        linked_audit_reference=context_version_reference,
         provenance_reference=consumer_view.provenance_reference,
         governance_reference=assembly.summary,
         validation_reference=validation.summary if validation is not None else "unavailable",
@@ -142,6 +153,27 @@ def build_ai_research_context_access(
         summary=summary,
         contract_meta=AIResearchContextAccessContractMeta(surface=AI_RESEARCH_CONTEXT_ACCESS_SURFACE),
     )
+
+
+def _snapshot_identity_reference(
+    assembly: AIResearchContextAssembly,
+) -> tuple[int | None, int | None, str]:
+    read_model = (
+        assembly.ai_read_model_consumer_view.read_model
+        if assembly.ai_read_model_consumer_view is not None
+        else None
+    )
+    if read_model is None:
+        return None, None, "not available"
+    history = read_model.history
+    snapshot_id = history.snapshot_id
+    previous_snapshot_id = (
+        history.previous_snapshot.snapshot_id if history.previous_snapshot is not None else None
+    )
+    context_version_reference = (
+        f"{read_model.contract_meta.version} / {read_model.contract_meta.surface}"
+    )
+    return snapshot_id, previous_snapshot_id, context_version_reference
 
 
 def _summary_text(

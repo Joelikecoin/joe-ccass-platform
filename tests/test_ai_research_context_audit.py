@@ -82,8 +82,12 @@ def test_ai_research_context_audit_trail_captures_context_chain(current_response
 
     assert audit_trail is not None
     assert audit_trail.available is True
+    assert audit_trail.snapshot_id == 101
+    assert audit_trail.previous_snapshot_id == 100
+    assert audit_trail.context_version_reference
     assert "ai_research_context_access" in audit_trail.creation_reference
     assert "ai_research_context_delivery" in audit_trail.creation_reference
+    assert audit_trail.linked_audit_reference
     assert audit_trail.provenance_reference
     assert audit_trail.governance_reference
     assert audit_trail.validation_reference
@@ -91,6 +95,7 @@ def test_ai_research_context_audit_trail_captures_context_chain(current_response
     assert audit_trail.warnings_reference == delivery.warning_summary
     assert audit_trail.warnings == delivery.warnings
     assert "AI research context audit trail:" in audit_trail.summary
+    assert "snapshot_id=101" in audit_trail.summary
 
 
 def test_ai_research_context_audit_trail_markdown_handles_unavailable_state():

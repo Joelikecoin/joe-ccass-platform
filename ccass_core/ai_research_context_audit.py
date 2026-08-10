@@ -17,7 +17,11 @@ class AIResearchContextAuditTrail(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     available: bool = False
+    snapshot_id: int | None = None
+    previous_snapshot_id: int | None = None
+    context_version_reference: str = "not available"
     creation_reference: str = "not available"
+    linked_audit_reference: str = "not available"
     provenance_reference: str = "not available"
     governance_reference: str = "unavailable"
     validation_reference: str = "unavailable"
@@ -33,7 +37,11 @@ class AIResearchContextAuditTrail(BaseModel):
 def build_ai_research_context_audit_trail(
     *,
     available: bool,
+    snapshot_id: int | None,
+    previous_snapshot_id: int | None,
+    context_version_reference: str,
     creation_reference: str,
+    linked_audit_reference: str,
     provenance_reference: str,
     governance_reference: str,
     validation_reference: str,
@@ -44,7 +52,11 @@ def build_ai_research_context_audit_trail(
 ) -> AIResearchContextAuditTrail:
     warning_list = list(dict.fromkeys(warnings))
     summary = _summary_text(
+        snapshot_id=snapshot_id,
+        previous_snapshot_id=previous_snapshot_id,
+        context_version_reference=context_version_reference,
         creation_reference=creation_reference,
+        linked_audit_reference=linked_audit_reference,
         provenance_reference=provenance_reference,
         governance_reference=governance_reference,
         validation_reference=validation_reference,
@@ -53,7 +65,11 @@ def build_ai_research_context_audit_trail(
     )
     return AIResearchContextAuditTrail(
         available=available,
+        snapshot_id=snapshot_id,
+        previous_snapshot_id=previous_snapshot_id,
+        context_version_reference=context_version_reference,
         creation_reference=creation_reference,
+        linked_audit_reference=linked_audit_reference,
         provenance_reference=provenance_reference,
         governance_reference=governance_reference,
         validation_reference=validation_reference,
@@ -78,7 +94,16 @@ def build_ai_research_context_audit_trail_markdown(
         )
 
     rows = [
+        ("Snapshot ID", str(audit_trail.snapshot_id) if audit_trail.snapshot_id is not None else "not available"),
+        (
+            "Previous snapshot ID",
+            str(audit_trail.previous_snapshot_id)
+            if audit_trail.previous_snapshot_id is not None
+            else "not available",
+        ),
+        ("Context version reference", audit_trail.context_version_reference),
         ("Creation reference", audit_trail.creation_reference),
+        ("Linked audit reference", audit_trail.linked_audit_reference),
         ("Provenance reference", audit_trail.provenance_reference),
         ("Governance reference", audit_trail.governance_reference),
         ("Validation reference", audit_trail.validation_reference),
@@ -103,7 +128,11 @@ def build_ai_research_context_audit_trail_markdown(
 
 def _summary_text(
     *,
+    snapshot_id: int | None,
+    previous_snapshot_id: int | None,
+    context_version_reference: str,
     creation_reference: str,
+    linked_audit_reference: str,
     provenance_reference: str,
     governance_reference: str,
     validation_reference: str,
@@ -112,7 +141,11 @@ def _summary_text(
 ) -> str:
     return (
         "AI research context audit trail: "
+        f"snapshot_id={snapshot_id if snapshot_id is not None else 'not available'}; "
+        f"previous_snapshot_id={previous_snapshot_id if previous_snapshot_id is not None else 'not available'}; "
+        f"context_version={context_version_reference}; "
         f"creation={creation_reference}; "
+        f"linked_audit={linked_audit_reference}; "
         f"provenance={provenance_reference}; "
         f"governance={governance_reference}; "
         f"validation={validation_reference}; "

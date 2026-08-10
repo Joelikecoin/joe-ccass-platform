@@ -92,7 +92,11 @@ def test_ai_research_context_delivery_bundle_exposes_unified_context_validation_
     assert delivery.context_available == delivery.consumer_view.context_available
     assert delivery.audit_trail is not None
     assert delivery.audit_trail.available is True
+    assert delivery.audit_trail.snapshot_id == 101
+    assert delivery.audit_trail.previous_snapshot_id == 100
+    assert delivery.audit_trail.context_version_reference
     assert "ai_research_context_delivery" in delivery.audit_trail.creation_reference
+    assert delivery.audit_trail.linked_audit_reference
     assert delivery.provenance_reference == delivery.access.provenance_reference
     assert delivery.freshness_reference == delivery.access.freshness_reference
     assert delivery.warning_summary == delivery.access.warning_summary
@@ -124,6 +128,7 @@ def test_ai_research_context_delivery_handles_missing_assembly():
     assert delivery.freshness_state == "unavailable"
     assert delivery.audit_trail is not None
     assert delivery.audit_trail.available is False
+    assert delivery.audit_trail.snapshot_id is None
     assert delivery.provenance_reference == "not available"
     assert delivery.freshness_reference == "unavailable"
     assert delivery.warning_summary == "0 warning(s)"
