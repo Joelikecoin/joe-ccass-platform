@@ -76,6 +76,10 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.governance_summary.governance_status == "complete"
     assert boundary.governance_summary.governance_visible is True
     assert boundary.governance_summary.governance_reference
+    assert boundary.governance_status is not None
+    assert boundary.governance_status.governance_status == "complete"
+    assert boundary.governance_status.governance_visible is True
+    assert boundary.governance_status.governance_reference
     assert boundary.governance_validation is not None
     assert boundary.governance_validation.governance_consistent is True
     assert boundary.governance_validation.validation_state == "consistent"
@@ -95,6 +99,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "readiness_status",
             "health_indicator",
             "governance_summary",
+            "governance_status",
             "governance_validation",
         }
     )
@@ -127,6 +132,8 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "health_status=healthy" in entry.summary
     assert "governance_status=complete" in entry.summary
     assert "governance_validation_state=consistent" in entry.summary
+    assert "governance_status_value=complete" in entry.summary
+    assert "governance_status_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
@@ -194,6 +201,17 @@ def test_ai_research_context_consumer_governance_summary_marks_unavailable_when_
     assert governance.governance_status == "unavailable"
     assert governance.governance_visible is False
     assert governance.governance_reference == "not available"
+
+
+def test_ai_research_context_consumer_governance_status_marks_unavailable_when_boundary_is_unavailable():
+    entry = build_ai_research_context_consumer_entry(None)
+    governance_status = entry.consumer_boundary.governance_status
+
+    assert governance_status is not None
+    assert governance_status.available is False
+    assert governance_status.governance_status == "unavailable"
+    assert governance_status.governance_visible is False
+    assert governance_status.governance_reference == "not available"
 
 
 def test_ai_research_context_consumer_governance_validation_marks_unavailable_when_boundary_is_unavailable():

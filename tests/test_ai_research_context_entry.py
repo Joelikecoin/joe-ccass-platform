@@ -141,6 +141,9 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_boundary.governance_summary is not None
     assert entry.consumer_boundary.governance_summary.governance_status == "complete"
     assert entry.consumer_boundary_governance_summary is entry.consumer_boundary.governance_summary
+    assert entry.consumer_boundary.governance_status is not None
+    assert entry.consumer_boundary.governance_status.governance_status == "complete"
+    assert entry.consumer_boundary_governance_status is entry.consumer_boundary.governance_status
     assert entry.consumer_boundary.governance_validation is not None
     assert entry.consumer_boundary.governance_validation.governance_consistent is True
     assert entry.consumer_boundary.governance_validation.validation_state == "consistent"
@@ -167,6 +170,10 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
         == entry.consumer_boundary.governance_summary.governance_reference
     )
     assert (
+        entry.consumer_boundary_governance_status_reference
+        == entry.consumer_boundary.governance_status.governance_reference
+    )
+    assert (
         entry.consumer_boundary_governance_validation_reference
         == entry.consumer_boundary.governance_validation.validation_reference
     )
@@ -181,6 +188,8 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "health_status=healthy" in entry.summary
     assert "governance_status=complete" in entry.summary
     assert "governance_validation_state=consistent" in entry.summary
+    assert "governance_status_value=complete" in entry.summary
+    assert "governance_status_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
@@ -239,6 +248,12 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_context.available is False
     assert entry.consumer_boundary is not None
     assert entry.consumer_boundary.available is False
+    assert entry.consumer_boundary.governance_summary is not None
+    assert entry.consumer_boundary.governance_summary.governance_status == "unavailable"
+    assert entry.consumer_boundary.governance_status is not None
+    assert entry.consumer_boundary.governance_status.governance_status == "unavailable"
+    assert entry.consumer_boundary_governance_status is entry.consumer_boundary.governance_status
+    assert entry.consumer_boundary_governance_status_reference == "not available"
     assert entry.consumer_boundary.approved_surface == (
         "current_context",
         "historical_context",
@@ -265,6 +280,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Consumer Readiness" in markdown
     assert "AI Research Context Consumer Health" in markdown
     assert "AI Research Context Consumer Governance Summary" in markdown
+    assert "AI Research Context Consumer Governance Status" in markdown
     assert "AI Research Context Consumer Governance Validation" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
@@ -309,6 +325,7 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
             "quality_summary",
             "health_indicator",
             "governance_summary",
+            "governance_status",
             "governance_validation",
         }
     )
