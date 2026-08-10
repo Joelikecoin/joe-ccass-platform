@@ -125,6 +125,13 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.historical_query.latest_snapshot_reference is not None
     assert entry.historical_query.latest_snapshot_reference.snapshot_id == 101
     assert "timeline_position=" in entry.historical_query.summary
+    assert entry.historical_comparison_query is not None
+    assert entry.historical_comparison_query.available is True
+    assert entry.historical_comparison_query.current_snapshot_reference is not None
+    assert entry.historical_comparison_query.current_snapshot_reference.snapshot_id == 101
+    assert entry.historical_comparison_query.previous_snapshot_reference is not None
+    assert entry.historical_comparison_query.previous_snapshot_reference.snapshot_id == 100
+    assert "snapshot_pair=" in entry.historical_comparison_query.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
     assert entry.consumer_ready == entry.delivery.consumer_ready
@@ -172,6 +179,8 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.timeline_summary.available is False
     assert entry.historical_query is not None
     assert entry.historical_query.available is False
+    assert entry.historical_comparison_query is not None
+    assert entry.historical_comparison_query.available is False
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"
@@ -192,6 +201,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Timeline" in markdown
     assert "AI Research Context Timeline Summary" in markdown
     assert "AI Research Context Historical Query" in markdown
+    assert "AI Research Context Historical Comparison Query" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "AI Research Context Audit Trail" in markdown
