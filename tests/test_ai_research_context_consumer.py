@@ -7,6 +7,7 @@ from app.models import CcassResponse, SourceMetadata
 from ccass_core.ai_read_model import build_ai_read_model_v0_1
 from ccass_core.ai_read_model_governance import build_ai_read_model_consumer_view
 from ccass_core.ai_research_context_assembly import build_ai_research_context_assembly
+from ccass_core.ai_research_context_access import build_ai_research_context_access
 from ccass_core.ai_research_context_consumer import (
     build_ai_research_context_consumer_view,
     build_ai_research_context_usage_markdown,
@@ -208,3 +209,56 @@ def test_ai_research_context_usage_markdown_includes_governance_fields(current_r
     assert "Quality availability summary" in markdown
     assert "Quality summary" in markdown
     assert "no investment logic" not in markdown.lower()
+
+
+def test_ai_research_context_access_bundle_exposes_consumer_validation_and_quality(current_response, previous_response):
+    ai_read_model = _build_read_model(current_response, previous_response)
+    research_package = build_research_context_package(ai_read_model=ai_read_model)
+    source_trace = _source_trace(current_response)
+    assembly = build_ai_research_context_assembly(
+        research_context_package=research_package,
+        research_context_consumer_view=build_research_context_consumer_view(research_package),
+        ai_read_model_consumer_view=build_ai_read_model_consumer_view(
+            ai_read_model,
+            source_trace=source_trace,
+        ),
+        source_trace=source_trace,
+    )
+
+    access = build_ai_research_context_access(assembly)
+
+    assert access.available is True
+    assert access.consumer_view is not None
+    assert access.validation is not None
+    assert access.quality_summary is not None
+    assert access.consumer_ready == access.validation.consumer_ready
+    assert access.validation_status == access.validation.status
+    assert access.quality_status == access.quality_summary.overall_context_status
+    assert access.context_available == access.consumer_view.context_available
+    assert access.provenance_reference == access.consumer_view.provenance_reference
+    assert access.freshness_reference == access.consumer_view.freshness_reference
+    assert access.warning_summary == access.consumer_view.warning_summary
+    assert access.limitation_summary == access.consumer_view.limitation_summary
+    assert access.usage_steps == access.consumer_view.usage_steps
+    assert access.warnings == access.consumer_view.warnings
+    assert "AI research context access:" in access.summary
+    assert "consumer_ready=" in access.summary
+
+
+def test_ai_research_context_access_bundle_handles_missing_assembly():
+    access = build_ai_research_context_access(None)
+
+    assert access.available is False
+    assert access.consumer_view is None
+    assert access.validation is None
+    assert access.quality_summary is None
+    assert access.consumer_ready is False
+    assert access.validation_status == "unknown"
+    assert access.quality_status == "unknown"
+    assert access.context_available is False
+    assert access.provenance_reference == "not available"
+    assert access.freshness_reference == "unavailable"
+    assert access.warning_summary == "0 warning(s)"
+    assert access.usage_steps == []
+    assert access.warnings == []
+    assert "unavailable" in access.summary.lower()
