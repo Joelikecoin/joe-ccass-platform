@@ -141,7 +141,13 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.historical_delivery.available is True
     assert entry.historical_delivery.timeline_visible is True
     assert entry.historical_delivery.summary_visible is True
+    assert entry.consumer_context is not None
+    assert entry.consumer_context.available is True
+    assert entry.consumer_context.current_context is entry.delivery
+    assert entry.consumer_context.historical_context is entry.historical_delivery
+    assert entry.consumer_context.context_state == "available"
     assert "historical_delivery=" in entry.summary
+    assert "consumer_context=" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
     assert entry.consumer_ready == entry.delivery.consumer_ready
@@ -195,6 +201,8 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.historical_summary.available is False
     assert entry.historical_delivery is not None
     assert entry.historical_delivery.available is False
+    assert entry.consumer_context is not None
+    assert entry.consumer_context.available is False
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"
@@ -218,6 +226,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Historical Comparison Query" in markdown
     assert "AI Research Context Historical Summary" in markdown
     assert "AI Research Context Historical Delivery" in markdown
+    assert "AI Research Context Consumer Entry Context" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "AI Research Context Audit Trail" in markdown
