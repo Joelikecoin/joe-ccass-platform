@@ -93,6 +93,11 @@ def test_ai_research_context_consumer_view_handles_normal_assembly(current_respo
     assert consumer_view.validation.freshness_metadata_present is True
     assert consumer_view.validation.warnings_consistent is True
     assert consumer_view.validation.limitation_visible is True
+    assert consumer_view.quality_summary is not None
+    assert consumer_view.quality_summary.overall_context_status == consumer_view.validation.status
+    assert consumer_view.quality_summary.consumer_ready == consumer_view.validation.consumer_ready
+    assert consumer_view.quality_summary.provenance_summary == consumer_view.provenance_reference
+    assert consumer_view.quality_summary.freshness_summary == consumer_view.freshness_reference
     assert consumer_view.contract_meta == assembly.contract_meta
     assert "AI research context consumer view:" in consumer_view.summary
 
@@ -134,6 +139,9 @@ def test_ai_research_context_consumer_view_handles_empty_data():
     assert consumer_view.validation is not None
     assert consumer_view.validation.status == "partial"
     assert consumer_view.validation.consumer_ready is False
+    assert consumer_view.quality_summary is not None
+    assert consumer_view.quality_summary.overall_context_status == "partial"
+    assert consumer_view.quality_summary.consumer_ready is False
     assert consumer_view.governance_summary == assembly.summary
 
 
@@ -167,6 +175,8 @@ def test_ai_research_context_consumer_view_propagates_warnings(current_response,
     assert consumer_view.validation is not None
     assert consumer_view.validation.status == "partial"
     assert consumer_view.validation.consumer_ready is True
+    assert consumer_view.quality_summary is not None
+    assert consumer_view.quality_summary.validation_summary == consumer_view.validation.summary
     assert "recommendation" not in build_ai_research_context_usage_markdown(consumer_view).lower()
     assert "trading signal" not in build_ai_research_context_usage_markdown(consumer_view).lower()
 
@@ -194,4 +204,7 @@ def test_ai_research_context_usage_markdown_includes_governance_fields(current_r
     assert "Limitation summary" in markdown
     assert "Validation status" in markdown
     assert "Consumer ready" in markdown
+    assert "Quality overall status" in markdown
+    assert "Quality availability summary" in markdown
+    assert "Quality summary" in markdown
     assert "no investment logic" not in markdown.lower()

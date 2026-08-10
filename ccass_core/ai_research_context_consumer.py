@@ -7,6 +7,10 @@ from ccass_core.ai_research_context_assembly import (
     AIResearchContextAssemblyContractMeta,
     AIResearchInputBlock,
 )
+from ccass_core.ai_research_context_quality import (
+    AIResearchContextQualitySummary,
+    build_ai_research_context_quality_summary,
+)
 from ccass_core.ai_research_context_validation import (
     AIResearchContextValidationResult,
     build_ai_research_context_validation,
@@ -27,6 +31,7 @@ class AIResearchContextConsumerView(BaseModel):
     usage_steps: list[str] = Field(default_factory=list)
     input_blocks: list[AIResearchInputBlock] = Field(default_factory=list)
     validation: AIResearchContextValidationResult | None = None
+    quality_summary: AIResearchContextQualitySummary | None = None
     warnings: list[str] = Field(default_factory=list)
     summary: str = "AI research context consumer view is unavailable."
     contract_meta: AIResearchContextAssemblyContractMeta | None = None
@@ -62,6 +67,17 @@ def build_ai_research_context_consumer_view(
         ai_read_model_governance_interpretation=ai_read_model_governance_interpretation,
         ai_read_model_consumer_guidance=ai_read_model_consumer_guidance,
     )
+    quality_summary = build_ai_research_context_quality_summary(
+        validation_status=validation.status,
+        consumer_ready=validation.consumer_ready,
+        context_available=context_available,
+        provenance_reference=provenance_reference,
+        freshness_reference=freshness_reference,
+        validation_summary=validation.summary,
+        warning_summary=warning_summary,
+        limitation_summary=limitation_summary,
+        warnings=validation.warnings,
+    )
     usage_steps = [
         "Check context availability first.",
         "Read the governance summary before consuming the payload.",
@@ -89,6 +105,7 @@ def build_ai_research_context_consumer_view(
         usage_steps=usage_steps,
         input_blocks=list(assembly.input_blocks),
         validation=validation,
+        quality_summary=quality_summary,
         warnings=list(assembly.warnings),
         summary=summary,
         contract_meta=assembly.contract_meta,
@@ -123,6 +140,22 @@ def build_ai_research_context_usage_markdown(
             "Yes" if consumer_view.validation and consumer_view.validation.consumer_ready else "No",
         ),
         (
+            "Quality overall status",
+            (
+                consumer_view.quality_summary.overall_context_status
+                if consumer_view.quality_summary is not None
+                else "unknown"
+            ),
+        ),
+        (
+            "Quality availability summary",
+            (
+                consumer_view.quality_summary.availability_summary
+                if consumer_view.quality_summary is not None
+                else "Context availability is unavailable."
+            ),
+        ),
+        (
             "Contract reference",
             (
                 f"{consumer_view.contract_meta.version} / {consumer_view.contract_meta.surface}"
@@ -149,6 +182,17 @@ def build_ai_research_context_usage_markdown(
             lines.extend(f"- {warning}" for warning in consumer_view.validation.warnings)
         else:
             lines.append("- none")
+    if consumer_view.quality_summary is not None:
+        lines.extend(["", "Quality summary:"])
+        lines.extend(f"- {label}: {value}" for label, value in [
+            ("Overall status", consumer_view.quality_summary.overall_context_status),
+            ("Availability", consumer_view.quality_summary.availability_summary),
+            ("Freshness", consumer_view.quality_summary.freshness_summary),
+            ("Provenance", consumer_view.quality_summary.provenance_summary),
+            ("Validation", consumer_view.quality_summary.validation_summary),
+            ("Warning", consumer_view.quality_summary.warning_summary),
+            ("Limitation", consumer_view.quality_summary.limitation_summary),
+        ])
     if consumer_view.warnings:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in consumer_view.warnings)
