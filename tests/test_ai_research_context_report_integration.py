@@ -33,6 +33,7 @@ def test_render_prepared_report_includes_ai_research_context_consumer_entry(curr
     assert "Quality visibility" in markdown
     assert "Consumer ready" in markdown
     assert "Delivery output:" in markdown
+    assert "AI Research Context Timeline" in markdown
     assert "AI Research Context Consumer Entry" in payload
     assert "recommendation" not in markdown.lower()
     assert "trading signal" not in markdown.lower()

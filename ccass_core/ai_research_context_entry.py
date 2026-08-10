@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -23,6 +24,11 @@ from ccass_core.ai_research_context_change_summary import (
     AIResearchContextChangeSummary,
     build_ai_research_context_change_summary,
     build_ai_research_context_change_summary_markdown,
+)
+from ccass_core.ai_research_context_timeline import (
+    AIResearchContextTimeline,
+    build_ai_research_context_timeline,
+    build_ai_research_context_timeline_markdown,
 )
 from ccass_core.ai_research_context_audit import (
     AIResearchContextAuditTrail,
@@ -73,6 +79,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     audit_trail: AIResearchContextAuditTrail | None = None
     comparison: AIResearchContextComparison | None = None
     change_summary: AIResearchContextChangeSummary | None = None
+    timeline: AIResearchContextTimeline | None = None
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -105,6 +112,7 @@ def build_ai_research_context_consumer_entry(
     delivery = build_ai_research_context_delivery(assembly)
     comparison = _comparison(delivery)
     change_summary = _change_summary(comparison, delivery)
+    timeline = _timeline(delivery, comparison, change_summary)
     if not delivery.available:
         return AIResearchContextConsumerEntry(
             access=access,
@@ -114,6 +122,7 @@ def build_ai_research_context_consumer_entry(
             audit_trail=delivery.audit_trail,
             comparison=comparison,
             change_summary=change_summary,
+            timeline=timeline,
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
@@ -126,6 +135,7 @@ def build_ai_research_context_consumer_entry(
                 change_summary_state=(
                     change_summary.comparison_state if change_summary is not None else "unavailable"
                 ),
+                timeline_state=timeline.timeline_state if timeline is not None else "unavailable",
                 governance_visible=False,
                 quality_visible=False,
                 consumer_ready=False,
@@ -145,6 +155,7 @@ def build_ai_research_context_consumer_entry(
         change_summary_state=(
             change_summary.comparison_state if change_summary is not None else "unavailable"
         ),
+        timeline_state=timeline.timeline_state if timeline is not None else "unavailable",
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
         consumer_ready=delivery.consumer_ready,
@@ -165,6 +176,7 @@ def build_ai_research_context_consumer_entry(
         audit_trail=delivery.audit_trail,
         comparison=comparison,
         change_summary=change_summary,
+        timeline=timeline,
         delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
@@ -209,6 +221,10 @@ def build_ai_research_context_consumer_entry_markdown(
         (
             "Change summary state",
             entry.change_summary.comparison_state if entry.change_summary is not None else "unavailable",
+        ),
+        (
+            "Timeline state",
+            entry.timeline.timeline_state if entry.timeline is not None else "unavailable",
         ),
         ("Governance visibility", "visible" if entry.governance_visible else "hidden"),
         ("Quality visibility", "visible" if entry.quality_visible else "hidden"),
@@ -291,6 +307,8 @@ def build_ai_research_context_consumer_entry_markdown(
         lines.extend(["", build_ai_research_context_comparison_markdown(entry.comparison)])
     if entry.change_summary is not None:
         lines.extend(["", build_ai_research_context_change_summary_markdown(entry.change_summary)])
+    if entry.timeline is not None:
+        lines.extend(["", build_ai_research_context_timeline_markdown(entry.timeline)])
     if entry.warnings:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in entry.warnings)
@@ -338,6 +356,7 @@ def _summary_text(
     freshness_state: str,
     comparison_state: str,
     change_summary_state: str,
+    timeline_state: str,
     governance_visible: bool,
     quality_visible: bool,
     consumer_ready: bool,
@@ -357,6 +376,7 @@ def _summary_text(
         f"freshness_state={freshness_state}; "
         f"comparison={comparison_state}; "
         f"change_summary={change_summary_state}; "
+        f"timeline={timeline_state}; "
         f"governance={governance_state}; "
         f"quality={quality_state}; "
         f"consumer_ready={ready_state}; "
@@ -447,6 +467,26 @@ def _change_summary(
         quality_summary_reference=quality_summary_reference,
         warning_summary=delivery.warning_summary,
     )
+
+
+def _timeline(
+    delivery: AIResearchContextDelivery | None,
+    comparison: AIResearchContextComparison | None,
+    change_summary: AIResearchContextChangeSummary | None,
+):
+    timeline_source = SimpleNamespace(
+        available=bool(delivery is not None and delivery.available),
+        delivery=delivery,
+        comparison=comparison,
+        change_summary=change_summary,
+        audit_trail=delivery.audit_trail if delivery is not None else None,
+        provenance_reference=delivery.provenance_reference if delivery is not None else "not available",
+        warning_summary=delivery.warning_summary if delivery is not None else "0 warning(s)",
+        consumer_view=delivery.consumer_view if delivery is not None else None,
+        quality_summary=delivery.quality_summary if delivery is not None else None,
+        limitation_summary=delivery.limitation_summary if delivery is not None else "Consumer entry is unavailable.",
+    )
+    return build_ai_research_context_timeline(timeline_source)
 
 
 def _current_snapshot_reference(
