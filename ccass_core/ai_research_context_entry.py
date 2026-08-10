@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ccass_core.ai_read_model import AIReadModelIdentity
+from ccass_core.ai_read_model import AIReadModelIdentity, AIReadModelSnapshotReference
 from ccass_core.ai_research_context_access import (
     AIResearchContextAccess,
     AIResearchContextAccessContractMeta,
@@ -13,6 +13,11 @@ from ccass_core.ai_research_context_access import (
 from ccass_core.ai_research_context_assembly import (
     AIResearchContextAssembly,
     AIResearchContextAssemblyContractMeta,
+)
+from ccass_core.ai_research_context_comparison import (
+    AIResearchContextComparison,
+    build_ai_research_context_comparison,
+    build_ai_research_context_comparison_markdown,
 )
 from ccass_core.ai_research_context_audit import (
     AIResearchContextAuditTrail,
@@ -61,6 +66,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_metadata: AIResearchContextConsumerEntryMetadata | None = None
     delivery_markdown: str = "AI research context delivery is unavailable."
     audit_trail: AIResearchContextAuditTrail | None = None
+    comparison: AIResearchContextComparison | None = None
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -91,6 +97,7 @@ def build_ai_research_context_consumer_entry(
 ) -> AIResearchContextConsumerEntry:
     access = build_ai_research_context_access(assembly)
     delivery = build_ai_research_context_delivery(assembly)
+    comparison = _comparison(delivery)
     if not delivery.available:
         return AIResearchContextConsumerEntry(
             access=access,
@@ -98,6 +105,7 @@ def build_ai_research_context_consumer_entry(
             availability_state=access.availability_state,
             freshness_state=access.freshness_state,
             audit_trail=delivery.audit_trail,
+            comparison=comparison,
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
@@ -106,6 +114,7 @@ def build_ai_research_context_consumer_entry(
                 context_available=False,
                 availability_state="unavailable",
                 freshness_state="unavailable",
+                comparison_state=comparison.comparison_state if comparison is not None else "unavailable",
                 governance_visible=False,
                 quality_visible=False,
                 consumer_ready=False,
@@ -121,6 +130,7 @@ def build_ai_research_context_consumer_entry(
         context_available=delivery.context_available,
         availability_state=delivery.availability_state,
         freshness_state=delivery.freshness_state,
+        comparison_state=comparison.comparison_state if comparison is not None else "unavailable",
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
         consumer_ready=delivery.consumer_ready,
@@ -139,6 +149,7 @@ def build_ai_research_context_consumer_entry(
         quality_summary=delivery.quality_summary,
         consumer_metadata=consumer_metadata,
         audit_trail=delivery.audit_trail,
+        comparison=comparison,
         delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
@@ -176,6 +187,10 @@ def build_ai_research_context_consumer_entry_markdown(
         ("Context availability", "available" if entry.context_available else "unavailable"),
         ("Availability state", entry.availability_state),
         ("Freshness state", entry.freshness_state),
+        (
+            "Comparison state",
+            entry.comparison.comparison_state if entry.comparison is not None else "unavailable",
+        ),
         ("Governance visibility", "visible" if entry.governance_visible else "hidden"),
         ("Quality visibility", "visible" if entry.quality_visible else "hidden"),
         ("Consumer ready", "Yes" if entry.consumer_ready else "No"),
@@ -253,6 +268,8 @@ def build_ai_research_context_consumer_entry_markdown(
                 ("Limitation", entry.quality_summary.limitation_summary),
             ]
         )
+    if entry.comparison is not None:
+        lines.extend(["", build_ai_research_context_comparison_markdown(entry.comparison)])
     if entry.warnings:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in entry.warnings)
@@ -298,6 +315,7 @@ def _summary_text(
     context_available: bool,
     availability_state: str,
     freshness_state: str,
+    comparison_state: str,
     governance_visible: bool,
     quality_visible: bool,
     consumer_ready: bool,
@@ -315,6 +333,7 @@ def _summary_text(
         f"context={context_state}; "
         f"availability={availability_state}; "
         f"freshness_state={freshness_state}; "
+        f"comparison={comparison_state}; "
         f"governance={governance_state}; "
         f"quality={quality_state}; "
         f"consumer_ready={ready_state}; "
@@ -322,4 +341,65 @@ def _summary_text(
         f"freshness_reference={freshness_reference}; "
         f"warnings={warning_summary}; "
         f"limitations={limitation_summary}"
+    )
+
+
+def _comparison(delivery: AIResearchContextDelivery | None) -> AIResearchContextComparison | None:
+    if delivery is None or not delivery.available or delivery.assembly is None:
+        return build_ai_research_context_comparison(
+            current_snapshot_reference=None,
+            previous_snapshot_reference=None,
+            comparison_metadata=None,
+            audit_trail_reference="not available",
+            provenance_reference="not available",
+            governance_reference="unavailable",
+            quality_summary_reference="unavailable",
+            warning_summary="0 warning(s)",
+        )
+
+    read_model = (
+        delivery.assembly.ai_read_model_consumer_view.read_model
+        if delivery.assembly.ai_read_model_consumer_view is not None
+        else None
+    )
+    history = read_model.history if read_model is not None else None
+    current_snapshot_reference = (
+        _current_snapshot_reference(read_model) if read_model is not None else None
+    )
+    previous_snapshot_reference = history.previous_snapshot if history is not None else None
+    comparison_metadata = history.comparison_context if history is not None else None
+    audit_trail_reference = (
+        delivery.audit_trail.creation_reference if delivery.audit_trail is not None else "not available"
+    )
+    governance_reference = (
+        delivery.consumer_view.governance_summary
+        if delivery.consumer_view is not None
+        else delivery.limitation_summary
+    )
+    quality_summary_reference = (
+        delivery.quality_summary.summary if delivery.quality_summary is not None else "unavailable"
+    )
+    return build_ai_research_context_comparison(
+        current_snapshot_reference=current_snapshot_reference,
+        previous_snapshot_reference=previous_snapshot_reference,
+        comparison_metadata=comparison_metadata,
+        audit_trail_reference=audit_trail_reference,
+        provenance_reference=delivery.provenance_reference,
+        governance_reference=governance_reference,
+        quality_summary_reference=quality_summary_reference,
+        warning_summary=delivery.warning_summary,
+    )
+
+
+def _current_snapshot_reference(
+    read_model,
+) -> AIReadModelSnapshotReference | None:
+    if read_model is None:
+        return None
+    return AIReadModelSnapshotReference(
+        snapshot_id=read_model.history.snapshot_id,
+        snapshot_date=read_model.timing.data_as_of,
+        data_as_of=read_model.timing.data_as_of,
+        fetched_at=read_model.timing.fetched_at,
+        source=read_model.provenance.source,
     )

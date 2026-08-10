@@ -93,6 +93,16 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.audit_trail.context_version_reference
     assert "ai_research_context_delivery" in entry.audit_trail.creation_reference
     assert entry.audit_trail.linked_audit_reference
+    assert entry.comparison is not None
+    assert entry.comparison.available is True
+    assert entry.comparison.current_snapshot_reference is not None
+    assert entry.comparison.current_snapshot_reference.snapshot_id == 101
+    assert entry.comparison.previous_snapshot_reference is not None
+    assert entry.comparison.previous_snapshot_reference.snapshot_id == 100
+    assert entry.comparison.comparison_metadata is not None
+    assert entry.comparison.comparison_metadata.previous_available is True
+    assert "change_count=" in entry.comparison.changed_context_reference
+    assert "unchanged context" in entry.comparison.unchanged_context_reference
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
     assert entry.consumer_ready == entry.delivery.consumer_ready
@@ -106,6 +116,7 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.delivery_markdown == build_ai_research_context_delivery_markdown(entry.delivery)
     assert "AI research context consumer entry:" in entry.summary
     assert "consumer_ready=" in entry.summary
+    assert "comparison=" in entry.summary
 
 
 def test_ai_research_context_consumer_entry_handles_missing_assembly():
@@ -127,6 +138,9 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.audit_trail is not None
     assert entry.audit_trail.available is False
     assert entry.audit_trail.snapshot_id is None
+    assert entry.comparison is not None
+    assert entry.comparison.available is False
+    assert entry.comparison.current_snapshot_reference is None
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"
@@ -142,6 +156,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Consumer Entry" in markdown
     assert "Governance visibility" in markdown
     assert "Quality visibility" in markdown
+    assert "AI Research Context Comparison" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "AI Research Context Audit Trail" in markdown
