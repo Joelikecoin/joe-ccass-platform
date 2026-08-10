@@ -132,6 +132,9 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_boundary.capability_validation is not None
     assert entry.consumer_boundary.capability_validation.capability_consistent is True
     assert entry.consumer_boundary_capability_validation is entry.consumer_boundary.capability_validation
+    assert entry.consumer_boundary.readiness_status is not None
+    assert entry.consumer_boundary.readiness_status.readiness_status == "ready"
+    assert entry.consumer_boundary_readiness_status is entry.consumer_boundary.readiness_status
     assert entry.consumer_boundary_version_reference == entry.consumer_boundary.contract_meta.version
     assert (
         entry.consumer_boundary_compatibility_reference
@@ -141,6 +144,10 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
         entry.consumer_boundary_capability_reference
         == entry.consumer_boundary.capability_metadata.capability_reference
     )
+    assert (
+        entry.consumer_boundary_readiness_reference
+        == entry.consumer_boundary.readiness_status.readiness_reference
+    )
     assert "consumer boundary:" in entry.summary
     assert "current_context_visible=" in entry.summary
     assert "historical_context_visible=" in entry.summary
@@ -148,6 +155,7 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "compatibility_reference=" in entry.summary
     assert "capability_reference=" in entry.summary
     assert "capability_validation_state=consistent" in entry.summary
+    assert "readiness_status=ready" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
@@ -229,6 +237,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "Quality visibility" in markdown
     assert "AI Research Context Consumer Boundary" in markdown
     assert "AI Research Context Consumer Capability Validation" in markdown
+    assert "AI Research Context Consumer Readiness" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "Surface version reference" in markdown

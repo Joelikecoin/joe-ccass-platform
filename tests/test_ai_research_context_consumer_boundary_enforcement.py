@@ -4,6 +4,9 @@ from ccass_core.ai_research_context_entry import build_ai_research_context_consu
 from ccass_core.ai_research_context_consumer_capability_validation import (
     build_ai_research_context_consumer_capability_validation,
 )
+from ccass_core.ai_research_context_consumer_readiness import (
+    build_ai_research_context_consumer_readiness_status,
+)
 
 from tests.test_ai_research_context_entry import _assembly
 
@@ -58,6 +61,10 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.capability_validation.capability_consistent is True
     assert boundary.capability_validation.validation_state == "consistent"
     assert boundary.capability_validation.missing_capability_references == []
+    assert boundary.readiness_status is not None
+    assert boundary.readiness_status.readiness_status == "ready"
+    assert boundary.readiness_status.readiness_visible is True
+    assert boundary.readiness_status.readiness_reference
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -69,6 +76,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "compatibility_metadata",
             "capability_metadata",
             "capability_validation",
+            "readiness_status",
         }
     )
     assert "comparison" not in type(boundary).model_fields
@@ -96,6 +104,7 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "compatibility_reference=" in entry.summary
     assert "capability_reference=" in entry.summary
     assert "capability_validation_state=consistent" in entry.summary
+    assert "readiness_status=ready" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
@@ -124,3 +133,20 @@ def test_ai_research_context_consumer_capability_validation_detects_missing_refe
     assert "compatibility_reference" in validation.missing_capability_references
     assert "consumer_surface_declaration" in validation.missing_capability_references
     assert validation.consistency_warnings
+
+
+def test_ai_research_context_consumer_readiness_status_marks_unavailable_when_boundary_is_unavailable():
+    readiness = build_ai_research_context_consumer_readiness_status(
+        available=False,
+        consumer_ready=False,
+        capability_validation=None,
+        capability_reference="not available",
+        compatibility_reference="not available",
+        consumer_surface_declaration="not available",
+        surface_version_reference="v0.1",
+    )
+
+    assert readiness.available is False
+    assert readiness.readiness_status == "unavailable"
+    assert readiness.readiness_visible is False
+    assert readiness.readiness_reference == "not available"

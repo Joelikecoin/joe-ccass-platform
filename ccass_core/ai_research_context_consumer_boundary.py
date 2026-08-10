@@ -13,6 +13,11 @@ from ccass_core.ai_research_context_consumer_capability_validation import (
     build_ai_research_context_consumer_capability_validation,
     build_ai_research_context_consumer_capability_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_readiness import (
+    AIResearchContextConsumerReadinessStatus,
+    build_ai_research_context_consumer_readiness_status,
+    build_ai_research_context_consumer_readiness_status_markdown,
+)
 from ccass_core.ai_research_context_delivery import AIResearchContextDelivery
 from ccass_core.ai_research_context_historical_delivery import AIResearchContextHistoricalDelivery
 from ccass_core.ai_research_context_quality import AIResearchContextQualitySummary
@@ -73,6 +78,9 @@ class AIResearchContextConsumerBoundary(BaseModel):
     capability_validation: AIResearchContextConsumerCapabilityValidation = Field(
         default_factory=AIResearchContextConsumerCapabilityValidation
     )
+    readiness_status: AIResearchContextConsumerReadinessStatus = Field(
+        default_factory=AIResearchContextConsumerReadinessStatus
+    )
     approved_surface: tuple[str, ...] = Field(
         default_factory=lambda: AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
     )
@@ -130,6 +138,15 @@ def build_ai_research_context_consumer_boundary(
         compatibility_reference=AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference,
         consumer_surface_declaration=AIResearchContextConsumerBoundaryCapabilityMetadata().consumer_surface_declaration,
     )
+    readiness_status = build_ai_research_context_consumer_readiness_status(
+        available=available,
+        consumer_ready=bool(quality_summary.consumer_ready if quality_summary is not None else False),
+        capability_validation=capability_validation,
+        capability_reference=AIResearchContextConsumerBoundaryCapabilityMetadata().capability_reference,
+        compatibility_reference=AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference,
+        consumer_surface_declaration=AIResearchContextConsumerBoundaryCapabilityMetadata().consumer_surface_declaration,
+        surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
+    )
     if not available:
         return AIResearchContextConsumerBoundary(
             surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
@@ -140,6 +157,7 @@ def build_ai_research_context_consumer_boundary(
                 supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
             ),
             capability_validation=capability_validation,
+            readiness_status=readiness_status,
             approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
             current_context=current_context,
             historical_context=historical_context,
@@ -213,6 +231,8 @@ def build_ai_research_context_consumer_boundary(
         capability_validation_state=capability_validation.validation_state,
         capability_consistent=capability_validation.capability_consistent,
         capability_missing=len(capability_validation.missing_capability_references),
+        readiness_status=readiness_status.readiness_status,
+        readiness_visible=readiness_status.readiness_visible,
     )
     return AIResearchContextConsumerBoundary(
         available=True,
@@ -224,6 +244,7 @@ def build_ai_research_context_consumer_boundary(
             supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
         ),
         capability_validation=capability_validation,
+        readiness_status=readiness_status,
         approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
         current_context=current_context,
         historical_context=historical_context,
@@ -299,6 +320,16 @@ def build_ai_research_context_consumer_boundary_markdown(
             "Consumer surface declaration",
             consumer_boundary.capability_metadata.consumer_surface_declaration,
         ),
+        ("Readiness status", consumer_boundary.readiness_status.readiness_status),
+        (
+            "Readiness visible",
+            "Yes" if consumer_boundary.readiness_status.readiness_visible else "No",
+        ),
+        (
+            "Availability indication",
+            consumer_boundary.readiness_status.availability_indication,
+        ),
+        ("Readiness reference", consumer_boundary.readiness_status.readiness_reference),
         ("Approved surface", _join_list(consumer_boundary.approved_surface)),
         ("Consumer ready", "Yes" if consumer_boundary.consumer_ready else "No"),
         ("Context state", consumer_boundary.context_state),
@@ -339,6 +370,15 @@ def build_ai_research_context_consumer_boundary_markdown(
                 f"- Validation: {consumer_boundary.quality_summary.validation_summary}",
                 f"- Warning: {consumer_boundary.quality_summary.warning_summary}",
                 f"- Limitation: {consumer_boundary.quality_summary.limitation_summary}",
+            ]
+        )
+    if consumer_boundary.readiness_status is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_readiness_status_markdown(
+                    consumer_boundary.readiness_status
+                ),
             ]
         )
     if consumer_boundary.capability_validation is not None:
@@ -384,6 +424,8 @@ def _summary_text(
     capability_validation_state: str,
     capability_consistent: bool,
     capability_missing: int,
+    readiness_status: str,
+    readiness_visible: bool,
 ) -> str:
     return (
         "AI research context consumer boundary: "
@@ -399,6 +441,8 @@ def _summary_text(
         f"capability_validation_state={capability_validation_state}; "
         f"capability_consistent={'yes' if capability_consistent else 'no'}; "
         f"capability_missing={capability_missing}; "
+        f"readiness_status={readiness_status}; "
+        f"readiness_visible={'yes' if readiness_visible else 'no'}; "
         f"approved_surface={_join_list(AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE)}; "
         f"consumer_ready={'ready' if consumer_ready else 'not ready'}; "
         f"context_state={context_state}; "

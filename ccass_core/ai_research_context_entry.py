@@ -69,6 +69,10 @@ from ccass_core.ai_research_context_consumer_capability_validation import (
     AIResearchContextConsumerCapabilityValidation,
     build_ai_research_context_consumer_capability_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_readiness import (
+    AIResearchContextConsumerReadinessStatus,
+    build_ai_research_context_consumer_readiness_status_markdown,
+)
 from ccass_core.ai_research_context_audit import (
     AIResearchContextAuditTrail,
 )
@@ -127,9 +131,11 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_context: AIResearchContextConsumerEntryContext | None = None
     consumer_boundary: AIResearchContextConsumerBoundary | None = None
     consumer_boundary_capability_validation: AIResearchContextConsumerCapabilityValidation | None = None
+    consumer_boundary_readiness_status: AIResearchContextConsumerReadinessStatus | None = None
     consumer_boundary_version_reference: str = "not available"
     consumer_boundary_compatibility_reference: str = "not available"
     consumer_boundary_capability_reference: str = "not available"
+    consumer_boundary_readiness_reference: str = "not available"
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -213,6 +219,9 @@ def build_ai_research_context_consumer_entry(
             consumer_boundary_capability_validation=consumer_boundary.capability_validation
             if consumer_boundary is not None
             else None,
+            consumer_boundary_readiness_status=consumer_boundary.readiness_status
+            if consumer_boundary is not None
+            else None,
             consumer_boundary_version_reference=(
                 consumer_boundary.surface_version_reference
                 if consumer_boundary is not None
@@ -225,6 +234,11 @@ def build_ai_research_context_consumer_entry(
             ),
             consumer_boundary_capability_reference=(
                 consumer_boundary.capability_metadata.capability_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
+            consumer_boundary_readiness_reference=(
+                consumer_boundary.readiness_status.readiness_reference
                 if consumer_boundary is not None
                 else "not available"
             ),
@@ -259,6 +273,9 @@ def build_ai_research_context_consumer_entry(
         consumer_boundary_capability_validation=consumer_boundary.capability_validation
         if consumer_boundary is not None
         else None,
+        consumer_boundary_readiness_status=consumer_boundary.readiness_status
+        if consumer_boundary is not None
+        else None,
         consumer_boundary_version_reference=(
             consumer_boundary.surface_version_reference
             if consumer_boundary is not None
@@ -271,6 +288,11 @@ def build_ai_research_context_consumer_entry(
         ),
         consumer_boundary_capability_reference=(
             consumer_boundary.capability_metadata.capability_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_readiness_reference=(
+            consumer_boundary.readiness_status.readiness_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -323,6 +345,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 else "not available"
             ),
         ),
+        (
+            "Consumer boundary readiness status",
+            (
+                entry.consumer_boundary_readiness_status.readiness_status
+                if entry.consumer_boundary_readiness_status is not None
+                else "not available"
+            ),
+        ),
+        ("Consumer boundary readiness reference", entry.consumer_boundary_readiness_reference),
         ("Consumer boundary version reference", entry.consumer_boundary_version_reference),
         (
             "Consumer boundary compatibility reference",
@@ -397,6 +428,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 "",
                 build_ai_research_context_consumer_capability_validation_markdown(
                     entry.consumer_boundary_capability_validation
+                ),
+            ]
+        )
+    if entry.consumer_boundary_readiness_status is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_readiness_status_markdown(
+                    entry.consumer_boundary_readiness_status
                 ),
             ]
         )
