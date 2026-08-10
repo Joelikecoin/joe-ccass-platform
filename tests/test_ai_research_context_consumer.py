@@ -87,6 +87,12 @@ def test_ai_research_context_consumer_view_handles_normal_assembly(current_respo
     assert consumer_view.limitation_summary == assembly.research_governance_interpretation.limitation_summary
     assert consumer_view.usage_steps
     assert consumer_view.input_blocks == assembly.input_blocks
+    assert consumer_view.validation is not None
+    assert consumer_view.validation.context_available is True
+    assert consumer_view.validation.provenance_present is True
+    assert consumer_view.validation.freshness_metadata_present is True
+    assert consumer_view.validation.warnings_consistent is True
+    assert consumer_view.validation.limitation_visible is True
     assert consumer_view.contract_meta == assembly.contract_meta
     assert "AI research context consumer view:" in consumer_view.summary
 
@@ -125,6 +131,9 @@ def test_ai_research_context_consumer_view_handles_empty_data():
     assert consumer_view.context_available is True
     assert consumer_view.freshness_reference == "unavailable"
     assert consumer_view.warning_summary == "0 warning(s)"
+    assert consumer_view.validation is not None
+    assert consumer_view.validation.status == "partial"
+    assert consumer_view.validation.consumer_ready is False
     assert consumer_view.governance_summary == assembly.summary
 
 
@@ -155,6 +164,9 @@ def test_ai_research_context_consumer_view_propagates_warnings(current_response,
 
     assert any("CSV_FALLBACK_USED" in warning for warning in consumer_view.warnings)
     assert "warning(s)" in consumer_view.warning_summary
+    assert consumer_view.validation is not None
+    assert consumer_view.validation.status == "partial"
+    assert consumer_view.validation.consumer_ready is True
     assert "recommendation" not in build_ai_research_context_usage_markdown(consumer_view).lower()
     assert "trading signal" not in build_ai_research_context_usage_markdown(consumer_view).lower()
 
@@ -180,4 +192,6 @@ def test_ai_research_context_usage_markdown_includes_governance_fields(current_r
     assert "Freshness reference" in markdown
     assert "Warning summary" in markdown
     assert "Limitation summary" in markdown
+    assert "Validation status" in markdown
+    assert "Consumer ready" in markdown
     assert "no investment logic" not in markdown.lower()
