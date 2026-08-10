@@ -38,6 +38,11 @@ from ccass_core.ai_research_context_consumer_governance_status_validation import
     build_ai_research_context_consumer_governance_status_validation,
     build_ai_research_context_consumer_governance_status_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_snapshot_validation import (
+    AIResearchContextConsumerGovernanceSnapshotValidation,
+    build_ai_research_context_consumer_governance_snapshot_validation,
+    build_ai_research_context_consumer_governance_snapshot_validation_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_status import (
     AIResearchContextConsumerGovernanceStatus,
     build_ai_research_context_consumer_governance_status,
@@ -122,6 +127,9 @@ class AIResearchContextConsumerBoundary(BaseModel):
     )
     governance_status_validation: AIResearchContextConsumerGovernanceStatusValidation = Field(
         default_factory=AIResearchContextConsumerGovernanceStatusValidation
+    )
+    governance_snapshot_validation: AIResearchContextConsumerGovernanceSnapshotValidation = Field(
+        default_factory=AIResearchContextConsumerGovernanceSnapshotValidation
     )
     governance_status: AIResearchContextConsumerGovernanceStatus = Field(
         default_factory=AIResearchContextConsumerGovernanceStatus
@@ -254,6 +262,18 @@ def build_ai_research_context_consumer_boundary(
         readiness_status=readiness_status,
         health_indicator=health_indicator,
     )
+    governance_snapshot_validation = build_ai_research_context_consumer_governance_snapshot_validation(
+        available=available,
+        governance_snapshot=governance_snapshot,
+        governance_summary=governance_summary,
+        governance_status=governance_status,
+        governance_status_validation=governance_status_validation,
+        version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
+        compatibility_reference=AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference,
+        capability_reference=AIResearchContextConsumerBoundaryCapabilityMetadata().capability_reference,
+        readiness_status=readiness_status,
+        health_indicator=health_indicator,
+    )
     if not available:
         return AIResearchContextConsumerBoundary(
             surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
@@ -269,6 +289,7 @@ def build_ai_research_context_consumer_boundary(
             governance_summary=governance_summary,
             governance_validation=governance_validation,
             governance_status_validation=governance_status_validation,
+            governance_snapshot_validation=governance_snapshot_validation,
             governance_status=governance_status,
             governance_snapshot=governance_snapshot,
             approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
@@ -354,6 +375,8 @@ def build_ai_research_context_consumer_boundary(
         governance_validation_visible=governance_validation.governance_visible,
         governance_status_validation_state=governance_status_validation.validation_state,
         governance_status_validation_visible=governance_status_validation.governance_visible,
+        governance_snapshot_validation_state=governance_snapshot_validation.validation_state,
+        governance_snapshot_validation_visible=governance_snapshot_validation.governance_snapshot_visible,
         governance_status_value=governance_status.governance_status,
         governance_status_visible=governance_status.governance_visible,
     )
@@ -372,6 +395,7 @@ def build_ai_research_context_consumer_boundary(
         governance_summary=governance_summary,
         governance_validation=governance_validation,
         governance_status_validation=governance_status_validation,
+        governance_snapshot_validation=governance_snapshot_validation,
         governance_status=governance_status,
         governance_snapshot=governance_snapshot,
         approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
@@ -500,6 +524,18 @@ def build_ai_research_context_consumer_boundary_markdown(
             "Governance status validation reference",
             consumer_boundary.governance_status_validation.validation_reference,
         ),
+        (
+            "Governance snapshot validation state",
+            consumer_boundary.governance_snapshot_validation.validation_state,
+        ),
+        (
+            "Governance snapshot validation visible",
+            "Yes" if consumer_boundary.governance_snapshot_validation.governance_snapshot_visible else "No",
+        ),
+        (
+            "Governance snapshot validation reference",
+            consumer_boundary.governance_snapshot_validation.validation_reference,
+        ),
         ("Governance snapshot state", consumer_boundary.governance_snapshot.governance_snapshot_state),
         (
             "Governance snapshot visible",
@@ -609,6 +645,15 @@ def build_ai_research_context_consumer_boundary_markdown(
                 ),
             ]
         )
+    if consumer_boundary.governance_snapshot_validation is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_snapshot_validation_markdown(
+                    consumer_boundary.governance_snapshot_validation
+                ),
+            ]
+        )
     if consumer_boundary.governance_status is not None:
         lines.extend(
             [
@@ -680,6 +725,8 @@ def _summary_text(
     governance_validation_visible: bool,
     governance_status_validation_state: str,
     governance_status_validation_visible: bool,
+    governance_snapshot_validation_state: str,
+    governance_snapshot_validation_visible: bool,
     governance_status_value: str,
     governance_status_visible: bool,
 ) -> str:
@@ -707,6 +754,8 @@ def _summary_text(
         f"governance_validation_visible={'yes' if governance_validation_visible else 'no'}; "
         f"governance_status_validation_state={governance_status_validation_state}; "
         f"governance_status_validation_visible={'yes' if governance_status_validation_visible else 'no'}; "
+        f"governance_snapshot_validation_state={governance_snapshot_validation_state}; "
+        f"governance_snapshot_validation_visible={'yes' if governance_snapshot_validation_visible else 'no'}; "
         f"governance_status_value={governance_status_value}; "
         f"governance_status_visible={'yes' if governance_status_visible else 'no'}; "
         f"approved_surface={_join_list(AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE)}; "

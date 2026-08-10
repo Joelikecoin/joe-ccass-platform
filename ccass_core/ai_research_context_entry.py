@@ -89,6 +89,10 @@ from ccass_core.ai_research_context_consumer_governance_snapshot import (
     AIResearchContextConsumerGovernanceSnapshot,
     build_ai_research_context_consumer_governance_snapshot_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_snapshot_validation import (
+    AIResearchContextConsumerGovernanceSnapshotValidation,
+    build_ai_research_context_consumer_governance_snapshot_validation_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_validation import (
     AIResearchContextConsumerGovernanceValidation,
     build_ai_research_context_consumer_governance_validation_markdown,
@@ -160,6 +164,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_summary: AIResearchContextConsumerGovernanceSummary | None = None
     consumer_boundary_governance_status: AIResearchContextConsumerGovernanceStatus | None = None
     consumer_boundary_governance_status_validation: AIResearchContextConsumerGovernanceStatusValidation | None = None
+    consumer_boundary_governance_snapshot_validation: AIResearchContextConsumerGovernanceSnapshotValidation | None = None
     consumer_boundary_governance_snapshot: AIResearchContextConsumerGovernanceSnapshot | None = None
     consumer_boundary_governance_validation: AIResearchContextConsumerGovernanceValidation | None = None
     consumer_boundary_version_reference: str = "not available"
@@ -170,6 +175,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_reference: str = "not available"
     consumer_boundary_governance_status_reference: str = "not available"
     consumer_boundary_governance_status_validation_reference: str = "not available"
+    consumer_boundary_governance_snapshot_validation_reference: str = "not available"
     consumer_boundary_governance_snapshot_reference: str = "not available"
     consumer_boundary_governance_continuity_reference: str = "not available"
     consumer_boundary_governance_validation_reference: str = "not available"
@@ -271,6 +277,9 @@ def build_ai_research_context_consumer_entry(
             consumer_boundary_governance_status_validation=consumer_boundary.governance_status_validation
             if consumer_boundary is not None
             else None,
+            consumer_boundary_governance_snapshot_validation=consumer_boundary.governance_snapshot_validation
+            if consumer_boundary is not None
+            else None,
             consumer_boundary_governance_snapshot=consumer_boundary.governance_snapshot
             if consumer_boundary is not None
             else None,
@@ -314,6 +323,11 @@ def build_ai_research_context_consumer_entry(
             ),
             consumer_boundary_governance_status_validation_reference=(
                 consumer_boundary.governance_status_validation.validation_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
+            consumer_boundary_governance_snapshot_validation_reference=(
+                consumer_boundary.governance_snapshot_validation.validation_reference
                 if consumer_boundary is not None
                 else "not available"
             ),
@@ -378,6 +392,9 @@ def build_ai_research_context_consumer_entry(
         consumer_boundary_governance_status_validation=consumer_boundary.governance_status_validation
         if consumer_boundary is not None
         else None,
+        consumer_boundary_governance_snapshot_validation=consumer_boundary.governance_snapshot_validation
+        if consumer_boundary is not None
+        else None,
         consumer_boundary_governance_snapshot=consumer_boundary.governance_snapshot
         if consumer_boundary is not None
         else None,
@@ -421,6 +438,11 @@ def build_ai_research_context_consumer_entry(
         ),
         consumer_boundary_governance_status_validation_reference=(
             consumer_boundary.governance_status_validation.validation_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_governance_snapshot_validation_reference=(
+            consumer_boundary.governance_snapshot_validation.validation_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -532,6 +554,18 @@ def build_ai_research_context_consumer_entry_markdown(
         (
             "Consumer boundary governance status validation reference",
             entry.consumer_boundary_governance_status_validation_reference,
+        ),
+        (
+            "Consumer boundary governance snapshot validation state",
+            (
+                entry.consumer_boundary_governance_snapshot_validation.validation_state
+                if entry.consumer_boundary_governance_snapshot_validation is not None
+                else "not available"
+            ),
+        ),
+        (
+            "Consumer boundary governance snapshot validation reference",
+            entry.consumer_boundary_governance_snapshot_validation_reference,
         ),
         (
             "Consumer boundary governance snapshot state",
@@ -687,6 +721,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 ),
             ]
         )
+    if entry.consumer_boundary_governance_snapshot_validation is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_snapshot_validation_markdown(
+                    entry.consumer_boundary_governance_snapshot_validation
+                ),
+            ]
+        )
     if entry.consumer_boundary_governance_snapshot is not None:
         lines.extend(
             [
@@ -780,6 +823,8 @@ def _summary_text(
     governance_status_visible: bool,
     governance_status_validation_state: str,
     governance_status_validation_visible: bool,
+    governance_snapshot_validation_state: str,
+    governance_snapshot_validation_visible: bool,
 ) -> str:
     context_state = "available" if context_available else "unavailable"
     governance_state = "visible" if governance_visible else "hidden"
@@ -812,6 +857,8 @@ def _summary_text(
         f"governance_status_visible={'yes' if governance_status_visible else 'no'}; "
         f"governance_status_validation_state={governance_status_validation_state}; "
         f"governance_status_validation_visible={'yes' if governance_status_validation_visible else 'no'}; "
+        f"governance_snapshot_validation_state={governance_snapshot_validation_state}; "
+        f"governance_snapshot_validation_visible={'yes' if governance_snapshot_validation_visible else 'no'}; "
         f"warnings={warning_summary}; "
         f"limitations={limitation_summary}"
     )

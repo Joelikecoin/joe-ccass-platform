@@ -13,6 +13,9 @@ from ccass_core.ai_research_context_consumer_governance_status_validation import
 from ccass_core.ai_research_context_consumer_governance_snapshot import (
     build_ai_research_context_consumer_governance_snapshot,
 )
+from ccass_core.ai_research_context_consumer_governance_snapshot_validation import (
+    build_ai_research_context_consumer_governance_snapshot_validation,
+)
 from ccass_core.ai_research_context_consumer_readiness import (
     build_ai_research_context_consumer_readiness_status,
 )
@@ -101,6 +104,11 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.governance_snapshot.governance_snapshot_visible is True
     assert boundary.governance_snapshot.governance_snapshot_reference
     assert boundary.governance_snapshot.governance_continuity_reference
+    assert boundary.governance_snapshot_validation is not None
+    assert boundary.governance_snapshot_validation.governance_snapshot_consistent is True
+    assert boundary.governance_snapshot_validation.validation_state == "consistent"
+    assert boundary.governance_snapshot_validation.governance_snapshot_visible is True
+    assert boundary.governance_snapshot_validation.validation_reference
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -117,6 +125,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "governance_summary",
             "governance_status",
             "governance_status_validation",
+            "governance_snapshot_validation",
             "governance_snapshot",
             "governance_validation",
         }
@@ -154,6 +163,8 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "governance_status_visible=yes" in entry.summary
     assert "governance_status_validation_state=consistent" in entry.summary
     assert "governance_status_validation_visible=yes" in entry.summary
+    assert "governance_snapshot_validation_state=consistent" in entry.summary
+    assert "governance_snapshot_validation_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
@@ -248,12 +259,18 @@ def test_ai_research_context_consumer_governance_status_validation_marks_unavail
 def test_ai_research_context_consumer_governance_snapshot_marks_unavailable_when_boundary_is_unavailable():
     entry = build_ai_research_context_consumer_entry(None)
     governance_snapshot = entry.consumer_boundary.governance_snapshot
+    governance_snapshot_validation = entry.consumer_boundary.governance_snapshot_validation
 
     assert governance_snapshot is not None
     assert governance_snapshot.available is False
     assert governance_snapshot.governance_snapshot_state == "unavailable"
     assert governance_snapshot.governance_snapshot_visible is False
     assert governance_snapshot.governance_snapshot_reference == "not available"
+    assert governance_snapshot_validation is not None
+    assert governance_snapshot_validation.available is False
+    assert governance_snapshot_validation.validation_state == "unknown"
+    assert governance_snapshot_validation.governance_snapshot_visible is False
+    assert governance_snapshot_validation.validation_reference == "not available"
 
 
 def test_ai_research_context_consumer_governance_validation_marks_unavailable_when_boundary_is_unavailable():
@@ -344,6 +361,52 @@ def test_ai_research_context_consumer_governance_status_validation_detects_incon
     assert validation.consistency_warnings
 
 
+def test_ai_research_context_consumer_governance_snapshot_validation_detects_inconsistent_snapshot_references(
+    current_response, previous_response
+):
+    entry = build_ai_research_context_consumer_entry(_assembly(current_response, previous_response))
+    boundary = entry.consumer_boundary
+    snapshot = boundary.governance_snapshot.model_copy(
+        update={
+            "governance_snapshot_state": "partial",
+            "governance_snapshot_visible": False,
+            "governance_snapshot_reference": "wrong-snapshot",
+            "governance_continuity_reference": "wrong-continuity",
+            "governance_snapshot_summary": "wrong-summary",
+            "governance_summary_reference": "wrong-governance-summary",
+            "governance_status_reference": "wrong-status",
+            "governance_status_validation_reference": "wrong-status-validation",
+            "readiness_reference": "wrong-readiness",
+            "health_reference": "wrong-health",
+            "version_reference": "wrong-version",
+            "compatibility_reference": "wrong-compatibility",
+            "capability_reference": "wrong-capability",
+            "consumer_ready": False,
+            "snapshot_continuity_consistent": False,
+            "readiness_status": "partial",
+            "health_status": "partial",
+        }
+    )
+
+    validation = build_ai_research_context_consumer_governance_snapshot_validation(
+        available=True,
+        governance_snapshot=snapshot,
+        governance_summary=boundary.governance_summary,
+        governance_status=boundary.governance_status,
+        governance_status_validation=boundary.governance_status_validation,
+        version_reference=boundary.surface_version_reference,
+        compatibility_reference=boundary.compatibility_metadata.compatibility_reference,
+        capability_reference=boundary.capability_metadata.capability_reference,
+        readiness_status=boundary.readiness_status,
+        health_indicator=boundary.health_indicator,
+    )
+
+    assert validation.available is True
+    assert validation.governance_snapshot_consistent is False
+    assert validation.validation_state == "inconsistent"
+    assert validation.consistency_warnings
+
+
 def test_ai_research_context_consumer_governance_snapshot_reflects_status_context(
     current_response, previous_response
 ):
@@ -368,3 +431,27 @@ def test_ai_research_context_consumer_governance_snapshot_reflects_status_contex
     assert snapshot.snapshot_continuity_consistent is True
     assert snapshot.governance_snapshot_reference
     assert snapshot.governance_continuity_reference
+
+    snapshot_validation = build_ai_research_context_consumer_governance_snapshot_validation(
+        available=True,
+        governance_snapshot=snapshot,
+        governance_summary=boundary.governance_summary,
+        governance_status=boundary.governance_status,
+        governance_status_validation=boundary.governance_status_validation,
+        version_reference=boundary.surface_version_reference,
+        compatibility_reference=boundary.compatibility_metadata.compatibility_reference,
+        capability_reference=boundary.capability_metadata.capability_reference,
+        readiness_status=boundary.readiness_status,
+        health_indicator=boundary.health_indicator,
+    )
+
+    assert snapshot_validation.available is True
+    assert snapshot_validation.governance_snapshot_consistent is True
+    assert snapshot_validation.validation_state == "consistent"
+    assert snapshot_validation.governance_snapshot_visible is True
+    assert snapshot_validation.validation_reference
+    assert snapshot_validation.governance_snapshot_reference == snapshot.governance_snapshot_reference
+    assert (
+        snapshot_validation.governance_continuity_reference
+        == snapshot.governance_continuity_reference
+    )
