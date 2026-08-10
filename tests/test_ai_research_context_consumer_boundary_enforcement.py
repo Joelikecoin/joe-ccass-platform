@@ -7,6 +7,9 @@ from ccass_core.ai_research_context_consumer_capability_validation import (
 from ccass_core.ai_research_context_consumer_governance_validation import (
     build_ai_research_context_consumer_governance_validation,
 )
+from ccass_core.ai_research_context_consumer_governance_status_validation import (
+    build_ai_research_context_consumer_governance_status_validation,
+)
 from ccass_core.ai_research_context_consumer_readiness import (
     build_ai_research_context_consumer_readiness_status,
 )
@@ -85,6 +88,11 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.governance_validation.validation_state == "consistent"
     assert boundary.governance_validation.governance_visible is True
     assert boundary.governance_validation.validation_reference
+    assert boundary.governance_status_validation is not None
+    assert boundary.governance_status_validation.governance_status_consistent is True
+    assert boundary.governance_status_validation.validation_state == "consistent"
+    assert boundary.governance_status_validation.governance_visible is True
+    assert boundary.governance_status_validation.validation_reference
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -100,6 +108,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "health_indicator",
             "governance_summary",
             "governance_status",
+            "governance_status_validation",
             "governance_validation",
         }
     )
@@ -134,6 +143,8 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "governance_validation_state=consistent" in entry.summary
     assert "governance_status_value=complete" in entry.summary
     assert "governance_status_visible=yes" in entry.summary
+    assert "governance_status_validation_state=consistent" in entry.summary
+    assert "governance_status_validation_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
@@ -214,6 +225,17 @@ def test_ai_research_context_consumer_governance_status_marks_unavailable_when_b
     assert governance_status.governance_reference == "not available"
 
 
+def test_ai_research_context_consumer_governance_status_validation_marks_unavailable_when_boundary_is_unavailable():
+    entry = build_ai_research_context_consumer_entry(None)
+    governance_status_validation = entry.consumer_boundary.governance_status_validation
+
+    assert governance_status_validation is not None
+    assert governance_status_validation.available is False
+    assert governance_status_validation.validation_state == "unknown"
+    assert governance_status_validation.governance_visible is False
+    assert governance_status_validation.validation_reference == "not available"
+
+
 def test_ai_research_context_consumer_governance_validation_marks_unavailable_when_boundary_is_unavailable():
     entry = build_ai_research_context_consumer_entry(None)
     governance_validation = entry.consumer_boundary.governance_validation
@@ -254,5 +276,49 @@ def test_ai_research_context_consumer_governance_validation_detects_inconsistent
 
     assert validation.available is True
     assert validation.governance_consistent is False
+    assert validation.validation_state == "inconsistent"
+    assert validation.consistency_warnings
+
+
+def test_ai_research_context_consumer_governance_status_validation_detects_inconsistent_status_references(
+    current_response, previous_response
+):
+    entry = build_ai_research_context_consumer_entry(_assembly(current_response, previous_response))
+    boundary = entry.consumer_boundary
+    governance_status = boundary.governance_status.model_copy(
+        update={
+            "governance_status": "partial",
+            "governance_visible": False,
+            "governance_reference": "wrong-governance",
+            "governance_summary_reference": "wrong-summary",
+            "governance_validation_reference": "wrong-validation",
+            "capability_validation_reference": "wrong-capability-validation",
+            "readiness_reference": "wrong-readiness",
+            "health_reference": "wrong-health",
+            "version_reference": "wrong-version",
+            "compatibility_reference": "wrong-compatibility",
+            "capability_reference": "wrong-capability",
+            "consumer_ready": False,
+            "capability_consistent": False,
+            "readiness_status": "partial",
+            "health_status": "partial",
+        }
+    )
+
+    validation = build_ai_research_context_consumer_governance_status_validation(
+        available=True,
+        governance_status=governance_status,
+        governance_summary=boundary.governance_summary,
+        governance_validation=boundary.governance_validation,
+        version_reference=boundary.surface_version_reference,
+        compatibility_reference=boundary.compatibility_metadata.compatibility_reference,
+        capability_reference=boundary.capability_metadata.capability_reference,
+        capability_validation=boundary.capability_validation,
+        readiness_status=boundary.readiness_status,
+        health_indicator=boundary.health_indicator,
+    )
+
+    assert validation.available is True
+    assert validation.governance_status_consistent is False
     assert validation.validation_state == "inconsistent"
     assert validation.consistency_warnings

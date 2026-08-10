@@ -7,6 +7,9 @@ from ccass_core.ai_research_context_consumer import build_ai_research_context_co
 from ccass_core.ai_research_context_consumer_boundary import (
     build_ai_research_context_consumer_boundary_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_status_validation import (
+    build_ai_research_context_consumer_governance_status_validation_markdown,
+)
 from ccass_core.ai_research_context_delivery import build_ai_research_context_delivery_markdown
 from ccass_core.ai_research_context_entry import (
     build_ai_research_context_consumer_entry,
@@ -144,6 +147,9 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_boundary.governance_status is not None
     assert entry.consumer_boundary.governance_status.governance_status == "complete"
     assert entry.consumer_boundary_governance_status is entry.consumer_boundary.governance_status
+    assert entry.consumer_boundary.governance_status_validation is not None
+    assert entry.consumer_boundary.governance_status_validation.governance_status_consistent is True
+    assert entry.consumer_boundary_governance_status_validation is entry.consumer_boundary.governance_status_validation
     assert entry.consumer_boundary.governance_validation is not None
     assert entry.consumer_boundary.governance_validation.governance_consistent is True
     assert entry.consumer_boundary.governance_validation.validation_state == "consistent"
@@ -174,6 +180,10 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
         == entry.consumer_boundary.governance_status.governance_reference
     )
     assert (
+        entry.consumer_boundary_governance_status_validation_reference
+        == entry.consumer_boundary.governance_status_validation.validation_reference
+    )
+    assert (
         entry.consumer_boundary_governance_validation_reference
         == entry.consumer_boundary.governance_validation.validation_reference
     )
@@ -190,6 +200,8 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "governance_validation_state=consistent" in entry.summary
     assert "governance_status_value=complete" in entry.summary
     assert "governance_status_visible=yes" in entry.summary
+    assert "governance_status_validation_state=consistent" in entry.summary
+    assert "governance_status_validation_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
@@ -253,7 +265,11 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_boundary.governance_status is not None
     assert entry.consumer_boundary.governance_status.governance_status == "unavailable"
     assert entry.consumer_boundary_governance_status is entry.consumer_boundary.governance_status
+    assert entry.consumer_boundary.governance_status_validation is not None
+    assert entry.consumer_boundary.governance_status_validation.validation_state == "unknown"
+    assert entry.consumer_boundary_governance_status_validation is entry.consumer_boundary.governance_status_validation
     assert entry.consumer_boundary_governance_status_reference == "not available"
+    assert entry.consumer_boundary_governance_status_validation_reference == "not available"
     assert entry.consumer_boundary.approved_surface == (
         "current_context",
         "historical_context",
@@ -281,6 +297,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Consumer Health" in markdown
     assert "AI Research Context Consumer Governance Summary" in markdown
     assert "AI Research Context Consumer Governance Status" in markdown
+    assert "AI Research Context Consumer Governance Status Validation" in markdown
     assert "AI Research Context Consumer Governance Validation" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
@@ -326,6 +343,7 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
             "health_indicator",
             "governance_summary",
             "governance_status",
+            "governance_status_validation",
             "governance_validation",
         }
     )

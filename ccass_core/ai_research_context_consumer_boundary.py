@@ -33,6 +33,11 @@ from ccass_core.ai_research_context_consumer_governance_validation import (
     build_ai_research_context_consumer_governance_validation,
     build_ai_research_context_consumer_governance_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_status_validation import (
+    AIResearchContextConsumerGovernanceStatusValidation,
+    build_ai_research_context_consumer_governance_status_validation,
+    build_ai_research_context_consumer_governance_status_validation_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_status import (
     AIResearchContextConsumerGovernanceStatus,
     build_ai_research_context_consumer_governance_status,
@@ -109,6 +114,9 @@ class AIResearchContextConsumerBoundary(BaseModel):
     )
     governance_validation: AIResearchContextConsumerGovernanceValidation = Field(
         default_factory=AIResearchContextConsumerGovernanceValidation
+    )
+    governance_status_validation: AIResearchContextConsumerGovernanceStatusValidation = Field(
+        default_factory=AIResearchContextConsumerGovernanceStatusValidation
     )
     governance_status: AIResearchContextConsumerGovernanceStatus = Field(
         default_factory=AIResearchContextConsumerGovernanceStatus
@@ -215,6 +223,18 @@ def build_ai_research_context_consumer_boundary(
         readiness_status=readiness_status,
         health_indicator=health_indicator,
     )
+    governance_status_validation = build_ai_research_context_consumer_governance_status_validation(
+        available=available,
+        governance_status=governance_status,
+        governance_summary=governance_summary,
+        governance_validation=governance_validation,
+        version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
+        compatibility_reference=AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference,
+        capability_reference=AIResearchContextConsumerBoundaryCapabilityMetadata().capability_reference,
+        capability_validation=capability_validation,
+        readiness_status=readiness_status,
+        health_indicator=health_indicator,
+    )
     if not available:
         return AIResearchContextConsumerBoundary(
             surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
@@ -229,6 +249,7 @@ def build_ai_research_context_consumer_boundary(
             health_indicator=health_indicator,
             governance_summary=governance_summary,
             governance_validation=governance_validation,
+            governance_status_validation=governance_status_validation,
             governance_status=governance_status,
             approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
             current_context=current_context,
@@ -311,6 +332,8 @@ def build_ai_research_context_consumer_boundary(
         governance_visible=governance_summary.governance_visible,
         governance_validation_state=governance_validation.validation_state,
         governance_validation_visible=governance_validation.governance_visible,
+        governance_status_validation_state=governance_status_validation.validation_state,
+        governance_status_validation_visible=governance_status_validation.governance_visible,
         governance_status_value=governance_status.governance_status,
         governance_status_visible=governance_status.governance_visible,
     )
@@ -328,6 +351,7 @@ def build_ai_research_context_consumer_boundary(
         health_indicator=health_indicator,
         governance_summary=governance_summary,
         governance_validation=governance_validation,
+        governance_status_validation=governance_status_validation,
         governance_status=governance_status,
         approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
         current_context=current_context,
@@ -443,6 +467,18 @@ def build_ai_research_context_consumer_boundary_markdown(
             "Governance validation reference",
             consumer_boundary.governance_validation.validation_reference,
         ),
+        (
+            "Governance status validation state",
+            consumer_boundary.governance_status_validation.validation_state,
+        ),
+        (
+            "Governance status validation visible",
+            "Yes" if consumer_boundary.governance_status_validation.governance_visible else "No",
+        ),
+        (
+            "Governance status validation reference",
+            consumer_boundary.governance_status_validation.validation_reference,
+        ),
         ("Governance status", consumer_boundary.governance_status.governance_status),
         (
             "Governance status visible",
@@ -530,6 +566,15 @@ def build_ai_research_context_consumer_boundary_markdown(
                 ),
             ]
         )
+    if consumer_boundary.governance_status_validation is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_status_validation_markdown(
+                    consumer_boundary.governance_status_validation
+                ),
+            ]
+        )
     if consumer_boundary.governance_status is not None:
         lines.extend(
             [
@@ -590,6 +635,8 @@ def _summary_text(
     governance_visible: bool,
     governance_validation_state: str,
     governance_validation_visible: bool,
+    governance_status_validation_state: str,
+    governance_status_validation_visible: bool,
     governance_status_value: str,
     governance_status_visible: bool,
 ) -> str:
@@ -615,6 +662,8 @@ def _summary_text(
         f"governance_visible={'yes' if governance_visible else 'no'}; "
         f"governance_validation_state={governance_validation_state}; "
         f"governance_validation_visible={'yes' if governance_validation_visible else 'no'}; "
+        f"governance_status_validation_state={governance_status_validation_state}; "
+        f"governance_status_validation_visible={'yes' if governance_status_validation_visible else 'no'}; "
         f"governance_status_value={governance_status_value}; "
         f"governance_status_visible={'yes' if governance_status_visible else 'no'}; "
         f"approved_surface={_join_list(AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE)}; "
