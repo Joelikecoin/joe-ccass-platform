@@ -65,6 +65,10 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.readiness_status.readiness_status == "ready"
     assert boundary.readiness_status.readiness_visible is True
     assert boundary.readiness_status.readiness_reference
+    assert boundary.health_indicator is not None
+    assert boundary.health_indicator.health_status == "healthy"
+    assert boundary.health_indicator.health_visible is True
+    assert boundary.health_indicator.health_reference
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -77,6 +81,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "capability_metadata",
             "capability_validation",
             "readiness_status",
+            "health_indicator",
         }
     )
     assert "comparison" not in type(boundary).model_fields
@@ -105,6 +110,7 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "capability_reference=" in entry.summary
     assert "capability_validation_state=consistent" in entry.summary
     assert "readiness_status=ready" in entry.summary
+    assert "health_status=healthy" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
@@ -150,3 +156,14 @@ def test_ai_research_context_consumer_readiness_status_marks_unavailable_when_bo
     assert readiness.readiness_status == "unavailable"
     assert readiness.readiness_visible is False
     assert readiness.readiness_reference == "not available"
+
+
+def test_ai_research_context_consumer_health_indicator_marks_unavailable_when_boundary_is_unavailable():
+    entry = build_ai_research_context_consumer_entry(None)
+    health = entry.consumer_boundary.health_indicator
+
+    assert health is not None
+    assert health.available is False
+    assert health.health_status == "unavailable"
+    assert health.health_visible is False
+    assert health.health_reference == "not available"
