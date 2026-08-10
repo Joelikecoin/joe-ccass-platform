@@ -8,11 +8,18 @@ from ccass_core.ai_read_model import AIReadModelIdentity
 from ccass_core.ai_research_context_access import (
     AIResearchContextAccess,
     AIResearchContextAccessContractMeta,
+    AI_RESEARCH_CONTEXT_ACCESS_SURFACE,
+    AI_RESEARCH_CONTEXT_ACCESS_VERSION,
     build_ai_research_context_access,
 )
 from ccass_core.ai_research_context_assembly import (
     AIResearchContextAssembly,
     AIResearchContextAssemblyContractMeta,
+)
+from ccass_core.ai_research_context_audit import (
+    AIResearchContextAuditTrail,
+    build_ai_research_context_audit_trail,
+    build_ai_research_context_audit_trail_markdown,
 )
 from ccass_core.ai_research_context_consumer import (
     AIResearchContextConsumerView,
@@ -63,6 +70,7 @@ class AIResearchContextDelivery(BaseModel):
         "unavailable",
         "unknown",
     ] = "unknown"
+    audit_trail: AIResearchContextAuditTrail | None = None
     provenance_reference: str = "not available"
     freshness_reference: str = "unavailable"
     warning_summary: str = "0 warning(s)"
@@ -80,10 +88,27 @@ def build_ai_research_context_delivery(
 ) -> AIResearchContextDelivery:
     access = build_ai_research_context_access(assembly)
     if not access.available:
+        audit_trail = build_ai_research_context_audit_trail(
+            available=False,
+            creation_reference=(
+                f"{AI_RESEARCH_CONTEXT_ACCESS_VERSION} / {AI_RESEARCH_CONTEXT_ACCESS_SURFACE}"
+            ),
+            provenance_reference=access.provenance_reference,
+            governance_reference=access.limitation_summary,
+            validation_reference=(
+                access.validation.summary if access.validation is not None else "unavailable"
+            ),
+            quality_summary_reference=(
+                access.quality_summary.summary if access.quality_summary is not None else "unavailable"
+            ),
+            warnings_reference=access.warning_summary,
+            warnings=access.warnings,
+        )
         return AIResearchContextDelivery(
             access=access,
             availability_state=access.availability_state,
             freshness_state=access.freshness_state,
+            audit_trail=audit_trail,
             contract_meta=AIResearchContextDeliveryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_DELIVERY_SURFACE
             ),
@@ -104,6 +129,19 @@ def build_ai_research_context_delivery(
     consumer_metadata = _consumer_metadata(access)
     governance_visible = bool(access.validation is not None and access.consumer_view is not None)
     quality_visible = access.quality_summary is not None
+    audit_trail = build_ai_research_context_audit_trail(
+        available=True,
+        creation_reference=(
+            f"{access.audit_trail.creation_reference if access.audit_trail is not None else f'{AI_RESEARCH_CONTEXT_ACCESS_VERSION} / {AI_RESEARCH_CONTEXT_ACCESS_SURFACE}'}"
+            f" -> {AI_RESEARCH_CONTEXT_DELIVERY_VERSION} / {AI_RESEARCH_CONTEXT_DELIVERY_SURFACE}"
+        ),
+        provenance_reference=access.provenance_reference,
+        governance_reference=access.audit_trail.governance_reference if access.audit_trail is not None else access.limitation_summary,
+        validation_reference=access.audit_trail.validation_reference if access.audit_trail is not None else (access.validation.summary if access.validation is not None else "unavailable"),
+        quality_summary_reference=access.audit_trail.quality_summary_reference if access.audit_trail is not None else (access.quality_summary.summary if access.quality_summary is not None else "unavailable"),
+        warnings_reference=access.warning_summary,
+        warnings=access.warnings,
+    )
     summary = _summary_text(
         context_available=access.context_available,
         availability_state=access.availability_state,
@@ -130,6 +168,7 @@ def build_ai_research_context_delivery(
         context_available=access.context_available,
         availability_state=access.availability_state,
         freshness_state=access.freshness_state,
+        audit_trail=audit_trail,
         provenance_reference=access.provenance_reference,
         freshness_reference=access.freshness_reference,
         warning_summary=access.warning_summary,
@@ -168,6 +207,7 @@ def build_ai_research_context_delivery_markdown(
         ("Freshness reference", delivery.freshness_reference),
         ("Warning summary", delivery.warning_summary),
         ("Limitation summary", delivery.limitation_summary),
+        ("Audit trail", "available" if delivery.audit_trail is not None and delivery.audit_trail.available else "unavailable"),
         (
             "Assembly contract",
             (
@@ -230,6 +270,8 @@ def build_ai_research_context_delivery_markdown(
     if delivery.warnings:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in delivery.warnings)
+    if delivery.audit_trail is not None:
+        lines.extend(["", build_ai_research_context_audit_trail_markdown(delivery.audit_trail)])
     return "\n".join(lines)
 
 

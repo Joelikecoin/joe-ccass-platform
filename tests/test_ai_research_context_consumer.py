@@ -101,6 +101,8 @@ def test_ai_research_context_consumer_view_handles_normal_assembly(current_respo
     assert consumer_view.quality_summary.consumer_ready == consumer_view.validation.consumer_ready
     assert consumer_view.quality_summary.provenance_summary == consumer_view.provenance_reference
     assert consumer_view.quality_summary.freshness_summary == consumer_view.freshness_reference
+    assert consumer_view.availability_state == "partial"
+    assert consumer_view.freshness_state == "fresh"
     assert consumer_view.contract_meta == assembly.contract_meta
     assert "AI research context consumer view:" in consumer_view.summary
 
@@ -221,12 +223,17 @@ def test_ai_research_context_consumer_view_surfaces_stale_freshness_state(curren
     assert consumer_view.available is True
     assert consumer_view.availability_state == "partial"
     assert consumer_view.freshness_state == "stale"
+    assert consumer_view.validation is not None
+    assert consumer_view.validation.status == "partial"
     assert access.availability_state == "partial"
     assert access.freshness_state == "stale"
+    assert access.audit_trail is not None
     assert delivery.availability_state == "partial"
     assert delivery.freshness_state == "stale"
+    assert delivery.audit_trail is not None
     assert entry.availability_state == "partial"
     assert entry.freshness_state == "stale"
+    assert entry.audit_trail is not None
     assert "freshness_state=stale" in consumer_view.summary
 
 

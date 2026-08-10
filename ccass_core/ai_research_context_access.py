@@ -8,6 +8,10 @@ from ccass_core.ai_research_context_assembly import (
     AIResearchContextAssembly,
     AIResearchContextAssemblyContractMeta,
 )
+from ccass_core.ai_research_context_audit import (
+    AIResearchContextAuditTrail,
+    build_ai_research_context_audit_trail,
+)
 from ccass_core.ai_research_context_consumer import (
     AIResearchContextConsumerView,
     build_ai_research_context_consumer_view,
@@ -45,6 +49,7 @@ class AIResearchContextAccess(BaseModel):
         "unavailable",
         "unknown",
     ] = "unknown"
+    audit_trail: AIResearchContextAuditTrail | None = None
     provenance_reference: str = "not available"
     freshness_reference: str = "unavailable"
     warning_summary: str = "0 warning(s)"
@@ -64,6 +69,15 @@ def build_ai_research_context_access(
         return AIResearchContextAccess(
             availability_state="unavailable",
             freshness_state="unavailable",
+            audit_trail=build_ai_research_context_audit_trail(
+                available=False,
+                creation_reference="not available",
+                provenance_reference="not available",
+                governance_reference="unavailable",
+                validation_reference="unavailable",
+                quality_summary_reference="unavailable",
+                warnings_reference="0 warning(s)",
+            ),
         )
 
     consumer_view = build_ai_research_context_consumer_view(assembly)
@@ -79,6 +93,21 @@ def build_ai_research_context_access(
     )
     availability_state = consumer_view.availability_state
     freshness_state = consumer_view.freshness_state
+    audit_trail = build_ai_research_context_audit_trail(
+        available=True,
+        creation_reference=(
+            f"{assembly.contract_meta.version} / {assembly.contract_meta.surface} -> "
+            f"{AI_RESEARCH_CONTEXT_ACCESS_VERSION} / {AI_RESEARCH_CONTEXT_ACCESS_SURFACE}"
+        ),
+        provenance_reference=consumer_view.provenance_reference,
+        governance_reference=assembly.summary,
+        validation_reference=validation.summary if validation is not None else "unavailable",
+        quality_summary_reference=(
+            quality_summary.summary if quality_summary is not None else "unavailable"
+        ),
+        warnings_reference=consumer_view.warning_summary,
+        warnings=consumer_view.warnings,
+    )
     summary = _summary_text(
         validation_status=validation_status,
         quality_status=quality_status,
@@ -103,6 +132,7 @@ def build_ai_research_context_access(
         context_available=consumer_view.context_available,
         availability_state=availability_state,
         freshness_state=freshness_state,
+        audit_trail=audit_trail,
         provenance_reference=consumer_view.provenance_reference,
         freshness_reference=consumer_view.freshness_reference,
         warning_summary=consumer_view.warning_summary,

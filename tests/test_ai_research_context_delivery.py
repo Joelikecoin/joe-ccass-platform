@@ -90,6 +90,9 @@ def test_ai_research_context_delivery_bundle_exposes_unified_context_validation_
     assert delivery.quality_visible is True
     assert delivery.consumer_ready == delivery.validation.consumer_ready
     assert delivery.context_available == delivery.consumer_view.context_available
+    assert delivery.audit_trail is not None
+    assert delivery.audit_trail.available is True
+    assert "ai_research_context_delivery" in delivery.audit_trail.creation_reference
     assert delivery.provenance_reference == delivery.access.provenance_reference
     assert delivery.freshness_reference == delivery.access.freshness_reference
     assert delivery.warning_summary == delivery.access.warning_summary
@@ -119,6 +122,8 @@ def test_ai_research_context_delivery_handles_missing_assembly():
     assert delivery.context_available is False
     assert delivery.availability_state == "unavailable"
     assert delivery.freshness_state == "unavailable"
+    assert delivery.audit_trail is not None
+    assert delivery.audit_trail.available is False
     assert delivery.provenance_reference == "not available"
     assert delivery.freshness_reference == "unavailable"
     assert delivery.warning_summary == "0 warning(s)"
@@ -144,5 +149,7 @@ def test_ai_research_context_delivery_markdown_includes_delivery_fields(
     assert "Assembly contract" in markdown
     assert "Access contract" in markdown
     assert "Delivery contract" in markdown
+    assert "AI Research Context Audit Trail" in markdown
+    assert "Creation reference" in markdown
     assert "recommendation" not in markdown.lower()
     assert "trading signal" not in markdown.lower()

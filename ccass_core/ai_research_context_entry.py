@@ -14,6 +14,9 @@ from ccass_core.ai_research_context_assembly import (
     AIResearchContextAssembly,
     AIResearchContextAssemblyContractMeta,
 )
+from ccass_core.ai_research_context_audit import (
+    AIResearchContextAuditTrail,
+)
 from ccass_core.ai_research_context_consumer import AIResearchContextConsumerView
 from ccass_core.ai_research_context_delivery import (
     AIResearchContextDelivery,
@@ -57,6 +60,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     quality_summary: AIResearchContextQualitySummary | None = None
     consumer_metadata: AIResearchContextConsumerEntryMetadata | None = None
     delivery_markdown: str = "AI research context delivery is unavailable."
+    audit_trail: AIResearchContextAuditTrail | None = None
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -93,6 +97,7 @@ def build_ai_research_context_consumer_entry(
             delivery=delivery,
             availability_state=access.availability_state,
             freshness_state=access.freshness_state,
+            audit_trail=delivery.audit_trail,
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
@@ -133,6 +138,7 @@ def build_ai_research_context_consumer_entry(
         validation=delivery.validation,
         quality_summary=delivery.quality_summary,
         consumer_metadata=consumer_metadata,
+        audit_trail=delivery.audit_trail,
         delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
