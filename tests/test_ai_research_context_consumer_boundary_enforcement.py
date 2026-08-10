@@ -16,6 +16,9 @@ from ccass_core.ai_research_context_consumer_governance_snapshot import (
 from ccass_core.ai_research_context_consumer_governance_snapshot_validation import (
     build_ai_research_context_consumer_governance_snapshot_validation,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline import (
+    build_ai_research_context_consumer_governance_timeline,
+)
 from ccass_core.ai_research_context_consumer_readiness import (
     build_ai_research_context_consumer_readiness_status,
 )
@@ -109,6 +112,13 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.governance_snapshot_validation.validation_state == "consistent"
     assert boundary.governance_snapshot_validation.governance_snapshot_visible is True
     assert boundary.governance_snapshot_validation.validation_reference
+    assert boundary.governance_timeline is not None
+    assert boundary.governance_timeline.governance_timeline_state == "complete"
+    assert boundary.governance_timeline.governance_timeline_visible is True
+    assert boundary.governance_timeline.governance_continuity_visible is True
+    assert boundary.governance_timeline.timeline_continuity_consistent is True
+    assert boundary.governance_timeline.governance_timeline_reference
+    assert boundary.governance_timeline.governance_state_sequence_reference
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -126,6 +136,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "governance_status",
             "governance_status_validation",
             "governance_snapshot_validation",
+            "governance_timeline",
             "governance_snapshot",
             "governance_validation",
         }
@@ -165,6 +176,8 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "governance_status_validation_visible=yes" in entry.summary
     assert "governance_snapshot_validation_state=consistent" in entry.summary
     assert "governance_snapshot_validation_visible=yes" in entry.summary
+    assert "governance_timeline_state=complete" in entry.summary
+    assert "governance_timeline_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
@@ -260,6 +273,7 @@ def test_ai_research_context_consumer_governance_snapshot_marks_unavailable_when
     entry = build_ai_research_context_consumer_entry(None)
     governance_snapshot = entry.consumer_boundary.governance_snapshot
     governance_snapshot_validation = entry.consumer_boundary.governance_snapshot_validation
+    governance_timeline = entry.consumer_boundary.governance_timeline
 
     assert governance_snapshot is not None
     assert governance_snapshot.available is False
@@ -271,6 +285,42 @@ def test_ai_research_context_consumer_governance_snapshot_marks_unavailable_when
     assert governance_snapshot_validation.validation_state == "unknown"
     assert governance_snapshot_validation.governance_snapshot_visible is False
     assert governance_snapshot_validation.validation_reference == "not available"
+    assert governance_timeline is not None
+    assert governance_timeline.available is False
+    assert governance_timeline.governance_timeline_state == "unavailable"
+    assert governance_timeline.governance_timeline_visible is False
+    assert governance_timeline.governance_continuity_visible is False
+    assert governance_timeline.governance_timeline_reference == "not available"
+
+
+def test_ai_research_context_consumer_governance_timeline_reflects_status_sequence(
+    current_response, previous_response
+):
+    entry = build_ai_research_context_consumer_entry(_assembly(current_response, previous_response))
+    boundary = entry.consumer_boundary
+
+    timeline = build_ai_research_context_consumer_governance_timeline(
+        available=True,
+        governance_summary=boundary.governance_summary,
+        governance_status=boundary.governance_status,
+        governance_status_validation=boundary.governance_status_validation,
+        governance_snapshot=boundary.governance_snapshot,
+        governance_snapshot_validation=boundary.governance_snapshot_validation,
+        version_reference=boundary.surface_version_reference,
+        compatibility_reference=boundary.compatibility_metadata.compatibility_reference,
+        capability_reference=boundary.capability_metadata.capability_reference,
+        readiness_status=boundary.readiness_status,
+        health_indicator=boundary.health_indicator,
+    )
+
+    assert timeline.available is True
+    assert timeline.governance_timeline_state == "complete"
+    assert timeline.governance_timeline_visible is True
+    assert timeline.governance_continuity_visible is True
+    assert timeline.timeline_continuity_consistent is True
+    assert "governance_summary=" in timeline.governance_state_sequence_reference
+    assert "governance_snapshot_validation=" in timeline.governance_state_sequence_reference
+    assert "AI research context consumer governance timeline:" in timeline.summary
 
 
 def test_ai_research_context_consumer_governance_validation_marks_unavailable_when_boundary_is_unavailable():

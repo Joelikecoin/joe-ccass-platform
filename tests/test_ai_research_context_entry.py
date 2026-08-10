@@ -16,6 +16,9 @@ from ccass_core.ai_research_context_consumer_governance_snapshot import (
 from ccass_core.ai_research_context_consumer_governance_snapshot_validation import (
     build_ai_research_context_consumer_governance_snapshot_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline import (
+    build_ai_research_context_consumer_governance_timeline_markdown,
+)
 from ccass_core.ai_research_context_delivery import build_ai_research_context_delivery_markdown
 from ccass_core.ai_research_context_entry import (
     build_ai_research_context_consumer_entry,
@@ -159,6 +162,11 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_boundary.governance_snapshot_validation is not None
     assert entry.consumer_boundary.governance_snapshot_validation.governance_snapshot_consistent is True
     assert entry.consumer_boundary_governance_snapshot_validation is entry.consumer_boundary.governance_snapshot_validation
+    assert entry.consumer_boundary.governance_timeline is not None
+    assert entry.consumer_boundary.governance_timeline.governance_timeline_state == "complete"
+    assert entry.consumer_boundary.governance_timeline.governance_timeline_visible is True
+    assert entry.consumer_boundary.governance_timeline.timeline_continuity_consistent is True
+    assert entry.consumer_boundary_governance_timeline is entry.consumer_boundary.governance_timeline
     assert entry.consumer_boundary.governance_snapshot is not None
     assert entry.consumer_boundary.governance_snapshot.governance_snapshot_state == "complete"
     assert entry.consumer_boundary_governance_snapshot is entry.consumer_boundary.governance_snapshot
@@ -200,6 +208,10 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
         == entry.consumer_boundary.governance_snapshot_validation.validation_reference
     )
     assert (
+        entry.consumer_boundary_governance_timeline_reference
+        == entry.consumer_boundary.governance_timeline.governance_timeline_reference
+    )
+    assert (
         entry.consumer_boundary_governance_snapshot_reference
         == entry.consumer_boundary.governance_snapshot.governance_snapshot_reference
     )
@@ -228,6 +240,8 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "governance_status_validation_visible=yes" in entry.summary
     assert "governance_snapshot_validation_state=consistent" in entry.summary
     assert "governance_snapshot_validation_visible=yes" in entry.summary
+    assert "governance_timeline_state=complete" in entry.summary
+    assert "governance_timeline_visible=yes" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
@@ -286,6 +300,10 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_context.available is False
     assert entry.consumer_boundary is not None
     assert entry.consumer_boundary.available is False
+    assert entry.consumer_boundary.governance_timeline is not None
+    assert entry.consumer_boundary.governance_timeline.available is False
+    assert entry.consumer_boundary.governance_timeline.governance_timeline_state == "unavailable"
+    assert entry.consumer_boundary.governance_timeline.governance_timeline_visible is False
     assert entry.consumer_boundary.governance_summary is not None
     assert entry.consumer_boundary.governance_summary.governance_status == "unavailable"
     assert entry.consumer_boundary.governance_status is not None
@@ -297,12 +315,14 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_boundary.governance_snapshot_validation is not None
     assert entry.consumer_boundary.governance_snapshot_validation.validation_state == "unknown"
     assert entry.consumer_boundary_governance_snapshot_validation is entry.consumer_boundary.governance_snapshot_validation
+    assert entry.consumer_boundary_governance_timeline is entry.consumer_boundary.governance_timeline
     assert entry.consumer_boundary.governance_snapshot is not None
     assert entry.consumer_boundary.governance_snapshot.governance_snapshot_state == "unavailable"
     assert entry.consumer_boundary_governance_snapshot is entry.consumer_boundary.governance_snapshot
     assert entry.consumer_boundary_governance_status_reference == "not available"
     assert entry.consumer_boundary_governance_status_validation_reference == "not available"
     assert entry.consumer_boundary_governance_snapshot_validation_reference == "not available"
+    assert entry.consumer_boundary_governance_timeline_reference == "not available"
     assert entry.consumer_boundary_governance_snapshot_reference == "not available"
     assert entry.consumer_boundary_governance_continuity_reference == "not available"
     assert entry.consumer_boundary.approved_surface == (
@@ -334,6 +354,7 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Consumer Governance Status" in markdown
     assert "AI Research Context Consumer Governance Status Validation" in markdown
     assert "AI Research Context Consumer Governance Snapshot Validation" in markdown
+    assert "AI Research Context Consumer Governance Timeline" in markdown
     assert "AI Research Context Consumer Governance Snapshot" in markdown
     assert "AI Research Context Consumer Governance Validation" in markdown
     assert "AI Research Context Consumer Governance Snapshot" in build_ai_research_context_consumer_governance_snapshot_markdown(
@@ -388,6 +409,7 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
             "governance_status",
             "governance_status_validation",
             "governance_snapshot_validation",
+            "governance_timeline",
             "governance_snapshot",
             "governance_validation",
         }
