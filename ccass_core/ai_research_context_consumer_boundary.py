@@ -39,6 +39,21 @@ class AIResearchContextConsumerBoundaryCompatibilityMetadata(BaseModel):
     )
 
 
+class AIResearchContextConsumerBoundaryCapabilityMetadata(BaseModel):
+    version: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION
+    surface: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_SURFACE
+    supported_surface: tuple[str, ...] = Field(
+        default_factory=lambda: AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+    )
+    capability_reference: str = (
+        "AI research context consumer boundary supports current_context, historical_context, "
+        "consumer_context, and quality_summary."
+    )
+    consumer_surface_declaration: str = (
+        "Approved consumer surface exposes current, historical, consumer, and quality views."
+    )
+
+
 class AIResearchContextConsumerBoundary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -46,6 +61,9 @@ class AIResearchContextConsumerBoundary(BaseModel):
     surface_version_reference: str = AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION
     compatibility_metadata: AIResearchContextConsumerBoundaryCompatibilityMetadata = Field(
         default_factory=AIResearchContextConsumerBoundaryCompatibilityMetadata
+    )
+    capability_metadata: AIResearchContextConsumerBoundaryCapabilityMetadata = Field(
+        default_factory=AIResearchContextConsumerBoundaryCapabilityMetadata
     )
     approved_surface: tuple[str, ...] = Field(
         default_factory=lambda: AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
@@ -99,6 +117,9 @@ def build_ai_research_context_consumer_boundary(
         return AIResearchContextConsumerBoundary(
             surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
             compatibility_metadata=AIResearchContextConsumerBoundaryCompatibilityMetadata(
+                supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+            ),
+            capability_metadata=AIResearchContextConsumerBoundaryCapabilityMetadata(
                 supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
             ),
             approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
@@ -178,6 +199,9 @@ def build_ai_research_context_consumer_boundary(
         compatibility_metadata=AIResearchContextConsumerBoundaryCompatibilityMetadata(
             supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
         ),
+        capability_metadata=AIResearchContextConsumerBoundaryCapabilityMetadata(
+            supported_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE
+        ),
         approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
         current_context=current_context,
         historical_context=historical_context,
@@ -235,6 +259,14 @@ def build_ai_research_context_consumer_boundary_markdown(
         (
             "Supported surface",
             _join_list(consumer_boundary.compatibility_metadata.supported_surface),
+        ),
+        (
+            "Capability reference",
+            consumer_boundary.capability_metadata.capability_reference,
+        ),
+        (
+            "Consumer surface declaration",
+            consumer_boundary.capability_metadata.consumer_surface_declaration,
         ),
         ("Approved surface", _join_list(consumer_boundary.approved_surface)),
         ("Consumer ready", "Yes" if consumer_boundary.consumer_ready else "No"),
@@ -320,6 +352,7 @@ def _summary_text(
         f"summary_visible={summary_visible}; "
         f"surface_version_reference={AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION}; "
         f"compatibility_reference={AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference}; "
+        f"capability_reference={AIResearchContextConsumerBoundaryCapabilityMetadata().capability_reference}; "
         f"approved_surface={_join_list(AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE)}; "
         f"consumer_ready={'ready' if consumer_ready else 'not ready'}; "
         f"context_state={context_state}; "

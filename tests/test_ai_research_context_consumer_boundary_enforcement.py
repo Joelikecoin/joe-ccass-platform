@@ -48,6 +48,9 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.compatibility_metadata is not None
     assert boundary.compatibility_metadata.supported_surface == boundary.approved_surface
     assert boundary.compatibility_metadata.compatibility_reference
+    assert boundary.capability_metadata is not None
+    assert boundary.capability_metadata.supported_surface == boundary.approved_surface
+    assert boundary.capability_metadata.capability_reference
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -57,6 +60,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "quality_summary",
             "surface_version_reference",
             "compatibility_metadata",
+            "capability_metadata",
         }
     )
     assert "comparison" not in type(boundary).model_fields
@@ -82,6 +86,7 @@ def test_ai_research_context_consumer_entry_preserves_composition_rule(
     assert "AI research context consumer boundary:" in entry.summary
     assert "surface_version_reference=v0.1" in entry.summary
     assert "compatibility_reference=" in entry.summary
+    assert "capability_reference=" in entry.summary
     assert "approved_surface=current_context | historical_context | consumer_context | quality_summary" in entry.summary
     assert "AI Research Context Comparison" not in entry.consumer_boundary.summary
     assert "AI Research Context Timeline" not in entry.consumer_boundary.summary
