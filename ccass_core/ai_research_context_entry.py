@@ -45,6 +45,11 @@ from ccass_core.ai_research_context_historical_comparison_query import (
     build_ai_research_context_historical_comparison_query,
     build_ai_research_context_historical_comparison_query_markdown,
 )
+from ccass_core.ai_research_context_historical_summary import (
+    AIResearchContextHistoricalSummary,
+    build_ai_research_context_historical_summary,
+    build_ai_research_context_historical_summary_markdown,
+)
 from ccass_core.ai_research_context_audit import (
     AIResearchContextAuditTrail,
 )
@@ -98,6 +103,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     timeline_summary: AIResearchContextTimelineSummary | None = None
     historical_query: AIResearchContextHistoricalQuery | None = None
     historical_comparison_query: AIResearchContextHistoricalComparisonQuery | None = None
+    historical_summary: AIResearchContextHistoricalSummary | None = None
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -138,6 +144,12 @@ def build_ai_research_context_consumer_entry(
         change_summary,
         timeline,
     )
+    historical_summary = build_ai_research_context_historical_summary(
+        historical_query,
+        historical_comparison_query,
+        timeline_summary,
+        change_summary,
+    )
     if not delivery.available:
         return AIResearchContextConsumerEntry(
             access=access,
@@ -151,6 +163,7 @@ def build_ai_research_context_consumer_entry(
             timeline_summary=timeline_summary,
             historical_query=historical_query,
             historical_comparison_query=historical_comparison_query,
+            historical_summary=historical_summary,
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
@@ -174,6 +187,9 @@ def build_ai_research_context_consumer_entry(
                     historical_comparison_query.query_state
                     if historical_comparison_query is not None
                     else "unavailable"
+                ),
+                historical_summary_state=(
+                    historical_summary.historical_state if historical_summary is not None else "unavailable"
                 ),
                 governance_visible=False,
                 quality_visible=False,
@@ -206,6 +222,9 @@ def build_ai_research_context_consumer_entry(
             if historical_comparison_query is not None
             else "unavailable"
         ),
+        historical_summary_state=(
+            historical_summary.historical_state if historical_summary is not None else "unavailable"
+        ),
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
         consumer_ready=delivery.consumer_ready,
@@ -230,6 +249,7 @@ def build_ai_research_context_consumer_entry(
         timeline_summary=timeline_summary,
         historical_query=historical_query,
         historical_comparison_query=historical_comparison_query,
+        historical_summary=historical_summary,
         delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
@@ -292,6 +312,14 @@ def build_ai_research_context_consumer_entry_markdown(
             (
                 entry.historical_comparison_query.query_state
                 if entry.historical_comparison_query is not None
+                else "unavailable"
+            ),
+        ),
+        (
+            "Historical summary state",
+            (
+                entry.historical_summary.historical_state
+                if entry.historical_summary is not None
                 else "unavailable"
             ),
         ),
@@ -391,6 +419,8 @@ def build_ai_research_context_consumer_entry_markdown(
                 ),
             ]
         )
+    if entry.historical_summary is not None:
+        lines.extend(["", build_ai_research_context_historical_summary_markdown(entry.historical_summary)])
     if entry.warnings:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in entry.warnings)
@@ -442,6 +472,7 @@ def _summary_text(
     timeline_summary_state: str,
     historical_query_state: str,
     historical_comparison_query_state: str,
+    historical_summary_state: str,
     governance_visible: bool,
     quality_visible: bool,
     consumer_ready: bool,
@@ -465,6 +496,7 @@ def _summary_text(
         f"timeline_summary={timeline_summary_state}; "
         f"historical_query={historical_query_state}; "
         f"historical_comparison_query={historical_comparison_query_state}; "
+        f"historical_summary={historical_summary_state}; "
         f"governance={governance_state}; "
         f"quality={quality_state}; "
         f"consumer_ready={ready_state}; "
