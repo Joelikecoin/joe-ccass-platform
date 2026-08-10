@@ -60,6 +60,11 @@ from ccass_core.ai_research_context_consumer_entry_context import (
     build_ai_research_context_consumer_entry_context,
     build_ai_research_context_consumer_entry_context_markdown,
 )
+from ccass_core.ai_research_context_consumer_boundary import (
+    AIResearchContextConsumerBoundary,
+    build_ai_research_context_consumer_boundary,
+    build_ai_research_context_consumer_boundary_markdown,
+)
 from ccass_core.ai_research_context_audit import (
     AIResearchContextAuditTrail,
 )
@@ -116,6 +121,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     historical_summary: AIResearchContextHistoricalSummary | None = None
     historical_delivery: AIResearchContextHistoricalDelivery | None = None
     consumer_context: AIResearchContextConsumerEntryContext | None = None
+    consumer_boundary: AIResearchContextConsumerBoundary | None = None
     governance_visible: bool = False
     quality_visible: bool = False
     consumer_ready: bool = False
@@ -173,6 +179,12 @@ def build_ai_research_context_consumer_entry(
         delivery,
         historical_delivery,
     )
+    consumer_boundary = build_ai_research_context_consumer_boundary(
+        delivery,
+        historical_delivery,
+        consumer_context,
+        delivery.quality_summary if delivery is not None else None,
+    )
     if not delivery.available:
         return AIResearchContextConsumerEntry(
             access=access,
@@ -189,87 +201,15 @@ def build_ai_research_context_consumer_entry(
             historical_summary=historical_summary,
             historical_delivery=historical_delivery,
             consumer_context=consumer_context,
+            consumer_boundary=consumer_boundary,
             delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
             contract_meta=AIResearchContextConsumerEntryContractMeta(
                 surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
             ),
-            summary=_summary_text(
-                context_available=False,
-                availability_state="unavailable",
-                freshness_state="unavailable",
-                comparison_state=comparison.comparison_state if comparison is not None else "unavailable",
-                change_summary_state=(
-                    change_summary.comparison_state if change_summary is not None else "unavailable"
-                ),
-                timeline_state=timeline.timeline_state if timeline is not None else "unavailable",
-                timeline_summary_state=(
-                    timeline_summary.timeline_state if timeline_summary is not None else "unavailable"
-                ),
-                historical_query_state=(
-                    historical_query.query_state if historical_query is not None else "unavailable"
-                ),
-                historical_comparison_query_state=(
-                    historical_comparison_query.query_state
-                    if historical_comparison_query is not None
-                    else "unavailable"
-                ),
-                historical_summary_state=(
-                    historical_summary.historical_state if historical_summary is not None else "unavailable"
-                ),
-                historical_delivery_state=(
-                    historical_delivery.delivery_state if historical_delivery is not None else "unavailable"
-                ),
-                consumer_context_state=(
-                    consumer_context.context_state if consumer_context is not None else "unavailable"
-                ),
-                governance_visible=False,
-                quality_visible=False,
-                consumer_ready=False,
-                provenance_reference=access.provenance_reference,
-                freshness_reference=access.freshness_reference,
-                warning_summary=access.warning_summary,
-                limitation_summary=access.limitation_summary,
-            ),
+            summary=consumer_boundary.summary,
         )
 
     consumer_metadata = _consumer_metadata(delivery)
-    summary = _summary_text(
-        context_available=delivery.context_available,
-        availability_state=delivery.availability_state,
-        freshness_state=delivery.freshness_state,
-        comparison_state=comparison.comparison_state if comparison is not None else "unavailable",
-        change_summary_state=(
-            change_summary.comparison_state if change_summary is not None else "unavailable"
-        ),
-        timeline_state=timeline.timeline_state if timeline is not None else "unavailable",
-        timeline_summary_state=(
-            timeline_summary.timeline_state if timeline_summary is not None else "unavailable"
-        ),
-        historical_query_state=(
-            historical_query.query_state if historical_query is not None else "unavailable"
-        ),
-        historical_comparison_query_state=(
-            historical_comparison_query.query_state
-            if historical_comparison_query is not None
-            else "unavailable"
-        ),
-        historical_summary_state=(
-            historical_summary.historical_state if historical_summary is not None else "unavailable"
-        ),
-        historical_delivery_state=(
-            historical_delivery.delivery_state if historical_delivery is not None else "unavailable"
-        ),
-        consumer_context_state=(
-            consumer_context.context_state if consumer_context is not None else "unavailable"
-        ),
-        governance_visible=delivery.governance_visible,
-        quality_visible=delivery.quality_visible,
-        consumer_ready=delivery.consumer_ready,
-        provenance_reference=delivery.provenance_reference,
-        freshness_reference=delivery.freshness_reference,
-        warning_summary=delivery.warning_summary,
-        limitation_summary=delivery.limitation_summary,
-    )
     return AIResearchContextConsumerEntry(
         available=True,
         assembly=delivery.assembly,
@@ -289,6 +229,7 @@ def build_ai_research_context_consumer_entry(
         historical_summary=historical_summary,
         historical_delivery=historical_delivery,
         consumer_context=consumer_context,
+        consumer_boundary=consumer_boundary,
         delivery_markdown=build_ai_research_context_delivery_markdown(delivery),
         governance_visible=delivery.governance_visible,
         quality_visible=delivery.quality_visible,
@@ -302,7 +243,7 @@ def build_ai_research_context_consumer_entry(
         limitation_summary=delivery.limitation_summary,
         usage_steps=list(delivery.usage_steps),
         warnings=list(delivery.warnings),
-        summary=summary,
+        summary=consumer_boundary.summary,
         contract_meta=AIResearchContextConsumerEntryContractMeta(
             surface=AI_RESEARCH_CONTEXT_CONSUMER_ENTRY_SURFACE
         ),
@@ -327,56 +268,8 @@ def build_ai_research_context_consumer_entry_markdown(
         ("Availability state", entry.availability_state),
         ("Freshness state", entry.freshness_state),
         (
-            "Comparison state",
-            entry.comparison.comparison_state if entry.comparison is not None else "unavailable",
-        ),
-        (
-            "Change summary state",
-            entry.change_summary.comparison_state if entry.change_summary is not None else "unavailable",
-        ),
-        (
-            "Timeline state",
-            entry.timeline.timeline_state if entry.timeline is not None else "unavailable",
-        ),
-        (
-            "Timeline summary state",
-            entry.timeline_summary.timeline_state if entry.timeline_summary is not None else "unavailable",
-        ),
-        (
-            "Historical query state",
-            entry.historical_query.query_state if entry.historical_query is not None else "unavailable",
-        ),
-        (
-            "Historical comparison query state",
-            (
-                entry.historical_comparison_query.query_state
-                if entry.historical_comparison_query is not None
-                else "unavailable"
-            ),
-        ),
-        (
-            "Historical summary state",
-            (
-                entry.historical_summary.historical_state
-                if entry.historical_summary is not None
-                else "unavailable"
-            ),
-        ),
-        (
-            "Historical delivery state",
-            (
-                entry.historical_delivery.delivery_state
-                if entry.historical_delivery is not None
-                else "unavailable"
-            ),
-        ),
-        (
-            "Consumer context state",
-            (
-                entry.consumer_context.context_state
-                if entry.consumer_context is not None
-                else "unavailable"
-            ),
+            "Consumer boundary state",
+            entry.consumer_boundary.context_state if entry.consumer_boundary is not None else "unavailable",
         ),
         ("Governance visibility", "visible" if entry.governance_visible else "hidden"),
         ("Quality visibility", "visible" if entry.quality_visible else "hidden"),
@@ -435,56 +328,14 @@ def build_ai_research_context_consumer_entry_markdown(
     if entry.usage_steps:
         lines.extend(["", "Usage steps:"])
         lines.extend(f"- {step}" for step in entry.usage_steps)
+    if entry.consumer_boundary is not None:
+        lines.extend(["", build_ai_research_context_consumer_boundary_markdown(entry.consumer_boundary)])
     if entry.validation is not None:
         lines.extend(["", "Validation warnings:"])
         if entry.validation.warnings:
             lines.extend(f"- {warning}" for warning in entry.validation.warnings)
         else:
             lines.append("- none")
-    if entry.quality_summary is not None:
-        lines.extend(["", "Quality summary:"])
-        lines.extend(
-            f"- {label}: {value}"
-            for label, value in [
-                ("Overall status", entry.quality_summary.overall_context_status),
-                ("Availability", entry.quality_summary.availability_summary),
-                ("Freshness", entry.quality_summary.freshness_summary),
-                ("Provenance", entry.quality_summary.provenance_summary),
-                ("Validation", entry.quality_summary.validation_summary),
-                ("Warning", entry.quality_summary.warning_summary),
-                ("Limitation", entry.quality_summary.limitation_summary),
-            ]
-        )
-    if entry.comparison is not None:
-        lines.extend(["", build_ai_research_context_comparison_markdown(entry.comparison)])
-    if entry.change_summary is not None:
-        lines.extend(["", build_ai_research_context_change_summary_markdown(entry.change_summary)])
-    if entry.timeline is not None:
-        lines.extend(["", build_ai_research_context_timeline_markdown(entry.timeline)])
-    if entry.timeline_summary is not None:
-        lines.extend(["", build_ai_research_context_timeline_summary_markdown(entry.timeline_summary)])
-    if entry.historical_query is not None:
-        lines.extend(["", build_ai_research_context_historical_query_markdown(entry.historical_query)])
-    if entry.historical_comparison_query is not None:
-        lines.extend(
-            [
-                "",
-                build_ai_research_context_historical_comparison_query_markdown(
-                    entry.historical_comparison_query
-                ),
-            ]
-        )
-    if entry.historical_summary is not None:
-        lines.extend(["", build_ai_research_context_historical_summary_markdown(entry.historical_summary)])
-    if entry.historical_delivery is not None:
-        lines.extend(["", build_ai_research_context_historical_delivery_markdown(entry.historical_delivery)])
-    if entry.consumer_context is not None:
-        lines.extend(
-            [
-                "",
-                build_ai_research_context_consumer_entry_context_markdown(entry.consumer_context),
-            ]
-        )
     if entry.warnings:
         lines.extend(["", "Warnings:"])
         lines.extend(f"- {warning}" for warning in entry.warnings)

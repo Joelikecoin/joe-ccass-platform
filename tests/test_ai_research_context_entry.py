@@ -4,6 +4,9 @@ from ccass_core.ai_read_model import build_ai_read_model_v0_1
 from ccass_core.ai_read_model_governance import build_ai_read_model_consumer_view
 from ccass_core.ai_research_context_assembly import build_ai_research_context_assembly
 from ccass_core.ai_research_context_consumer import build_ai_research_context_consumer_view
+from ccass_core.ai_research_context_consumer_boundary import (
+    build_ai_research_context_consumer_boundary_markdown,
+)
 from ccass_core.ai_research_context_delivery import build_ai_research_context_delivery_markdown
 from ccass_core.ai_research_context_entry import (
     build_ai_research_context_consumer_entry,
@@ -93,50 +96,6 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.audit_trail.context_version_reference
     assert "ai_research_context_delivery" in entry.audit_trail.creation_reference
     assert entry.audit_trail.linked_audit_reference
-    assert entry.comparison is not None
-    assert entry.comparison.available is True
-    assert entry.comparison.current_snapshot_reference is not None
-    assert entry.comparison.current_snapshot_reference.snapshot_id == 101
-    assert entry.comparison.previous_snapshot_reference is not None
-    assert entry.comparison.previous_snapshot_reference.snapshot_id == 100
-    assert entry.comparison.comparison_metadata is not None
-    assert entry.comparison.comparison_metadata.previous_available is True
-    assert "change_count=" in entry.comparison.changed_context_reference
-    assert "unchanged context" in entry.comparison.unchanged_context_reference
-    assert entry.change_summary is not None
-    assert entry.change_summary.available is True
-    assert "snapshot_id=101" in entry.change_summary.current_snapshot_summary
-    assert "snapshot_id=100" in entry.change_summary.previous_snapshot_summary
-    assert "change_count=" in entry.change_summary.changed_items_summary
-    assert "comparison metadata" in entry.change_summary.summary
-    assert entry.timeline is not None
-    assert entry.timeline.available is True
-    assert entry.timeline.current_snapshot_reference is not None
-    assert entry.timeline.current_snapshot_reference.snapshot_id == 101
-    assert entry.timeline.previous_snapshot_reference is not None
-    assert entry.timeline.previous_snapshot_reference.snapshot_id == 100
-    assert entry.timeline.timeline_items
-    assert entry.timeline.timeline_items[-1].role == "current"
-    assert entry.timeline_summary is not None
-    assert entry.timeline_summary.available is True
-    assert "snapshot_count=" in entry.timeline_summary.summary
-    assert entry.historical_query is not None
-    assert entry.historical_query.available is True
-    assert entry.historical_query.latest_snapshot_reference is not None
-    assert entry.historical_query.latest_snapshot_reference.snapshot_id == 101
-    assert "timeline_position=" in entry.historical_query.summary
-    assert entry.historical_comparison_query is not None
-    assert entry.historical_comparison_query.available is True
-    assert entry.historical_comparison_query.current_snapshot_reference is not None
-    assert entry.historical_comparison_query.current_snapshot_reference.snapshot_id == 101
-    assert entry.historical_comparison_query.previous_snapshot_reference is not None
-    assert entry.historical_comparison_query.previous_snapshot_reference.snapshot_id == 100
-    assert "snapshot_pair=" in entry.historical_comparison_query.summary
-    assert entry.historical_summary is not None
-    assert entry.historical_summary.available is True
-    assert entry.historical_summary.latest_snapshot_reference is not None
-    assert entry.historical_summary.latest_snapshot_reference.snapshot_id == 101
-    assert "timeline_summary_reference=" in entry.historical_summary.summary
     assert entry.historical_delivery is not None
     assert entry.historical_delivery.available is True
     assert entry.historical_delivery.timeline_visible is True
@@ -146,8 +105,22 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_context.current_context is entry.delivery
     assert entry.consumer_context.historical_context is entry.historical_delivery
     assert entry.consumer_context.context_state == "available"
-    assert "historical_delivery=" in entry.summary
-    assert "consumer_context=" in entry.summary
+    assert entry.consumer_boundary is not None
+    assert entry.consumer_boundary.available is True
+    assert entry.consumer_boundary.current_context is entry.delivery
+    assert entry.consumer_boundary.historical_context is entry.historical_delivery
+    assert entry.consumer_boundary.consumer_context is entry.consumer_context
+    assert entry.consumer_boundary.quality_summary is entry.quality_summary
+    assert entry.consumer_boundary.current_context_visible is True
+    assert entry.consumer_boundary.historical_context_visible is True
+    assert entry.consumer_boundary.comparison_visible is True
+    assert entry.consumer_boundary.timeline_visible is True
+    assert entry.consumer_boundary.quality_visible is True
+    assert entry.consumer_boundary.summary_visible is True
+    assert entry.consumer_boundary.context_state == "available"
+    assert "consumer boundary:" in entry.summary
+    assert "current_context_visible=" in entry.summary
+    assert "historical_context_visible=" in entry.summary
     assert entry.governance_visible == entry.delivery.governance_visible
     assert entry.quality_visible == entry.delivery.quality_visible
     assert entry.consumer_ready == entry.delivery.consumer_ready
@@ -159,9 +132,9 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.usage_steps == entry.delivery.usage_steps
     assert entry.warnings == entry.delivery.warnings
     assert entry.delivery_markdown == build_ai_research_context_delivery_markdown(entry.delivery)
-    assert "AI research context consumer entry:" in entry.summary
+    assert "AI research context consumer boundary:" in entry.summary
     assert "consumer_ready=" in entry.summary
-    assert "comparison=" in entry.summary
+    assert "consumer boundary:" in entry.summary
 
 
 def test_ai_research_context_consumer_entry_handles_missing_assembly():
@@ -203,6 +176,8 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.historical_delivery.available is False
     assert entry.consumer_context is not None
     assert entry.consumer_context.available is False
+    assert entry.consumer_boundary is not None
+    assert entry.consumer_boundary.available is False
     assert entry.provenance_reference == "not available"
     assert entry.freshness_reference == "unavailable"
     assert entry.warning_summary == "0 warning(s)"
@@ -218,20 +193,31 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
     assert "AI Research Context Consumer Entry" in markdown
     assert "Governance visibility" in markdown
     assert "Quality visibility" in markdown
-    assert "AI Research Context Comparison" in markdown
-    assert "AI Research Context Change Summary" in markdown
-    assert "AI Research Context Timeline" in markdown
-    assert "AI Research Context Timeline Summary" in markdown
-    assert "AI Research Context Historical Query" in markdown
-    assert "AI Research Context Historical Comparison Query" in markdown
-    assert "AI Research Context Historical Summary" in markdown
-    assert "AI Research Context Historical Delivery" in markdown
-    assert "AI Research Context Consumer Entry Context" in markdown
+    assert "AI Research Context Consumer Boundary" in markdown
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "AI Research Context Audit Trail" in markdown
     assert "Stock code" in markdown
     assert "Market" in markdown
     assert "Company name" in markdown
+    assert "AI Research Context Comparison" not in markdown
+    assert "AI Research Context Change Summary" not in markdown
+    assert "AI Research Context Timeline" not in markdown
+    assert "AI Research Context Historical Query" not in markdown
+    assert "AI Research Context Historical Delivery" not in markdown
     assert "recommendation" not in markdown.lower()
     assert "trading signal" not in markdown.lower()
+
+
+def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_surface(
+    current_response, previous_response
+):
+    entry = build_ai_research_context_consumer_entry(_assembly(current_response, previous_response))
+
+    markdown = build_ai_research_context_consumer_boundary_markdown(entry.consumer_boundary)
+
+    assert "AI Research Context Consumer Boundary" in markdown
+    assert "Current context visible" in markdown
+    assert "Historical context visible" in markdown
+    assert "Quality visible" in markdown
+    assert "Consumer boundary contract" in markdown

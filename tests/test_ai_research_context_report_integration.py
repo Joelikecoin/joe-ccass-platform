@@ -33,13 +33,15 @@ def test_render_prepared_report_includes_ai_research_context_consumer_entry(curr
     assert "Quality visibility" in markdown
     assert "Consumer ready" in markdown
     assert "Delivery output:" in markdown
-    assert "AI Research Context Timeline" in markdown
-    assert "AI Research Context Timeline Summary" in markdown
-    assert "AI Research Context Historical Query" in markdown
-    assert "AI Research Context Historical Comparison Query" in markdown
-    assert "AI Research Context Historical Summary" in markdown
-    assert "AI Research Context Historical Delivery" in markdown
-    assert "AI Research Context Consumer Entry Context" in markdown
+    assert "AI Research Context Consumer Boundary" in markdown
+    assert "Current context visible" in markdown
+    assert "Historical context visible" in markdown
+    assert "Quality visible" in markdown
+    assert "Consumer boundary contract" in markdown
+    assert "AI Research Context Timeline" not in markdown
+    assert "AI Research Context Historical Query" not in markdown
+    assert "AI Research Context Historical Delivery" not in markdown
+    assert "AI Research Context Consumer Entry Context" not in markdown
     assert "AI Research Context Consumer Entry" in payload
     assert "recommendation" not in markdown.lower()
     assert "trading signal" not in markdown.lower()
