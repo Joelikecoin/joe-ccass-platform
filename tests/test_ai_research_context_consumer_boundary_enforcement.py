@@ -42,6 +42,10 @@ from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_summar
     build_ai_research_context_consumer_governance_timeline_snapshot_summary_validation,
     build_ai_research_context_consumer_governance_timeline_snapshot_summary_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_delivery import (
+    build_ai_research_context_consumer_governance_timeline_snapshot_delivery,
+    build_ai_research_context_consumer_governance_timeline_snapshot_delivery_markdown,
+)
 from ccass_core.ai_research_context_consumer_readiness import (
     build_ai_research_context_consumer_readiness_status,
 )
@@ -178,6 +182,13 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert boundary.governance_timeline_snapshot_summary_validation.validation_state == "consistent"
     assert boundary.governance_timeline_snapshot_summary_validation.governance_timeline_snapshot_summary_visible is True
     assert boundary.governance_timeline_snapshot_summary_validation.validation_reference
+    assert boundary.governance_timeline_snapshot_delivery is not None
+    assert boundary.governance_timeline_snapshot_delivery.available is True
+    assert boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_delivery_state == "complete"
+    assert boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_delivery_visible is True
+    assert boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_delivery_reference
+    assert boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_summary_reference
+    assert boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_summary_validation_reference
     assert "AI Research Context Consumer Governance Timeline Snapshot" in (
         build_ai_research_context_consumer_governance_timeline_snapshot_markdown(
             boundary.governance_timeline_snapshot
@@ -196,6 +207,11 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
     assert "AI Research Context Consumer Governance Timeline Snapshot Summary Validation" in (
         build_ai_research_context_consumer_governance_timeline_snapshot_summary_validation_markdown(
             boundary.governance_timeline_snapshot_summary_validation
+        )
+    )
+    assert "AI Research Context Consumer Governance Timeline Snapshot Delivery" in (
+        build_ai_research_context_consumer_governance_timeline_snapshot_delivery_markdown(
+            boundary.governance_timeline_snapshot_delivery
         )
     )
     assert set(type(boundary).model_fields).issuperset(
@@ -222,6 +238,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "governance_timeline_snapshot_validation",
             "governance_timeline_snapshot_summary",
             "governance_timeline_snapshot_summary_validation",
+            "governance_timeline_snapshot_delivery",
             "governance_snapshot",
             "governance_validation",
         }
@@ -396,6 +413,11 @@ def test_ai_research_context_consumer_governance_snapshot_marks_unavailable_when
     assert entry.consumer_boundary.governance_timeline_snapshot_summary_validation.validation_state == "unknown"
     assert entry.consumer_boundary.governance_timeline_snapshot_summary_validation.governance_timeline_snapshot_summary_visible is False
     assert entry.consumer_boundary.governance_timeline_snapshot_summary_validation.validation_reference == "not available"
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery is not None
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery.available is False
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_delivery_state == "unavailable"
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_delivery_visible is False
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery.governance_timeline_snapshot_delivery_reference == "not available"
     assert entry.consumer_boundary.governance_timeline_validation is not None
     assert entry.consumer_boundary.governance_timeline_validation.available is False
     assert entry.consumer_boundary.governance_timeline_validation.validation_state == "unknown"
@@ -619,6 +641,32 @@ def test_ai_research_context_consumer_governance_timeline_snapshot_summary_valid
     assert "AI Research Context Consumer Governance Timeline Snapshot Summary Validation" in (
         build_ai_research_context_consumer_governance_timeline_snapshot_summary_validation_markdown(
             summary_validation
+        )
+    )
+
+
+def test_ai_research_context_consumer_governance_timeline_snapshot_delivery_reflects_snapshot_summary_overview(
+    current_response, previous_response
+):
+    entry = build_ai_research_context_consumer_entry(_assembly(current_response, previous_response))
+    boundary = entry.consumer_boundary
+
+    delivery = build_ai_research_context_consumer_governance_timeline_snapshot_delivery(
+        available=True,
+        governance_timeline_snapshot_summary=boundary.governance_timeline_snapshot_summary,
+        governance_timeline_snapshot_summary_validation=boundary.governance_timeline_snapshot_summary_validation,
+    )
+
+    assert delivery.available is True
+    assert delivery.governance_timeline_snapshot_delivery_state == "complete"
+    assert delivery.governance_timeline_snapshot_delivery_visible is True
+    assert delivery.governance_timeline_snapshot_delivery_reference
+    assert delivery.governance_timeline_snapshot_summary_reference
+    assert delivery.governance_timeline_snapshot_summary_validation_reference
+    assert "AI research context consumer governance timeline snapshot delivery:" in delivery.summary
+    assert "AI Research Context Consumer Governance Timeline Snapshot Delivery" in (
+        build_ai_research_context_consumer_governance_timeline_snapshot_delivery_markdown(
+            delivery
         )
     )
 
