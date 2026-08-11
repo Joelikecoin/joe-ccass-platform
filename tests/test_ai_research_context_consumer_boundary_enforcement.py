@@ -26,6 +26,10 @@ from ccass_core.ai_research_context_consumer_governance_timeline_summary import 
     build_ai_research_context_consumer_governance_timeline_summary,
     build_ai_research_context_consumer_governance_timeline_summary_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline_snapshot import (
+    build_ai_research_context_consumer_governance_timeline_snapshot,
+    build_ai_research_context_consumer_governance_timeline_snapshot_markdown,
+)
 from ccass_core.ai_research_context_consumer_readiness import (
     build_ai_research_context_consumer_readiness_status,
 )
@@ -142,6 +146,16 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             boundary.governance_timeline_summary
         )
     )
+    assert boundary.governance_timeline_snapshot is not None
+    assert boundary.governance_timeline_snapshot.available is True
+    assert boundary.governance_timeline_snapshot.governance_timeline_snapshot_state == "complete"
+    assert boundary.governance_timeline_snapshot.governance_timeline_snapshot_visible is True
+    assert boundary.governance_timeline_snapshot.governance_timeline_snapshot_reference
+    assert "AI Research Context Consumer Governance Timeline Snapshot" in (
+        build_ai_research_context_consumer_governance_timeline_snapshot_markdown(
+            boundary.governance_timeline_snapshot
+        )
+    )
     assert set(type(boundary).model_fields).issuperset(
         {
             "approved_surface",
@@ -162,6 +176,7 @@ def test_ai_research_context_consumer_boundary_only_exposes_approved_consumer_su
             "governance_timeline",
             "governance_timeline_validation",
             "governance_timeline_summary",
+            "governance_timeline_snapshot",
             "governance_snapshot",
             "governance_validation",
         }
@@ -316,6 +331,11 @@ def test_ai_research_context_consumer_governance_snapshot_marks_unavailable_when
     assert governance_timeline.governance_timeline_visible is False
     assert governance_timeline.governance_continuity_visible is False
     assert governance_timeline.governance_timeline_reference == "not available"
+    assert entry.consumer_boundary.governance_timeline_snapshot is not None
+    assert entry.consumer_boundary.governance_timeline_snapshot.available is False
+    assert entry.consumer_boundary.governance_timeline_snapshot.governance_timeline_snapshot_state == "unavailable"
+    assert entry.consumer_boundary.governance_timeline_snapshot.governance_timeline_snapshot_visible is False
+    assert entry.consumer_boundary.governance_timeline_snapshot.governance_timeline_snapshot_reference == "not available"
     assert entry.consumer_boundary.governance_timeline_validation is not None
     assert entry.consumer_boundary.governance_timeline_validation.available is False
     assert entry.consumer_boundary.governance_timeline_validation.validation_state == "unknown"
@@ -452,6 +472,31 @@ def test_ai_research_context_consumer_governance_timeline_summary_reflects_timel
     assert summary.governance_timeline_summary_visible is True
     assert summary.governance_timeline_summary_reference
     assert "AI research context consumer governance timeline summary:" in summary.summary
+
+
+def test_ai_research_context_consumer_governance_timeline_snapshot_reflects_timeline_snapshot_overview(
+    current_response, previous_response
+):
+    entry = build_ai_research_context_consumer_entry(_assembly(current_response, previous_response))
+    boundary = entry.consumer_boundary
+
+    snapshot = build_ai_research_context_consumer_governance_timeline_snapshot(
+        available=True,
+        governance_timeline=boundary.governance_timeline,
+        governance_timeline_validation=boundary.governance_timeline_validation,
+        governance_timeline_summary=boundary.governance_timeline_summary,
+        governance_snapshot=boundary.governance_snapshot,
+        governance_snapshot_validation=boundary.governance_snapshot_validation,
+    )
+
+    assert snapshot.available is True
+    assert snapshot.governance_timeline_snapshot_state == "complete"
+    assert snapshot.governance_timeline_snapshot_visible is True
+    assert snapshot.governance_timeline_snapshot_reference
+    assert "AI research context consumer governance timeline snapshot:" in snapshot.summary
+    assert "AI Research Context Consumer Governance Timeline Snapshot" in (
+        build_ai_research_context_consumer_governance_timeline_snapshot_markdown(snapshot)
+    )
 
 
 def test_ai_research_context_consumer_governance_validation_marks_unavailable_when_boundary_is_unavailable():
