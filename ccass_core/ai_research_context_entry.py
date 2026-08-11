@@ -101,6 +101,10 @@ from ccass_core.ai_research_context_consumer_governance_timeline_validation impo
     AIResearchContextConsumerGovernanceTimelineValidation,
     build_ai_research_context_consumer_governance_timeline_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline_summary import (
+    AIResearchContextConsumerGovernanceTimelineSummary,
+    build_ai_research_context_consumer_governance_timeline_summary_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_validation import (
     AIResearchContextConsumerGovernanceValidation,
     build_ai_research_context_consumer_governance_validation_markdown,
@@ -175,6 +179,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_snapshot_validation: AIResearchContextConsumerGovernanceSnapshotValidation | None = None
     consumer_boundary_governance_timeline: AIResearchContextConsumerGovernanceTimeline | None = None
     consumer_boundary_governance_timeline_validation: AIResearchContextConsumerGovernanceTimelineValidation | None = None
+    consumer_boundary_governance_timeline_summary: AIResearchContextConsumerGovernanceTimelineSummary | None = None
     consumer_boundary_governance_snapshot: AIResearchContextConsumerGovernanceSnapshot | None = None
     consumer_boundary_governance_validation: AIResearchContextConsumerGovernanceValidation | None = None
     consumer_boundary_version_reference: str = "not available"
@@ -188,6 +193,7 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_snapshot_validation_reference: str = "not available"
     consumer_boundary_governance_timeline_reference: str = "not available"
     consumer_boundary_governance_timeline_validation_reference: str = "not available"
+    consumer_boundary_governance_timeline_summary_reference: str = "not available"
     consumer_boundary_governance_snapshot_reference: str = "not available"
     consumer_boundary_governance_continuity_reference: str = "not available"
     consumer_boundary_governance_validation_reference: str = "not available"
@@ -298,6 +304,9 @@ def build_ai_research_context_consumer_entry(
             consumer_boundary_governance_timeline_validation=consumer_boundary.governance_timeline_validation
             if consumer_boundary is not None
             else None,
+            consumer_boundary_governance_timeline_summary=consumer_boundary.governance_timeline_summary
+            if consumer_boundary is not None
+            else None,
             consumer_boundary_governance_snapshot=consumer_boundary.governance_snapshot
             if consumer_boundary is not None
             else None,
@@ -356,6 +365,11 @@ def build_ai_research_context_consumer_entry(
             ),
             consumer_boundary_governance_timeline_validation_reference=(
                 consumer_boundary.governance_timeline_validation.validation_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
+            consumer_boundary_governance_timeline_summary_reference=(
+                consumer_boundary.governance_timeline_summary.governance_timeline_summary_reference
                 if consumer_boundary is not None
                 else "not available"
             ),
@@ -429,6 +443,9 @@ def build_ai_research_context_consumer_entry(
         consumer_boundary_governance_timeline_validation=consumer_boundary.governance_timeline_validation
         if consumer_boundary is not None
         else None,
+        consumer_boundary_governance_timeline_summary=consumer_boundary.governance_timeline_summary
+        if consumer_boundary is not None
+        else None,
         consumer_boundary_governance_snapshot=consumer_boundary.governance_snapshot
         if consumer_boundary is not None
         else None,
@@ -487,6 +504,11 @@ def build_ai_research_context_consumer_entry(
         ),
         consumer_boundary_governance_timeline_validation_reference=(
             consumer_boundary.governance_timeline_validation.validation_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_governance_timeline_summary_reference=(
+            consumer_boundary.governance_timeline_summary.governance_timeline_summary_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -780,6 +802,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 "",
                 build_ai_research_context_consumer_governance_timeline_validation_markdown(
                     entry.consumer_boundary_governance_timeline_validation
+                ),
+            ]
+        )
+    if entry.consumer_boundary_governance_timeline_summary is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_timeline_summary_markdown(
+                    entry.consumer_boundary_governance_timeline_summary
                 ),
             ]
         )
