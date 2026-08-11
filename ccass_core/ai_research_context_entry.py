@@ -105,6 +105,10 @@ from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_summar
     AIResearchContextConsumerGovernanceTimelineSnapshotSummary,
     build_ai_research_context_consumer_governance_timeline_snapshot_summary_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_summary_validation import (
+    AIResearchContextConsumerGovernanceTimelineSnapshotSummaryValidation,
+    build_ai_research_context_consumer_governance_timeline_snapshot_summary_validation_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_timeline import (
     AIResearchContextConsumerGovernanceTimeline,
     build_ai_research_context_consumer_governance_timeline_markdown,
@@ -212,6 +216,8 @@ class AIResearchContextConsumerEntry(BaseModel):
     consumer_boundary_governance_timeline_snapshot_validation_reference: str = "not available"
     consumer_boundary_governance_timeline_snapshot_summary: AIResearchContextConsumerGovernanceTimelineSnapshotSummary | None = None
     consumer_boundary_governance_timeline_snapshot_summary_reference: str = "not available"
+    consumer_boundary_governance_timeline_snapshot_summary_validation: AIResearchContextConsumerGovernanceTimelineSnapshotSummaryValidation | None = None
+    consumer_boundary_governance_timeline_snapshot_summary_validation_reference: str = "not available"
     consumer_boundary_governance_snapshot_reference: str = "not available"
     consumer_boundary_governance_continuity_reference: str = "not available"
     consumer_boundary_governance_validation_reference: str = "not available"
@@ -415,6 +421,14 @@ def build_ai_research_context_consumer_entry(
                 if consumer_boundary is not None
                 else "not available"
             ),
+            consumer_boundary_governance_timeline_snapshot_summary_validation=consumer_boundary.governance_timeline_snapshot_summary_validation
+            if consumer_boundary is not None
+            else None,
+            consumer_boundary_governance_timeline_snapshot_summary_validation_reference=(
+                consumer_boundary.governance_timeline_snapshot_summary_validation.validation_reference
+                if consumer_boundary is not None
+                else "not available"
+            ),
             consumer_boundary_governance_snapshot_reference=(
                 consumer_boundary.governance_snapshot.governance_snapshot_reference
                 if consumer_boundary is not None
@@ -575,6 +589,14 @@ def build_ai_research_context_consumer_entry(
         ),
         consumer_boundary_governance_timeline_snapshot_summary_reference=(
             consumer_boundary.governance_timeline_snapshot_summary.governance_timeline_snapshot_summary_reference
+            if consumer_boundary is not None
+            else "not available"
+        ),
+        consumer_boundary_governance_timeline_snapshot_summary_validation=consumer_boundary.governance_timeline_snapshot_summary_validation
+        if consumer_boundary is not None
+        else None,
+        consumer_boundary_governance_timeline_snapshot_summary_validation_reference=(
+            consumer_boundary.governance_timeline_snapshot_summary_validation.validation_reference
             if consumer_boundary is not None
             else "not available"
         ),
@@ -907,6 +929,15 @@ def build_ai_research_context_consumer_entry_markdown(
                 ),
             ]
         )
+    if entry.consumer_boundary_governance_timeline_snapshot_summary_validation is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_timeline_snapshot_summary_validation_markdown(
+                    entry.consumer_boundary_governance_timeline_snapshot_summary_validation
+                ),
+            ]
+        )
     if entry.consumer_boundary_governance_timeline is not None:
         lines.extend(
             [
@@ -1015,6 +1046,8 @@ def _summary_text(
     governance_timeline_snapshot_validation_visible: bool,
     governance_timeline_snapshot_summary_state: str,
     governance_timeline_snapshot_summary_visible: bool,
+    governance_timeline_snapshot_summary_validation_state: str,
+    governance_timeline_snapshot_summary_validation_visible: bool,
     governance_timeline_state: str,
     governance_timeline_visible: bool,
 ) -> str:
@@ -1055,6 +1088,8 @@ def _summary_text(
         f"governance_timeline_snapshot_validation_visible={'yes' if governance_timeline_snapshot_validation_visible else 'no'}; "
         f"governance_timeline_snapshot_summary_state={governance_timeline_snapshot_summary_state}; "
         f"governance_timeline_snapshot_summary_visible={'yes' if governance_timeline_snapshot_summary_visible else 'no'}; "
+        f"governance_timeline_snapshot_summary_validation_state={governance_timeline_snapshot_summary_validation_state}; "
+        f"governance_timeline_snapshot_summary_validation_visible={'yes' if governance_timeline_snapshot_summary_validation_visible else 'no'}; "
         f"governance_timeline_state={governance_timeline_state}; "
         f"governance_timeline_visible={'yes' if governance_timeline_visible else 'no'}; "
         f"warnings={warning_summary}; "
