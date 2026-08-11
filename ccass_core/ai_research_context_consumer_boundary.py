@@ -63,6 +63,11 @@ from ccass_core.ai_research_context_consumer_governance_timeline_snapshot import
     build_ai_research_context_consumer_governance_timeline_snapshot,
     build_ai_research_context_consumer_governance_timeline_snapshot_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_validation import (
+    AIResearchContextConsumerGovernanceTimelineSnapshotValidation,
+    build_ai_research_context_consumer_governance_timeline_snapshot_validation,
+    build_ai_research_context_consumer_governance_timeline_snapshot_validation_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_status import (
     AIResearchContextConsumerGovernanceStatus,
     build_ai_research_context_consumer_governance_status,
@@ -162,6 +167,9 @@ class AIResearchContextConsumerBoundary(BaseModel):
     )
     governance_timeline_snapshot: AIResearchContextConsumerGovernanceTimelineSnapshot = Field(
         default_factory=AIResearchContextConsumerGovernanceTimelineSnapshot
+    )
+    governance_timeline_snapshot_validation: AIResearchContextConsumerGovernanceTimelineSnapshotValidation = Field(
+        default_factory=AIResearchContextConsumerGovernanceTimelineSnapshotValidation
     )
     governance_status: AIResearchContextConsumerGovernanceStatus = Field(
         default_factory=AIResearchContextConsumerGovernanceStatus
@@ -348,6 +356,22 @@ def build_ai_research_context_consumer_boundary(
         governance_snapshot=governance_snapshot,
         governance_snapshot_validation=governance_snapshot_validation,
     )
+    governance_timeline_snapshot_validation = (
+        build_ai_research_context_consumer_governance_timeline_snapshot_validation(
+            available=available,
+            governance_timeline_snapshot=governance_timeline_snapshot,
+            governance_timeline=governance_timeline,
+            governance_timeline_validation=governance_timeline_validation,
+            governance_timeline_summary=governance_timeline_summary,
+            governance_snapshot=governance_snapshot,
+            governance_snapshot_validation=governance_snapshot_validation,
+            version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
+            compatibility_reference=AIResearchContextConsumerBoundaryCompatibilityMetadata().compatibility_reference,
+            capability_reference=AIResearchContextConsumerBoundaryCapabilityMetadata().capability_reference,
+            readiness_status=readiness_status,
+            health_indicator=health_indicator,
+        )
+    )
     if not available:
         return AIResearchContextConsumerBoundary(
             surface_version_reference=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_VERSION,
@@ -368,6 +392,7 @@ def build_ai_research_context_consumer_boundary(
             governance_timeline_validation=governance_timeline_validation,
             governance_timeline_summary=governance_timeline_summary,
             governance_timeline_snapshot=governance_timeline_snapshot,
+            governance_timeline_snapshot_validation=governance_timeline_snapshot_validation,
             governance_status=governance_status,
             governance_snapshot=governance_snapshot,
             approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
@@ -461,6 +486,8 @@ def build_ai_research_context_consumer_boundary(
         governance_timeline_summary_visible=governance_timeline_summary.governance_timeline_summary_visible,
         governance_timeline_snapshot_state=governance_timeline_snapshot.governance_timeline_snapshot_state,
         governance_timeline_snapshot_visible=governance_timeline_snapshot.governance_timeline_snapshot_visible,
+        governance_timeline_snapshot_validation_state=governance_timeline_snapshot_validation.validation_state,
+        governance_timeline_snapshot_validation_visible=governance_timeline_snapshot_validation.governance_timeline_snapshot_visible,
         governance_timeline_state=governance_timeline.governance_timeline_state,
         governance_timeline_visible=governance_timeline.governance_timeline_visible,
         governance_status_value=governance_status.governance_status,
@@ -486,6 +513,7 @@ def build_ai_research_context_consumer_boundary(
         governance_timeline_validation=governance_timeline_validation,
         governance_timeline_summary=governance_timeline_summary,
         governance_timeline_snapshot=governance_timeline_snapshot,
+        governance_timeline_snapshot_validation=governance_timeline_snapshot_validation,
         governance_status=governance_status,
         governance_snapshot=governance_snapshot,
         approved_surface=AI_RESEARCH_CONTEXT_CONSUMER_BOUNDARY_APPROVED_SURFACE,
@@ -663,6 +691,20 @@ def build_ai_research_context_consumer_boundary_markdown(
             consumer_boundary.governance_timeline_snapshot.governance_timeline_snapshot_reference,
         ),
         (
+            "Governance timeline snapshot validation state",
+            consumer_boundary.governance_timeline_snapshot_validation.validation_state,
+        ),
+        (
+            "Governance timeline snapshot validation visible",
+            "Yes"
+            if consumer_boundary.governance_timeline_snapshot_validation.governance_timeline_snapshot_visible
+            else "No",
+        ),
+        (
+            "Governance timeline snapshot validation reference",
+            consumer_boundary.governance_timeline_snapshot_validation.validation_reference,
+        ),
+        (
             "Governance timeline state",
             consumer_boundary.governance_timeline.governance_timeline_state,
         ),
@@ -819,6 +861,15 @@ def build_ai_research_context_consumer_boundary_markdown(
                 ),
             ]
         )
+    if consumer_boundary.governance_timeline_snapshot_validation is not None:
+        lines.extend(
+            [
+                "",
+                build_ai_research_context_consumer_governance_timeline_snapshot_validation_markdown(
+                    consumer_boundary.governance_timeline_snapshot_validation
+                ),
+            ]
+        )
     if consumer_boundary.governance_timeline is not None:
         lines.extend(
             [
@@ -907,6 +958,8 @@ def _summary_text(
     governance_timeline_summary_visible: bool,
     governance_timeline_snapshot_state: str,
     governance_timeline_snapshot_visible: bool,
+    governance_timeline_snapshot_validation_state: str,
+    governance_timeline_snapshot_validation_visible: bool,
     governance_timeline_state: str,
     governance_timeline_visible: bool,
     governance_status_value: str,
@@ -944,6 +997,8 @@ def _summary_text(
         f"governance_timeline_summary_visible={'yes' if governance_timeline_summary_visible else 'no'}; "
         f"governance_timeline_snapshot_state={governance_timeline_snapshot_state}; "
         f"governance_timeline_snapshot_visible={'yes' if governance_timeline_snapshot_visible else 'no'}; "
+        f"governance_timeline_snapshot_validation_state={governance_timeline_snapshot_validation_state}; "
+        f"governance_timeline_snapshot_validation_visible={'yes' if governance_timeline_snapshot_validation_visible else 'no'}; "
         f"governance_timeline_state={governance_timeline_state}; "
         f"governance_timeline_visible={'yes' if governance_timeline_visible else 'no'}; "
         f"governance_status_value={governance_status_value}; "
