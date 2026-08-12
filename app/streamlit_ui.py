@@ -1012,6 +1012,7 @@ def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -
         "- Stock input to report output in a single path",
         "- Stock metadata",
         "- CCASS holdings information",
+        "- Ranked holders with visual comparison bars",
         "- Concentration analysis",
         "- Holder changes / snapshot comparison when history is available",
         "- AI-ready research context handoff in the report output",
@@ -1150,9 +1151,20 @@ def build_ownership_distribution_markdown(
         f"### {ui_text(locale, 'ownership_distribution_top_holders_heading')}",
     ]
     if top_holders:
+        top_pct = max((row.pct_of_issued or 0.0) for row in top_holders)
         lines.extend(
-            f"- {row.rank}. {_display_text(row.participant, locale)} - {row.shares:,} ({_format_percent(row.pct_of_issued, locale)} of issued)"
-            for row in top_holders
+            [
+                "| Rank | Holder | Shares | % issued | % CCASS | Visual |",
+                "|---|---|---:|---:|---:|---|",
+                *(
+                    f"| {row.rank} | {_display_text(row.participant, locale)} | {row.shares:,} | "
+                    f"{_format_percent(row.pct_of_issued, locale)} | {_format_percent(row.pct_of_ccass, locale)} | "
+                    f"{_percentage_visual_bar(row.pct_of_issued, top_pct)} |"
+                    for row in top_holders
+                ),
+                "",
+                "Visual bars are relative to the largest holder in this list.",
+            ]
         )
     else:
         lines.append(translate_text(locale, "report.data_not_available"))
@@ -1685,6 +1697,16 @@ def _holding_preview_rows(response: CcassResponse, locale: str) -> list[dict[str
 
 def _format_percent(value: float | None, locale: str) -> str:
     return f"{value:.4f}%" if value is not None else translate_text(locale, "report.data_not_available")
+
+
+def _percentage_visual_bar(value: float | None, maximum: float | None, width: int = 20) -> str:
+    if value is None:
+        return "n/a"
+    if maximum is None or maximum <= 0:
+        return "░" * width
+    filled = round((max(0.0, value) / maximum) * width)
+    filled = max(0, min(width, filled))
+    return f"{'█' * filled}{'░' * (width - filled)}"
 
 
 def _progress(callback: Callable[[int, str], None] | None, value: int, label: str) -> None:

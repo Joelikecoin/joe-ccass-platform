@@ -145,6 +145,7 @@ def test_build_research_workflow_overview_markdown_describes_usable_path():
     assert "Report Output" in markdown
     assert "CCASS holdings information" in markdown
     assert "AI-ready research context handoff in the report output" in markdown
+    assert "Ranked holders with visual comparison bars" in markdown
     assert "Export and copy controls" in markdown
 
 
@@ -211,6 +212,7 @@ def test_build_ownership_distribution_markdown_summarizes_holder_distribution_an
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_caption") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top_holders_heading") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_change_focus_heading") in markdown
+    assert "| Rank | Holder | Shares | % issued | % CCASS | Visual |" in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_participant_count") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_total_in_ccass_shares") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_total_in_ccass_pct_of_issued") in markdown
@@ -220,6 +222,7 @@ def test_build_ownership_distribution_markdown_summarizes_holder_distribution_an
     assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top10_pct_of_ccass") in markdown
     assert "TEST FIXTURE BROKER ONE" in markdown
     assert "TEST FIXTURE BROKER TWO" in markdown
+    assert "Visual bars are relative to the largest holder in this list." in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_heading") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_big_changes") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_holder_changes") in markdown
