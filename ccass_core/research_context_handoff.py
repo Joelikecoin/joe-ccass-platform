@@ -43,6 +43,16 @@ class ResearchContextHandoffCoverage(BaseModel):
     summary: str = "Coverage is unavailable."
 
 
+class ResearchContextHandoffConfidence(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    confidence_state: Literal["high", "moderate", "limited", "unavailable", "unknown"] = "unknown"
+    completeness_state: Literal["complete", "partial", "unavailable", "unknown"] = "unknown"
+    traceability_state: Literal["strong", "partial", "unavailable", "unknown"] = "unknown"
+    limitation_categories: list[str] = Field(default_factory=list)
+    uncertainty_summary: str = "Confidence summary is unavailable."
+
+
 class ResearchContextHandoff(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -50,6 +60,7 @@ class ResearchContextHandoff(BaseModel):
     identity: AIReadModelIdentity | None = None
     snapshot_reference: AIReadModelSnapshotReference | None = None
     coverage: ResearchContextHandoffCoverage | None = None
+    confidence: ResearchContextHandoffConfidence | None = None
     ownership_overview: ResearchContextHandoffBlock | None = None
     holder_change_overview: ResearchContextHandoffBlock | None = None
     concentration_overview: ResearchContextHandoffBlock | None = None
@@ -77,11 +88,19 @@ def build_research_context_handoff(
 ) -> ResearchContextHandoff:
     if research_context_package is None:
         required_contexts = list(_required_contexts())
+        confidence = ResearchContextHandoffConfidence(
+            confidence_state="unavailable",
+            completeness_state="unavailable",
+            traceability_state="unavailable",
+            limitation_categories=["context_unavailable", "traceability_unavailable"],
+            uncertainty_summary="Confidence is unavailable because the research context package is missing.",
+        )
         return ResearchContextHandoff(
             summary="AI research context handoff is unavailable.",
             report_reference=report_reference or "not available",
             governance_reference=governance_reference or "not available",
             traceability_summary="Traceability summary is unavailable.",
+            confidence=confidence,
             coverage=ResearchContextHandoffCoverage(
                 coverage_state="unavailable",
                 required_contexts=required_contexts,
@@ -121,6 +140,13 @@ def build_research_context_handoff(
     quality_reference = _quality_reference(research_context_package)
     report_reference_value = report_reference or "not available"
     governance_reference_value = governance_reference or "not available"
+    confidence = _confidence(
+        coverage=coverage,
+        ownership_overview=ownership_overview,
+        holder_change_overview=holder_change_overview,
+        concentration_overview=concentration_overview,
+        warnings=warnings,
+    )
     traceability_summary = _traceability_summary(
         ownership_overview=ownership_overview,
         holder_change_overview=holder_change_overview,
@@ -146,6 +172,7 @@ def build_research_context_handoff(
         identity=identity,
         snapshot_reference=snapshot_reference,
         coverage=coverage,
+        confidence=confidence,
         ownership_overview=ownership_overview,
         holder_change_overview=holder_change_overview,
         concentration_overview=concentration_overview,
@@ -163,6 +190,7 @@ def build_research_context_handoff(
         identity=identity,
         snapshot_reference=snapshot_reference,
         coverage=coverage,
+        confidence=confidence,
         ownership_overview=ownership_overview,
         holder_change_overview=holder_change_overview,
         concentration_overview=concentration_overview,
@@ -195,6 +223,7 @@ def build_research_context_handoff_markdown(
         ("Stock identity", _identity_label(handoff.identity)),
         ("Snapshot reference", _snapshot_label(handoff.snapshot_reference)),
         ("Coverage state", handoff.coverage.coverage_state if handoff.coverage is not None else "unavailable"),
+        ("Confidence state", handoff.confidence.confidence_state if handoff.confidence is not None else "unavailable"),
         (
             "Required contexts",
             ", ".join(handoff.coverage.required_contexts) if handoff.coverage is not None else "unavailable",
@@ -210,6 +239,14 @@ def build_research_context_handoff_markdown(
         (
             "Coverage",
             handoff.coverage.summary if handoff.coverage is not None else "unavailable",
+        ),
+        (
+            "Uncertainty summary",
+            handoff.confidence.uncertainty_summary if handoff.confidence is not None else "unavailable",
+        ),
+        (
+            "Limitation categories",
+            ", ".join(handoff.confidence.limitation_categories) if handoff.confidence is not None else "unavailable",
         ),
         ("Traceability summary", handoff.traceability_summary),
         (
@@ -253,6 +290,18 @@ def build_research_context_handoff_markdown(
             lines.append("")
             lines.append("Missing contexts:")
             lines.extend(f"- {context}" for context in handoff.coverage.missing_contexts)
+    if handoff.confidence is not None:
+        lines.extend(["", "#### Confidence details"])
+        lines.append(
+            f"Confidence state: {handoff.confidence.confidence_state}; "
+            f"completeness: {handoff.confidence.completeness_state}; "
+            f"traceability: {handoff.confidence.traceability_state}"
+        )
+        lines.append(
+            "Limitation categories: "
+            + (", ".join(handoff.confidence.limitation_categories) if handoff.confidence.limitation_categories else "none")
+        )
+        lines.append(f"Uncertainty summary: {handoff.confidence.uncertainty_summary}")
     lines.extend(["", "#### Traceability details"])
     lines.extend(
         _traceability_markdown_row(block)
@@ -310,6 +359,57 @@ def _coverage(
         summary=(
             f"{coverage_state}; required={len(required_contexts)}; "
             f"available={len(available_contexts)}; missing={len(missing_contexts)}"
+        ),
+    )
+
+
+def _confidence(
+    *,
+    coverage: ResearchContextHandoffCoverage,
+    ownership_overview: ResearchContextHandoffBlock,
+    holder_change_overview: ResearchContextHandoffBlock,
+    concentration_overview: ResearchContextHandoffBlock,
+    warnings: Sequence[str],
+) -> ResearchContextHandoffConfidence:
+    limitation_categories: list[str] = []
+    if coverage.missing_contexts:
+        limitation_categories.append("missing_contexts")
+    if warnings:
+        limitation_categories.append("warnings")
+    if not ownership_overview.available:
+        limitation_categories.append("ownership_unavailable")
+    if not holder_change_overview.available:
+        limitation_categories.append("holder_change_unavailable")
+    if not concentration_overview.available:
+        limitation_categories.append("concentration_unavailable")
+
+    if coverage.coverage_state == "complete" and not warnings:
+        confidence_state: Literal["high", "moderate", "limited", "unavailable", "unknown"] = "high"
+        traceability_state: Literal["strong", "partial", "unavailable", "unknown"] = "strong"
+    elif coverage.coverage_state == "complete":
+        confidence_state = "moderate"
+        traceability_state = "strong"
+    elif coverage.coverage_state == "partial":
+        confidence_state = "limited"
+        traceability_state = "partial"
+    elif coverage.coverage_state == "unavailable":
+        confidence_state = "unavailable"
+        traceability_state = "unavailable"
+    else:
+        confidence_state = "unknown"
+        traceability_state = "unknown"
+
+    return ResearchContextHandoffConfidence(
+        confidence_state=confidence_state,
+        completeness_state=coverage.coverage_state,
+        traceability_state=traceability_state,
+        limitation_categories=limitation_categories,
+        uncertainty_summary=(
+            f"confidence={confidence_state}; "
+            f"completeness={coverage.coverage_state}; "
+            f"traceability={traceability_state}; "
+            f"limitations={len(limitation_categories)}; "
+            f"warnings={len(list(warnings))}"
         ),
     )
 
@@ -534,6 +634,7 @@ def _summary_text(
     identity: AIReadModelIdentity,
     snapshot_reference: AIReadModelSnapshotReference | None,
     coverage: ResearchContextHandoffCoverage,
+    confidence: ResearchContextHandoffConfidence,
     ownership_overview: ResearchContextHandoffBlock,
     holder_change_overview: ResearchContextHandoffBlock,
     concentration_overview: ResearchContextHandoffBlock,
@@ -551,6 +652,7 @@ def _summary_text(
         f"stock_code={identity.stock_code}; "
         f"snapshot={_snapshot_label(snapshot_reference)}; "
         f"coverage={coverage.summary}; "
+        f"confidence={confidence.uncertainty_summary}; "
         f"traceability={traceability_summary}; "
         f"raw={raw_context_summary}; "
         f"interpreted={interpreted_context_summary}; "

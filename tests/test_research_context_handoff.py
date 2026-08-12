@@ -44,6 +44,12 @@ def test_research_context_handoff_builds_structured_context(current_response, pr
         "report_reference",
         "governance_reference",
     ]
+    assert handoff.confidence is not None
+    assert handoff.confidence.completeness_state == "complete"
+    assert handoff.confidence.traceability_state == "strong"
+    assert handoff.confidence.confidence_state in {"high", "moderate"}
+    assert "confidence=" in handoff.summary
+    assert "traceability=" in handoff.summary
     assert "identity" in handoff.coverage.available_contexts
     assert "ownership" in handoff.coverage.available_contexts
     assert "holder_change" in handoff.coverage.available_contexts
@@ -105,9 +111,12 @@ def test_research_context_handoff_markdown_includes_summary_and_reference(curren
     assert "Stock identity" in markdown
     assert "Snapshot reference" in markdown
     assert "Coverage state" in markdown
+    assert "Confidence state" in markdown
     assert "Required contexts" in markdown
     assert "Available contexts" in markdown
     assert "Missing contexts" in markdown
+    assert "Uncertainty summary" in markdown
+    assert "Limitation categories" in markdown
     assert "Traceability summary" in markdown
     assert "Ownership overview" in markdown
     assert "Holder change overview" in markdown
@@ -145,6 +154,10 @@ def test_research_context_handoff_marks_missing_holder_change_context(current_re
     assert handoff.coverage.coverage_state == "partial"
     assert "holder_change" in handoff.coverage.required_contexts
     assert "holder_change" in handoff.coverage.missing_contexts
+    assert handoff.confidence is not None
+    assert handoff.confidence.completeness_state == "partial"
+    assert handoff.confidence.confidence_state == "limited"
+    assert "missing_contexts" in handoff.confidence.limitation_categories
     assert handoff.holder_change_overview is not None
     assert handoff.holder_change_overview.available is False
     assert handoff.holder_change_overview.evidence_summary.startswith("Previous snapshot data")
@@ -163,6 +176,10 @@ def test_research_context_handoff_exposes_unavailable_coverage_when_package_miss
     assert handoff.coverage.coverage_state == "unavailable"
     assert "identity" in handoff.coverage.required_contexts
     assert "identity" in handoff.coverage.missing_contexts
+    assert handoff.confidence is not None
+    assert handoff.confidence.confidence_state == "unavailable"
+    assert handoff.confidence.completeness_state == "unavailable"
+    assert "context_unavailable" in handoff.confidence.limitation_categories
     assert "Traceability summary is unavailable." == handoff.traceability_summary
     assert handoff.report_reference == "01592_ccass_report.md"
     assert handoff.governance_reference == "governance-ref-001"
