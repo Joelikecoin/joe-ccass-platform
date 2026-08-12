@@ -1044,6 +1044,7 @@ def build_research_dashboard_markdown(
         [
             f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
             f"[{ui_text(locale, 'research_dashboard_link_ownership_distribution')}](#{localized_report_anchor('ownership_distribution')})",
+            f"[{ui_text(locale, 'research_dashboard_link_holder_changes')}](#{localized_report_anchor('holder-change-investigation')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
@@ -1108,6 +1109,7 @@ def build_ownership_distribution_markdown(
     quick_links = " | ".join(
         [
             f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
+            f"[{ui_text(locale, 'research_dashboard_link_holder_changes')}](#{localized_report_anchor('holder-change-investigation')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
@@ -1153,6 +1155,90 @@ def build_ownership_distribution_markdown(
     )
     return "\n".join(lines)
 
+
+def build_holder_change_investigation_markdown(
+    prepared: PreparedReport,
+    *,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "report.data_not_available")
+
+    analysis = prepared.analysis or AnalysisResult()
+    previous_response = prepared.previous_response
+    current_snapshot = _display_text(response.metadata.holdings_date, locale)
+    previous_snapshot = (
+        _display_text(previous_response.metadata.holdings_date, locale)
+        if previous_response is not None
+        else ui_text(locale, "report.previous_snapshot_unavailable")
+    )
+    change_count = len(analysis.changes)
+    big_change_count = len(analysis.big_changes)
+    transfer_pattern_count = len(analysis.transfer_patterns)
+    quick_links = " | ".join(
+        [
+            f"[{ui_text(locale, 'research_dashboard_link_ownership_distribution')}](#{localized_report_anchor('ownership_distribution')})",
+            f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
+            f"[{ui_text(locale, 'related_context_history')}](#{localized_report_anchor('concentration_history')})",
+        ]
+    )
+    lines = [
+        f"<a id='{localized_report_anchor('holder-change-investigation')}'></a>",
+        f"### {ui_text(locale, 'holder_change_investigation_heading')}",
+        ui_text(locale, "holder_change_investigation_caption"),
+        "",
+        f"### {ui_text(locale, 'holder_change_investigation_summary_heading')}",
+        f"- {ui_text(locale, 'research_dashboard_snapshot_date')}: {current_snapshot}",
+        f"- {ui_text(locale, 'holder_change_investigation_previous_snapshot')}: {previous_snapshot}",
+        f"- {ui_text(locale, 'holder_change_investigation_change_count')}: {change_count}",
+        f"- {ui_text(locale, 'holder_change_investigation_big_change_count')}: {big_change_count}",
+        f"- {ui_text(locale, 'holder_change_investigation_transfer_pattern_count')}: {transfer_pattern_count}",
+        "",
+        f"### {ui_text(locale, 'holder_change_investigation_top_changes_heading')}",
+    ]
+
+    top_changes = [change for change in analysis.changes if change.share_change != 0][:5]
+    if top_changes:
+        for index, change in enumerate(top_changes, start=1):
+            direction = "+" if change.share_change > 0 else ""
+            lines.append(
+                f"- {index}. {_display_text(change.participant, locale)}: "
+                f"{direction}{change.share_change:,} shares "
+                f"({change.previous_shares:,} → {change.current_shares:,}) "
+                f"[{change.status}]"
+            )
+    else:
+        lines.append(translate_text(locale, "report.data_not_available"))
+
+    lines.extend(
+        [
+            "",
+            f"### {ui_text(locale, 'holder_change_investigation_transfer_patterns_heading')}",
+        ]
+    )
+    if analysis.transfer_patterns:
+        for index, pattern in enumerate(analysis.transfer_patterns[:5], start=1):
+            lines.append(
+                f"- {index}. {_display_text(pattern.from_participant, locale)} → "
+                f"{_display_text(pattern.to_participant, locale)}: "
+                f"{pattern.approximate_shares:,} shares (Δ {pattern.difference:,})"
+            )
+    else:
+        lines.append(translate_text(locale, "report.data_not_available"))
+
+    lines.extend(
+        [
+            "",
+            f"**{ui_text(locale, 'research_dashboard_quick_links')}**",
+            quick_links,
+        ]
+    )
+    return "\n".join(lines)
+
+
 def build_research_intelligence_markdown(
     prepared: PreparedReport,
     *,
@@ -1180,6 +1266,7 @@ def build_research_intelligence_markdown(
     deeper_look = " | ".join(
         [
             f"[{ui_text(locale, 'research_dashboard_link_ownership_distribution')}](#{localized_report_anchor('ownership_distribution')})",
+            f"[{ui_text(locale, 'research_dashboard_link_holder_changes')}](#{localized_report_anchor('holder-change-investigation')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
@@ -1236,7 +1323,9 @@ def _display_text(value: object | None, locale: str) -> str:
 def _yes_no(value: bool | None, locale: str) -> str:
     if value is None:
         return translate_text(locale, "report.data_not_available")
-    return "Yes" if locale == "en" and value else "No" if locale == "en" else "是" if value else "否"
+    if locale == "en":
+        return "Yes" if value else "No"
+    return "?" if value else "?"
 
 
 def _response_warning_codes(response: CcassResponse) -> set[str]:
