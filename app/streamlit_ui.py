@@ -1014,6 +1014,7 @@ def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -
         "- CCASS holdings information",
         "- Concentration analysis",
         "- Holder changes / snapshot comparison when history is available",
+        "- AI-ready research context handoff in the report output",
         "- Research report output",
         "- Export and copy controls",
     ]
@@ -1047,6 +1048,10 @@ def build_research_dashboard_markdown(
         if prepared.analysis is not None and prepared.analysis.previous_available
         else ui_text(locale, "full_summary_note_changes_unavailable")
     )
+    ai_context_label = ui_text(
+        locale,
+        "full_summary_status_available" if workflow is not None and workflow.research_context_package is not None else "full_summary_status_unavailable",
+    )
     report_output_label = ui_text(locale, "full_summary_status_available")
     quick_links = " | ".join(
         [
@@ -1056,6 +1061,7 @@ def build_research_dashboard_markdown(
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
+            f"[{translate_text(locale, 'report.section.research_context_handoff').removeprefix('## ').strip()}](#{localized_report_anchor('research_context_handoff')})",
             f"[{ui_text(locale, 'research_dashboard_link_copy')}](#{localized_report_anchor('copy_for_chatgpt')})",
             f"[{ui_text(locale, 'research_dashboard_link_raw_markdown')}](#{localized_report_anchor('raw_markdown')})",
         ]
@@ -1069,6 +1075,7 @@ def build_research_dashboard_markdown(
         (ui_text(locale, "research_dashboard_provenance"), provenance_label),
         (ui_text(locale, "research_dashboard_concentration"), concentration_label),
         (ui_text(locale, "research_dashboard_comparison"), comparison_label),
+        (translate_text(locale, "report.section.research_context_handoff").removeprefix("## ").strip(), ai_context_label),
         (ui_text(locale, "research_dashboard_report_output"), report_output_label),
     ]
     lines = [

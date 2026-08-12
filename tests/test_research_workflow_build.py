@@ -144,6 +144,7 @@ def test_build_research_workflow_overview_markdown_describes_usable_path():
     assert "Analysis Display" in markdown
     assert "Report Output" in markdown
     assert "CCASS holdings information" in markdown
+    assert "AI-ready research context handoff in the report output" in markdown
     assert "Export and copy controls" in markdown
 
 
@@ -172,6 +173,7 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_provenance") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.research_context_handoff").removeprefix("## ").strip() in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_report_output") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_ownership_distribution") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_holder_changes") in markdown
@@ -181,6 +183,7 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert "#concentration" in markdown
     assert "#changes" in markdown
     assert "#big-changes" in markdown
+    assert "#research-context-handoff" in markdown
     assert "#copy-for-chatgpt" in markdown
     assert "#raw-markdown" in markdown
 
