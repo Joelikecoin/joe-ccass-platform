@@ -264,6 +264,7 @@ def test_report_includes_concentration_history_surface_from_snapshots(current_re
 
     assert translate_text(DEFAULT_LOCALE, "report.section.concentration_history") in report
     assert translate_text(DEFAULT_LOCALE, "report.concentration_history.latest_values") in report
+    assert "Visual" in report
     assert translate_text(DEFAULT_LOCALE, "report.concentration_history.participant_count_history") in report
     assert "2026-07-19" in report and "2026-07-20" in report
 

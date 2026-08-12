@@ -173,6 +173,7 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_freshness") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_provenance") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
+    assert "#" in markdown or "." in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
     assert translate_text(DEFAULT_LOCALE, "report.section.research_context_handoff").removeprefix("## ").strip() in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_report_output") in markdown

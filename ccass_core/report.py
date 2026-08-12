@@ -1348,13 +1348,13 @@ def _concentration_history_section(
         "",
         translate_text(locale, "report.concentration_history.latest_values"),
         "",
-        f"| {translate_text(locale, 'report.concentration_history.table_date')} | {translate_text(locale, 'report.concentration_history.table_top5_issued')} | {translate_text(locale, 'report.concentration_history.table_top10_issued')} | {translate_text(locale, 'report.concentration_history.table_top5_ccass')} | {translate_text(locale, 'report.concentration_history.table_top10_ccass')} |",
-        "|---|---:|---:|---:|---:|",
+        f"| {translate_text(locale, 'report.concentration_history.table_date')} | {translate_text(locale, 'report.concentration_history.table_top5_issued')} | {translate_text(locale, 'report.concentration_history.table_top10_issued')} | {translate_text(locale, 'report.concentration_history.table_top5_ccass')} | {translate_text(locale, 'report.concentration_history.table_top10_ccass')} | Visual |",
+        "|---|---:|---:|---:|---:|---|",
     ]
     for snapshot in ordered_snapshots:
         summary = snapshot.holdings_summary
         latest_values_lines.append(
-            f"| {_text(snapshot.metadata.holdings_date, locale)} | {_percent(summary.top5_pct_of_issued, locale)} | {_percent(summary.top10_pct_of_issued, locale)} | {_percent(summary.top5_pct_of_ccass, locale)} | {_percent(summary.top10_pct_of_ccass, locale)} |"
+            f"| {_text(snapshot.metadata.holdings_date, locale)} | {_percent(summary.top5_pct_of_issued, locale)} | {_percent(summary.top10_pct_of_issued, locale)} | {_percent(summary.top5_pct_of_ccass, locale)} | {_percent(summary.top10_pct_of_ccass, locale)} | {_percentage_visual_bar(summary.top5_pct_of_issued, 100.0)} |"
         )
 
     participant_count_lines = [
@@ -1720,6 +1720,16 @@ def _money(value: float | None, locale: str) -> str:
 
 def _percent(value: float | None, locale: str) -> str:
     return f"{value:.4f}%" if value is not None else translate_text(locale, "report.data_not_available")
+
+
+def _percentage_visual_bar(value: float | None, maximum: float | None, width: int = 20) -> str:
+    if value is None:
+        return "n/a"
+    if maximum is None or maximum <= 0:
+        return "." * width
+    filled = round((max(0.0, value) / maximum) * width)
+    filled = max(0, min(width, filled))
+    return f"{'#' * filled}{'.' * (width - filled)}"
 
 
 def _datetime(value, locale: str) -> str:

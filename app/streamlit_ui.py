@@ -1038,11 +1038,14 @@ def build_research_dashboard_markdown(
     snapshot_count = len(tuple(history_snapshots or ())) + 1
     freshness_label = _response_freshness_label(response)
     provenance_label = _response_provenance_label(response)
-    concentration_label = ui_text(
-        locale,
-        "full_summary_note_concentration",
-        top5_pct_of_issued=_display_text(summary.top5_pct_of_issued, locale),
-        top10_pct_of_issued=_display_text(summary.top10_pct_of_issued, locale),
+    concentration_label = (
+        ui_text(
+            locale,
+            "full_summary_note_concentration",
+            top5_pct_of_issued=_display_text(summary.top5_pct_of_issued, locale),
+            top10_pct_of_issued=_display_text(summary.top10_pct_of_issued, locale),
+        )
+        + f" | {_percentage_visual_bar(summary.top5_pct_of_issued, 100.0)}"
     )
     comparison_label = (
         ui_text(locale, "full_summary_note_changes_available")
@@ -1706,11 +1709,11 @@ def _format_percent(value: float | None, locale: str) -> str:
 
 def _delta_visual_bar(delta: int, maximum: int, width: int = 20) -> str:
     if maximum <= 0:
-        return "?" * width
+        return "." * width
     filled = round((abs(delta) / maximum) * width)
     filled = max(0, min(width, filled))
-    glyph = "?" if delta > 0 else "?" if delta < 0 else "?"
-    return f"{glyph * filled}{'?' * (width - filled)}"
+    glyph = "#" if delta > 0 else "=" if delta < 0 else "."
+    return f"{glyph * filled}{'.' * (width - filled)}"
 
 
 def _signed_shares(value: int) -> str:
@@ -1731,20 +1734,20 @@ def _format_pct_point(value: float) -> str:
 
 def _change_direction_symbol(delta: int) -> str:
     if delta > 0:
-        return "?"
+        return "UP"
     if delta < 0:
-        return "?"
-    return "?"
+        return "DOWN"
+    return "FLAT"
 
 
 def _percentage_visual_bar(value: float | None, maximum: float | None, width: int = 20) -> str:
     if value is None:
         return "n/a"
     if maximum is None or maximum <= 0:
-        return "░" * width
+        return "." * width
     filled = round((max(0.0, value) / maximum) * width)
     filled = max(0, min(width, filled))
-    return f"{'█' * filled}{'░' * (width - filled)}"
+    return f"{'#' * filled}{'.' * (width - filled)}"
 
 
 def _progress(callback: Callable[[int, str], None] | None, value: int, label: str) -> None:
