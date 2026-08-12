@@ -49,6 +49,9 @@ from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_delive
 from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_delivery_status_summary_validation import (
     build_ai_research_context_consumer_governance_timeline_snapshot_delivery_status_summary_validation_markdown,
 )
+from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_delivery_status_summary_delivery import (
+    build_ai_research_context_consumer_governance_timeline_snapshot_delivery_status_summary_delivery_markdown,
+)
 from ccass_core.ai_research_context_consumer_governance_timeline_snapshot_delivery_summary import (
     build_ai_research_context_consumer_governance_timeline_snapshot_delivery_summary_markdown,
 )
@@ -300,6 +303,16 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation.available is True
     assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation.validation_state == "consistent"
     assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation.governance_timeline_snapshot_delivery_status_summary_visible is True
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery is not None
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.available is True
+    assert (
+        entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.governance_timeline_snapshot_delivery_status_summary_delivery_state
+        == "complete"
+    )
+    assert (
+        entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.governance_timeline_snapshot_delivery_status_summary_delivery_visible
+        is True
+    )
     assert (
         entry.consumer_boundary_governance_timeline_snapshot_delivery_status_validation
         is entry.consumer_boundary.governance_timeline_snapshot_delivery_status_validation
@@ -319,6 +332,14 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert (
         entry.consumer_boundary_governance_timeline_snapshot_delivery_status_summary_validation
         is entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation
+    )
+    assert (
+        entry.consumer_boundary_governance_timeline_snapshot_delivery_status_summary_delivery
+        is entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery
+    )
+    assert (
+        entry.consumer_boundary_governance_timeline_snapshot_delivery_status_summary_delivery_reference
+        == entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.governance_timeline_snapshot_delivery_status_summary_delivery_reference
     )
     assert (
         entry.consumer_boundary_governance_timeline_snapshot_delivery_status_summary_validation_reference
@@ -433,6 +454,9 @@ def test_ai_research_context_consumer_entry_unifies_access_delivery_and_quality(
     assert "governance_timeline_snapshot_delivery_summary_visible=yes" in entry.summary
     assert "governance_timeline_snapshot_delivery_summary_validation_state=consistent" in entry.summary
     assert "governance_timeline_snapshot_delivery_summary_validation_visible=yes" in entry.summary
+    assert "governance_timeline_snapshot_delivery_status_summary_delivery_state=complete" in entry.summary
+    assert "governance_timeline_snapshot_delivery_status_summary_delivery_visible=yes" in entry.summary
+    assert "governance_timeline_snapshot_delivery_status_summary_delivery_reference=" in entry.summary
     assert "governance_timeline_snapshot_delivery_status_state=consistent" in entry.summary
     assert "governance_timeline_snapshot_delivery_status_visible=yes" in entry.summary
     assert "governance_timeline_snapshot_delivery_status_validation_state=consistent" in entry.summary
@@ -568,6 +592,24 @@ def test_ai_research_context_consumer_entry_handles_missing_assembly():
     assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation.validation_state == "unknown"
     assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation.governance_timeline_snapshot_delivery_status_summary_visible is False
     assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation.validation_reference == "not available"
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery is not None
+    assert entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.available is False
+    assert (
+        entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.governance_timeline_snapshot_delivery_status_summary_delivery_state
+        == "unavailable"
+    )
+    assert (
+        entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.governance_timeline_snapshot_delivery_status_summary_delivery_visible
+        is False
+    )
+    assert (
+        entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery.governance_timeline_snapshot_delivery_status_summary_delivery_reference
+        == "not available"
+    )
+    assert (
+        entry.consumer_boundary_governance_timeline_snapshot_delivery_status_summary_delivery_reference
+        == "not available"
+    )
     assert entry.consumer_boundary.governance_summary is not None
     assert entry.consumer_boundary.governance_summary.governance_status == "unavailable"
     assert entry.consumer_boundary.governance_status is not None
@@ -726,6 +768,12 @@ def test_ai_research_context_consumer_entry_markdown_includes_delivery_output(cu
             entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_validation
         )
     )
+    assert (
+        "AI Research Context Consumer Governance Timeline Snapshot Delivery Status Summary Delivery"
+        in build_ai_research_context_consumer_governance_timeline_snapshot_delivery_status_summary_delivery_markdown(
+            entry.consumer_boundary.governance_timeline_snapshot_delivery_status_summary_delivery
+        )
+    )
     assert "Delivery output:" in markdown
     assert "AI Research Context Delivery" in markdown
     assert "Surface version reference" in markdown
@@ -787,6 +835,8 @@ def test_ai_research_context_consumer_boundary_markdown_uses_approved_consumer_s
             "governance_timeline_snapshot_delivery_status_validation",
             "governance_timeline_snapshot_delivery_status_summary",
             "governance_timeline_snapshot_delivery_status_summary_validation",
+            "governance_timeline_snapshot_delivery_status_summary_delivery",
+            "governance_timeline_snapshot_delivery_status_summary_delivery_reference",
             "governance_snapshot",
             "governance_validation",
         }
