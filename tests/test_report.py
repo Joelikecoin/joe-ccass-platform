@@ -144,6 +144,7 @@ def test_report_includes_related_context_hints(current_response, previous_respon
     assert "(#capital-information)" in report
     assert "(#officers)" in report
     assert "(#holdings)" in report
+    assert "(#broker-distribution)" in report
     assert "(#changes)" in report
     assert "(#big-changes)" in report
     assert "(#concentration)" in report
@@ -267,6 +268,19 @@ def test_report_includes_concentration_history_surface_from_snapshots(current_re
     assert "Visual" in report
     assert translate_text(DEFAULT_LOCALE, "report.concentration_history.participant_count_history") in report
     assert "2026-07-19" in report and "2026-07-20" in report
+
+
+def test_report_includes_broker_distribution_surface_from_holdings(current_response, previous_response):
+    analysis = compute_analysis(current_response, previous_response, big_change_threshold=500)
+    report = build_markdown_report(current_response, code="01592", analysis=analysis, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.broker_distribution") in report
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.summary_participant_count") in report
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.top_brokers_heading") in report
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.table_visual") in report
+    assert "TEST FIXTURE BROKER ONE" in report
+    assert "TEST FIXTURE BROKER TWO" in report
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.visual_note") in report
 
 
 def test_report_states_no_data_quality_warnings_when_empty(previous_response, current_response):

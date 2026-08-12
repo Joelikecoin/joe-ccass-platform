@@ -14,6 +14,7 @@ from app.models import (
 from app.streamlit_ui import (
     DEFAULT_LOCALE,
     PreparedReport,
+    build_broker_distribution_markdown,
     build_holder_change_investigation_markdown,
     build_research_dashboard_markdown,
     build_ownership_distribution_markdown,
@@ -144,6 +145,7 @@ def test_build_research_workflow_overview_markdown_describes_usable_path():
     assert "Analysis Display" in markdown
     assert "Report Output" in markdown
     assert "CCASS holdings information" in markdown
+    assert "Broker distribution visualization" in markdown
     assert "AI-ready research context handoff in the report output" in markdown
     assert "Ranked holders with visual comparison bars" in markdown
     assert "Export and copy controls" in markdown
@@ -173,14 +175,18 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_freshness") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_provenance") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
-    assert "#" in markdown or "." in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_broker_distribution") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_broker_distribution") in markdown
+    assert "#broker-distribution" in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
     assert translate_text(DEFAULT_LOCALE, "report.section.research_context_handoff").removeprefix("## ").strip() in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_report_output") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_ownership_distribution") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_broker_distribution") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_holder_changes") in markdown
     assert "#holdings" in markdown
     assert "#ownership-distribution" in markdown
+    assert "#broker-distribution" in markdown
     assert "#holder-change-investigation" in markdown
     assert "#concentration" in markdown
     assert "#changes" in markdown
@@ -224,10 +230,40 @@ def test_build_ownership_distribution_markdown_summarizes_holder_distribution_an
     assert "TEST FIXTURE BROKER ONE" in markdown
     assert "TEST FIXTURE BROKER TWO" in markdown
     assert "Visual bars are relative to the largest holder in this list." in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_broker_distribution") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_heading") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_big_changes") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_holder_changes") in markdown
     assert "<a id='ownership-distribution'></a>" in markdown
+
+
+def test_build_broker_distribution_markdown_summarizes_broker_distribution_and_ranking(
+    current_response,
+    previous_response,
+):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown="",
+        chatgpt_payload="",
+        filename="01592_ccass_report.md",
+        response=current_response,
+        previous_response=previous_response,
+        analysis=compute_analysis(current_response, previous_response),
+    )
+
+    markdown = build_broker_distribution_markdown(
+        prepared,
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "report.section.broker_distribution") in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.summary_participant_count") in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.top_brokers_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.table_visual") in markdown
+    assert "TEST FIXTURE BROKER ONE" in markdown
+    assert "TEST FIXTURE BROKER TWO" in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.broker_distribution.visual_note") in markdown
+    assert "<a id='broker-distribution'></a>" in markdown
 
 
 def test_build_holder_change_investigation_markdown_summarizes_holder_movement_context(
@@ -338,8 +374,10 @@ def test_streamlit_app_renders_research_dashboard_and_report_flow(current_respon
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_stock_code") in dashboard
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_quick_links") in dashboard
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_ownership_distribution") in dashboard
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_broker_distribution") in dashboard
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_holder_changes") in dashboard
     assert "#ownership-distribution" in dashboard
+    assert "#broker-distribution" in dashboard
     assert "#holder-change-investigation" in dashboard
     ownership_distribution = build_ownership_distribution_markdown(
         prepared,
@@ -360,3 +398,4 @@ def test_streamlit_app_renders_research_dashboard_and_report_flow(current_respon
     assert translate_text(DEFAULT_LOCALE, "ui.report_flow_collapsed_details") in report_flow
     assert translate_text(DEFAULT_LOCALE, "ui.report_flow_actions") in report_flow
     assert translate_text(DEFAULT_LOCALE, "ui.related_context_heading") in report_flow
+    assert "#broker-distribution" in report_flow

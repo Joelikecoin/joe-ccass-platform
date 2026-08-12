@@ -47,6 +47,7 @@ from ccass_core.report import (
     REPORT_SECTION_KEYS,
     SUPPORTED_LOCALES,
     build_chatgpt_copy_payload,
+    build_broker_distribution_markdown as build_report_broker_distribution_markdown,
     cross_surface_context_markdown,
     build_markdown_report,
     localized_report_anchor,
@@ -962,6 +963,7 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
             "metadata",
             "fetch_summary",
             "holdings_summary",
+            "broker_distribution",
             "concentration",
         )
     )
@@ -1005,13 +1007,14 @@ def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -
         "| Stock Input | Enter a stock code in the sidebar and submit the query |",
         "| Data Retrieval / Existing Snapshot | The app reuses the existing CCASS data flow and local snapshot history when available |",
         "| Research Dashboard | The workflow summary and governance context are shown first |",
-        "| Analysis Display | Holdings, concentration, changes, and other existing surfaces are displayed |",
+        "| Analysis Display | Holdings, broker distribution, concentration, changes, and other existing surfaces are displayed |",
         "| Report Output | Copy and download actions remain available |",
         "",
         "### What the workflow shows",
         "- Stock input to report output in a single path",
         "- Stock metadata",
         "- CCASS holdings information",
+        "- Broker distribution visualization",
         "- Ranked holders with visual comparison bars",
         "- Concentration analysis",
         "- Holder changes / snapshot comparison when history is available",
@@ -1047,6 +1050,23 @@ def build_research_dashboard_markdown(
         )
         + f" | {_percentage_visual_bar(summary.top5_pct_of_issued, 100.0)}"
     )
+    broker_rows = [row for row in response.holdings if (row.participant_category or "").lower() == "broker"]
+    if broker_rows:
+        broker_total_shares = sum(row.shares for row in broker_rows)
+        broker_total_pct_of_issued = (
+            broker_total_shares / summary.issued_shares * 100 if summary.issued_shares else None
+        )
+        top_broker = broker_rows[0]
+        broker_label = ui_text(
+            locale,
+            "full_summary_note_broker_distribution",
+            broker_count=len(broker_rows),
+            broker_total_pct_of_issued=_display_text(broker_total_pct_of_issued, locale),
+            largest_broker_name=_display_text(top_broker.participant, locale),
+            largest_broker_pct_of_issued=_display_text(top_broker.pct_of_issued, locale),
+        )
+    else:
+        broker_label = ui_text(locale, "full_summary_note_broker_distribution_unavailable")
     comparison_label = (
         ui_text(locale, "full_summary_note_changes_available")
         if prepared.analysis is not None and prepared.analysis.previous_available
@@ -1061,6 +1081,7 @@ def build_research_dashboard_markdown(
         [
             f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
             f"[{ui_text(locale, 'research_dashboard_link_ownership_distribution')}](#{localized_report_anchor('ownership_distribution')})",
+            f"[{ui_text(locale, 'research_dashboard_link_broker_distribution')}](#{localized_report_anchor('broker_distribution')})",
             f"[{ui_text(locale, 'research_dashboard_link_holder_changes')}](#{localized_report_anchor('holder-change-investigation')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
@@ -1078,6 +1099,7 @@ def build_research_dashboard_markdown(
         (ui_text(locale, "research_dashboard_freshness"), freshness_label),
         (ui_text(locale, "research_dashboard_provenance"), provenance_label),
         (ui_text(locale, "research_dashboard_concentration"), concentration_label),
+        (ui_text(locale, "research_dashboard_broker_distribution"), broker_label),
         (ui_text(locale, "research_dashboard_comparison"), comparison_label),
         (translate_text(locale, "report.section.research_context_handoff").removeprefix("## ").strip(), ai_context_label),
         (ui_text(locale, "research_dashboard_report_output"), report_output_label),
@@ -1129,6 +1151,7 @@ def build_ownership_distribution_markdown(
         [
             f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
             f"[{ui_text(locale, 'research_dashboard_link_holder_changes')}](#{localized_report_anchor('holder-change-investigation')})",
+            f"[{ui_text(locale, 'research_dashboard_link_broker_distribution')}](#{localized_report_anchor('broker_distribution')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
@@ -1184,6 +1207,17 @@ def build_ownership_distribution_markdown(
         ]
     )
     return "\n".join(lines)
+
+
+def build_broker_distribution_markdown(
+    prepared: PreparedReport,
+    *,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "report.data_not_available")
+    return build_report_broker_distribution_markdown(response, locale=locale)
 
 
 def build_holder_change_investigation_markdown(

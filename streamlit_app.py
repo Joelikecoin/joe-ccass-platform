@@ -20,6 +20,7 @@ from app.streamlit_ui import (
     build_data_confidence_markdown,
     build_full_summary_markdown,
     build_holder_change_investigation_markdown,
+    build_broker_distribution_markdown,
     build_ownership_distribution_markdown,
     build_research_dashboard_markdown,
     build_research_intelligence_markdown,
@@ -498,6 +499,7 @@ if prepared is not None:
             st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))
         st.markdown(build_research_dashboard_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(build_ownership_distribution_markdown(prepared, locale=current_locale))
+        st.markdown(build_broker_distribution_markdown(prepared, locale=current_locale))
         st.markdown(build_holder_change_investigation_markdown(prepared, locale=current_locale))
         st.markdown(build_research_intelligence_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)

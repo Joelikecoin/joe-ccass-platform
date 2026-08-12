@@ -183,6 +183,8 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_officers_pending": "Officer surface is present but the source is still pending.",
         "ui.full_summary_note_officers_ready": "Officer surface is available from {source_name}.",
         "ui.full_summary_note_holdings": "{participant_count} participant rows.",
+        "ui.full_summary_note_broker_distribution": "{broker_count} broker rows | broker total / issued {broker_total_pct_of_issued} | largest broker {largest_broker_name} at {largest_broker_pct_of_issued}",
+        "ui.full_summary_note_broker_distribution_unavailable": "Broker distribution is unavailable in the current result.",
         "ui.full_summary_note_changes_available": "Previous snapshot is available.",
         "ui.full_summary_note_changes_unavailable": "Previous snapshot is unavailable.",
         "ui.full_summary_note_big_changes_available": "Thresholded change review is available.",
@@ -235,11 +237,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.research_dashboard_freshness": "Freshness",
         "ui.research_dashboard_provenance": "Provenance",
         "ui.research_dashboard_concentration": "Concentration",
+        "ui.research_dashboard_broker_distribution": "Broker distribution",
         "ui.research_dashboard_comparison": "Comparison",
         "ui.research_dashboard_report_output": "Report output",
         "ui.research_dashboard_quick_links": "Quick links",
         "ui.research_dashboard_link_holdings": "Holdings detail",
         "ui.research_dashboard_link_ownership_distribution": "Ownership distribution",
+        "ui.research_dashboard_link_broker_distribution": "Broker distribution",
         "ui.research_dashboard_link_concentration": "Concentration",
         "ui.research_dashboard_link_changes": "Changes",
         "ui.research_dashboard_link_big_changes": "Big changes",
@@ -390,10 +394,24 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.metadata": "## Metadata",
         "report.section.holdings_summary": "## Holdings Summary",
         "report.section.holdings": "## Holdings",
+        "report.section.broker_distribution": "## Broker Distribution",
         "report.section.changes": "## Changes",
         "report.section.big_changes": "## Big Changes",
         "report.section.concentration": "## Concentration",
         "report.section.concentration_history": "## Concentration History",
+        "report.broker_distribution.unavailable": "Broker distribution is unavailable in the current result.",
+        "report.broker_distribution.summary_heading": "### Broker summary",
+        "report.broker_distribution.summary_participant_count": "Broker participant count",
+        "report.broker_distribution.summary_total_shares": "Broker total shares",
+        "report.broker_distribution.summary_total_of_issued": "Broker total / issued",
+        "report.broker_distribution.summary_total_of_ccass": "Broker total / CCASS",
+        "report.broker_distribution.summary_largest_broker": "Largest broker",
+        "report.broker_distribution.summary_largest_broker_of_issued": "Largest broker / issued",
+        "report.broker_distribution.summary_largest_broker_of_ccass": "Largest broker / CCASS",
+        "report.broker_distribution.top_brokers_heading": "### Top brokers",
+        "report.broker_distribution.table_share_of_broker_total": "Share of broker total",
+        "report.broker_distribution.table_visual": "Visual",
+        "report.broker_distribution.visual_note": "Visual bars are relative to the largest broker in this list.",
         "report.concentration_history.latest_values": "### Latest Values",
         "report.concentration_history.participant_count_history": "### Participant Count History",
         "report.concentration_history.table_date": "Date",
@@ -696,14 +714,16 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.full_summary_note_officers": "目前結果沒有可用的高管表面。",
         "ui.full_summary_note_officers_pending": "高管表面已就位，但資料來源仍在等待接通。",
         "ui.full_summary_note_officers_ready": "高管表面已由 {source_name} 提供。",
-        "ui.full_summary_note_holdings": "{participant_count} ???????",
-        "ui.full_summary_note_changes_available": "?????????",
-        "ui.full_summary_note_changes_unavailable": "?????????",
-        "ui.full_summary_note_big_changes_available": "??????????",
-        "ui.full_summary_note_big_changes_unavailable": "??????????",
-        "ui.full_summary_note_concentration": "? 5 / issued {top5_pct_of_issued} | ? 10 / issued {top10_pct_of_issued}",
-        "ui.full_summary_note_concentration_history": "{snapshot_count} ??????",
-        "ui.full_summary_note_price_history": "????????????",
+        "ui.full_summary_note_holdings": "{participant_count} 個參與者列。",
+        "ui.full_summary_note_broker_distribution": "{broker_count} 個經紀人列 | 經紀人總持股 / 已發行股份 {broker_total_pct_of_issued} | 最大經紀人 {largest_broker_name} 占比 {largest_broker_pct_of_issued}",
+        "ui.full_summary_note_broker_distribution_unavailable": "目前結果沒有可用的經紀人分佈資料。",
+        "ui.full_summary_note_changes_available": "上一個快照可用。",
+        "ui.full_summary_note_changes_unavailable": "上一個快照不可用。",
+        "ui.full_summary_note_big_changes_available": "閾值化變動檢視可用。",
+        "ui.full_summary_note_big_changes_unavailable": "閾值化變動檢視不可用。",
+        "ui.full_summary_note_concentration": "前 5 / issued {top5_pct_of_issued} | 前 10 / issued {top10_pct_of_issued}",
+        "ui.full_summary_note_concentration_history": "{snapshot_count} 個帶日期的快照。",
+        "ui.full_summary_note_price_history": "目前結果沒有可用的價格歷史資料。",
         "ui.full_summary_note_price_history_available": "????????? {price_date_from} ? {price_date_to} ??? {source_name}?",
         "ui.full_summary_note_price_history_unavailable": "????????????",
         "ui.full_summary_note_raw_previews": "{table_count} ??????",
@@ -747,11 +767,13 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.research_dashboard_freshness": "新鮮度",
         "ui.research_dashboard_provenance": "來源性",
         "ui.research_dashboard_concentration": "集中度",
+        "ui.research_dashboard_broker_distribution": "經紀人分佈",
         "ui.research_dashboard_comparison": "比較狀態",
         "ui.research_dashboard_report_output": "報告輸出",
         "ui.research_dashboard_quick_links": "快速連結",
         "ui.research_dashboard_link_holdings": "持有人詳情",
         "ui.research_dashboard_link_ownership_distribution": "持股分布",
+        "ui.research_dashboard_link_broker_distribution": "經紀人分佈",
         "ui.research_dashboard_link_concentration": "集中度",
         "ui.research_dashboard_link_changes": "變動",
         "ui.research_dashboard_link_big_changes": "重大變動",
@@ -829,10 +851,24 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.section.metadata": "## 元資料",
         "report.section.holdings_summary": "## ????",
         "report.section.holdings": "## ??",
+        "report.section.broker_distribution": "## 經紀人分佈",
         "report.section.changes": "## ??",
         "report.section.big_changes": "## ???",
         "report.section.concentration": "## ???",
         "report.section.concentration_history": "## 持股集中度歷史",
+        "report.broker_distribution.unavailable": "目前結果沒有可用的經紀人分佈資料。",
+        "report.broker_distribution.summary_heading": "### 經紀人摘要",
+        "report.broker_distribution.summary_participant_count": "經紀人參與者數量",
+        "report.broker_distribution.summary_total_shares": "經紀人總持股",
+        "report.broker_distribution.summary_total_of_issued": "經紀人總持股 / 已發行股份",
+        "report.broker_distribution.summary_total_of_ccass": "經紀人總持股 / CCASS",
+        "report.broker_distribution.summary_largest_broker": "最大經紀人",
+        "report.broker_distribution.summary_largest_broker_of_issued": "最大經紀人 / 已發行股份",
+        "report.broker_distribution.summary_largest_broker_of_ccass": "最大經紀人 / CCASS",
+        "report.broker_distribution.top_brokers_heading": "### 主要經紀人",
+        "report.broker_distribution.table_share_of_broker_total": "經紀人總持股占比",
+        "report.broker_distribution.table_visual": "視覺",
+        "report.broker_distribution.visual_note": "視覺長條以清單中最大的經紀人為基準。",
         "report.concentration_history.latest_values": "### 最新值",
         "report.concentration_history.participant_count_history": "### 參與者數量歷史",
         "report.concentration_history.table_date": "日期",
@@ -917,6 +953,7 @@ REPORT_SECTION_KEYS = (
     "fetch_summary",
     "holdings_summary",
     "holdings",
+    "broker_distribution",
     "changes",
     "big_changes",
     "concentration",
@@ -994,7 +1031,7 @@ def cross_surface_context_markdown(locale: str) -> str:
                     translate_text(locale, f"report.section.{key}").removeprefix("## "),
                     localized_report_anchor(key),
                 )
-                for key in ("holdings", "changes", "big_changes", "concentration")
+                for key in ("holdings", "broker_distribution", "changes", "big_changes", "concentration")
             ),
         ),
         group_line(
@@ -1029,7 +1066,8 @@ def _related_sections_for(section_key: str) -> tuple[str, ...]:
         "stock_events": ("company", "announcements", "capital_information", "officers"),
         "capital_information": ("company", "announcements", "stock_events", "officers"),
         "officers": ("company", "announcements", "stock_events", "capital_information"),
-        "holdings": ("changes", "big_changes", "concentration", "concentration_history"),
+        "holdings": ("broker_distribution", "changes", "big_changes", "concentration", "concentration_history"),
+        "broker_distribution": ("holdings", "changes", "big_changes", "concentration", "concentration_history"),
         "changes": ("holdings", "big_changes", "concentration_history"),
         "big_changes": ("holdings", "changes", "concentration_history"),
         "concentration": ("holdings", "concentration_history", "price_history"),
@@ -1181,16 +1219,17 @@ def build_markdown_report(
         ]
     )
     lines.extend(_holdings_table(response, locale))
+    lines.extend([""] + build_broker_distribution_markdown(response, locale).splitlines())
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[11])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[12])}'></a>",
         translate_text(locale, "report.section.changes"),
         "",
     ])
     lines.extend(_changes_section(computed, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[12])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[13])}'></a>",
         translate_text(locale, "report.section.big_changes"),
         "",
     ])
@@ -1198,7 +1237,7 @@ def build_markdown_report(
     lines.extend(
         [
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[13])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
             translate_text(locale, "report.section.concentration"),
             "",
             section_related_context_markdown(locale, "concentration"),
@@ -1210,7 +1249,7 @@ def build_markdown_report(
             f"| Top 5 / CCASS | {_percent(summary.top5_pct_of_ccass, locale)} |",
             f"| Top 10 / CCASS | {_percent(summary.top10_pct_of_ccass, locale)} |",
             "",
-            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
+            f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[15])}'></a>",
             translate_text(locale, "report.section.concentration_history"),
             "",
             section_related_context_markdown(locale, "concentration_history"),
@@ -1221,7 +1260,7 @@ def build_markdown_report(
     lines.extend(_price_history_section(price_history, locale))
     lines.extend([
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[16])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[17])}'></a>",
         translate_text(locale, "report.section.data_quality_warnings"),
         "",
     ])
@@ -1283,6 +1322,61 @@ def _holdings_table(response: CcassResponse, locale: str) -> list[str]:
             + " |"
         )
     return lines
+
+
+def _broker_distribution_section(response: CcassResponse, locale: str) -> list[str]:
+    broker_rows = [row for row in response.holdings if (row.participant_category or "").lower() == "broker"]
+    if not broker_rows:
+        return [translate_text(locale, "report.broker_distribution.unavailable")]
+
+    summary = response.holdings_summary
+    broker_total_shares = sum(row.shares for row in broker_rows)
+    broker_total_pct_of_issued = (
+        broker_total_shares / summary.issued_shares * 100 if summary.issued_shares else None
+    )
+    broker_total_pct_of_ccass = (
+        broker_total_shares / summary.total_in_ccass_shares * 100 if summary.total_in_ccass_shares else None
+    )
+    top_broker = broker_rows[0]
+    top_brokers = broker_rows[:10]
+    top_pct = max((row.pct_of_issued or 0.0) for row in top_brokers)
+    lines = [
+        f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+        "|---|---:|",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_participant_count')} | {len(broker_rows)} |",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_total_shares')} | {_integer(broker_total_shares, locale)} |",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_total_of_issued')} | {_percent(broker_total_pct_of_issued, locale)} |",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_total_of_ccass')} | {_percent(broker_total_pct_of_ccass, locale)} |",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_largest_broker')} | {_escape(top_broker.participant)} |",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_largest_broker_of_issued')} | {_percent(top_broker.pct_of_issued, locale)} |",
+        f"| {translate_text(locale, 'report.broker_distribution.summary_largest_broker_of_ccass')} | {_percent(top_broker.pct_of_ccass, locale)} |",
+        "",
+        translate_text(locale, "report.broker_distribution.top_brokers_heading"),
+        "",
+        f"| Rank | Broker | Shares | % issued | % CCASS | {translate_text(locale, 'report.broker_distribution.table_share_of_broker_total')} | {translate_text(locale, 'report.broker_distribution.table_visual')} |",
+        "|---|---|---:|---:|---:|---:|---|",
+    ]
+    for row in top_brokers:
+        share_of_broker_total = (row.shares / broker_total_shares * 100) if broker_total_shares else None
+        lines.append(
+            f"| {row.rank} | {_escape(row.participant)} | {row.shares:,} | {_percent(row.pct_of_issued, locale)} | {_percent(row.pct_of_ccass, locale)} | {_percent(share_of_broker_total, locale)} | {_percentage_visual_bar(row.pct_of_issued, top_pct)} |"
+        )
+    lines.extend(["", translate_text(locale, "report.broker_distribution.visual_note")])
+    return lines
+
+
+def build_broker_distribution_markdown(response: CcassResponse | None, locale: str = DEFAULT_LOCALE) -> str:
+    if response is None:
+        return translate_text(locale, "report.data_not_available")
+    lines = [
+        f"<a id='{localized_report_anchor('broker_distribution')}'></a>",
+        translate_text(locale, "report.section.broker_distribution"),
+        "",
+        section_related_context_markdown(locale, "broker_distribution"),
+        "",
+    ]
+    lines.extend(_broker_distribution_section(response, locale))
+    return "\n".join(lines)
 
 
 def _changes_section(analysis: AnalysisResult, locale: str) -> list[str]:
@@ -1629,7 +1723,7 @@ def _officers_section(
 def _price_history_section(price_history: PriceHistoryResponse | None, locale: str) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[14])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[16])}'></a>",
         translate_text(locale, "report.section.price_history"),
         "",
         section_related_context_markdown(locale, "price_history"),
