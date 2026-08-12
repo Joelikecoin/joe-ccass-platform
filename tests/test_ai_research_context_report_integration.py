@@ -31,6 +31,10 @@ def test_render_prepared_report_includes_ai_research_context_consumer_entry(curr
 
     assert "AI Research Context Consumer Entry" in markdown
     assert "AI Research Context Handoff" in markdown
+    assert "Coverage" in markdown
+    assert "Raw context summary" in markdown
+    assert "Interpreted context summary" in markdown
+    assert "Limitation summary" in markdown
     assert "AI Research Context Consumer Entry" in payload
     assert "recommendation" not in markdown.lower()
     assert "trading signal" not in markdown.lower()

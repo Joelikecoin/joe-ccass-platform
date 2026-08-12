@@ -1091,11 +1091,19 @@ def build_markdown_report(
             build_research_context_handoff,
             build_research_context_handoff_markdown,
         )
+        governance_reference = None
+        if research_context_entry is not None:
+            governance_reference = getattr(
+                research_context_entry,
+                "consumer_boundary_governance_reference",
+                None,
+            )
 
         research_context_handoff = build_research_context_handoff(
             research_context_package,
             analysis=computed,
             report_reference=report_filename(code),
+            governance_reference=governance_reference,
         )
         research_context_handoff_markdown = build_research_context_handoff_markdown(
             research_context_handoff
