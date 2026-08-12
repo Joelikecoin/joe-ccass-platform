@@ -1012,6 +1012,69 @@ def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -
     return "\n".join(lines)
 
 
+def build_research_dashboard_markdown(
+    prepared: PreparedReport,
+    *,
+    history_snapshots: Sequence[CcassResponse] | None = None,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "report.data_not_available")
+
+    metadata = response.metadata
+    summary = response.holdings_summary
+    workflow = prepared.workflow
+    snapshot_count = len(tuple(history_snapshots or ())) + 1
+    freshness_label = _response_freshness_label(response)
+    provenance_label = _response_provenance_label(response)
+    concentration_label = ui_text(
+        locale,
+        "full_summary_note_concentration",
+        top5_pct_of_issued=_display_text(summary.top5_pct_of_issued, locale),
+        top10_pct_of_issued=_display_text(summary.top10_pct_of_issued, locale),
+    )
+    comparison_label = (
+        ui_text(locale, "full_summary_note_changes_available")
+        if prepared.analysis is not None and prepared.analysis.previous_available
+        else ui_text(locale, "full_summary_note_changes_unavailable")
+    )
+    report_output_label = ui_text(locale, "full_summary_status_available")
+    quick_links = " | ".join(
+        [
+            f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
+            f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
+            f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_copy')}](#{localized_report_anchor('copy_for_chatgpt')})",
+            f"[{ui_text(locale, 'research_dashboard_link_raw_markdown')}](#{localized_report_anchor('raw_markdown')})",
+        ]
+    )
+    rows = [
+        (ui_text(locale, "research_dashboard_stock_code"), _display_text(metadata.code, locale)),
+        (ui_text(locale, "research_dashboard_stock_name"), _display_text(metadata.name, locale)),
+        (ui_text(locale, "research_dashboard_snapshot_date"), _display_text(metadata.holdings_date, locale)),
+        (ui_text(locale, "research_dashboard_snapshot_count"), str(snapshot_count)),
+        (ui_text(locale, "research_dashboard_freshness"), freshness_label),
+        (ui_text(locale, "research_dashboard_provenance"), provenance_label),
+        (ui_text(locale, "research_dashboard_concentration"), concentration_label),
+        (ui_text(locale, "research_dashboard_comparison"), comparison_label),
+        (ui_text(locale, "research_dashboard_report_output"), report_output_label),
+    ]
+    lines = [
+        f"### {ui_text(locale, 'research_dashboard_heading')}",
+        ui_text(locale, "research_dashboard_caption"),
+        "",
+        f"*{workflow.summary if workflow is not None else ui_text(locale, 'research_workflow_unavailable')}*",
+        "",
+        f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+        "|---|---|",
+    ]
+    lines.extend(f"| {label} | {value} |" for label, value in rows)
+    lines.extend(["", f"**{ui_text(locale, 'research_dashboard_quick_links')}**", quick_links])
+    return "\n".join(lines)
+
+
 def build_report_action_strip(*, locale: str = DEFAULT_LOCALE) -> str:
     return " | ".join(
         [

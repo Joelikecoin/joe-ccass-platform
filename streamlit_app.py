@@ -18,6 +18,7 @@ from app.streamlit_ui import (
     build_download_artifacts,
     build_data_confidence_markdown,
     build_full_summary_markdown,
+    build_research_dashboard_markdown,
     build_raw_preview_tables,
     build_report_action_strip,
     build_report_flow_markdown,
@@ -492,6 +493,7 @@ if prepared is not None:
         )
         if research_context_entry is not None:
             st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))
+        st.markdown(build_research_dashboard_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'full_summary_heading')}")
         st.caption(ui_text(current_locale, 'full_summary_caption'))

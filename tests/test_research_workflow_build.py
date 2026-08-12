@@ -12,7 +12,14 @@ from app.models import (
     StockEventsMetadata,
     StockEventsResponse,
 )
-from app.streamlit_ui import DEFAULT_LOCALE, build_research_workflow_overview_markdown, translate_text
+from app.streamlit_ui import (
+    DEFAULT_LOCALE,
+    PreparedReport,
+    build_research_dashboard_markdown,
+    build_research_workflow_overview_markdown,
+    translate_text,
+)
+from ccass_core.compute import AnalysisResult
 
 
 class _DemoService:
@@ -137,7 +144,41 @@ def test_build_research_workflow_overview_markdown_describes_usable_path():
     assert "Export and copy controls" in markdown
 
 
-def test_streamlit_app_renders_demo_overview_and_report_flow(monkeypatch, current_response):
+def test_build_research_dashboard_markdown_summarizes_research_state(current_response, previous_response):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown="",
+        chatgpt_payload="",
+        filename="01592_ccass_report.md",
+        response=current_response,
+        previous_response=previous_response,
+        analysis=AnalysisResult(previous_available=True),
+    )
+
+    markdown = build_research_dashboard_markdown(
+        prepared,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_caption") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_stock_code") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_snapshot_count") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_freshness") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_provenance") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_concentration") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_comparison") in markdown
+    assert translate_text(DEFAULT_LOCALE, "research_dashboard_report_output") in markdown
+    assert "#holdings" in markdown
+    assert "#concentration" in markdown
+    assert "#changes" in markdown
+    assert "#big-changes" in markdown
+    assert "#copy-for-chatgpt" in markdown
+    assert "#raw-markdown" in markdown
+
+
+def test_streamlit_app_renders_research_dashboard_and_report_flow(monkeypatch, current_response):
     import app.services.announcements as announcements_service
     import app.services.capital_information as capital_information_service
     import app.services.ccass as ccass_service
@@ -162,8 +203,10 @@ def test_streamlit_app_renders_demo_overview_and_report_flow(monkeypatch, curren
 
     assert not app.exception
     assert any("Research workflow path" in block.value for block in app.markdown)
-    assert any("Stock Input" in block.value for block in app.markdown)
-    assert any("Data Retrieval / Existing Snapshot" in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_caption") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_stock_code") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_quick_links") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.report_flow_heading") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.copy_for_chatgpt") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_heading") in block.value for block in app.markdown)
