@@ -1043,6 +1043,7 @@ def build_research_dashboard_markdown(
     quick_links = " | ".join(
         [
             f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
+            f"[{ui_text(locale, 'research_dashboard_link_ownership_distribution')}](#{localized_report_anchor('ownership_distribution')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
@@ -1075,6 +1076,83 @@ def build_research_dashboard_markdown(
     return "\n".join(lines)
 
 
+def build_ownership_distribution_markdown(
+    prepared: PreparedReport,
+    *,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "report.data_not_available")
+
+    summary = response.holdings_summary
+    analysis = prepared.analysis or AnalysisResult()
+    previous_response = prepared.previous_response
+    current_snapshot = _display_text(response.metadata.holdings_date, locale)
+    previous_snapshot = (
+        _display_text(previous_response.metadata.holdings_date, locale)
+        if previous_response is not None
+        else ui_text(locale, "report.previous_snapshot_unavailable")
+    )
+    previous_status = (
+        ui_text(locale, "full_summary_note_changes_available")
+        if analysis.previous_available
+        else ui_text(locale, "full_summary_note_changes_unavailable")
+    )
+    big_changes_status = (
+        ui_text(locale, "full_summary_note_big_changes_available")
+        if analysis.previous_available
+        else ui_text(locale, "full_summary_note_big_changes_unavailable")
+    )
+    top_holders = response.holdings[:5]
+    quick_links = " | ".join(
+        [
+            f"[{ui_text(locale, 'research_dashboard_link_holdings')}](#{localized_report_anchor('holdings')})",
+            f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
+            f"[{ui_text(locale, 'related_context_history')}](#{localized_report_anchor('concentration_history')})",
+        ]
+    )
+    lines = [
+        f"<a id='{localized_report_anchor('ownership_distribution')}'></a>",
+        f"### {ui_text(locale, 'ownership_distribution_heading')}",
+        ui_text(locale, "ownership_distribution_caption"),
+        "",
+        f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+        "|---|---|",
+        f"| {ui_text(locale, 'research_dashboard_snapshot_date')} | {current_snapshot} |",
+        f"| {ui_text(locale, 'ownership_distribution_participant_count')} | {summary.participant_count} |",
+        f"| {ui_text(locale, 'ownership_distribution_total_in_ccass_shares')} | {f'{summary.total_in_ccass_shares:,}' if summary.total_in_ccass_shares is not None else translate_text(locale, 'report.data_not_available')} |",
+        f"| {ui_text(locale, 'ownership_distribution_total_in_ccass_pct_of_issued')} | {_format_percent(summary.total_in_ccass_pct_of_issued, locale)} |",
+        f"| {ui_text(locale, 'ownership_distribution_top5_pct_of_issued')} | {_format_percent(summary.top5_pct_of_issued, locale)} |",
+        f"| {ui_text(locale, 'ownership_distribution_top10_pct_of_issued')} | {_format_percent(summary.top10_pct_of_issued, locale)} |",
+        f"| {ui_text(locale, 'ownership_distribution_top5_pct_of_ccass')} | {_format_percent(summary.top5_pct_of_ccass, locale)} |",
+        f"| {ui_text(locale, 'ownership_distribution_top10_pct_of_ccass')} | {_format_percent(summary.top10_pct_of_ccass, locale)} |",
+        "",
+        f"### {ui_text(locale, 'ownership_distribution_top_holders_heading')}",
+    ]
+    if top_holders:
+        lines.extend(
+            f"- {row.rank}. {_display_text(row.participant, locale)} - {row.shares:,} ({_format_percent(row.pct_of_issued, locale)} of issued)"
+            for row in top_holders
+        )
+    else:
+        lines.append(translate_text(locale, "report.data_not_available"))
+    lines.extend(
+        [
+            "",
+            f"### {ui_text(locale, 'ownership_distribution_change_focus_heading')}",
+            f"- {ui_text(locale, 'ownership_distribution_previous_snapshot')}: {previous_snapshot}",
+            f"- {ui_text(locale, 'research_intelligence_changes_heading')}: {previous_status}",
+            f"- {ui_text(locale, 'research_dashboard_link_big_changes')}: {big_changes_status}",
+            "",
+            f"**{ui_text(locale, 'research_dashboard_quick_links')}**",
+            quick_links,
+        ]
+    )
+    return "\n".join(lines)
+
 def build_research_intelligence_markdown(
     prepared: PreparedReport,
     *,
@@ -1101,6 +1179,7 @@ def build_research_intelligence_markdown(
     )
     deeper_look = " | ".join(
         [
+            f"[{ui_text(locale, 'research_dashboard_link_ownership_distribution')}](#{localized_report_anchor('ownership_distribution')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",

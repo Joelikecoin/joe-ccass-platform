@@ -15,6 +15,7 @@ from app.streamlit_ui import (
     DEFAULT_LOCALE,
     PreparedReport,
     build_research_dashboard_markdown,
+    build_ownership_distribution_markdown,
     build_research_intelligence_markdown,
     build_report_flow_markdown,
     build_research_workflow_overview_markdown,
@@ -171,12 +172,51 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_report_output") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_ownership_distribution") in markdown
     assert "#holdings" in markdown
+    assert "#ownership-distribution" in markdown
     assert "#concentration" in markdown
     assert "#changes" in markdown
     assert "#big-changes" in markdown
     assert "#copy-for-chatgpt" in markdown
     assert "#raw-markdown" in markdown
+
+
+def test_build_ownership_distribution_markdown_summarizes_holder_distribution_and_change_focus(
+    current_response,
+    previous_response,
+):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown="",
+        chatgpt_payload="",
+        filename="01592_ccass_report.md",
+        response=current_response,
+        previous_response=previous_response,
+        analysis=AnalysisResult(previous_available=True),
+    )
+
+    markdown = build_ownership_distribution_markdown(
+        prepared,
+        locale=DEFAULT_LOCALE,
+    )
+
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_caption") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top_holders_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_change_focus_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_participant_count") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_total_in_ccass_shares") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_total_in_ccass_pct_of_issued") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top5_pct_of_issued") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top10_pct_of_issued") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top5_pct_of_ccass") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_top10_pct_of_ccass") in markdown
+    assert "TEST FIXTURE BROKER ONE" in markdown
+    assert "TEST FIXTURE BROKER TWO" in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_big_changes") in markdown
+    assert "<a id='ownership-distribution'></a>" in markdown
 
 
 def test_build_research_intelligence_markdown_summarizes_current_state_changes_and_deeper_links(
@@ -245,6 +285,13 @@ def test_streamlit_app_renders_research_dashboard_and_report_flow(current_respon
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_caption") in dashboard
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_stock_code") in dashboard
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_quick_links") in dashboard
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_ownership_distribution") in dashboard
+    assert "#ownership-distribution" in dashboard
+    ownership_distribution = build_ownership_distribution_markdown(
+        prepared,
+        locale=DEFAULT_LOCALE,
+    )
+    assert translate_text(DEFAULT_LOCALE, "ui.ownership_distribution_heading") in ownership_distribution
     assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_current_state_heading") in intelligence
     assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_heading") in intelligence
     assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_deeper_look_heading") in intelligence
