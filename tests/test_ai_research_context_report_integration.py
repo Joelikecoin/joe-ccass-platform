@@ -33,10 +33,13 @@ def test_render_prepared_report_includes_ai_research_context_consumer_entry(curr
     assert "AI Research Context Handoff" in markdown
     assert "Coverage state" in markdown
     assert "Confidence state" in markdown
+    assert "Readiness status" in markdown
+    assert "Readiness validation" in markdown
     assert "Required contexts" in markdown
     assert "Traceability summary" in markdown
     assert "Coverage" in markdown
     assert "Uncertainty summary" in markdown
+    assert "Readiness summary" in markdown
     assert "Limitation categories" in markdown
     assert "Raw context summary" in markdown
     assert "Interpreted context summary" in markdown

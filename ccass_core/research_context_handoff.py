@@ -53,6 +53,18 @@ class ResearchContextHandoffConfidence(BaseModel):
     uncertainty_summary: str = "Confidence summary is unavailable."
 
 
+class ResearchContextHandoffReadiness(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    readiness_status: Literal["ready", "partial", "unavailable", "unknown"] = "unknown"
+    validation_state: Literal["consistent", "partial", "unavailable", "unknown"] = "unknown"
+    coverage_state: Literal["complete", "partial", "unavailable", "unknown"] = "unknown"
+    confidence_state: Literal["high", "moderate", "limited", "unavailable", "unknown"] = "unknown"
+    traceability_state: Literal["strong", "partial", "unavailable", "unknown"] = "unknown"
+    limitation_categories: list[str] = Field(default_factory=list)
+    readiness_summary: str = "Readiness summary is unavailable."
+
+
 class ResearchContextHandoff(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -61,6 +73,7 @@ class ResearchContextHandoff(BaseModel):
     snapshot_reference: AIReadModelSnapshotReference | None = None
     coverage: ResearchContextHandoffCoverage | None = None
     confidence: ResearchContextHandoffConfidence | None = None
+    readiness: ResearchContextHandoffReadiness | None = None
     ownership_overview: ResearchContextHandoffBlock | None = None
     holder_change_overview: ResearchContextHandoffBlock | None = None
     concentration_overview: ResearchContextHandoffBlock | None = None
@@ -95,12 +108,28 @@ def build_research_context_handoff(
             limitation_categories=["context_unavailable", "traceability_unavailable"],
             uncertainty_summary="Confidence is unavailable because the research context package is missing.",
         )
+        readiness = ResearchContextHandoffReadiness(
+            readiness_status="unavailable",
+            validation_state="unavailable",
+            coverage_state="unavailable",
+            confidence_state=confidence.confidence_state,
+            traceability_state=confidence.traceability_state,
+            limitation_categories=list(confidence.limitation_categories),
+            readiness_summary=(
+                "unavailable; "
+                "coverage=unavailable; "
+                f"confidence={confidence.confidence_state}; "
+                f"traceability={confidence.traceability_state}; "
+                f"limitations={len(confidence.limitation_categories)}"
+            ),
+        )
         return ResearchContextHandoff(
             summary="AI research context handoff is unavailable.",
             report_reference=report_reference or "not available",
             governance_reference=governance_reference or "not available",
             traceability_summary="Traceability summary is unavailable.",
             confidence=confidence,
+            readiness=readiness,
             coverage=ResearchContextHandoffCoverage(
                 coverage_state="unavailable",
                 required_contexts=required_contexts,
@@ -147,6 +176,11 @@ def build_research_context_handoff(
         concentration_overview=concentration_overview,
         warnings=warnings,
     )
+    readiness = _readiness(
+        coverage=coverage,
+        confidence=confidence,
+        warnings=warnings,
+    )
     traceability_summary = _traceability_summary(
         ownership_overview=ownership_overview,
         holder_change_overview=holder_change_overview,
@@ -173,6 +207,7 @@ def build_research_context_handoff(
         snapshot_reference=snapshot_reference,
         coverage=coverage,
         confidence=confidence,
+        readiness=readiness,
         ownership_overview=ownership_overview,
         holder_change_overview=holder_change_overview,
         concentration_overview=concentration_overview,
@@ -191,6 +226,7 @@ def build_research_context_handoff(
         snapshot_reference=snapshot_reference,
         coverage=coverage,
         confidence=confidence,
+        readiness=readiness,
         ownership_overview=ownership_overview,
         holder_change_overview=holder_change_overview,
         concentration_overview=concentration_overview,
@@ -224,6 +260,8 @@ def build_research_context_handoff_markdown(
         ("Snapshot reference", _snapshot_label(handoff.snapshot_reference)),
         ("Coverage state", handoff.coverage.coverage_state if handoff.coverage is not None else "unavailable"),
         ("Confidence state", handoff.confidence.confidence_state if handoff.confidence is not None else "unavailable"),
+        ("Readiness status", handoff.readiness.readiness_status if handoff.readiness is not None else "unavailable"),
+        ("Readiness validation", handoff.readiness.validation_state if handoff.readiness is not None else "unavailable"),
         (
             "Required contexts",
             ", ".join(handoff.coverage.required_contexts) if handoff.coverage is not None else "unavailable",
@@ -243,6 +281,10 @@ def build_research_context_handoff_markdown(
         (
             "Uncertainty summary",
             handoff.confidence.uncertainty_summary if handoff.confidence is not None else "unavailable",
+        ),
+        (
+            "Readiness summary",
+            handoff.readiness.readiness_summary if handoff.readiness is not None else "unavailable",
         ),
         (
             "Limitation categories",
@@ -302,6 +344,20 @@ def build_research_context_handoff_markdown(
             + (", ".join(handoff.confidence.limitation_categories) if handoff.confidence.limitation_categories else "none")
         )
         lines.append(f"Uncertainty summary: {handoff.confidence.uncertainty_summary}")
+    if handoff.readiness is not None:
+        lines.extend(["", "#### Readiness details"])
+        lines.append(
+            f"Readiness status: {handoff.readiness.readiness_status}; "
+            f"validation: {handoff.readiness.validation_state}; "
+            f"coverage: {handoff.readiness.coverage_state}; "
+            f"confidence: {handoff.readiness.confidence_state}; "
+            f"traceability: {handoff.readiness.traceability_state}"
+        )
+        lines.append(
+            "Limitation categories: "
+            + (", ".join(handoff.readiness.limitation_categories) if handoff.readiness.limitation_categories else "none")
+        )
+        lines.append(f"Readiness summary: {handoff.readiness.readiness_summary}")
     lines.extend(["", "#### Traceability details"])
     lines.extend(
         _traceability_markdown_row(block)
@@ -408,6 +464,47 @@ def _confidence(
             f"confidence={confidence_state}; "
             f"completeness={coverage.coverage_state}; "
             f"traceability={traceability_state}; "
+            f"limitations={len(limitation_categories)}; "
+            f"warnings={len(list(warnings))}"
+        ),
+    )
+
+
+def _readiness(
+    *,
+    coverage: ResearchContextHandoffCoverage,
+    confidence: ResearchContextHandoffConfidence,
+    warnings: Sequence[str],
+) -> ResearchContextHandoffReadiness:
+    if coverage.coverage_state == "complete":
+        readiness_status: Literal["ready", "partial", "unavailable", "unknown"] = "ready"
+        validation_state: Literal["consistent", "partial", "unavailable", "unknown"] = "consistent"
+    elif coverage.coverage_state == "partial":
+        readiness_status = "partial"
+        validation_state = "partial"
+    elif coverage.coverage_state == "unavailable":
+        readiness_status = "unavailable"
+        validation_state = "unavailable"
+    else:
+        readiness_status = "unknown"
+        validation_state = "unknown"
+
+    limitation_categories = list(confidence.limitation_categories)
+    if warnings and "warnings" not in limitation_categories:
+        limitation_categories.append("warnings")
+
+    return ResearchContextHandoffReadiness(
+        readiness_status=readiness_status,
+        validation_state=validation_state,
+        coverage_state=coverage.coverage_state,
+        confidence_state=confidence.confidence_state,
+        traceability_state=confidence.traceability_state,
+        limitation_categories=limitation_categories,
+        readiness_summary=(
+            f"{readiness_status}; "
+            f"coverage={coverage.coverage_state}; "
+            f"confidence={confidence.confidence_state}; "
+            f"traceability={confidence.traceability_state}; "
             f"limitations={len(limitation_categories)}; "
             f"warnings={len(list(warnings))}"
         ),
@@ -635,6 +732,7 @@ def _summary_text(
     snapshot_reference: AIReadModelSnapshotReference | None,
     coverage: ResearchContextHandoffCoverage,
     confidence: ResearchContextHandoffConfidence,
+    readiness: ResearchContextHandoffReadiness,
     ownership_overview: ResearchContextHandoffBlock,
     holder_change_overview: ResearchContextHandoffBlock,
     concentration_overview: ResearchContextHandoffBlock,
@@ -653,6 +751,7 @@ def _summary_text(
         f"snapshot={_snapshot_label(snapshot_reference)}; "
         f"coverage={coverage.summary}; "
         f"confidence={confidence.uncertainty_summary}; "
+        f"readiness={readiness.readiness_summary}; "
         f"traceability={traceability_summary}; "
         f"raw={raw_context_summary}; "
         f"interpreted={interpreted_context_summary}; "
@@ -661,6 +760,47 @@ def _summary_text(
         f"governance={governance_reference}; "
         f"limitation={limitation_summary}; "
         f"warnings={len(list(warnings))}"
+    )
+
+
+def _readiness(
+    *,
+    coverage: ResearchContextHandoffCoverage,
+    confidence: ResearchContextHandoffConfidence,
+    warnings: Sequence[str],
+) -> ResearchContextHandoffReadiness:
+    if coverage.coverage_state == "complete":
+        readiness_status: Literal["ready", "partial", "unavailable", "unknown"] = "ready"
+        validation_state: Literal["consistent", "partial", "unavailable", "unknown"] = "consistent"
+    elif coverage.coverage_state == "partial":
+        readiness_status = "partial"
+        validation_state = "partial"
+    elif coverage.coverage_state == "unavailable":
+        readiness_status = "unavailable"
+        validation_state = "unavailable"
+    else:
+        readiness_status = "unknown"
+        validation_state = "unknown"
+
+    limitation_categories = list(confidence.limitation_categories)
+    if warnings and "warnings" not in limitation_categories:
+        limitation_categories.append("warnings")
+
+    return ResearchContextHandoffReadiness(
+        readiness_status=readiness_status,
+        validation_state=validation_state,
+        coverage_state=coverage.coverage_state,
+        confidence_state=confidence.confidence_state,
+        traceability_state=confidence.traceability_state,
+        limitation_categories=limitation_categories,
+        readiness_summary=(
+            f"{readiness_status}; "
+            f"coverage={coverage.coverage_state}; "
+            f"confidence={confidence.confidence_state}; "
+            f"traceability={confidence.traceability_state}; "
+            f"limitations={len(limitation_categories)}; "
+            f"warnings={len(list(warnings))}"
+        ),
     )
 
 
