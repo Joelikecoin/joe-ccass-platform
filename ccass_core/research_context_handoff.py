@@ -33,6 +33,7 @@ class ResearchContextHandoffCoverage(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     coverage_state: Literal["complete", "partial", "unavailable", "unknown"] = "unknown"
+    required_contexts: list[str] = Field(default_factory=list)
     available_contexts: list[str] = Field(default_factory=list)
     missing_contexts: list[str] = Field(default_factory=list)
     summary: str = "Coverage is unavailable."
@@ -70,10 +71,23 @@ def build_research_context_handoff(
     surface: str = RESEARCH_CONTEXT_HANDOFF_SURFACE,
 ) -> ResearchContextHandoff:
     if research_context_package is None:
+        required_contexts = list(_required_contexts())
         return ResearchContextHandoff(
             summary="AI research context handoff is unavailable.",
             report_reference=report_reference or "not available",
             governance_reference=governance_reference or "not available",
+            coverage=ResearchContextHandoffCoverage(
+                coverage_state="unavailable",
+                required_contexts=required_contexts,
+                available_contexts=[],
+                missing_contexts=required_contexts,
+                summary=(
+                    "unavailable; "
+                    f"required={len(required_contexts)}; "
+                    "available=0; "
+                    f"missing={len(required_contexts)}"
+                ),
+            ),
             contract_meta=ResearchContextHandoffContractMeta(surface=surface),
         )
 
@@ -166,6 +180,19 @@ def build_research_context_handoff_markdown(
     rows = [
         ("Stock identity", _identity_label(handoff.identity)),
         ("Snapshot reference", _snapshot_label(handoff.snapshot_reference)),
+        ("Coverage state", handoff.coverage.coverage_state if handoff.coverage is not None else "unavailable"),
+        (
+            "Required contexts",
+            ", ".join(handoff.coverage.required_contexts) if handoff.coverage is not None else "unavailable",
+        ),
+        (
+            "Available contexts",
+            ", ".join(handoff.coverage.available_contexts) if handoff.coverage is not None else "unavailable",
+        ),
+        (
+            "Missing contexts",
+            ", ".join(handoff.coverage.missing_contexts) if handoff.coverage is not None else "unavailable",
+        ),
         (
             "Coverage",
             handoff.coverage.summary if handoff.coverage is not None else "unavailable",
@@ -227,6 +254,7 @@ def _coverage(
     report_reference: str | None,
     governance_reference: str | None,
 ) -> ResearchContextHandoffCoverage:
+    required_contexts = list(_required_contexts())
     available_contexts = ["identity"]
     if snapshot_reference is not None:
         available_contexts.append("snapshot")
@@ -240,16 +268,6 @@ def _coverage(
         available_contexts.append("report_reference")
     if governance_reference:
         available_contexts.append("governance_reference")
-
-    required_contexts = (
-        "identity",
-        "snapshot",
-        "ownership",
-        "holder_change",
-        "concentration",
-        "report_reference",
-        "governance_reference",
-    )
     missing_contexts = [
         context for context in required_contexts if context not in set(available_contexts)
     ]
@@ -261,11 +279,25 @@ def _coverage(
         coverage_state = "partial"
     return ResearchContextHandoffCoverage(
         coverage_state=coverage_state,
+        required_contexts=required_contexts,
         available_contexts=available_contexts,
         missing_contexts=missing_contexts,
         summary=(
-            f"{coverage_state}; available={len(available_contexts)}; missing={len(missing_contexts)}"
+            f"{coverage_state}; required={len(required_contexts)}; "
+            f"available={len(available_contexts)}; missing={len(missing_contexts)}"
         ),
+    )
+
+
+def _required_contexts() -> tuple[str, ...]:
+    return (
+        "identity",
+        "snapshot",
+        "ownership",
+        "holder_change",
+        "concentration",
+        "report_reference",
+        "governance_reference",
     )
 
 

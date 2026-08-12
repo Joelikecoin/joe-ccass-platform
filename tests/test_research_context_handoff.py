@@ -35,6 +35,15 @@ def test_research_context_handoff_builds_structured_context(current_response, pr
     assert handoff.snapshot_reference is not None
     assert handoff.coverage is not None
     assert handoff.coverage.coverage_state == "complete"
+    assert handoff.coverage.required_contexts == [
+        "identity",
+        "snapshot",
+        "ownership",
+        "holder_change",
+        "concentration",
+        "report_reference",
+        "governance_reference",
+    ]
     assert "identity" in handoff.coverage.available_contexts
     assert "ownership" in handoff.coverage.available_contexts
     assert "holder_change" in handoff.coverage.available_contexts
@@ -83,6 +92,10 @@ def test_research_context_handoff_markdown_includes_summary_and_reference(curren
     assert "AI Research Context Handoff" in markdown
     assert "Stock identity" in markdown
     assert "Snapshot reference" in markdown
+    assert "Coverage state" in markdown
+    assert "Required contexts" in markdown
+    assert "Available contexts" in markdown
+    assert "Missing contexts" in markdown
     assert "Ownership overview" in markdown
     assert "Holder change overview" in markdown
     assert "Concentration overview" in markdown
@@ -117,7 +130,24 @@ def test_research_context_handoff_marks_missing_holder_change_context(current_re
 
     assert handoff.coverage is not None
     assert handoff.coverage.coverage_state == "partial"
+    assert "holder_change" in handoff.coverage.required_contexts
     assert "holder_change" in handoff.coverage.missing_contexts
     assert handoff.holder_change_overview is not None
     assert handoff.holder_change_overview.available is False
     assert "holder change" in handoff.limitation_summary.lower()
+
+
+def test_research_context_handoff_exposes_unavailable_coverage_when_package_missing():
+    handoff = build_research_context_handoff(
+        None,
+        report_reference="01592_ccass_report.md",
+        governance_reference="governance-ref-001",
+    )
+
+    assert handoff.available is False
+    assert handoff.coverage is not None
+    assert handoff.coverage.coverage_state == "unavailable"
+    assert "identity" in handoff.coverage.required_contexts
+    assert "identity" in handoff.coverage.missing_contexts
+    assert handoff.report_reference == "01592_ccass_report.md"
+    assert handoff.governance_reference == "governance-ref-001"
