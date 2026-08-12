@@ -702,13 +702,6 @@ def build_full_summary_markdown(
     stock_events = prepared.stock_events
     capital_information = prepared.capital_information
     officers = prepared.officers
-    broker_movement_snapshot_count = len(
-        {
-            snapshot.metadata.holdings_date.isoformat()
-            for snapshot in [*(history_snapshots or ()), response]
-            if snapshot.metadata.holdings_date is not None
-        }
-    )
 
     def _surface_status(surface) -> str:
         if surface is None:
@@ -821,16 +814,6 @@ def build_full_summary_markdown(
             section_label("report.section.officers"),
             ui_text(locale, _officers_summary_status()),
             _officers_summary_note(),
-        ),
-        (
-            ui_text(locale, "research_dashboard_broker_movement_timeline"),
-            ui_text(locale, "full_summary_status_available" if broker_movement_snapshot_count > 1 else "full_summary_status_unavailable"),
-            ui_text(
-                locale,
-                "full_summary_note_broker_movement_timeline"
-                if broker_movement_snapshot_count > 1
-                else "full_summary_note_broker_movement_timeline_unavailable",
-            ),
         ),
         (
             section_label("report.section.metadata"),
@@ -1024,21 +1007,26 @@ def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -
         "| Stock Input | Enter a stock code in the sidebar and submit the query |",
         "| Data Retrieval / Existing Snapshot | The app reuses the existing CCASS data flow and local snapshot history when available |",
         "| Research Dashboard | The workflow summary and governance context are shown first |",
-        "| Analysis Display | Holdings, broker distribution, concentration, changes, and other existing surfaces are displayed |",
+        "| Analysis Display | Ownership distribution, holder changes, concentration, broker distribution, and other existing surfaces are displayed |",
         "| Report Output | Copy and download actions remain available |",
         "",
         "### What the workflow shows",
         "- Stock input to report output in a single path",
         "- Stock metadata",
         "- CCASS holdings information",
-        "- Broker distribution visualization",
-        "- Optional broker movement timeline (on demand)",
+        "- Broker distribution visualization (optional deep research)",
         "- Ranked holders with visual comparison bars",
         "- Concentration analysis",
         "- Holder changes / snapshot comparison when history is available",
         "- AI-ready research context handoff in the report output",
         "- Research report output",
         "- Export and copy controls",
+        "",
+        "### Recommended reading order",
+        "- Start with the Research Dashboard to understand the current state",
+        "- Review Ownership Distribution and Holder Change Investigation for the core research path",
+        "- Use Concentration and Broker Distribution when you need deeper structure review",
+        "- Open the AI Research Context handoff and Report Output when you want the packaged research result",
     ]
     return "\n".join(lines)
 
@@ -1057,13 +1045,6 @@ def build_research_dashboard_markdown(
     summary = response.holdings_summary
     workflow = prepared.workflow
     snapshot_count = len(tuple(history_snapshots or ())) + 1
-    broker_movement_snapshot_count = len(
-        {
-            snapshot.metadata.holdings_date.isoformat()
-            for snapshot in [*(history_snapshots or ()), response]
-            if snapshot.metadata.holdings_date is not None
-        }
-    )
     freshness_label = _response_freshness_label(response)
     provenance_label = _response_provenance_label(response)
     concentration_label = (
@@ -1092,11 +1073,6 @@ def build_research_dashboard_markdown(
         )
     else:
         broker_label = ui_text(locale, "full_summary_note_broker_distribution_unavailable")
-    broker_movement_label = (
-        ui_text(locale, "full_summary_note_broker_movement_timeline")
-        if broker_movement_snapshot_count > 1
-        else ui_text(locale, "full_summary_note_broker_movement_timeline_unavailable")
-    )
     comparison_label = (
         ui_text(locale, "full_summary_note_changes_available")
         if prepared.analysis is not None and prepared.analysis.previous_available
@@ -1130,7 +1106,6 @@ def build_research_dashboard_markdown(
         (ui_text(locale, "research_dashboard_provenance"), provenance_label),
         (ui_text(locale, "research_dashboard_concentration"), concentration_label),
         (ui_text(locale, "research_dashboard_broker_distribution"), broker_label),
-        (ui_text(locale, "research_dashboard_broker_movement_timeline"), broker_movement_label),
         (ui_text(locale, "research_dashboard_comparison"), comparison_label),
         (translate_text(locale, "report.section.research_context_handoff").removeprefix("## ").strip(), ai_context_label),
         (ui_text(locale, "research_dashboard_report_output"), report_output_label),
@@ -1251,145 +1226,6 @@ def build_broker_distribution_markdown(
     return build_report_broker_distribution_markdown(response, locale=locale)
 
 
-def build_broker_movement_timeline_markdown(
-    prepared: PreparedReport,
-    *,
-    history_snapshots: Sequence[CcassResponse] | None = None,
-    locale: str = DEFAULT_LOCALE,
-) -> str:
-    response = prepared.response
-    if response is None:
-        return ui_text(locale, "report.data_not_available")
-
-    snapshots_by_date: dict[str, CcassResponse] = {}
-    for snapshot in [*(history_snapshots or ()), response]:
-        holdings_date = snapshot.metadata.holdings_date
-        if holdings_date is None:
-            continue
-        snapshots_by_date[holdings_date.isoformat()] = snapshot
-    if len(snapshots_by_date) < 2:
-        return "\n".join(
-            [
-                "<a id='broker-movement-timeline'></a>",
-                "### Broker movement timeline",
-                ui_text(locale, "full_summary_note_broker_movement_timeline_unavailable"),
-            ]
-        )
-
-    ordered_snapshots = [snapshots_by_date[key] for key in sorted(snapshots_by_date)]
-
-    def _broker_rows(snapshot: CcassResponse) -> list:
-        return [row for row in snapshot.holdings if (row.participant_category or "").lower() == "broker"]
-
-    def _broker_key(row) -> str:
-        return row.participant_id or row.participant
-
-    latest_snapshot = ordered_snapshots[-1]
-    latest_rows = _broker_rows(latest_snapshot)
-    latest_top_brokers = latest_rows[:5]
-    snapshot_totals: list[tuple[CcassResponse, list, int, float | None, str | None, int | None]] = []
-    for snapshot in ordered_snapshots:
-        broker_rows = _broker_rows(snapshot)
-        broker_total_shares = sum(row.shares for row in broker_rows)
-        broker_total_pct_of_issued = (
-            broker_total_shares / snapshot.holdings_summary.issued_shares * 100
-            if snapshot.holdings_summary.issued_shares
-            else None
-        )
-        largest_broker = broker_rows[0] if broker_rows else None
-        snapshot_totals.append(
-            (
-                snapshot,
-                broker_rows,
-                broker_total_shares,
-                broker_total_pct_of_issued,
-                largest_broker.participant if largest_broker is not None else None,
-                largest_broker.shares if largest_broker is not None else None,
-            )
-        )
-
-    tracked_movements: list[tuple[str, int | None, int | None, int | None, int | None, int | None, int | None]] = []
-    for row in latest_top_brokers:
-        broker_key = _broker_key(row)
-        first_row = None
-        for snapshot in ordered_snapshots:
-            for candidate in _broker_rows(snapshot):
-                if _broker_key(candidate) == broker_key:
-                    first_row = candidate
-                    break
-            if first_row is not None:
-                break
-        if first_row is None:
-            continue
-        rank_shift = first_row.rank - row.rank if first_row.rank is not None and row.rank is not None else None
-        tracked_movements.append(
-            (
-                row.participant,
-                first_row.rank,
-                row.rank,
-                first_row.shares,
-                row.shares,
-                row.shares - first_row.shares,
-                rank_shift,
-            )
-        )
-
-    tracked_movements.sort(key=lambda item: abs(item[5]), reverse=True)
-    max_delta = max((abs(item[5]) for item in tracked_movements), default=0)
-
-    def _signed_int(value: int | None) -> str:
-        if value is None:
-            return ui_text(locale, "report.data_not_available")
-        return f"{value:+,}"
-
-    def _movement_bar(delta: int | None) -> str:
-        if delta is None:
-            return "n/a"
-        if max_delta <= 0:
-            return "."
-        filled = round((abs(delta) / max_delta) * 20)
-        filled = max(1, min(20, filled))
-        return f"{'#' * filled}{'.' * (20 - filled)}"
-
-    lines = [
-        "<a id='broker-movement-timeline'></a>",
-        "### Broker movement timeline",
-        ui_text(locale, "full_summary_note_broker_movement_timeline"),
-        "",
-        "#### Snapshot window",
-        "",
-        "| Metric | Value |",
-        "|---|---|",
-        f"| Window | {_display_text(ordered_snapshots[0].metadata.holdings_date, locale)} → {_display_text(ordered_snapshots[-1].metadata.holdings_date, locale)} |",
-        f"| Snapshot count | {len(ordered_snapshots)} |",
-        f"| Tracked brokers | {len(latest_top_brokers)} |",
-        f"| Latest largest broker | {_display_text(latest_rows[0].participant if latest_rows else None, locale)} |",
-        "",
-        "#### Historical broker distribution",
-        "",
-        "| Date | Broker count | Total shares | Total / issued | Largest broker | Largest broker shares | Visual |",
-        "|---|---:|---:|---:|---|---:|---|",
-    ]
-    for snapshot, broker_rows, broker_total_shares, broker_total_pct_of_issued, largest_broker_name, largest_broker_shares in snapshot_totals:
-        lines.append(
-            f"| {_display_text(snapshot.metadata.holdings_date, locale)} | {len(broker_rows)} | {broker_total_shares:,} | {_display_text(broker_total_pct_of_issued, locale)} | {_display_text(largest_broker_name, locale)} | {_display_text(largest_broker_shares, locale)} | {_percentage_visual_bar(broker_total_pct_of_issued, 100.0)} |"
-        )
-
-    lines.extend(
-        [
-            "",
-            "#### Broker movement summary",
-            "",
-            "| Broker | First rank | Latest rank | First shares | Latest shares | Delta shares | Rank shift | Visual |",
-            "|---|---:|---:|---:|---:|---:|---:|---|",
-        ]
-    )
-    for broker_name, first_rank, latest_rank, first_shares, latest_shares, delta_shares, rank_shift in tracked_movements:
-        lines.append(
-            f"| {_display_text(broker_name, locale)} | {_display_text(first_rank, locale)} | {_display_text(latest_rank, locale)} | {_display_text(first_shares, locale)} | {_display_text(latest_shares, locale)} | {_signed_int(delta_shares)} | {_signed_int(rank_shift)} | {_movement_bar(delta_shares)} |"
-        )
-    lines.extend(["", "Movement uses existing snapshot history only and stays off the default fast path."])
-    return "\n".join(lines)
 
 
 def build_holder_change_investigation_markdown(
