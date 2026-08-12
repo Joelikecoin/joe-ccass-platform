@@ -985,6 +985,32 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
     )
 
 
+def build_demo_overview_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
+    """Return a compact demo-oriented overview of the existing golden path."""
+    demo_stock_code = "01592"
+    lines = [
+        "### Demo golden path",
+        f"Use stock code `{demo_stock_code}` to see the full stable demonstration flow.",
+        "",
+        "| Step | What the user sees |",
+        "|---|---|",
+        "| Stock Input | Enter a stock code in the sidebar and submit the query |",
+        "| Data Retrieval / Existing Snapshot | The app reuses the existing CCASS data flow and local snapshot history when available |",
+        "| Research Dashboard | The workflow summary and governance context are shown first |",
+        "| Analysis Display | Holdings, concentration, changes, and other existing surfaces are displayed |",
+        "| Report Output | Copy and download actions remain available |",
+        "",
+        "### What the demo shows",
+        "- Stock metadata",
+        "- CCASS holdings information",
+        "- Concentration analysis",
+        "- Holder changes / snapshot comparison when history is available",
+        "- Research report output",
+        "- Export and copy controls",
+    ]
+    return "\n".join(lines)
+
+
 def build_report_action_strip(*, locale: str = DEFAULT_LOCALE) -> str:
     return " | ".join(
         [

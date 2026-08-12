@@ -17,6 +17,7 @@ from app.streamlit_ui import (
     SUPPORTED_LOCALES,
     build_download_artifacts,
     build_data_confidence_markdown,
+    build_demo_overview_markdown,
     build_full_summary_markdown,
     build_raw_preview_tables,
     build_report_action_strip,
@@ -268,6 +269,10 @@ st.title(ui_text(current_locale, "app_title"))
 st.caption(ui_text(current_locale, "app_caption"))
 st.markdown(streamlit_navigation_links(current_locale))
 st.caption(ui_text(current_locale, "jump_links_caption"))
+st.markdown(build_demo_overview_markdown(locale=current_locale))
+st.caption(
+    "Demo note: the flow reuses existing CCASS holdings, snapshot, research, and report surfaces without changing the backend contract."
+)
 
 with st.sidebar:
     st.header(ui_text(current_locale, "sidebar_header"))
