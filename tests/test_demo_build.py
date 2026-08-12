@@ -12,7 +12,7 @@ from app.models import (
     StockEventsMetadata,
     StockEventsResponse,
 )
-from app.streamlit_ui import DEFAULT_LOCALE, build_demo_overview_markdown, translate_text
+from app.streamlit_ui import DEFAULT_LOCALE, build_research_workflow_overview_markdown, translate_text
 
 
 class _DemoService:
@@ -123,10 +123,10 @@ def _demo_officers_response() -> OfficersResponse:
     )
 
 
-def test_build_demo_overview_markdown_describes_golden_path():
-    markdown = build_demo_overview_markdown(locale=DEFAULT_LOCALE)
+def test_build_research_workflow_overview_markdown_describes_usable_path():
+    markdown = build_research_workflow_overview_markdown(locale=DEFAULT_LOCALE)
 
-    assert "Demo golden path" in markdown
+    assert "Research workflow path" in markdown
     assert "01592" in markdown
     assert "Stock Input" in markdown
     assert "Data Retrieval / Existing Snapshot" in markdown
@@ -161,8 +161,9 @@ def test_streamlit_app_renders_demo_overview_and_report_flow(monkeypatch, curren
     app.button[0].click().run(timeout=20)
 
     assert not app.exception
-    assert any("Demo golden path" in block.value for block in app.markdown)
+    assert any("Research workflow path" in block.value for block in app.markdown)
     assert any("Stock Input" in block.value for block in app.markdown)
+    assert any("Data Retrieval / Existing Snapshot" in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.report_flow_heading") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.copy_for_chatgpt") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_heading") in block.value for block in app.markdown)

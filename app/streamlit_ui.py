@@ -985,12 +985,12 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
     )
 
 
-def build_demo_overview_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
-    """Return a compact demo-oriented overview of the existing golden path."""
+def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
+    """Return a compact overview of the usable research workflow."""
     demo_stock_code = "01592"
     lines = [
-        "### Demo golden path",
-        f"Use stock code `{demo_stock_code}` to see the full stable demonstration flow.",
+        "### Research workflow path",
+        f"Use stock code `{demo_stock_code}` to see the standard research flow.",
         "",
         "| Step | What the user sees |",
         "|---|---|",
@@ -1000,7 +1000,8 @@ def build_demo_overview_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
         "| Analysis Display | Holdings, concentration, changes, and other existing surfaces are displayed |",
         "| Report Output | Copy and download actions remain available |",
         "",
-        "### What the demo shows",
+        "### What the workflow shows",
+        "- Stock input to report output in a single path",
         "- Stock metadata",
         "- CCASS holdings information",
         "- Concentration analysis",
