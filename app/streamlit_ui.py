@@ -1229,14 +1229,19 @@ def build_holder_change_investigation_markdown(
 
     top_changes = [change for change in analysis.changes if change.share_change != 0][:5]
     if top_changes:
-        for index, change in enumerate(top_changes, start=1):
-            direction = "+" if change.share_change > 0 else ""
-            lines.append(
-                f"- {index}. {_display_text(change.participant, locale)}: "
-                f"{direction}{change.share_change:,} shares "
-                f"({change.previous_shares:,} → {change.current_shares:,}) "
-                f"[{change.status}]"
-            )
+        max_change = max(abs(change.share_change) for change in top_changes)
+        lines.extend(
+            [
+                "| Rank | Holder | Direction | Previous shares | Current shares | Change | % point | Visual |",
+                "|---|---|---|---:|---:|---:|---:|---|",
+                *(
+                    f"| {index}. | {_display_text(change.participant, locale)} | {_change_direction_symbol(change.share_change)} {change.status} | "
+                    f"{change.previous_shares:,} | {change.current_shares:,} | {_signed_shares(change.share_change)} | "
+                    f"{_format_pct_point(change.pct_point_change)} | {_delta_visual_bar(change.share_change, max_change)} |"
+                    for index, change in enumerate(top_changes, start=1)
+                ),
+            ]
+        )
     else:
         lines.append(translate_text(locale, "report.data_not_available"))
 
@@ -1249,9 +1254,9 @@ def build_holder_change_investigation_markdown(
     if analysis.transfer_patterns:
         for index, pattern in enumerate(analysis.transfer_patterns[:5], start=1):
             lines.append(
-                f"- {index}. {_display_text(pattern.from_participant, locale)} → "
+                f"- {index}. {_display_text(pattern.from_participant, locale)} ? "
                 f"{_display_text(pattern.to_participant, locale)}: "
-                f"{pattern.approximate_shares:,} shares (Δ {pattern.difference:,})"
+                f"{pattern.approximate_shares:,} shares (difference {pattern.difference:,})"
             )
     else:
         lines.append(translate_text(locale, "report.data_not_available"))
@@ -1697,6 +1702,39 @@ def _holding_preview_rows(response: CcassResponse, locale: str) -> list[dict[str
 
 def _format_percent(value: float | None, locale: str) -> str:
     return f"{value:.4f}%" if value is not None else translate_text(locale, "report.data_not_available")
+
+
+def _delta_visual_bar(delta: int, maximum: int, width: int = 20) -> str:
+    if maximum <= 0:
+        return "?" * width
+    filled = round((abs(delta) / maximum) * width)
+    filled = max(0, min(width, filled))
+    glyph = "?" if delta > 0 else "?" if delta < 0 else "?"
+    return f"{glyph * filled}{'?' * (width - filled)}"
+
+
+def _signed_shares(value: int) -> str:
+    if value > 0:
+        return f"+{value:,}"
+    if value < 0:
+        return f"{value:,}"
+    return "0"
+
+
+def _format_pct_point(value: float) -> str:
+    if value > 0:
+        return f"+{value:.4f}"
+    if value < 0:
+        return f"{value:.4f}"
+    return "0.0000"
+
+
+def _change_direction_symbol(delta: int) -> str:
+    if delta > 0:
+        return "?"
+    if delta < 0:
+        return "?"
+    return "?"
 
 
 def _percentage_visual_bar(value: float | None, maximum: float | None, width: int = 20) -> str:

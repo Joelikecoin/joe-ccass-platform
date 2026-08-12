@@ -253,10 +253,14 @@ def test_build_holder_change_investigation_markdown_summarizes_holder_movement_c
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_summary_heading") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_top_changes_heading") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_transfer_patterns_heading") in markdown
+    assert "| Rank | Holder | Direction | Previous shares | Current shares | Change | % point | Visual |" in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_previous_snapshot") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_change_count") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_big_change_count") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.holder_change_investigation_transfer_pattern_count") in markdown
+    assert "difference" in markdown
+    assert "Direction" in markdown
+    assert "Visual" in markdown
     assert "TEST FIXTURE BROKER ONE" in markdown
     assert "TEST FIXTURE BROKER TWO" in markdown
     assert "<a id='holder-change-investigation'></a>" in markdown
