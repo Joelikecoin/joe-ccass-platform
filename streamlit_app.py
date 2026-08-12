@@ -21,6 +21,7 @@ from app.streamlit_ui import (
     build_full_summary_markdown,
     build_holder_change_investigation_markdown,
     build_broker_distribution_markdown,
+    build_broker_movement_timeline_markdown,
     build_ownership_distribution_markdown,
     build_research_dashboard_markdown,
     build_research_intelligence_markdown,
@@ -334,6 +335,11 @@ with st.sidebar:
     )
     show_rendered_markdown = st.checkbox(ui_text(current_locale, "sidebar_show_rendered_markdown"), value=True)
     use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=True)
+    show_broker_movement_timeline = st.checkbox(
+        ui_text(current_locale, "sidebar_show_broker_movement_timeline"),
+        value=False,
+    )
+    st.caption(ui_text(current_locale, "sidebar_show_broker_movement_timeline_caption"))
     load_price_history = st.checkbox(ui_text(current_locale, "sidebar_load_price_history"), value=False)
     st.caption(
         ui_text(
@@ -500,6 +506,17 @@ if prepared is not None:
         st.markdown(build_research_dashboard_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(build_ownership_distribution_markdown(prepared, locale=current_locale))
         st.markdown(build_broker_distribution_markdown(prepared, locale=current_locale))
+        if show_broker_movement_timeline:
+            if history_snapshots is not None and len(history_snapshots) >= 1:
+                st.markdown(
+                    build_broker_movement_timeline_markdown(
+                        prepared,
+                        history_snapshots=history_snapshots,
+                        locale=current_locale,
+                    )
+                )
+            else:
+                st.info(ui_text(current_locale, "full_summary_note_broker_movement_timeline_unavailable"))
         st.markdown(build_holder_change_investigation_markdown(prepared, locale=current_locale))
         st.markdown(build_research_intelligence_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
