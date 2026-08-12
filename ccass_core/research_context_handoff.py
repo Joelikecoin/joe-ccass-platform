@@ -23,9 +23,13 @@ class ResearchContextHandoffBlock(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
+    source_component: str = "not available"
+    evidence_reference: str = "not available"
+    provenance_reference: str = "not available"
     available: bool = False
     summary: str = "unavailable"
     reference: str = "not available"
+    evidence_summary: str = "not available"
     warnings: list[str] = Field(default_factory=list)
 
 
@@ -54,6 +58,7 @@ class ResearchContextHandoff(BaseModel):
     interpreted_context_summary: str = "Interpreted context is unavailable."
     quality_reference: str = "not available"
     governance_reference: str = "not available"
+    traceability_summary: str = "Traceability summary is unavailable."
     limitation_summary: str = "AI research context handoff is unavailable."
     warnings: list[str] = Field(default_factory=list)
     summary: str = "AI research context handoff is unavailable."
@@ -76,6 +81,7 @@ def build_research_context_handoff(
             summary="AI research context handoff is unavailable.",
             report_reference=report_reference or "not available",
             governance_reference=governance_reference or "not available",
+            traceability_summary="Traceability summary is unavailable.",
             coverage=ResearchContextHandoffCoverage(
                 coverage_state="unavailable",
                 required_contexts=required_contexts,
@@ -115,6 +121,12 @@ def build_research_context_handoff(
     quality_reference = _quality_reference(research_context_package)
     report_reference_value = report_reference or "not available"
     governance_reference_value = governance_reference or "not available"
+    traceability_summary = _traceability_summary(
+        ownership_overview=ownership_overview,
+        holder_change_overview=holder_change_overview,
+        concentration_overview=concentration_overview,
+        quality_reference=quality_reference,
+    )
     raw_context_summary = _raw_context_summary(
         identity=identity,
         snapshot_reference=snapshot_reference,
@@ -138,6 +150,7 @@ def build_research_context_handoff(
         holder_change_overview=holder_change_overview,
         concentration_overview=concentration_overview,
         report_reference=report_reference_value,
+        traceability_summary=traceability_summary,
         raw_context_summary=raw_context_summary,
         interpreted_context_summary=interpreted_context_summary,
         quality_reference=quality_reference,
@@ -158,6 +171,7 @@ def build_research_context_handoff(
         interpreted_context_summary=interpreted_context_summary,
         quality_reference=quality_reference,
         governance_reference=governance_reference_value,
+        traceability_summary=traceability_summary,
         limitation_summary=limitation_summary,
         warnings=warnings,
         summary=summary,
@@ -197,6 +211,7 @@ def build_research_context_handoff_markdown(
             "Coverage",
             handoff.coverage.summary if handoff.coverage is not None else "unavailable",
         ),
+        ("Traceability summary", handoff.traceability_summary),
         (
             "Ownership overview",
             handoff.ownership_overview.summary if handoff.ownership_overview else "unavailable",
@@ -238,6 +253,16 @@ def build_research_context_handoff_markdown(
             lines.append("")
             lines.append("Missing contexts:")
             lines.extend(f"- {context}" for context in handoff.coverage.missing_contexts)
+    lines.extend(["", "#### Traceability details"])
+    lines.extend(
+        _traceability_markdown_row(block)
+        for block in (
+            handoff.ownership_overview,
+            handoff.holder_change_overview,
+            handoff.concentration_overview,
+        )
+        if block is not None
+    )
     if handoff.warnings:
         lines.extend(["", "#### Warnings"])
         lines.extend(f"- {warning}" for warning in handoff.warnings)
@@ -306,12 +331,23 @@ def _ownership_overview(
 ) -> ResearchContextHandoffBlock:
     summary = research_context_package.ownership_context.holdings_summary
     current_snapshot = research_context_package.ownership_context.current_snapshot
+    provenance_reference = _quality_reference(research_context_package)
+    evidence_reference = _surface_reference(
+        research_context_package.ownership_context.surface.surface
+        if research_context_package.ownership_context.surface is not None
+        else "ccass",
+        current_snapshot,
+    )
     if summary is None:
         return ResearchContextHandoffBlock(
             name="ownership",
+            source_component="ownership_context",
+            evidence_reference=evidence_reference,
+            provenance_reference=provenance_reference,
             available=False,
             summary="Ownership overview is unavailable.",
-            reference=_surface_reference(research_context_package.ownership_context.surface.surface if research_context_package.ownership_context.surface is not None else "ccass", current_snapshot),
+            reference=evidence_reference,
+            evidence_summary="Ownership context is missing holdings summary evidence.",
             warnings=[],
         )
 
@@ -319,6 +355,9 @@ def _ownership_overview(
     holder_names = ", ".join(holder.participant for holder in top_holders) if top_holders else "not available"
     return ResearchContextHandoffBlock(
         name="ownership",
+        source_component="ownership_context",
+        evidence_reference=evidence_reference,
+        provenance_reference=provenance_reference,
         available=True,
         summary=(
             f"snapshot={_snapshot_date(current_snapshot)}; "
@@ -326,12 +365,8 @@ def _ownership_overview(
             f"total_in_ccass_shares={summary.total_in_ccass_shares}; "
             f"top_holders={holder_names}"
         ),
-        reference=_surface_reference(
-            research_context_package.ownership_context.surface.surface
-            if research_context_package.ownership_context.surface is not None
-            else "ccass",
-            current_snapshot,
-        ),
+        reference=evidence_reference,
+        evidence_summary="Holdings summary and top holder list derived from the ownership context.",
         warnings=[],
     )
 
@@ -341,12 +376,18 @@ def _holder_change_overview(
     *,
     analysis: AnalysisResult | None,
 ) -> ResearchContextHandoffBlock:
+    provenance_reference = _quality_reference(research_context_package)
+    evidence_reference = _snapshot_range_reference(research_context_package)
     if analysis is None or not analysis.previous_available:
         return ResearchContextHandoffBlock(
             name="holder_change",
+            source_component="historical_context",
+            evidence_reference=evidence_reference,
+            provenance_reference=provenance_reference,
             available=False,
             summary="Holder change overview is unavailable.",
-            reference=_snapshot_range_reference(research_context_package),
+            reference=evidence_reference,
+            evidence_summary="Previous snapshot data is unavailable for holder change comparison.",
             warnings=[],
         )
 
@@ -354,6 +395,9 @@ def _holder_change_overview(
     previous_snapshot = research_context_package.historical_context.previous_snapshot
     return ResearchContextHandoffBlock(
         name="holder_change",
+        source_component="historical_context",
+        evidence_reference=evidence_reference,
+        provenance_reference=provenance_reference,
         available=True,
         summary=(
             f"current_snapshot={_snapshot_date(current_snapshot)}; "
@@ -362,7 +406,8 @@ def _holder_change_overview(
             f"big_change_count={len(analysis.big_changes)}; "
             f"transfer_pattern_count={len(analysis.transfer_patterns)}"
         ),
-        reference=_snapshot_range_reference(research_context_package),
+        reference=evidence_reference,
+        evidence_summary="Snapshot comparison evidence comes from current and previous historical snapshots.",
         warnings=list(analysis.warnings),
     )
 
@@ -371,17 +416,26 @@ def _concentration_overview(
     research_context_package: ResearchContextPackage,
 ) -> ResearchContextHandoffBlock:
     summary = research_context_package.ownership_context.holdings_summary
+    provenance_reference = _quality_reference(research_context_package)
+    evidence_reference = _snapshot_range_reference(research_context_package)
     if summary is None:
         return ResearchContextHandoffBlock(
             name="concentration",
+            source_component="ownership_context",
+            evidence_reference=evidence_reference,
+            provenance_reference=provenance_reference,
             available=False,
             summary="Concentration overview is unavailable.",
-            reference=_snapshot_range_reference(research_context_package),
+            reference=evidence_reference,
+            evidence_summary="Holdings summary is unavailable, so concentration evidence cannot be summarized.",
             warnings=[],
         )
 
     return ResearchContextHandoffBlock(
         name="concentration",
+        source_component="ownership_context",
+        evidence_reference=evidence_reference,
+        provenance_reference=provenance_reference,
         available=True,
         summary=(
             f"participant_count={summary.participant_count}; "
@@ -390,7 +444,8 @@ def _concentration_overview(
             f"top5_pct_of_ccass={summary.top5_pct_of_ccass}; "
             f"top10_pct_of_ccass={summary.top10_pct_of_ccass}"
         ),
-        reference=_snapshot_range_reference(research_context_package),
+        reference=evidence_reference,
+        evidence_summary="Concentration evidence is derived from the ownership holdings summary.",
         warnings=[],
     )
 
@@ -426,6 +481,21 @@ def _interpreted_context_summary(
         f"ownership={ownership_overview.summary}; "
         f"holder_change={holder_change_overview.summary}; "
         f"concentration={concentration_overview.summary}"
+    )
+
+
+def _traceability_summary(
+    *,
+    ownership_overview: ResearchContextHandoffBlock,
+    holder_change_overview: ResearchContextHandoffBlock,
+    concentration_overview: ResearchContextHandoffBlock,
+    quality_reference: str,
+) -> str:
+    return (
+        f"ownership[{ownership_overview.source_component} -> {ownership_overview.evidence_reference}]; "
+        f"holder_change[{holder_change_overview.source_component} -> {holder_change_overview.evidence_reference}]; "
+        f"concentration[{concentration_overview.source_component} -> {concentration_overview.evidence_reference}]; "
+        f"quality={quality_reference}"
     )
 
 
@@ -468,6 +538,7 @@ def _summary_text(
     holder_change_overview: ResearchContextHandoffBlock,
     concentration_overview: ResearchContextHandoffBlock,
     report_reference: str,
+    traceability_summary: str,
     raw_context_summary: str,
     interpreted_context_summary: str,
     quality_reference: str,
@@ -480,6 +551,7 @@ def _summary_text(
         f"stock_code={identity.stock_code}; "
         f"snapshot={_snapshot_label(snapshot_reference)}; "
         f"coverage={coverage.summary}; "
+        f"traceability={traceability_summary}; "
         f"raw={raw_context_summary}; "
         f"interpreted={interpreted_context_summary}; "
         f"report_reference={report_reference}; "
@@ -500,6 +572,16 @@ def _snapshot_label(snapshot_reference: AIReadModelSnapshotReference | None) -> 
     if snapshot_reference is None:
         return "not available"
     return _snapshot_date(snapshot_reference)
+
+
+def _traceability_markdown_row(block: ResearchContextHandoffBlock) -> str:
+    return (
+        f"- {block.name}: source_component={block.source_component}; "
+        f"evidence_reference={block.evidence_reference}; "
+        f"provenance_reference={block.provenance_reference}; "
+        f"evidence_summary={block.evidence_summary}; "
+        f"reference={block.reference}"
+    )
 
 
 def _snapshot_date(snapshot_reference: AIReadModelSnapshotReference | None) -> str:
