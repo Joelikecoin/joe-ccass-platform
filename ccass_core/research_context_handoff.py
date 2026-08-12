@@ -763,47 +763,6 @@ def _summary_text(
     )
 
 
-def _readiness(
-    *,
-    coverage: ResearchContextHandoffCoverage,
-    confidence: ResearchContextHandoffConfidence,
-    warnings: Sequence[str],
-) -> ResearchContextHandoffReadiness:
-    if coverage.coverage_state == "complete":
-        readiness_status: Literal["ready", "partial", "unavailable", "unknown"] = "ready"
-        validation_state: Literal["consistent", "partial", "unavailable", "unknown"] = "consistent"
-    elif coverage.coverage_state == "partial":
-        readiness_status = "partial"
-        validation_state = "partial"
-    elif coverage.coverage_state == "unavailable":
-        readiness_status = "unavailable"
-        validation_state = "unavailable"
-    else:
-        readiness_status = "unknown"
-        validation_state = "unknown"
-
-    limitation_categories = list(confidence.limitation_categories)
-    if warnings and "warnings" not in limitation_categories:
-        limitation_categories.append("warnings")
-
-    return ResearchContextHandoffReadiness(
-        readiness_status=readiness_status,
-        validation_state=validation_state,
-        coverage_state=coverage.coverage_state,
-        confidence_state=confidence.confidence_state,
-        traceability_state=confidence.traceability_state,
-        limitation_categories=limitation_categories,
-        readiness_summary=(
-            f"{readiness_status}; "
-            f"coverage={coverage.coverage_state}; "
-            f"confidence={confidence.confidence_state}; "
-            f"traceability={confidence.traceability_state}; "
-            f"limitations={len(limitation_categories)}; "
-            f"warnings={len(list(warnings))}"
-        ),
-    )
-
-
 def _snapshot_range_reference(research_context_package: ResearchContextPackage) -> str:
     current_snapshot = research_context_package.historical_context.current_snapshot
     previous_snapshot = research_context_package.historical_context.previous_snapshot
