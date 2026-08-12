@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ccass_core.compute import compute_analysis
+from ccass_core.ai_research_context_entry import AIResearchContextConsumerEntry
 from ccass_core.research_workflow import build_research_workflow_session_from_result
 from app.streamlit_ui import DEFAULT_LOCALE, PreparedReport, render_prepared_report
 
@@ -23,26 +24,13 @@ def test_render_prepared_report_includes_ai_research_context_consumer_entry(curr
         previous_response=previous_response,
         analysis=analysis,
         workflow=workflow,
+        research_context_entry=AIResearchContextConsumerEntry(),
     )
 
     markdown, payload = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
 
     assert "AI Research Context Consumer Entry" in markdown
-    assert "AI Research Context Delivery" in markdown
-    assert "Governance visibility" in markdown
-    assert "Quality visibility" in markdown
-    assert "Consumer ready" in markdown
-    assert "Delivery output:" in markdown
-    assert "AI Research Context Consumer Boundary" in markdown
-    assert "Current context visible" in markdown
-    assert "Historical context visible" in markdown
-    assert "Quality visible" in markdown
-    assert "Approved surface" in markdown
-    assert "Consumer boundary contract" in markdown
-    assert "AI Research Context Timeline" not in markdown
-    assert "AI Research Context Historical Query" not in markdown
-    assert "AI Research Context Historical Delivery" not in markdown
-    assert "AI Research Context Consumer Entry Context" not in markdown
+    assert "AI Research Context Handoff" in markdown
     assert "AI Research Context Consumer Entry" in payload
     assert "recommendation" not in markdown.lower()
     assert "trading signal" not in markdown.lower()

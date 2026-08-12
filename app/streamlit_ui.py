@@ -955,7 +955,15 @@ def build_report_flow_markdown(*, locale: str = DEFAULT_LOCALE) -> str:
 
     visible_first = ", ".join(
         f"[{section_title(key)}](#{localized_report_anchor(key)})"
-        for key in ("analysis_ready_summary", "company", "metadata", "fetch_summary", "holdings_summary", "concentration")
+        for key in (
+            "analysis_ready_summary",
+            "research_context_handoff",
+            "company",
+            "metadata",
+            "fetch_summary",
+            "holdings_summary",
+            "concentration",
+        )
     )
     collapsed_details = ", ".join(
         f"[{section_title(key)}](#{localized_report_anchor(key)})"

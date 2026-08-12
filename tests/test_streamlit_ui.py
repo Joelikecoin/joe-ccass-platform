@@ -56,6 +56,12 @@ from app.streamlit_ui import (
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.compute import AnalysisResult
 from ccass_core.report import CHATGPT_COPY_HEADER, build_markdown_report, localized_report_anchor, report_section_headings
+from ccass_core.source_trace import (
+    SourceDateGovernanceReference,
+    SourceTraceIdentity,
+    SourceTraceSelection,
+    SourceTraceView,
+)
 
 
 class SuccessfulService:
@@ -722,6 +728,51 @@ def test_build_data_confidence_markdown_renders_source_and_freshness(current_res
     assert translate_text(DEFAULT_LOCALE, 'report.metadata.warning_count', value=len(current_response.data_quality_warnings)) in markdown
 
 
+def test_build_data_confidence_markdown_renders_source_trace_section(current_response, previous_response):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown='',
+        chatgpt_payload='',
+        filename='01592_ccass_report.md',
+        response=current_response,
+        source_trace=SourceTraceView(
+            request_id='trace-001',
+            request_surface='service',
+            route='existing_service',
+            cache_first=True,
+            cache_usage_state='miss',
+            source_identity=SourceTraceIdentity(
+                source_id='offline_test_fixture',
+                source_name=current_response.metadata.source_name,
+                source_url=current_response.metadata.source_url,
+                source_status='active',
+            ),
+            selection=SourceTraceSelection(
+                selected_source_id='existing_service',
+                selected_source_name='SuccessfulService',
+                selected_source_status='active',
+                attempted_sources=('existing_service',),
+                attempted_statuses=('active',),
+                source_candidates=('existing_service',),
+            ),
+            fetched_at=current_response.metadata.fetched_at,
+            data_as_of=current_response.metadata.data_as_of,
+            date_governance=SourceDateGovernanceReference(),
+            authoritative=False,
+            notes=('trace_ready',),
+        ),
+        analysis=AnalysisResult(previous_available=True),
+        announcements=_sample_announcements_response(),
+    )
+
+    markdown = build_data_confidence_markdown(prepared, locale=DEFAULT_LOCALE)
+
+    assert '### Source Trace' in markdown
+    assert 'Source identity' in markdown
+    assert 'Date convention reference' in markdown
+    assert 'trace_ready' in markdown
+
+
 def test_build_report_flow_markdown_renders_visible_and_collapsed_groups():
     markdown = build_report_flow_markdown(locale=DEFAULT_LOCALE)
 
@@ -734,6 +785,7 @@ def test_build_report_flow_markdown_renders_visible_and_collapsed_groups():
     assert translate_text(DEFAULT_LOCALE, 'ui.related_context_history') in markdown
     assert translate_text(DEFAULT_LOCALE, 'ui.related_context_operations') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.analysis_ready_summary').removeprefix('## ') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.research_context_handoff').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.company').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.capital_information').removeprefix('## ') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.price_history').removeprefix('## ') in markdown
@@ -1038,10 +1090,11 @@ def test_streamlit_report_navigation_links_cover_report_sections():
     assert '#announcements' in links
     assert '#stock-events' in links
     assert '#officers' in links
+    assert '#research-context-handoff' in links
     assert '#company' in links
     assert '#metadata' in links
     assert '#fetch-summary' in links
-    assert links.index('#company') < links.index('#metadata') < links.index('#fetch-summary')
+    assert links.index('#research-context-handoff') < links.index('#company') < links.index('#metadata') < links.index('#fetch-summary')
     assert '#data-quality-warnings' in links
 
 

@@ -545,7 +545,7 @@ if prepared is not None:
             st.markdown(f"### {ui_text(current_locale, 'report_flow_heading')}")
             st.caption(ui_text(current_locale, 'report_flow_caption'))
             st.markdown(build_report_flow_markdown(locale=current_locale))
-            _render_markdown_sections(("company",), report_sections)
+            _render_markdown_sections(("research_context_handoff", "company"), report_sections)
             st.markdown(f"### {ui_text(current_locale, 'company_information_heading')}")
             st.caption(ui_text(current_locale, "company_information_caption"))
             _render_download_copy_controls(
