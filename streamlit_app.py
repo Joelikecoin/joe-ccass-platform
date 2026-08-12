@@ -16,16 +16,16 @@ from app.streamlit_ui import (
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
     build_download_artifacts,
+    build_ai_research_context_consumer_entry_from_prepared_report,
     build_data_confidence_markdown,
     build_full_summary_markdown,
     build_research_dashboard_markdown,
+    build_research_intelligence_markdown,
     build_raw_preview_tables,
     build_report_action_strip,
     build_report_flow_markdown,
     build_research_workflow_overview_markdown,
     build_research_workflow_summary_markdown,
-    build_ai_research_context_consumer_entry_from_prepared_report,
-    build_ai_research_context_consumer_entry_markdown,
     copy_button_html,
     prepare_report,
     render_prepared_report,
@@ -41,6 +41,7 @@ from app.streamlit_ui import (
 )
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import SnapshotStore
+from ccass_core.ai_research_context_entry import build_ai_research_context_consumer_entry_markdown
 from ccass_core.report import localized_report_anchor, translate_text
 
 
@@ -494,6 +495,7 @@ if prepared is not None:
         if research_context_entry is not None:
             st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))
         st.markdown(build_research_dashboard_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
+        st.markdown(build_research_intelligence_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(f"<a id='{localized_report_anchor('full_summary')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'full_summary_heading')}")
         st.caption(ui_text(current_locale, 'full_summary_caption'))

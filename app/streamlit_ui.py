@@ -1075,6 +1075,66 @@ def build_research_dashboard_markdown(
     return "\n".join(lines)
 
 
+def build_research_intelligence_markdown(
+    prepared: PreparedReport,
+    *,
+    history_snapshots: Sequence[CcassResponse] | None = None,
+    locale: str = DEFAULT_LOCALE,
+) -> str:
+    response = prepared.response
+    if response is None:
+        return ui_text(locale, "report.data_not_available")
+
+    previous_response = prepared.previous_response
+    analysis = prepared.analysis or AnalysisResult()
+    snapshot_count = len(tuple(history_snapshots or ())) + 1
+    current_snapshot = _display_text(response.metadata.holdings_date, locale)
+    previous_snapshot = (
+        _display_text(previous_response.metadata.holdings_date, locale)
+        if previous_response is not None
+        else ui_text(locale, "report.previous_snapshot_unavailable")
+    )
+    comparison_status = (
+        ui_text(locale, "full_summary_note_changes_available")
+        if analysis.previous_available
+        else ui_text(locale, "full_summary_note_changes_unavailable")
+    )
+    deeper_look = " | ".join(
+        [
+            f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
+            f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
+            f"[{ui_text(locale, 'related_context_history')}](#{localized_report_anchor('concentration_history')})",
+        ]
+    )
+    rows = [
+        (ui_text(locale, "research_dashboard_snapshot_date"), current_snapshot),
+        (ui_text(locale, "research_dashboard_snapshot_count"), str(snapshot_count)),
+        (ui_text(locale, "research_dashboard_comparison"), comparison_status),
+        (ui_text(locale, "research_dashboard_link_changes"), previous_snapshot),
+        (ui_text(locale, "research_dashboard_report_output"), ui_text(locale, "full_summary_status_available")),
+    ]
+    guidance_lines = [
+        f"### {translate_text(locale, 'ui.related_context_heading')}",
+        translate_text(locale, "ui.related_context_caption"),
+        "",
+        f"### {ui_text(locale, 'research_intelligence_current_state_heading')}",
+        ui_text(locale, "research_intelligence_current_state_body"),
+        "",
+        f"### {ui_text(locale, 'research_intelligence_changes_heading')}",
+        ui_text(locale, "research_intelligence_changes_body"),
+        "",
+        f"### {ui_text(locale, 'research_intelligence_deeper_look_heading')}",
+        ui_text(locale, "research_intelligence_deeper_look_body"),
+        "",
+        f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
+        "|---|---|",
+    ]
+    guidance_lines.extend(f"| {label} | {value} |" for label, value in rows)
+    guidance_lines.extend(["", f"**{ui_text(locale, 'research_dashboard_quick_links')}**", deeper_look])
+    return "\n".join(guidance_lines)
+
+
 def build_report_action_strip(*, locale: str = DEFAULT_LOCALE) -> str:
     return " | ".join(
         [

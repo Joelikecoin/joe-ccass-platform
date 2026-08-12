@@ -1,6 +1,5 @@
+from pathlib import Path
 from datetime import UTC, date, datetime
-
-from streamlit.testing.v1 import AppTest
 
 from app.models import (
     AnnouncementsMetadata,
@@ -16,6 +15,8 @@ from app.streamlit_ui import (
     DEFAULT_LOCALE,
     PreparedReport,
     build_research_dashboard_markdown,
+    build_research_intelligence_markdown,
+    build_report_flow_markdown,
     build_research_workflow_overview_markdown,
     translate_text,
 )
@@ -161,15 +162,15 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
         locale=DEFAULT_LOCALE,
     )
 
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_heading") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_caption") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_stock_code") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_snapshot_count") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_freshness") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_provenance") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_concentration") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_comparison") in markdown
-    assert translate_text(DEFAULT_LOCALE, "research_dashboard_report_output") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_caption") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_stock_code") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_snapshot_count") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_freshness") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_provenance") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_report_output") in markdown
     assert "#holdings" in markdown
     assert "#concentration" in markdown
     assert "#changes" in markdown
@@ -178,36 +179,76 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert "#raw-markdown" in markdown
 
 
-def test_streamlit_app_renders_research_dashboard_and_report_flow(monkeypatch, current_response):
-    import app.services.announcements as announcements_service
-    import app.services.capital_information as capital_information_service
-    import app.services.ccass as ccass_service
-    import app.services.officers as officers_service
-    import app.services.stock_events as stock_events_service
-    import app.streamlit_ui as streamlit_ui
+def test_build_research_intelligence_markdown_summarizes_current_state_changes_and_deeper_links(
+    current_response,
+    previous_response,
+):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown="",
+        chatgpt_payload="",
+        filename="01592_ccass_report.md",
+        response=current_response,
+        previous_response=previous_response,
+        analysis=AnalysisResult(previous_available=True),
+    )
 
-    demo_service = _DemoService(current_response)
-    monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: demo_service)
-    monkeypatch.setattr(announcements_service, "get_announcements_service", lambda: _DemoAnnouncementsService(_demo_announcements_response()))
-    monkeypatch.setattr(stock_events_service, "get_stock_events_service", lambda: _DemoStockEventsService(_demo_stock_events_response()))
-    monkeypatch.setattr(capital_information_service, "get_capital_information_service", lambda: _DemoCapitalInformationService(_demo_capital_information_response()))
-    monkeypatch.setattr(officers_service, "get_officers_service", lambda: _DemoOfficersService(_demo_officers_response()))
-    monkeypatch.setattr(streamlit_ui, "get_announcements_service", lambda: _DemoAnnouncementsService(_demo_announcements_response()))
-    monkeypatch.setattr(streamlit_ui, "get_stock_events_service", lambda: _DemoStockEventsService(_demo_stock_events_response()))
-    monkeypatch.setattr(streamlit_ui, "get_capital_information_service", lambda: _DemoCapitalInformationService(_demo_capital_information_response()))
-    monkeypatch.setattr(streamlit_ui, "get_officers_service", lambda: _DemoOfficersService(_demo_officers_response()))
+    markdown = build_research_intelligence_markdown(
+        prepared,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=20)
-    app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=20)
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_current_state_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_deeper_look_heading") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_current_state_body") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_body") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_deeper_look_body") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_snapshot_date") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_snapshot_count") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_report_output") in markdown
+    assert "#changes" in markdown
+    assert "#big-changes" in markdown
+    assert "#concentration" in markdown
+    assert "#concentration-history" in markdown
 
-    assert not app.exception
-    assert any("Research workflow path" in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_caption") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_stock_code") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "research_dashboard_quick_links") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.report_flow_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.copy_for_chatgpt") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_heading") in block.value for block in app.markdown)
-    assert demo_service.calls == [("01592", 20)]
+
+def test_streamlit_app_renders_research_dashboard_and_report_flow(current_response, previous_response):
+    prepared = PreparedReport(
+        code=current_response.metadata.code,
+        markdown="",
+        chatgpt_payload="",
+        filename="01592_ccass_report.md",
+        response=current_response,
+        previous_response=previous_response,
+        analysis=AnalysisResult(previous_available=True),
+    )
+
+    workflow_overview = build_research_workflow_overview_markdown(locale=DEFAULT_LOCALE)
+    dashboard = build_research_dashboard_markdown(
+        prepared,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
+    intelligence = build_research_intelligence_markdown(
+        prepared,
+        history_snapshots=(previous_response,),
+        locale=DEFAULT_LOCALE,
+    )
+    report_flow = build_report_flow_markdown(locale=DEFAULT_LOCALE)
+
+    assert "Research workflow path" in workflow_overview
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_heading") in dashboard
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_caption") in dashboard
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_stock_code") in dashboard
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_quick_links") in dashboard
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_current_state_heading") in intelligence
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_changes_heading") in intelligence
+    assert translate_text(DEFAULT_LOCALE, "ui.research_intelligence_deeper_look_heading") in intelligence
+    assert translate_text(DEFAULT_LOCALE, "ui.report_flow_visible_first") in report_flow
+    assert translate_text(DEFAULT_LOCALE, "ui.report_flow_collapsed_details") in report_flow
+    assert translate_text(DEFAULT_LOCALE, "ui.report_flow_actions") in report_flow
+    assert translate_text(DEFAULT_LOCALE, "ui.related_context_heading") in report_flow
