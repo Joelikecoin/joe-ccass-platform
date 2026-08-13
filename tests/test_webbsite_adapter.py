@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -112,6 +113,229 @@ async def test_fetch_rejects_wrong_content_type_on_all_mirrors():
     assert caught.value.code == ErrorCode.SOURCE_CHANGED
     assert "content_type=application/json" in caught.value.message
     assert "url=https://primary.example/ccass/choldings.asp" in caught.value.message
+
+
+@respx.mock
+async def test_http_success_does_not_trigger_browser_fallback(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            200,
+            text=fixture("holdings_normal.html"),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(settings())
+
+    async def forbidden_browser(*args, **kwargs):  # pragma: no cover - defensive
+        raise AssertionError("browser fallback should not run on HTTP success")
+
+    monkeypatch.setattr(client, "_fetch_via_browser", forbidden_browser)
+
+    response = await client.get_holdings("01592", limit=2)
+
+    assert response.metadata.code == "01592"
+    assert response.metadata.issue_id == 15_920
+    assert response.metadata.source_url.endswith("choldings.asp?sc=1592")
+
+
+@respx.mock
+async def test_http_forbidden_triggers_browser_fallback(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(settings())
+    browser_calls = []
+
+    async def fake_browser(base_url, *, path, params, failures):
+        browser_calls.append((base_url, path, params))
+        return FetchedPage(
+            fixture("holdings_normal.html"),
+            "https://browser.example/ccass/choldings.asp?sc=1592",
+            False,
+        )
+
+    monkeypatch.setattr(client, "_fetch_via_browser", fake_browser)
+
+    response = await client.get_holdings("01592", limit=2)
+
+    assert browser_calls == [
+        (
+            "https://primary.example",
+            "/ccass/choldings.asp",
+            {"sc": "1592"},
+        )
+    ]
+    assert response.metadata.source_url.startswith("https://browser.example/")
+    assert response.metadata.code == "01592"
+    assert response.metadata.issue_id == 15_920
+
+
+@respx.mock
+async def test_challenge_page_triggers_browser_fallback(monkeypatch):
+    _mock_landing_pages()
+    challenge = (
+        "<html><head><title>Just a moment...</title></head>"
+        '<body><form id="cf-chl-test"></form></body></html>'
+    )
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            200,
+            text=challenge,
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(settings())
+
+    async def fake_browser(base_url, *, path, params, failures):
+        return FetchedPage(
+            fixture("holdings_normal.html"),
+            "https://browser.example/ccass/choldings.asp?sc=1592",
+            False,
+        )
+
+    monkeypatch.setattr(client, "_fetch_via_browser", fake_browser)
+
+    response = await client.get_holdings("01592", limit=2)
+
+    assert response.metadata.source_url.startswith("https://browser.example/")
+    assert response.metadata.issue_id == 15_920
+    assert response.holdings_summary.participant_count == 4
+
+
+@respx.mock
+async def test_rate_limited_status_does_not_trigger_browser_fallback(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            429,
+            text="rate limited",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            429,
+            text="rate limited",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(settings())
+    browser_called = False
+
+    async def forbidden_browser(*args, **kwargs):  # pragma: no cover - defensive
+        nonlocal browser_called
+        browser_called = True
+        raise AssertionError("browser fallback should not run for 429")
+
+    monkeypatch.setattr(client, "_fetch_via_browser", forbidden_browser)
+
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592")
+
+    assert not browser_called
+    assert caught.value.code == ErrorCode.SOURCE_RATE_LIMITED
+
+
+@respx.mock
+async def test_playwright_unavailable_preserves_diagnostics(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(settings())
+    monkeypatch.setattr(client, "_load_playwright_async_api", lambda: None)
+
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592")
+
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "browser_unavailable" in caught.value.message
+
+
+@respx.mock
+async def test_browser_failure_preserves_diagnostics(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+
+    class FakePage:
+        url = "https://primary.example/"
+
+        async def goto(self, url, wait_until=None):
+            if url.endswith("/"):
+                return SimpleNamespace(
+                    status=200,
+                    headers={"content-type": "text/html; charset=utf-8"},
+                )
+            raise RuntimeError("browser navigation exploded")
+
+        async def content(self):
+            return fixture("holdings_normal.html")
+
+    class FakeContext:
+        async def new_page(self):
+            return FakePage()
+
+        async def close(self):
+            return None
+
+    class FakeBrowser:
+        async def new_context(self, **kwargs):
+            return FakeContext()
+
+        async def close(self):
+            return None
+
+    class FakePlaywright:
+        def __init__(self):
+            self.chromium = SimpleNamespace(launch=self.launch)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def launch(self, headless=True):
+            return FakeBrowser()
+
+    client = WebbsiteClient(settings())
+    monkeypatch.setattr(client, "_load_playwright_async_api", lambda: FakePlaywright)
+
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592")
+
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "browser_navigation_failed" in caught.value.message
 
 
 @pytest.mark.parametrize(

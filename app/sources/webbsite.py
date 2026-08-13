@@ -172,6 +172,20 @@ class WebbsiteClient:
                             redirect_target=self._redirect_target(response, url),
                             failure_detail=self._status_failure_detail(response.status_code),
                         )
+                        if self._should_try_browser_fallback(failure_type):
+                            browser_page = await self._fetch_via_browser(
+                                base_url,
+                                path=path,
+                                params=params,
+                                failures=failures,
+                            )
+                            if browser_page is not None:
+                                self._cache[cache_key] = CachedPage(
+                                    browser_page.html,
+                                    browser_page.source_url,
+                                    time.monotonic(),
+                                )
+                                return browser_page
                         return None
                     response.raise_for_status()
                     guarded = await self._read_guarded_html(response, request_url=url)
@@ -187,6 +201,20 @@ class WebbsiteClient:
                     redirect_target=guarded.redirect_target,
                     failure_detail=guarded.failure_detail,
                 )
+                if self._should_try_browser_fallback(guarded.failure_type):
+                    browser_page = await self._fetch_via_browser(
+                        base_url,
+                        path=path,
+                        params=params,
+                        failures=failures,
+                    )
+                    if browser_page is not None:
+                        self._cache[cache_key] = CachedPage(
+                            browser_page.html,
+                            browser_page.source_url,
+                            time.monotonic(),
+                        )
+                        return browser_page
                 return None
 
             source_url = str(response.url)
@@ -301,6 +329,155 @@ class WebbsiteClient:
                 error_type=type(exc).__name__,
                 failure_detail=str(exc),
             )
+
+    def _should_try_browser_fallback(self, failure_type: str | None) -> bool:
+        return failure_type in {"forbidden", "cloudflare_challenge", "login_page"}
+
+    async def _fetch_via_browser(
+        self,
+        base_url: str,
+        *,
+        path: str,
+        params: dict[str, str | int],
+        failures: list[MirrorFailure],
+    ) -> FetchedPage | None:
+        async_playwright = self._load_playwright_async_api()
+        url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+        browser_url = str(httpx.URL(url, params=params))
+        hostname = urlsplit(url).hostname or "unknown"
+        if async_playwright is None:
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                request_url=browser_url,
+                status_code=None,
+                error_type="browser_unavailable",
+                failure_detail="Playwright is not installed",
+            )
+            return None
+
+        browser = None
+        context = None
+        try:
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    user_agent=self.settings.user_agent,
+                    extra_http_headers=self._browser_headers(base_url),
+                )
+                page = await context.new_page()
+                try:
+                    await page.goto(
+                        base_url.rstrip("/") + "/",
+                        wait_until="domcontentloaded",
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=base_url.rstrip("/") + "/",
+                        status_code=None,
+                        error_type="browser_landing_failed",
+                        failure_detail=str(exc),
+                    )
+                    return None
+                try:
+                    browser_response = await page.goto(
+                        browser_url,
+                        wait_until="domcontentloaded",
+                    )
+                except Exception as exc:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=None,
+                        error_type="browser_navigation_failed",
+                        failure_detail=str(exc),
+                    )
+                    return None
+
+                status_code = browser_response.status if browser_response else None
+                if status_code is not None:
+                    failure_type = self._status_failure_type(status_code)
+                    if failure_type is not None:
+                        self._record_failure(
+                            failures,
+                            hostname=hostname,
+                            request_url=browser_url,
+                            status_code=status_code,
+                            error_type=failure_type,
+                            content_type=browser_response.headers.get("content-type"),
+                            redirect_target=page.url if page.url != browser_url else None,
+                            failure_detail=self._status_failure_detail(status_code),
+                        )
+                        return None
+
+                html = await page.content()
+                guarded_failure = self._body_failure_type(html)
+                if guarded_failure is not None:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=status_code,
+                        error_type=guarded_failure,
+                        content_type=browser_response.headers.get("content-type")
+                        if browser_response is not None
+                        else None,
+                        redirect_target=(
+                            page.url if page.url != browser_url
+                            else None
+                        ),
+                        failure_detail=self._body_failure_detail(html),
+                    )
+                    return None
+
+                source_url = page.url or browser_url
+                return FetchedPage(html, source_url, False)
+        except Exception as exc:
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                request_url=browser_url,
+                status_code=None,
+                error_type="browser_error",
+                failure_detail=str(exc),
+            )
+            return None
+        finally:
+            if context is not None:
+                try:
+                    await context.close()
+                except Exception as exc:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=None,
+                        error_type="browser_context_close_failed",
+                        failure_detail=str(exc),
+                    )
+            if browser is not None:
+                try:
+                    await browser.close()
+                except Exception as exc:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=None,
+                        error_type="browser_close_failed",
+                        failure_detail=str(exc),
+                    )
+
+    @staticmethod
+    def _load_playwright_async_api():
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            return None
+        return async_playwright
 
     async def _read_guarded_html(
         self,
