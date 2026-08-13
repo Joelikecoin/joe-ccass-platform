@@ -29,6 +29,17 @@ def settings(**overrides) -> Settings:
     return Settings(**values)
 
 
+def _mock_landing_pages(body: bytes = b"<html><body>landing</body></html>"):
+    for hostname in ("primary.example", "fallback.example"):
+        respx.get(f"https://{hostname}/").mock(
+            return_value=httpx.Response(
+                200,
+                content=body,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        )
+
+
 async def test_adapter_uses_single_code_request_and_builds_complete_normalized_output(
     monkeypatch,
 ):
@@ -85,6 +96,7 @@ async def test_parser_error_propagates_without_empty_success(monkeypatch):
 
 @respx.mock
 async def test_fetch_rejects_wrong_content_type_on_all_mirrors():
+    _mock_landing_pages()
     for hostname in ("primary.example", "fallback.example"):
         respx.get(f"https://{hostname}/ccass/choldings.asp").mock(
             return_value=httpx.Response(
@@ -121,6 +133,7 @@ async def test_fetch_rejects_wrong_content_type_on_all_mirrors():
 )
 @respx.mock
 async def test_fetch_rejects_empty_login_error_and_incomplete_html(body, error_code):
+    _mock_landing_pages()
     for hostname in ("primary.example", "fallback.example"):
         respx.get(f"https://{hostname}/ccass/choldings.asp").mock(
             return_value=httpx.Response(
@@ -141,6 +154,7 @@ async def test_fetch_rejects_empty_login_error_and_incomplete_html(body, error_c
 @pytest.mark.parametrize("declared", [True, False])
 @respx.mock
 async def test_fetch_enforces_declared_and_streamed_size_limits(declared):
+    _mock_landing_pages()
     body = b"<html><body>oversize</body></html>"
     headers = {"content-type": "text/html"}
     if declared:
@@ -159,6 +173,7 @@ async def test_fetch_enforces_declared_and_streamed_size_limits(declared):
 
 @respx.mock
 async def test_invalid_primary_page_isolated_when_fallback_is_valid():
+    _mock_landing_pages()
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
             200,
@@ -181,6 +196,7 @@ async def test_invalid_primary_page_isolated_when_fallback_is_valid():
 
 @respx.mock
 async def test_fetch_cache_preserves_source_reference_and_avoids_repeat_request():
+    _mock_landing_pages()
     route = respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
             200,
@@ -217,6 +233,7 @@ async def test_fetch_persists_session_cookies_between_requests():
             request=request,
         )
 
+    root_route = respx.get("https://primary.example/").mock(side_effect=callback)
     route = respx.get("https://primary.example/ccass/choldings.asp").mock(
         side_effect=callback
     )
@@ -225,14 +242,58 @@ async def test_fetch_persists_session_cookies_between_requests():
     first = await client.get_holdings("01592")
     second = await client.get_holdings("01592")
 
+    assert root_route.call_count == 1
     assert route.call_count == 2
-    assert request_cookies == [None, "webbsite-session=abc123"]
+    assert request_cookies == [None, "webbsite-session=abc123", "webbsite-session=abc123"]
     assert not first.metadata.cached
     assert not second.metadata.cached
 
 
 @respx.mock
+async def test_fetch_primes_session_before_holdings_request():
+    landing_requests: list[str | None] = []
+    holding_requests: list[str | None] = []
+
+    def landing_callback(request: httpx.Request) -> httpx.Response:
+        landing_requests.append(request.headers.get("cookie"))
+        return httpx.Response(
+            200,
+            content=b"<html><body>landing</body></html>",
+            headers={
+                "content-type": "text/html; charset=utf-8",
+                "set-cookie": "webbsite-session=prime123; Path=/; HttpOnly",
+            },
+            request=request,
+        )
+
+    def holdings_callback(request: httpx.Request) -> httpx.Response:
+        holding_requests.append(request.headers.get("cookie"))
+        return httpx.Response(
+            200,
+            text=fixture("holdings_normal.html"),
+            headers={"content-type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    respx.get("https://primary.example/").mock(side_effect=landing_callback)
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        side_effect=holdings_callback
+    )
+    client = WebbsiteClient(settings(cache_ttl_seconds=0))
+
+    await client.get_holdings("01592")
+    await client.get_holdings("01592")
+
+    assert landing_requests == [None]
+    assert holding_requests == [
+        "webbsite-session=prime123",
+        "webbsite-session=prime123",
+    ]
+
+
+@respx.mock
 async def test_fetch_reports_login_redirect_target_in_failure_details():
+    _mock_landing_pages()
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
             302,
@@ -275,6 +336,7 @@ async def test_fetch_reports_login_redirect_target_in_failure_details():
 
 @respx.mock
 async def test_fetch_classifies_challenge_page_without_parser_call():
+    _mock_landing_pages()
     challenge = (
         "<html><head><title>Just a moment...</title></head>"
         '<body><form id="cf-chl-test"></form></body></html>'
@@ -297,6 +359,7 @@ async def test_fetch_classifies_challenge_page_without_parser_call():
 
 @respx.mock
 async def test_registry_retry_attempts_are_bounded_across_mirrors():
+    _mock_landing_pages()
     routes = []
     for hostname in ("primary.example", "fallback.example"):
         routes.append(

@@ -82,11 +82,13 @@ class WebbsiteClient:
         self._last_request_at = 0.0
         self._request_lock = asyncio.Lock()
         self._session_client: httpx.AsyncClient | None = None
+        self._primed_base_urls: set[str] = set()
 
     async def aclose(self) -> None:
         if self._session_client is not None:
             await self._session_client.aclose()
             self._session_client = None
+        self._primed_base_urls.clear()
 
     async def _get_session_client(self) -> httpx.AsyncClient:
         if self._session_client is None:
@@ -141,6 +143,10 @@ class WebbsiteClient:
 
         try:
             async with self._request_lock:
+                if base_url not in self._primed_base_urls:
+                    client = await self._get_session_client()
+                    await self._prime_session(client, base_url, failures=failures)
+                    self._primed_base_urls.add(base_url)
                 wait = self.definition.policy.minimum_interval_seconds - (
                     time.monotonic() - self._last_request_at
                 )
@@ -222,6 +228,79 @@ class WebbsiteClient:
                 failure_detail=str(exc),
             )
         return None
+
+    async def _prime_session(
+        self,
+        client: httpx.AsyncClient,
+        base_url: str,
+        *,
+        failures: list[MirrorFailure],
+    ) -> None:
+        landing_url = base_url.rstrip("/") + "/"
+        hostname = urlsplit(landing_url).hostname or "unknown"
+        try:
+            async with client.stream(
+                "GET",
+                landing_url,
+                headers=self._browser_headers(base_url),
+            ) as response:
+                self._last_request_at = time.monotonic()
+                failure_type = self._status_failure_type(response.status_code)
+                if failure_type is not None:
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=landing_url,
+                        status_code=response.status_code,
+                        error_type=failure_type,
+                        content_type=response.headers.get("content-type"),
+                        redirect_target=self._redirect_target(response, landing_url),
+                        failure_detail=self._status_failure_detail(response.status_code),
+                    )
+                    return
+                guarded = await self._read_guarded_html(response, request_url=landing_url)
+            if guarded.failure_type is not None:
+                self._record_failure(
+                    failures,
+                    hostname=hostname,
+                    request_url=landing_url,
+                    status_code=response.status_code,
+                    error_type=guarded.failure_type,
+                    content_type=guarded.content_type,
+                    redirect_target=guarded.redirect_target,
+                    failure_detail=guarded.failure_detail,
+                )
+        except httpx.TimeoutException:
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                request_url=landing_url,
+                status_code=None,
+                error_type="timeout",
+            )
+        except httpx.NetworkError as exc:
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                request_url=landing_url,
+                status_code=None,
+                error_type=type(exc).__name__,
+                failure_detail=str(exc),
+            )
+        except httpx.HTTPError as exc:
+            status_code = (
+                exc.response.status_code
+                if isinstance(exc, httpx.HTTPStatusError)
+                else None
+            )
+            self._record_failure(
+                failures,
+                hostname=hostname,
+                request_url=landing_url,
+                status_code=status_code,
+                error_type=type(exc).__name__,
+                failure_detail=str(exc),
+            )
 
     async def _read_guarded_html(
         self,
