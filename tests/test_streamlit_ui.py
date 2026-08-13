@@ -1004,11 +1004,19 @@ def test_streamlit_visualization_alignment_surfaces_render_collapsed_sections_an
     assert any(translate_text(DEFAULT_LOCALE, "ui.visualization_heading") in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, "ui.rendered_markdown") in block.value for block in app.markdown)
     assert any(
-        translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_enable") == widget.label
+        translate_text(DEFAULT_LOCALE, "ui.sidebar_show_optional_heavy_sections") == widget.label
         for widget in app.checkbox
     )
+    assert not any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert not any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_heading") in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
+    optional_checkbox = next(
+        widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.sidebar_show_optional_heavy_sections")
+    )
+    optional_checkbox.check().run(timeout=120)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_heading") in block.value for block in app.markdown)
     dt_rainbow_checkbox = next(widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_enable"))
     dt_rainbow_checkbox.check().run(timeout=120)
     assert any(

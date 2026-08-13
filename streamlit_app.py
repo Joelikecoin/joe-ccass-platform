@@ -333,8 +333,14 @@ with st.sidebar:
         format_func=lambda value: _choice_label(current_locale, "percentage_basis", value),
     )
     show_rendered_markdown = st.checkbox(ui_text(current_locale, "sidebar_show_rendered_markdown"), value=True)
-    use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=True)
+    use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=False)
+    st.caption(ui_text(current_locale, "sidebar_use_local_history_caption"))
     load_price_history = st.checkbox(ui_text(current_locale, "sidebar_load_price_history"), value=False)
+    show_optional_heavy_sections = st.checkbox(
+        ui_text(current_locale, "sidebar_show_optional_heavy_sections"),
+        value=False,
+    )
+    st.caption(ui_text(current_locale, "sidebar_show_optional_heavy_sections_caption"))
     st.caption(
         ui_text(
             current_locale,
@@ -594,35 +600,39 @@ if prepared is not None:
 
         st.markdown(f"### {ui_text(current_locale, 'visualization_heading')}")
         st.caption(ui_text(current_locale, 'visualization_caption'))
-        _render_dt_rainbow_framework(current_locale)
+        if show_optional_heavy_sections:
+            _render_dt_rainbow_framework(current_locale)
 
-        st.markdown(f"<a id='{localized_report_anchor('raw_previews')}'></a>", unsafe_allow_html=True)
-        st.markdown(f"## {ui_text(current_locale, 'raw_previews_heading')}")
-        st.caption(ui_text(current_locale, "raw_previews_help_caption"))
-        with st.expander(ui_text(current_locale, "raw_previews_expander"), expanded=False):
-            if prepared.response is None:
-                st.info(ui_text(current_locale, "raw_previews_unavailable"))
-            else:
-                raw_preview_tables = build_raw_preview_tables(prepared.response, locale=current_locale)
-                st.caption(ui_text(current_locale, "raw_previews_caption"))
-                overview_rows = [
-                    {
-                        ui_text(current_locale, "raw_previews_table_index"): table.table_index,
-                        ui_text(current_locale, "raw_previews_table_name"): table.title,
-                        ui_text(current_locale, "raw_previews_shape"): f"{table.shape[0]} ? {table.shape[1]}",
-                        ui_text(current_locale, "raw_previews_columns"): ", ".join(table.columns),
-                    }
-                    for table in raw_preview_tables
-                ]
-                st.table(overview_rows)
-                for table in raw_preview_tables:
-                    st.markdown(f"### {table.table_index}. {table.title}")
-                    st.caption(f"{ui_text(current_locale, 'raw_previews_shape')}: {table.shape[0]} ? {table.shape[1]}")
-                    st.caption(f"{ui_text(current_locale, 'raw_previews_columns')}: {', '.join(table.columns)}")
-                    if table.sample_rows:
-                        st.table(list(table.sample_rows))
+            st.markdown(f"<a id='{localized_report_anchor('raw_previews')}'></a>", unsafe_allow_html=True)
+            st.markdown(f"## {ui_text(current_locale, 'raw_previews_heading')}")
+            st.caption(ui_text(current_locale, "raw_previews_help_caption"))
+            with st.spinner(ui_text(current_locale, "optional_heavy_sections_loading")):
+                with st.expander(ui_text(current_locale, "raw_previews_expander"), expanded=False):
+                    if prepared.response is None:
+                        st.info(ui_text(current_locale, "raw_previews_unavailable"))
                     else:
-                        st.info(ui_text(current_locale, "raw_previews_no_sample_rows"))
+                        raw_preview_tables = build_raw_preview_tables(prepared.response, locale=current_locale)
+                        st.caption(ui_text(current_locale, "raw_previews_caption"))
+                        overview_rows = [
+                            {
+                                ui_text(current_locale, "raw_previews_table_index"): table.table_index,
+                                ui_text(current_locale, "raw_previews_table_name"): table.title,
+                                ui_text(current_locale, "raw_previews_shape"): f"{table.shape[0]} ? {table.shape[1]}",
+                                ui_text(current_locale, "raw_previews_columns"): ", ".join(table.columns),
+                            }
+                            for table in raw_preview_tables
+                        ]
+                        st.table(overview_rows)
+                        for table in raw_preview_tables:
+                            st.markdown(f"### {table.table_index}. {table.title}")
+                            st.caption(f"{ui_text(current_locale, 'raw_previews_shape')}: {table.shape[0]} ? {table.shape[1]}")
+                            st.caption(f"{ui_text(current_locale, 'raw_previews_columns')}: {', '.join(table.columns)}")
+                            if table.sample_rows:
+                                st.table(list(table.sample_rows))
+                            else:
+                                st.info(ui_text(current_locale, "raw_previews_no_sample_rows"))
+        else:
+            st.info(ui_text(current_locale, "full_summary_note_optional_heavy_sections"))
 
         st.markdown(f"<a id='{localized_report_anchor('chart_help')}'></a>", unsafe_allow_html=True)
         st.markdown(f"## {ui_text(current_locale, 'chart_help_heading')}")

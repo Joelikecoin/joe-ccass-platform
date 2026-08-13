@@ -179,6 +179,7 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_provenance") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_broker_distribution") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_broker_movement_timeline") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_broker_distribution") in markdown
     assert "#broker-distribution" in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown

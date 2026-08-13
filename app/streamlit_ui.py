@@ -1078,6 +1078,11 @@ def build_research_dashboard_markdown(
         if prepared.analysis is not None and prepared.analysis.previous_available
         else ui_text(locale, "full_summary_note_changes_unavailable")
     )
+    broker_movement_timeline_label = (
+        ui_text(locale, "full_summary_note_broker_movement_timeline")
+        if history_snapshots is not None and len(tuple(history_snapshots)) > 0
+        else ui_text(locale, "full_summary_note_broker_movement_timeline_unavailable")
+    )
     ai_context_label = ui_text(
         locale,
         "full_summary_status_available" if workflow is not None and workflow.research_context_package is not None else "full_summary_status_unavailable",
@@ -1106,6 +1111,7 @@ def build_research_dashboard_markdown(
         (ui_text(locale, "research_dashboard_provenance"), provenance_label),
         (ui_text(locale, "research_dashboard_concentration"), concentration_label),
         (ui_text(locale, "research_dashboard_broker_distribution"), broker_label),
+        (ui_text(locale, "research_dashboard_broker_movement_timeline"), broker_movement_timeline_label),
         (ui_text(locale, "research_dashboard_comparison"), comparison_label),
         (translate_text(locale, "report.section.research_context_handoff").removeprefix("## ").strip(), ai_context_label),
         (ui_text(locale, "research_dashboard_report_output"), report_output_label),
