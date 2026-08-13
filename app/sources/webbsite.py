@@ -358,27 +358,137 @@ class WebbsiteClient:
 
         browser = None
         context = None
+        primary_failure_type: str | None = None
+        primary_failure_detail: str | None = None
+        launch_result = "pending"
+        landing_result = "pending"
+        holdings_result = "pending"
+        landing_status: int | None = None
+        holdings_status: int | None = None
+        final_url: str | None = None
+        page_title: str | None = None
+        html_length: int | None = None
+        timeout_phase: str | None = None
         try:
             async with async_playwright() as playwright:
-                browser = await playwright.chromium.launch(headless=True)
-                context = await browser.new_context(
-                    user_agent=self.settings.user_agent,
-                    extra_http_headers=self._browser_headers(base_url),
-                )
-                page = await context.new_page()
                 try:
-                    await page.goto(
-                        base_url.rstrip("/") + "/",
-                        wait_until="domcontentloaded",
-                    )
+                    browser = await playwright.chromium.launch(headless=True)
+                    launch_result = "ok"
                 except Exception as exc:
+                    primary_failure_type = "browser_launch_failed"
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="launch",
+                        launch_result="failed",
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
                     self._record_failure(
                         failures,
                         hostname=hostname,
-                        request_url=base_url.rstrip("/") + "/",
+                        request_url=browser_url,
                         status_code=None,
-                        error_type="browser_landing_failed",
-                        failure_detail=str(exc),
+                        error_type=primary_failure_type,
+                        failure_detail=primary_failure_detail,
+                    )
+                    return None
+                try:
+                    context = await browser.new_context(
+                        user_agent=self.settings.user_agent,
+                        extra_http_headers=self._browser_headers(base_url),
+                    )
+                except Exception as exc:
+                    primary_failure_type = "browser_context_failed"
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="context",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=None,
+                        error_type=primary_failure_type,
+                        failure_detail=primary_failure_detail,
+                    )
+                    return None
+                try:
+                    page = await context.new_page()
+                except Exception as exc:
+                    primary_failure_type = "browser_page_failed"
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="page",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=None,
+                        error_type=primary_failure_type,
+                        failure_detail=primary_failure_detail,
+                    )
+                    return None
+                landing_url = base_url.rstrip("/") + "/"
+                try:
+                    await page.goto(
+                        landing_url,
+                        wait_until="domcontentloaded",
+                    )
+                    landing_result = "ok"
+                    final_url = page.url or landing_url
+                except Exception as exc:
+                    landing_result = "failed"
+                    timeout_phase = self._timeout_phase("landing_navigation", exc)
+                    primary_failure_type = (
+                        "browser_landing_timeout"
+                        if timeout_phase is not None
+                        else "browser_landing_failed"
+                    )
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="landing_navigation",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=landing_url,
+                        status_code=None,
+                        error_type=primary_failure_type,
+                        failure_detail=primary_failure_detail,
                     )
                     return None
                 try:
@@ -386,65 +496,178 @@ class WebbsiteClient:
                         browser_url,
                         wait_until="domcontentloaded",
                     )
+                    holdings_result = "ok"
+                    holdings_status = browser_response.status if browser_response else None
+                    final_url = page.url or browser_url
                 except Exception as exc:
+                    holdings_result = "failed"
+                    timeout_phase = self._timeout_phase("holdings_navigation", exc)
+                    primary_failure_type = (
+                        "browser_navigation_timeout"
+                        if timeout_phase is not None
+                        else "browser_navigation_failed"
+                    )
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="holdings_navigation",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
                     self._record_failure(
                         failures,
                         hostname=hostname,
                         request_url=browser_url,
                         status_code=None,
-                        error_type="browser_navigation_failed",
-                        failure_detail=str(exc),
+                        error_type=primary_failure_type,
+                        failure_detail=primary_failure_detail,
                     )
                     return None
 
-                status_code = browser_response.status if browser_response else None
+                status_code = holdings_status
                 if status_code is not None:
                     failure_type = self._status_failure_type(status_code)
                     if failure_type is not None:
+                        primary_failure_type = f"browser_{failure_type}"
+                        timeout_phase = self._timeout_phase("holdings_status", None)
+                        primary_failure_detail = self._browser_failure_detail(
+                            phase="holdings_status",
+                            launch_result=launch_result,
+                            landing_result=landing_result,
+                            holdings_result=holdings_result,
+                            landing_status=landing_status,
+                            holdings_status=holdings_status,
+                            final_url=final_url,
+                            page_title=page_title,
+                            html_length=html_length,
+                            timeout_phase=timeout_phase,
+                            exc=None,
+                            status_detail=self._status_failure_detail(status_code),
+                        )
                         self._record_failure(
                             failures,
                             hostname=hostname,
                             request_url=browser_url,
                             status_code=status_code,
-                            error_type=failure_type,
+                            error_type=primary_failure_type,
                             content_type=browser_response.headers.get("content-type"),
                             redirect_target=page.url if page.url != browser_url else None,
-                            failure_detail=self._status_failure_detail(status_code),
+                            failure_detail=primary_failure_detail,
                         )
                         return None
 
-                html = await page.content()
-                guarded_failure = self._body_failure_type(html)
-                if guarded_failure is not None:
+                try:
+                    page_title = await page.title()
+                except Exception as exc:
+                    timeout_phase = self._timeout_phase("title", exc)
+                    primary_failure_type = (
+                        "browser_title_timeout"
+                        if timeout_phase is not None
+                        else "browser_title_failed"
+                    )
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="title",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
                     self._record_failure(
                         failures,
                         hostname=hostname,
                         request_url=browser_url,
                         status_code=status_code,
-                        error_type=guarded_failure,
+                        error_type=primary_failure_type,
                         content_type=browser_response.headers.get("content-type")
                         if browser_response is not None
                         else None,
-                        redirect_target=(
-                            page.url if page.url != browser_url
-                            else None
-                        ),
-                        failure_detail=self._body_failure_detail(html),
+                        redirect_target=page.url if page.url != browser_url else None,
+                        failure_detail=primary_failure_detail,
+                    )
+                    return None
+
+                try:
+                    html = await page.content()
+                    html_length = len(html)
+                except Exception as exc:
+                    timeout_phase = self._timeout_phase("content", exc)
+                    primary_failure_type = (
+                        "browser_content_timeout"
+                        if timeout_phase is not None
+                        else "browser_content_failed"
+                    )
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="content",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=exc,
+                    )
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=status_code,
+                        error_type=primary_failure_type,
+                        content_type=browser_response.headers.get("content-type")
+                        if browser_response is not None
+                        else None,
+                        redirect_target=page.url if page.url != browser_url else None,
+                        failure_detail=primary_failure_detail,
+                    )
+                    return None
+
+                guarded_failure = self._body_failure_type(html)
+                if guarded_failure is not None:
+                    primary_failure_type = guarded_failure
+                    primary_failure_detail = self._browser_failure_detail(
+                        phase="content",
+                        launch_result=launch_result,
+                        landing_result=landing_result,
+                        holdings_result=holdings_result,
+                        landing_status=landing_status,
+                        holdings_status=holdings_status,
+                        final_url=final_url,
+                        page_title=page_title,
+                        html_length=html_length,
+                        timeout_phase=timeout_phase,
+                        exc=None,
+                        body_detail=self._body_failure_detail(html),
+                    )
+                    self._record_failure(
+                        failures,
+                        hostname=hostname,
+                        request_url=browser_url,
+                        status_code=status_code,
+                        error_type=primary_failure_type,
+                        content_type=browser_response.headers.get("content-type")
+                        if browser_response is not None
+                        else None,
+                        redirect_target=page.url if page.url != browser_url else None,
+                        failure_detail=primary_failure_detail,
                     )
                     return None
 
                 source_url = page.url or browser_url
                 return FetchedPage(html, source_url, False)
-        except Exception as exc:
-            self._record_failure(
-                failures,
-                hostname=hostname,
-                request_url=browser_url,
-                status_code=None,
-                error_type="browser_error",
-                failure_detail=str(exc),
-            )
-            return None
         finally:
             if context is not None:
                 try:
@@ -468,7 +691,19 @@ class WebbsiteClient:
                         request_url=browser_url,
                         status_code=None,
                         error_type="browser_close_failed",
-                        failure_detail=str(exc),
+                        failure_detail=self._browser_failure_detail(
+                            phase="cleanup",
+                            launch_result=launch_result,
+                            landing_result=landing_result,
+                            holdings_result=holdings_result,
+                            landing_status=landing_status,
+                            holdings_status=holdings_status,
+                            final_url=final_url,
+                            page_title=page_title,
+                            html_length=html_length,
+                            timeout_phase=timeout_phase,
+                            exc=exc,
+                        ),
                     )
 
     @staticmethod
@@ -478,6 +713,60 @@ class WebbsiteClient:
         except ImportError:
             return None
         return async_playwright
+
+    @staticmethod
+    def _timeout_phase(phase: str, exc: Exception | None) -> str | None:
+        if exc is None:
+            return None
+        exc_name = type(exc).__name__.lower()
+        exc_text = str(exc).lower()
+        if "timeout" in exc_name or "timeout" in exc_text:
+            return phase
+        return None
+
+    @staticmethod
+    def _browser_failure_detail(
+        *,
+        phase: str,
+        launch_result: str,
+        landing_result: str,
+        holdings_result: str,
+        landing_status: int | None,
+        holdings_status: int | None,
+        final_url: str | None,
+        page_title: str | None,
+        html_length: int | None,
+        timeout_phase: str | None,
+        exc: Exception | None,
+        status_detail: str | None = None,
+        body_detail: str | None = None,
+    ) -> str:
+        parts = [
+            f"phase={phase}",
+            f"launch={launch_result}",
+            f"landing={landing_result}",
+            f"holdings={holdings_result}",
+        ]
+        if landing_status is not None:
+            parts.append(f"landing_status={landing_status}")
+        if holdings_status is not None:
+            parts.append(f"holdings_status={holdings_status}")
+        if final_url:
+            parts.append(f"final_url={final_url}")
+        if page_title:
+            parts.append(f"page_title={page_title}")
+        if html_length is not None:
+            parts.append(f"html_length={html_length}")
+        if timeout_phase:
+            parts.append(f"timeout_phase={timeout_phase}")
+        if status_detail:
+            parts.append(f"status_detail={status_detail}")
+        if body_detail:
+            parts.append(f"body_detail={body_detail}")
+        if exc is not None:
+            parts.append(f"exception_location={phase}")
+            parts.append(f"exception={type(exc).__name__}: {exc}")
+        return "; ".join(parts)
 
     async def _read_guarded_html(
         self,

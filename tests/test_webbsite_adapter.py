@@ -336,6 +336,130 @@ async def test_browser_failure_preserves_diagnostics(monkeypatch):
 
     assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
     assert "browser_navigation_failed" in caught.value.message
+    assert "phase=holdings_navigation" in caught.value.message
+    assert "launch=ok" in caught.value.message
+    assert "final_url=https://primary.example/" in caught.value.message
+
+
+@respx.mock
+async def test_browser_launch_failure_reports_phase(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+
+    class FakePlaywright:
+        def __init__(self):
+            self.chromium = SimpleNamespace(launch=self.launch)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def launch(self, headless=True):
+            raise RuntimeError("launch exploded")
+
+    client = WebbsiteClient(settings())
+    monkeypatch.setattr(client, "_load_playwright_async_api", lambda: FakePlaywright)
+
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592")
+
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "browser_launch_failed" in caught.value.message
+    assert "phase=launch" in caught.value.message
+    assert "exception_location=launch" in caught.value.message
+
+
+@respx.mock
+async def test_browser_cleanup_failure_does_not_mask_primary_failure(monkeypatch):
+    _mock_landing_pages()
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            403,
+            text="forbidden",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+
+    class FakePage:
+        url = "https://primary.example/landing"
+
+        async def goto(self, url, wait_until=None):
+            if url.endswith("/"):
+                return SimpleNamespace(
+                    status=200,
+                    headers={"content-type": "text/html; charset=utf-8"},
+                )
+            return SimpleNamespace(
+                status=403,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+
+        async def title(self):
+            return "Forbidden"
+
+        async def content(self):
+            return fixture("holdings_normal.html")
+
+    class FakeContext:
+        async def new_page(self):
+            return FakePage()
+
+        async def close(self):
+            raise RuntimeError("context close exploded")
+
+    class FakeBrowser:
+        async def new_context(self, **kwargs):
+            return FakeContext()
+
+        async def close(self):
+            raise RuntimeError("browser close exploded")
+
+    class FakePlaywright:
+        def __init__(self):
+            self.chromium = SimpleNamespace(launch=self.launch)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def launch(self, headless=True):
+            return FakeBrowser()
+
+    client = WebbsiteClient(settings())
+    monkeypatch.setattr(client, "_load_playwright_async_api", lambda: FakePlaywright)
+
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592")
+
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "browser_forbidden" in caught.value.message
+    assert "phase=holdings_status" in caught.value.message
+    assert "browser_close_failed" in caught.value.message
+    assert "browser_context_close_failed" in caught.value.message
 
 
 @pytest.mark.parametrize(
