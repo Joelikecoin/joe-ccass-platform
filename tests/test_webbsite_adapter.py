@@ -98,6 +98,8 @@ async def test_fetch_rejects_wrong_content_type_on_all_mirrors():
         await WebbsiteClient(settings()).get_holdings("01592")
 
     assert caught.value.code == ErrorCode.SOURCE_CHANGED
+    assert "content_type=application/json" in caught.value.message
+    assert "url=https://primary.example/ccass/choldings.asp" in caught.value.message
 
 
 @pytest.mark.parametrize(
@@ -132,6 +134,8 @@ async def test_fetch_rejects_empty_login_error_and_incomplete_html(body, error_c
         await WebbsiteClient(settings()).get_holdings("01592")
 
     assert caught.value.code == error_code
+    assert "status=200" in caught.value.message
+    assert "url=https://primary.example/ccass/choldings.asp" in caught.value.message
 
 
 @pytest.mark.parametrize("declared", [True, False])
@@ -196,6 +200,80 @@ async def test_fetch_cache_preserves_source_reference_and_avoids_repeat_request(
 
 
 @respx.mock
+async def test_fetch_persists_session_cookies_between_requests():
+    request_cookies: list[str | None] = []
+    call_state = {"count": 0}
+
+    def callback(request: httpx.Request) -> httpx.Response:
+        call_state["count"] += 1
+        request_cookies.append(request.headers.get("cookie"))
+        headers = {"content-type": "text/html; charset=utf-8"}
+        if call_state["count"] == 1:
+            headers["set-cookie"] = "webbsite-session=abc123; Path=/; HttpOnly"
+        return httpx.Response(
+            200,
+            text=fixture("holdings_normal.html"),
+            headers=headers,
+            request=request,
+        )
+
+    route = respx.get("https://primary.example/ccass/choldings.asp").mock(
+        side_effect=callback
+    )
+    client = WebbsiteClient(settings(cache_ttl_seconds=0))
+
+    first = await client.get_holdings("01592")
+    second = await client.get_holdings("01592")
+
+    assert route.call_count == 2
+    assert request_cookies == [None, "webbsite-session=abc123"]
+    assert not first.metadata.cached
+    assert not second.metadata.cached
+
+
+@respx.mock
+async def test_fetch_reports_login_redirect_target_in_failure_details():
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            302,
+            headers={
+                "location": "https://primary.example/login",
+                "content-type": "text/html; charset=utf-8",
+            },
+        )
+    )
+    respx.get("https://primary.example/login").mock(
+        return_value=httpx.Response(
+            200,
+            text=(
+                "<html><head><title>Login</title></head>"
+                '<body><input type="password"></body></html>'
+            ),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            200,
+            text=(
+                "<html><head><title>Login</title></head>"
+                '<body><input type="password"></body></html>'
+            ),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+
+    with pytest.raises(PlatformError) as caught:
+        await WebbsiteClient(settings()).get_holdings("01592")
+
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "redirect=https://primary.example/login" in caught.value.message
+    assert "content_type=text/html; charset=utf-8" in caught.value.message
+    assert "login page detected" in caught.value.message
+    assert "url=https://primary.example/ccass/choldings.asp" in caught.value.message
+
+
+@respx.mock
 async def test_fetch_classifies_challenge_page_without_parser_call():
     challenge = (
         "<html><head><title>Just a moment...</title></head>"
@@ -214,6 +292,7 @@ async def test_fetch_classifies_challenge_page_without_parser_call():
         await WebbsiteClient(settings()).get_holdings("01592")
 
     assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "cloudflare challenge detected" in caught.value.message
 
 
 @respx.mock
