@@ -29,7 +29,7 @@ class GatewayRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     stock_code: str | int
-    holdings_limit: int = Field(default=15, ge=1, le=100)
+    holdings_limit: int = Field(default=15, ge=1, le=SOURCE_FETCH_LIMIT)
     request_surface: str = "api"
     cache_first: bool = True
     selection_rule: GatewaySelectionRule = "priority_then_availability"
@@ -101,6 +101,10 @@ class GatewayRoutingSelection(BaseModel):
     attempted_sources: tuple[str, ...] = ()
     attempted_statuses: tuple[GatewaySourceStatus, ...] = ()
     fallback_reason: str | None = None
+    last_error_code: str | None = None
+    last_error_message: str | None = None
+    last_error_retry_recommended: bool | None = None
+    last_error_retry_after_seconds: int | None = None
     source_candidates: tuple[str, ...] = ()
     source_status: GatewaySourceStatus = "unknown"
 
@@ -198,6 +202,10 @@ class CacheFirstSourceRouter:
                     attempted_sources=tuple(attempted_sources),
                     attempted_statuses=tuple(attempted_statuses),
                     fallback_reason=fallback_reason,
+                    last_error_code=None,
+                    last_error_message=None,
+                    last_error_retry_recommended=None,
+                    last_error_retry_after_seconds=None,
                     source_candidates=tuple(item.source_id for item in ordered),
                     source_status=candidate.status,
                 )
@@ -213,6 +221,10 @@ class CacheFirstSourceRouter:
             attempted_sources=tuple(attempted_sources),
             attempted_statuses=tuple(attempted_statuses),
             fallback_reason=fallback_reason or "No selectable source candidates were available.",
+            last_error_code=None,
+            last_error_message=None,
+            last_error_retry_recommended=None,
+            last_error_retry_after_seconds=None,
             source_candidates=tuple(item.source_id for item in ordered),
             source_status="unavailable",
         )
@@ -242,16 +254,20 @@ class CacheFirstSourceRouter:
                     attempted_sources=("cache",),
                     attempted_statuses=("cached",),
                     fallback_reason=None,
+                    last_error_code=None,
+                    last_error_message=None,
+                    last_error_retry_recommended=None,
+                    last_error_retry_after_seconds=None,
                     source_candidates=("cache",),
                     source_status="cached",
                 )
                 return GatewayResponse(
                     request=context,
-                routing=routing,
-                source_trace=self._build_trace(
-                    context,
-                    cached_response,
-                    routing,
+                    routing=routing,
+                    source_trace=self._build_trace(
+                        context,
+                        cached_response,
+                        routing,
                         route="cache",
                         cache_hit=True,
                         notes=("cache_hit",),
@@ -298,6 +314,14 @@ class CacheFirstSourceRouter:
                 attempted_sources=tuple(attempted_sources),
                 attempted_statuses=tuple(attempted_statuses),
                 fallback_reason=fallback_reason,
+                last_error_code=(last_error.code.value if last_error is not None else None),
+                last_error_message=(last_error.message if last_error is not None else None),
+                last_error_retry_recommended=(
+                    last_error.retry_recommended if last_error is not None else None
+                ),
+                last_error_retry_after_seconds=(
+                    last_error.retry_after_seconds if last_error is not None else None
+                ),
                 source_candidates=tuple(item.source_id for item in ordered),
                 source_status=candidate.status,
             )

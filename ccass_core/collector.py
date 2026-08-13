@@ -174,7 +174,7 @@ async def collect_watchlist(
     async def default_fetcher(code: str, limit: int) -> CcassResponse:
         if service is None:  # pragma: no cover - guarded by selected_fetcher
             raise RuntimeError("collector service was not initialized")
-        return await service.get_stock_data(code, holdings_limit=limit)
+        return await service.get_stock_data(code, holdings_limit=limit, cache_first=False)
 
     selected_fetcher = fetcher or default_fetcher
     run_id = None

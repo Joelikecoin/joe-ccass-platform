@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Protocol
 
@@ -5,9 +6,22 @@ from app.config import Settings, get_settings
 from app.data_quality import structured_warning
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
-from app.services.data_gateway import CcassDataGateway, GatewayRequest
-from app.services.holdings_lkg import PersistentLatestHoldingsSource
+from app.services.data_gateway import (
+    CcassDataGateway,
+    GatewayRequest,
+    GatewayRequestContext,
+    GatewaySourceCandidate,
+)
 from app.services.latest_holdings import finalize_latest_holdings
+from app.domain.history import HistoricalSnapshot
+from app.services.holdings_lkg import (
+    FreshnessStatus,
+    LKG_AGE_SECONDS_PREFIX,
+    SOURCE_ERROR_CODE_PREFIX,
+    SOURCE_ERROR_MESSAGE_PREFIX,
+    SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX,
+    SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX,
+)
 from ccass_core.source_trace import (
     SourceTraceView,
     build_source_trace_view,
@@ -17,6 +31,7 @@ from app.sources.google_drive_csv import GoogleDriveCsvSource
 from app.sources.registry import (
     GOOGLE_DRIVE_CSV_SOURCE_ID,
     WEBBSITE_SOURCE_ID,
+    SourceDefinition,
     SourceRegistry,
     build_source_registry,
 )
@@ -26,6 +41,73 @@ from app.storage.history import NormalizedSnapshotRepository
 
 class HoldingsSource(Protocol):
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse: ...
+
+
+class RepositorySnapshotBackend:
+    def __init__(
+        self,
+        repository: NormalizedSnapshotRepository,
+        *,
+        max_age_seconds: int,
+        source_ids: tuple[str, ...] | None = None,
+    ) -> None:
+        self.repository = repository
+        self.max_age_seconds = max_age_seconds
+        self.source_ids = source_ids
+
+    async def get(self, request: GatewayRequestContext) -> CcassResponse | None:
+        snapshot = self._latest_snapshot(request.normalized_stock_code)
+        if snapshot is None or not self._is_valid_snapshot(snapshot, request.requested_at):
+            return None
+        response = snapshot.to_response()
+        response.metadata.cached = True
+        return response
+
+    async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
+        snapshot = self._latest_snapshot(code)
+        if snapshot is None or not self._is_valid_snapshot(snapshot):
+            raise PlatformError(
+                ErrorCode.SOURCE_UNAVAILABLE,
+                "Persistent normalized snapshot recovery is unavailable.",
+                retry_recommended=True,
+                retry_after_seconds=30,
+                status_code=503,
+            )
+        response = snapshot.to_response()
+        response.metadata.cached = True
+        return response
+
+    def _latest_snapshot(self, code: str) -> HistoricalSnapshot | None:
+        if self.source_ids:
+            candidates = [
+                snapshot
+                for source_id in self.source_ids
+                if (snapshot := self.repository.latest(code, source_id=source_id, include_partial=False))
+                is not None
+            ]
+            if not candidates:
+                return None
+            return max(candidates, key=lambda snapshot: snapshot.fetched_at)
+        return self.repository.latest(code, include_partial=False)
+
+    def _is_valid_snapshot(
+        self,
+        snapshot: HistoricalSnapshot,
+        requested_at=None,
+    ) -> bool:
+        if snapshot.partial or snapshot.stale:
+            return False
+        fetched_at = snapshot.fetched_at
+        if fetched_at.tzinfo is None or fetched_at.utcoffset() is None:
+            return False
+        if requested_at is None:
+            from datetime import UTC, datetime
+
+            requested_at = datetime.now(UTC)
+        if requested_at.tzinfo is None or requested_at.utcoffset() is None:
+            return False
+        age_seconds = int((requested_at - fetched_at).total_seconds())
+        return 0 <= age_seconds <= self.max_age_seconds
 
 
 class MirrorWithCsvFallback:
@@ -93,41 +175,125 @@ class CcassService:
         lkg_repository: NormalizedSnapshotRepository | None = None,
     ) -> None:
         self.settings = settings or get_settings()
-        registry = build_source_registry(self.settings)
-        selection = registry.select_holdings_sources(self.settings.data_source)
-        selected = selection.available
+        self.registry = build_source_registry(self.settings)
+        self.selection = self.registry.select_holdings_sources(self.settings.data_source)
+        self.available_sources = self.selection.available
+        self.source_definitions_by_id = {
+            definition.source_id: definition for definition in self.available_sources
+        }
+        self.lkg_repository = lkg_repository
         if client is not None:
             self.source = client
+            self.client = self.source
+            self.gateway = CcassDataGateway(source_backend=self.source)
+            return
+
+        live_definition = self.selection.primary
+        if live_definition is None:
+            raise PlatformError(
+                ErrorCode.SOURCE_DISABLED,
+                "No enabled CCASS source is available for routing.",
+                status_code=503,
+            )
+        self.source = self._build_live_source(live_definition)
+        cache_backend = self._build_cache_backend()
+        source_candidates = self._build_source_candidates(live_definition)
+        if cache_backend is None and len(source_candidates) == 1:
+            self.gateway = CcassDataGateway(source_backend=self.source)
         else:
-            if len(selected) > 1:
-                self.source = MirrorWithCsvFallback(
-                    self.settings,
-                    registry,
-                    allow_process_lkg_on_error=lkg_repository is None,
-                )
-            elif selected[0].source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
-                self.source = GoogleDriveCsvSource(self.settings)
-                if lkg_repository is not None:
-                    self.source.allow_process_lkg_on_error = False
-            else:
-                self.source = WebbsiteClient(self.settings)
-        if lkg_repository is not None:
-            self.source = PersistentLatestHoldingsSource(
-                self.source,
-                repository=lkg_repository,
-                definitions=selected,
+            self.gateway = CcassDataGateway(
+                source_candidates=source_candidates,
+                cache_backend=cache_backend,
             )
         self.client = self.source
-        self.gateway = CcassDataGateway(source_backend=self.source)
 
-    async def get_stock_data(self, code: str | int, holdings_limit: int = 15) -> CcassResponse:
-        gateway_response = await self.get_stock_gateway_response(code, holdings_limit=holdings_limit)
+    def _build_live_source(self, definition: SourceDefinition) -> HoldingsSource:
+        if definition.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
+            return GoogleDriveCsvSource(self.settings)
+        return WebbsiteClient(self.settings)
+
+    def _build_cache_backend(self) -> RepositorySnapshotBackend | None:
+        if self.lkg_repository is None:
+            return None
+        return RepositorySnapshotBackend(
+            self.lkg_repository,
+            max_age_seconds=self.settings.cache_ttl_seconds,
+            source_ids=tuple(source.source_id for source in self.available_sources),
+        )
+
+    def _build_recovery_backend(
+        self,
+        source_id: str,
+    ) -> RepositorySnapshotBackend | None:
+        if self.lkg_repository is None:
+            return None
+        return RepositorySnapshotBackend(
+            self.lkg_repository,
+            max_age_seconds=self.settings.holdings_lkg_max_age_seconds,
+            source_ids=(source_id,),
+        )
+
+    def _build_source_candidates(
+        self,
+        live_definition: SourceDefinition,
+    ) -> tuple[GatewaySourceCandidate, ...]:
+        candidates: list[GatewaySourceCandidate] = [
+            GatewaySourceCandidate(
+                source_id=live_definition.source_id,
+                source_name=live_definition.display_name,
+                priority=0,
+                status="active",
+                backend=self.source,
+                fallback_eligible=True,
+            )
+        ]
+        recovery_backend = self._build_recovery_backend(live_definition.source_id)
+        if recovery_backend is not None:
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id="persistent_lkg",
+                    source_name="Persistent LKG",
+                    priority=1,
+                    status="fallback",
+                    backend=recovery_backend,
+                    fallback_eligible=True,
+                )
+            )
+        if live_definition.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID and any(
+            source.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID for source in self.available_sources
+        ):
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id=GOOGLE_DRIVE_CSV_SOURCE_ID,
+                    source_name="Google Drive CSV",
+                    priority=2,
+                    status="fallback",
+                    backend=GoogleDriveCsvSource(self.settings),
+                    fallback_eligible=True,
+                )
+            )
+        return tuple(candidates)
+
+    async def get_stock_data(
+        self,
+        code: str | int,
+        holdings_limit: int = 15,
+        *,
+        cache_first: bool = True,
+    ) -> CcassResponse:
+        gateway_response = await self.get_stock_gateway_response(
+            code,
+            holdings_limit=holdings_limit,
+            cache_first=cache_first,
+        )
         return gateway_response.normalized_response
 
     async def get_stock_gateway_response(
         self,
         code: str | int,
         holdings_limit: int = 15,
+        *,
+        cache_first: bool = True,
     ) -> "GatewayResponse":
         if holdings_limit < 1:
             raise PlatformError(
@@ -139,8 +305,23 @@ class CcassService:
             stock_code=code,
             holdings_limit=holdings_limit,
             request_surface="service",
+            cache_first=cache_first,
         )
         gateway_response = await self.gateway.get_holdings(request)
+        persistence_warning = self._persist_gateway_response(gateway_response)
+        if persistence_warning is not None:
+            gateway_response = gateway_response.model_copy(
+                update={
+                    "normalized_response": gateway_response.normalized_response.model_copy(
+                        update={
+                            "data_quality_warnings": [
+                                *gateway_response.normalized_response.data_quality_warnings,
+                                persistence_warning,
+                            ]
+                        }
+                    )
+                }
+            )
         normalized = gateway_response.request.normalized_stock_code
         normalized_response = finalize_latest_holdings(
             gateway_response.normalized_response,
@@ -181,8 +362,91 @@ class CcassService:
                         update={"notes": updated_notes}
                     )
                 }
-            )
+        )
+        gateway_response = gateway_response.model_copy(update={"normalized_response": normalized_response})
+        normalized_response = self._apply_recovery_metadata(gateway_response)
         return gateway_response.model_copy(update={"normalized_response": normalized_response})
+
+    def _persist_gateway_response(self, gateway_response: "GatewayResponse") -> str | None:
+        if self.lkg_repository is None:
+            return None
+        source_id = gateway_response.routing.selected_source_id
+        if source_id in {None, "cache", "persistent_lkg"}:
+            return None
+        definition = self.source_definitions_by_id.get(source_id)
+        if definition is None:
+            return None
+        try:
+            snapshot = HistoricalSnapshot.from_response(
+                gateway_response.normalized_response,
+                source_id=definition.source_id,
+                parser_version=definition.parser_version,
+            )
+            self.lkg_repository.save(snapshot)
+        except Exception as error:
+            return structured_warning(
+                "LKG_PERSISTENCE_ERROR",
+                type(error).__name__,
+                "Verified live data was served, but the transactional LKG write failed.",
+            )
+        return None
+
+    def _apply_recovery_metadata(self, gateway_response: "GatewayResponse") -> CcassResponse:
+        response = gateway_response.normalized_response
+        routing = gateway_response.routing
+        if routing.selected_source_id != "persistent_lkg":
+            return response
+        fetched_at = response.metadata.fetched_at
+        age_seconds = 0
+        if fetched_at.tzinfo is not None and fetched_at.utcoffset() is not None:
+            age_seconds = max(0, int((datetime.now(UTC) - fetched_at).total_seconds()))
+        warnings = list(response.data_quality_warnings)
+        warnings.extend(
+            (
+                structured_warning(
+                    "FRESHNESS_STATUS",
+                    FreshnessStatus.STALE_LKG.value,
+                    "The current result came from a cached or snapshot data source.",
+                ),
+                structured_warning(
+                    SOURCE_ERROR_CODE_PREFIX[:-1],
+                    routing.last_error_code or ErrorCode.SOURCE_UNAVAILABLE.value,
+                    f"Source error code: {routing.last_error_code or ErrorCode.SOURCE_UNAVAILABLE.value}",
+                ),
+                structured_warning(
+                    SOURCE_ERROR_MESSAGE_PREFIX[:-1],
+                    routing.last_error_message or "Persistent LKG recovery was used.",
+                    "Source error message: "
+                    f"{routing.last_error_message or 'Persistent LKG recovery was used.'}",
+                ),
+                structured_warning(
+                    SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX[:-1],
+                    str(
+                        routing.last_error_retry_recommended
+                        if routing.last_error_retry_recommended is not None
+                        else True
+                    ).lower(),
+                    "Source retry recommended: "
+                    f"{str(routing.last_error_retry_recommended if routing.last_error_retry_recommended is not None else True).lower()}",
+                ),
+                structured_warning(
+                    SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX[:-1],
+                    (
+                        routing.last_error_retry_after_seconds
+                        if routing.last_error_retry_after_seconds is not None
+                        else "none"
+                    ),
+                    "Source retry-after seconds: "
+                    f"{routing.last_error_retry_after_seconds if routing.last_error_retry_after_seconds is not None else 'none'}",
+                ),
+                structured_warning(
+                    LKG_AGE_SECONDS_PREFIX[:-1],
+                    str(age_seconds),
+                    f"Last-known-good age seconds: {age_seconds}",
+                ),
+            )
+        )
+        return response.model_copy(update={"data_quality_warnings": list(dict.fromkeys(warnings))})
 
     async def get_stock_source_trace(
         self,
