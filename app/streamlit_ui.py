@@ -1116,6 +1116,9 @@ def build_research_dashboard_markdown(
         "",
         f"*{workflow.summary if workflow is not None else ui_text(locale, 'research_workflow_unavailable')}*",
         "",
+        f"**{ui_text(locale, 'research_dashboard_reading_order')}**",
+        ui_text(locale, "research_dashboard_reading_order_note"),
+        "",
         f"| {translate_text(locale, 'report.table.metric')} | {translate_text(locale, 'report.table.value')} |",
         "|---|---|",
     ]

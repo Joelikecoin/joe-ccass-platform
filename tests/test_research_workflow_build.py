@@ -173,6 +173,8 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_caption") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_stock_code") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_snapshot_count") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_reading_order") in markdown
+    assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_reading_order_note") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_freshness") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_provenance") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown

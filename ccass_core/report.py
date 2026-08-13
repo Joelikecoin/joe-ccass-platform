@@ -246,6 +246,11 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.research_dashboard_comparison": "Comparison",
         "ui.research_dashboard_report_output": "Report output",
         "ui.research_dashboard_quick_links": "Quick links",
+        "ui.research_dashboard_reading_order": "Suggested reading order",
+        "ui.research_dashboard_reading_order_note": (
+            "Ownership Distribution → Holder Change Investigation → Concentration → "
+            "Broker Distribution (optional) → AI Research Context → Report Output"
+        ),
         "ui.research_dashboard_link_holdings": "Holdings detail",
         "ui.research_dashboard_link_ownership_distribution": "Ownership distribution",
         "ui.research_dashboard_link_broker_distribution": "Broker distribution",
@@ -782,6 +787,11 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "ui.research_dashboard_comparison": "比較狀態",
         "ui.research_dashboard_report_output": "報告輸出",
         "ui.research_dashboard_quick_links": "快速連結",
+        "ui.research_dashboard_reading_order": "建議閱讀順序",
+        "ui.research_dashboard_reading_order_note": (
+            "先看持股分布，再看持有人變動、集中度、經紀人分布（可選）、"
+            "AI Research Context，最後看報告輸出。"
+        ),
         "ui.research_dashboard_link_holdings": "持有人詳情",
         "ui.research_dashboard_link_ownership_distribution": "持股分布",
         "ui.research_dashboard_link_broker_distribution": "經紀人分佈",
