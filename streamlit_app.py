@@ -11,7 +11,7 @@ import streamlit.components.v1 as components
 
 from app.config import get_settings
 from app.errors import ErrorCode, PlatformError
-from app.services.ccass import get_ccass_service
+import app.services.ccass as ccass_service
 from app.streamlit_ui import (
     DEFAULT_LOCALE,
     SUPPORTED_LOCALES,
@@ -369,6 +369,7 @@ with st.sidebar:
         submitted = st.form_submit_button(ui_text(current_locale, "fetch"), type="primary", use_container_width=True)
 
 if submitted:
+    prepared_result = None
     st.session_state.pop("prepared_report", None)
     progress_bar = st.progress(0, text=ui_text(current_locale, "progress_starting"))
     fetch_status = st.empty()
@@ -429,7 +430,7 @@ if submitted:
                 resolved_code,
                 holdings_limit=top_n,
                 big_change_threshold=int(big_change_threshold),
-                service=get_ccass_service(),
+                service=ccass_service.get_ccass_service(),
                 locale=current_locale,
                 history_snapshots=history_snapshots,
                 previous_loader=previous_loader,
@@ -452,6 +453,7 @@ if submitted:
         st.error(f"{ui_text(current_locale, 'unexpected_error_prefix')}: {type(exc).__name__}")
     else:
         st.session_state.prepared_report = prepared
+        prepared_result = prepared
         if prepared.response is None:
             fetch_status.error(
                 ui_text(
@@ -479,7 +481,7 @@ if submitted:
                 )
             )
 
-prepared = st.session_state.get("prepared_report")
+prepared = locals().get("prepared_result") or st.session_state.get("prepared_report")
 history_snapshots = st.session_state.get("history_snapshots")
 if prepared is not None:
     with warnings.catch_warnings(record=True) as caught:

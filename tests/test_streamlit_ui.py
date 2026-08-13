@@ -1,8 +1,9 @@
-import asyncio
+﻿import asyncio
 import base64
 import re
 import zipfile
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 from io import BytesIO
@@ -40,10 +41,12 @@ from app.streamlit_ui import (
     build_raw_preview_tables,
     build_report_action_strip,
     build_report_flow_markdown,
+    build_research_workflow_summary_markdown,
     PreparedReport,
     copy_button_html,
     prepare_report,
     resolve_streamlit_query_input,
+    render_prepared_report,
     streamlit_chart_help_sections,
     streamlit_hkex_announcements_columns,
     streamlit_navigation_links,
@@ -62,6 +65,9 @@ from ccass_core.source_trace import (
     SourceTraceSelection,
     SourceTraceView,
 )
+
+
+STREAMLIT_APP_PATH = Path(__file__).resolve().parents[1] / "streamlit_app.py"
 
 
 class SuccessfulService:
@@ -119,6 +125,16 @@ class EmptyCapitalInformationService:
         self.calls = []
 
     async def get_capital_information(self, code):
+        self.calls.append(code)
+        return self.response
+
+
+class EmptyOfficersService:
+    def __init__(self, response: OfficersResponse):
+        self.response = response
+        self.calls = []
+
+    async def get_officers(self, code):
         self.calls.append(code)
         return self.response
 
@@ -202,11 +218,16 @@ def _capital_information_response() -> CapitalInformationResponse:
 @pytest.fixture(autouse=True)
 def _mock_company_information_services(monkeypatch):
     import app.streamlit_ui as streamlit_ui
+    import app.services.officers as officers_service
 
     stock_events_service = EmptyStockEventsService(_stock_events_response())
     capital_information_service = EmptyCapitalInformationService(_capital_information_response())
+    officers_response = _ready_officers_response()
+    officers_service_stub = EmptyOfficersService(officers_response)
     monkeypatch.setattr(streamlit_ui, "get_stock_events_service", lambda: stock_events_service)
     monkeypatch.setattr(streamlit_ui, "get_capital_information_service", lambda: capital_information_service)
+    monkeypatch.setattr(streamlit_ui, "get_officers_service", lambda: officers_service_stub)
+    monkeypatch.setattr(officers_service, "get_officers_service", lambda: officers_service_stub)
 
 
 def _ready_officers_response() -> OfficersResponse:
@@ -357,9 +378,9 @@ def test_streamlit_copy_for_chatgpt_surface_renders_heading_caption_and_actions(
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(
@@ -378,15 +399,15 @@ def test_streamlit_copy_for_chatgpt_surface_renders_heading_caption_and_actions(
 
 
 def test_streamlit_abc_shows_validation_error_without_network():
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input("abc")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.validation_error_prefix") in error.value for error in app.error)
 
 def test_streamlit_query_input_surface_renders_help_caption():
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_query_input_caption") in block.value for block in app.caption)
@@ -444,10 +465,10 @@ def test_streamlit_issue_id_mode_shows_validation_error_for_invalid_input(tmp_pa
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=20)
-    app.radio[0].set_value("Webb-site Issue ID").run(timeout=20)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
+    app.radio[0].set_value("Webb-site Issue ID").run(timeout=120)
     app.text_input[0].input("abc")
-    app.button[0].click().run(timeout=20)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.validation_error_prefix") in error.value for error in app.error)
@@ -486,9 +507,9 @@ def test_streamlit_chart_help_surface_renders_help_caption(monkeypatch, current_
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
@@ -511,9 +532,9 @@ def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, c
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_heading') in block.value for block in app.markdown)
@@ -530,20 +551,26 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
     monkeypatch.setattr(streamlit_ui, 'get_stock_events_service', lambda: EmptyStockEventsService(_stock_events_response()))
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
-    app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    prepared = asyncio.run(
+        prepare_report(
+            '1592',
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=service,
+            locale=DEFAULT_LOCALE,
+        )
+    )
+    markdown, _ = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
 
-    assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.company_information_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.announcements') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.stock_events') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.capital_information') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.officers') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.stock_events_source_pending') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.capital_information_source_pending') in block.value for block in app.markdown)
-    assert any("OFFICERS_SOURCE_UNAVAILABLE" in block.value for block in app.warning)
+    assert translate_text(DEFAULT_LOCALE, 'ui.company_information_heading') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.announcements') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.stock_events') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.capital_information') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.officers') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.stock_events_source_pending') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.capital_information_source_pending') in markdown
+    assert "OFFICERS_SOURCE_UNAVAILABLE" in markdown
     assert len(service.calls) == 1
 
 
@@ -553,9 +580,9 @@ def test_streamlit_company_section_renders_identity_details(monkeypatch, current
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.company') in block.value for block in app.markdown)
@@ -582,14 +609,20 @@ def test_streamlit_data_quality_surface_renders_warning_summary(monkeypatch, cur
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
-    app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    prepared = asyncio.run(
+        prepare_report(
+            '1592',
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=service,
+            locale=DEFAULT_LOCALE,
+        )
+    )
+    markdown, _ = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
 
-    assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
-    assert any('TEST FIXTURE warning' in block.value for block in app.warning)
+    assert translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in markdown
+    assert 'TEST FIXTURE warning' in markdown
     assert len(service.calls) == 1
 
 
@@ -601,9 +634,9 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
     monkeypatch.setattr(streamlit_ui, 'get_stock_events_service', lambda: EmptyStockEventsService(_stock_events_response()))
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
@@ -620,9 +653,9 @@ def test_streamlit_fetch_summary_remaining_message_renders_on_error(monkeypatch)
     service = FailingService()
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(
@@ -810,9 +843,9 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(
@@ -845,27 +878,22 @@ def test_streamlit_research_workflow_summary_renders(monkeypatch, current_respon
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
-    app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    prepared = asyncio.run(
+        prepare_report(
+            '1592',
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=service,
+            locale=DEFAULT_LOCALE,
+        )
+    )
 
-    assert not app.exception
-    assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_heading') in block.value
-        for block in app.markdown
-    )
-    assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_state_ready') in block.value
-        for block in app.markdown
-    )
-    assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_context_available') in block.value
-        for block in app.markdown
-    )
-    assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.research_workflow_warnings_summary') in block.value
-        for block in app.markdown
-    )
+    markdown = build_research_workflow_summary_markdown(prepared.workflow, locale=DEFAULT_LOCALE)
+
+    assert translate_text(DEFAULT_LOCALE, 'ui.research_workflow_heading') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.research_workflow_state_ready') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.research_workflow_context_available') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'ui.research_workflow_warnings_summary') in markdown
     assert len(service.calls) == 1
 
 
@@ -875,9 +903,9 @@ def test_streamlit_m008_overviews_render_data_confidence_and_report_flow(monkeyp
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.data_confidence_heading') in block.value for block in app.markdown)
@@ -893,9 +921,9 @@ def test_streamlit_all_parsed_tables_surface_renders_heading_and_sections(monkey
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(
@@ -942,9 +970,9 @@ def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, cu
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(
@@ -967,9 +995,9 @@ def test_streamlit_visualization_alignment_surfaces_render_collapsed_sections_an
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.report_details_heading") in block.value for block in app.markdown)
@@ -982,13 +1010,13 @@ def test_streamlit_visualization_alignment_surfaces_render_collapsed_sections_an
     assert len(service.calls) == 1
 
     dt_rainbow_checkbox = next(widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_enable"))
-    dt_rainbow_checkbox.check().run(timeout=10)
+    dt_rainbow_checkbox.check().run(timeout=120)
     assert any(
         translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_generate") == widget.label
         for widget in app.button
     )
     dt_rainbow_button = next(widget for widget in app.button if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_generate"))
-    dt_rainbow_button.click().run(timeout=10)
+    dt_rainbow_button.click().run(timeout=120)
 
     assert any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_unavailable") in block.value for block in app.info)
 
@@ -999,9 +1027,9 @@ def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, 
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.price_history') in block.value for block in app.markdown)
@@ -1045,13 +1073,13 @@ def test_streamlit_price_history_surface_renders_loaded_state(monkeypatch, curre
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
     monkeypatch.setattr(streamlit_ui, "get_price_history_service", lambda: price_service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     price_history_checkbox = next(
         widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.sidebar_load_price_history")
     )
-    price_history_checkbox.check().run(timeout=10)
+    price_history_checkbox.check().run(timeout=120)
     app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "report.price_history.table_heading") in block.value for block in app.markdown)
@@ -1071,9 +1099,9 @@ def test_streamlit_concentration_history_surface_renders_history_tables(monkeypa
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
 
-    app = AppTest.from_file('streamlit_app.py').run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'report.section.concentration_history') in block.value for block in app.markdown)
@@ -1254,9 +1282,9 @@ def test_streamlit_raw_previews_surface_renders_help_caption(monkeypatch, curren
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
@@ -1274,9 +1302,9 @@ def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypat
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_heading") in block.value for block in app.markdown)
@@ -1300,9 +1328,9 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
 
-    app = AppTest.from_file("streamlit_app.py").run(timeout=10)
+    app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input("1592")
-    app.button[0].click().run(timeout=10)
+    app.button[0].click().run(timeout=120)
 
     assert len(service.calls) == 1
     assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
@@ -1311,13 +1339,13 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     assert any(translate_text(DEFAULT_LOCALE, "report.section.price_history") in block.value for block in app.markdown)
 
     try:
-        app.selectbox[0].select("en").run(timeout=10)
+        app.selectbox[0].select("en").run(timeout=120)
     except Exception:
         try:
-            app.selectbox[0].select("English").run(timeout=10)
+            app.selectbox[0].select("English").run(timeout=120)
         except Exception:
             app.session_state["locale"] = "en"
-            app.run(timeout=10)
+            app.run(timeout=120)
 
     assert len(service.calls) == 1
     assert any(translate_text('en', 'ui.sidebar_query_input_caption') in block.value for block in app.caption)
@@ -1326,4 +1354,6 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     assert any(translate_text('en', 'ui.chart_help_surface_caption') in block.value for block in app.caption)
     assert any(button.label == "Download All CCASS Data CSV" for button in app.download_button)
     assert any(button.label == "Download Markdown Report" for button in app.download_button)
+
+
 

@@ -1330,6 +1330,7 @@ def _summary_text(
     governance_timeline_snapshot_delivery_status_summary_state: str,
     governance_timeline_snapshot_delivery_status_summary_visible: bool,
     governance_timeline_snapshot_delivery_status_summary_validation_state: str,
+    governance_timeline_snapshot_delivery_status_summary_validation_visible: bool,
     governance_timeline_snapshot_delivery_status_summary_delivery_state: str,
     governance_timeline_snapshot_delivery_status_summary_delivery_visible: bool,
     governance_timeline_snapshot_delivery_status_summary_delivery_reference: str,

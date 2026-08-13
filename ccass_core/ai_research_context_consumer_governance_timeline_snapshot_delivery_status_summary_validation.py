@@ -423,9 +423,7 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         delivery_summary_reference=delivery_summary_reference,
         delivery_summary_validation_reference=delivery_summary_validation_reference,
         delivery_reference=delivery_reference,
-        delivery_validation_reference=delivery_validation_reference,
         snapshot_reference=snapshot_reference,
-        snapshot_validation_reference=snapshot_validation_reference,
     )
     summary = _summary_text(
         validation_state=validation_state,
@@ -442,12 +440,8 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         delivery_summary_validation_visible=delivery_summary_validation_visible,
         delivery_reference=delivery_reference,
         delivery_visible=delivery_visible,
-        delivery_validation_reference=delivery_validation_reference,
-        delivery_validation_visible=delivery_validation_visible,
         snapshot_reference=snapshot_reference,
         snapshot_visible=snapshot_visible,
-        snapshot_validation_reference=snapshot_validation_reference,
-        snapshot_validation_visible=snapshot_validation_visible,
     )
     return AIResearchContextConsumerGovernanceTimelineSnapshotDeliveryStatusSummaryValidation(
         available=True,
@@ -621,9 +615,7 @@ def _validation_reference(
     delivery_summary_reference: str,
     delivery_summary_validation_reference: str,
     delivery_reference: str,
-    delivery_validation_reference: str,
     snapshot_reference: str,
-    snapshot_validation_reference: str,
 ) -> str:
     if validation_state == "unknown":
         return "not available"
@@ -635,9 +627,7 @@ def _validation_reference(
         f"delivery_summary={delivery_summary_reference}; "
         f"delivery_summary_validation={delivery_summary_validation_reference}; "
         f"delivery={delivery_reference}; "
-        f"delivery_validation={delivery_validation_reference}; "
-        f"snapshot={snapshot_reference}; "
-        f"snapshot_validation={snapshot_validation_reference}"
+        f"snapshot={snapshot_reference}"
     )
 
 
@@ -657,12 +647,8 @@ def _summary_text(
     delivery_summary_validation_visible: bool,
     delivery_reference: str,
     delivery_visible: bool,
-    delivery_validation_reference: str,
-    delivery_validation_visible: bool,
     snapshot_reference: str,
     snapshot_visible: bool,
-    snapshot_validation_reference: str,
-    snapshot_validation_visible: bool,
 ) -> str:
     return (
         "AI research context consumer governance timeline snapshot delivery status summary validation: "
@@ -680,12 +666,8 @@ def _summary_text(
         f"delivery_summary_validation_visible={'yes' if delivery_summary_validation_visible else 'no'}; "
         f"delivery={delivery_reference}; "
         f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"delivery_validation={delivery_validation_reference}; "
-        f"delivery_validation_visible={'yes' if delivery_validation_visible else 'no'}; "
         f"snapshot={snapshot_reference}; "
-        f"snapshot_visible={'yes' if snapshot_visible else 'no'}; "
-        f"snapshot_validation={snapshot_validation_reference}; "
-        f"snapshot_validation_visible={'yes' if snapshot_validation_visible else 'no'}"
+        f"snapshot_visible={'yes' if snapshot_visible else 'no'}"
     )
 
 

@@ -199,9 +199,7 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         delivery_summary_reference=delivery_summary_reference,
         delivery_summary_validation_reference=delivery_summary_validation_reference,
         delivery_reference=delivery_reference,
-        delivery_validation_reference=delivery_validation_reference,
         summary_reference=summary_reference,
-        summary_validation_reference=summary_validation_reference,
     )
     summary = _summary_text(
         status_state=status_state,
@@ -214,12 +212,8 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         delivery_summary_validation_visible=delivery_summary_validation_visible,
         delivery_reference=delivery_reference,
         delivery_visible=delivery_visible,
-        delivery_validation_reference=delivery_validation_reference,
-        delivery_validation_visible=delivery_validation_visible,
         summary_reference=summary_reference,
         summary_visible=summary_visible,
-        summary_validation_reference=summary_validation_reference,
-        summary_validation_visible=summary_validation_visible,
     )
     return AIResearchContextConsumerGovernanceTimelineSnapshotDeliveryStatusSummary(
         available=True,
@@ -387,9 +381,7 @@ def _summary_reference_text(
     delivery_summary_reference: str,
     delivery_summary_validation_reference: str,
     delivery_reference: str,
-    delivery_validation_reference: str,
     summary_reference: str,
-    summary_validation_reference: str,
 ) -> str:
     return (
         f"{status_state} / "
@@ -398,9 +390,7 @@ def _summary_reference_text(
         f"{delivery_summary_reference} / "
         f"{delivery_summary_validation_reference} / "
         f"{delivery_reference} / "
-        f"{delivery_validation_reference} / "
-        f"{summary_reference} / "
-        f"{summary_validation_reference}"
+        f"{summary_reference}"
     )
 
 
@@ -416,12 +406,8 @@ def _summary_text(
     delivery_summary_validation_visible: bool,
     delivery_reference: str,
     delivery_visible: bool,
-    delivery_validation_reference: str,
-    delivery_validation_visible: bool,
     summary_reference: str,
     summary_visible: bool,
-    summary_validation_reference: str,
-    summary_validation_visible: bool,
 ) -> str:
     return (
         "AI research context consumer governance timeline snapshot delivery status summary: "
@@ -435,12 +421,8 @@ def _summary_text(
         f"delivery_summary_validation_visible={'yes' if delivery_summary_validation_visible else 'no'}; "
         f"delivery_reference={delivery_reference}; "
         f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"delivery_validation_reference={delivery_validation_reference}; "
-        f"delivery_validation_visible={'yes' if delivery_validation_visible else 'no'}; "
         f"summary_reference={summary_reference}; "
-        f"summary_visible={'yes' if summary_visible else 'no'}; "
-        f"summary_validation_reference={summary_validation_reference}; "
-        f"summary_validation_visible={'yes' if summary_validation_visible else 'no'}"
+        f"summary_visible={'yes' if summary_visible else 'no'}"
     )
 
 

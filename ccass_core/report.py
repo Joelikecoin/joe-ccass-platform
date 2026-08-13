@@ -1499,7 +1499,7 @@ def _announcements_section(
 ) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[2])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
         translate_text(locale, "report.section.announcements"),
         "",
         section_related_context_markdown(locale, "announcements"),
@@ -1549,7 +1549,7 @@ def _stock_events_section(
 ) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[3])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
         translate_text(locale, "report.section.stock_events"),
         "",
         section_related_context_markdown(locale, "stock_events"),
@@ -1614,7 +1614,7 @@ def _capital_information_section(
 ) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[4])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
         translate_text(locale, "report.section.capital_information"),
         "",
         section_related_context_markdown(locale, "capital_information"),
@@ -1676,7 +1676,7 @@ def _officers_section(
 ) -> list[str]:
     lines = [
         "",
-        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[5])}'></a>",
+        f"<a id='{localized_report_anchor(REPORT_SECTION_KEYS[6])}'></a>",
         translate_text(locale, "report.section.officers"),
         "",
         section_related_context_markdown(locale, "officers"),

@@ -132,7 +132,6 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
     delivery_reference = _delivery_reference(
         delivery_state=delivery_state,
         summary_reference=summary_reference,
-        summary_validation_reference=summary_validation_reference,
     )
     summary = _summary_text(
         delivery_state=delivery_state,
@@ -140,8 +139,6 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         delivery_reference=delivery_reference,
         summary_reference=summary_reference,
         summary_visible=summary_visible,
-        summary_validation_reference=summary_validation_reference,
-        summary_validation_visible=summary_validation_visible,
     )
     return AIResearchContextConsumerGovernanceTimelineSnapshotDeliveryStatusSummaryDelivery(
         available=True,
@@ -252,14 +249,12 @@ def _delivery_reference(
     *,
     delivery_state: Literal["complete", "partial", "unavailable", "unknown"],
     summary_reference: str,
-    summary_validation_reference: str,
 ) -> str:
     if delivery_state == "unavailable":
         return "not available"
     return (
         f"state={delivery_state}; "
-        f"summary={summary_reference}; "
-        f"summary_validation={summary_validation_reference}"
+        f"summary={summary_reference}"
     )
 
 
@@ -292,8 +287,6 @@ def _summary_text(
     delivery_reference: str,
     summary_reference: str,
     summary_visible: bool,
-    summary_validation_reference: str,
-    summary_validation_visible: bool,
 ) -> str:
     return (
         "AI research context consumer governance timeline snapshot delivery status summary delivery: "
@@ -301,7 +294,5 @@ def _summary_text(
         f"visible={'yes' if delivery_visible else 'no'}; "
         f"reference={delivery_reference}; "
         f"summary_reference={summary_reference}; "
-        f"summary_visible={'yes' if summary_visible else 'no'}; "
-        f"summary_validation_reference={summary_validation_reference}; "
-        f"summary_validation_visible={'yes' if summary_validation_visible else 'no'}"
+        f"summary_visible={'yes' if summary_visible else 'no'}"
     )
