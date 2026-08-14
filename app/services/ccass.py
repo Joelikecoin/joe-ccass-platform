@@ -110,6 +110,19 @@ class RepositorySnapshotBackend:
         return 0 <= age_seconds <= self.max_age_seconds
 
 
+class _RecordingGatewayBackend:
+    def __init__(self, backend: HoldingsSource) -> None:
+        self.backend = backend
+        self.last_error: PlatformError | None = None
+
+    async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
+        try:
+            return await self.backend.get_holdings(code, limit=limit)
+        except PlatformError as error:
+            self.last_error = error
+            raise
+
+
 class MirrorWithCsvFallback:
     def __init__(
         self,
@@ -131,40 +144,95 @@ class MirrorWithCsvFallback:
             if not allow_process_lkg_on_error:
                 self.csv.allow_process_lkg_on_error = False
 
-    async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
-        if self.mirror is None:
-            if self.csv is None:
-                raise RuntimeError("source registry selected no holdings source")
-            return await self.csv.get_holdings(code, limit=limit)
-        try:
-            return await self.mirror.get_holdings(code, limit=limit)
-        except PlatformError as mirror_error:
-            if self.csv is None:
-                raise
-            error_code = getattr(mirror_error, "code", type(mirror_error).__name__)
-            try:
-                response = await self.csv.get_holdings(code, limit=limit)
-            except PlatformError as csv_error:
-                raise PlatformError(
-                    csv_error.code,
-                    f"Primary mirror failed ({error_code}); configured CSV fallback also failed "
-                    f"({csv_error.code}).",
-                    retry_recommended=(
-                        mirror_error.retry_recommended or csv_error.retry_recommended
-                    ),
-                    retry_after_seconds=(
-                        csv_error.retry_after_seconds or mirror_error.retry_after_seconds
-                    ),
-                    status_code=csv_error.status_code,
-                ) from csv_error
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "SOURCE_STATUS",
-                    "CSV_FALLBACK_USED",
-                    f"Primary mirror failed ({error_code}); using the configured CSV snapshot fallback.",
+    def _build_gateway_sources(
+        self,
+    ) -> tuple[
+        tuple[GatewaySourceCandidate, ...],
+        _RecordingGatewayBackend | None,
+        _RecordingGatewayBackend | None,
+    ]:
+        candidates: list[GatewaySourceCandidate] = []
+        mirror_backend: _RecordingGatewayBackend | None = None
+        csv_backend: _RecordingGatewayBackend | None = None
+        if self.mirror is not None:
+            mirror_backend = _RecordingGatewayBackend(self.mirror)
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id=WEBBSITE_SOURCE_ID,
+                    source_name=self.primary_source.display_name if self.primary_source else None,
+                    priority=0,
+                    status="active",
+                    backend=mirror_backend,
+                    fallback_eligible=True,
                 )
             )
-            return response
+        if self.csv is not None:
+            csv_backend = _RecordingGatewayBackend(self.csv)
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id=GOOGLE_DRIVE_CSV_SOURCE_ID,
+                    source_name="Google Drive CSV",
+                    priority=1,
+                    status="fallback",
+                    backend=csv_backend,
+                    fallback_eligible=True,
+                )
+            )
+        return tuple(candidates), mirror_backend, csv_backend
+
+    async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
+        source_candidates, mirror_backend, csv_backend = self._build_gateway_sources()
+        if not source_candidates:
+            raise RuntimeError("source registry selected no holdings source")
+        gateway = CcassDataGateway(source_candidates=source_candidates)
+        request = GatewayRequest(
+            stock_code=code,
+            holdings_limit=limit,
+            request_surface="service",
+        )
+        try:
+            gateway_response = await gateway.get_holdings(request)
+        except PlatformError as error:
+            if mirror_backend is not None and csv_backend is not None:
+                mirror_error = mirror_backend.last_error
+                csv_error = csv_backend.last_error
+                if mirror_error is not None and csv_error is not None:
+                    raise PlatformError(
+                        csv_error.code,
+                        f"Primary mirror failed ({mirror_error.code}); configured CSV fallback also "
+                        f"failed ({csv_error.code}).",
+                        retry_recommended=(
+                            mirror_error.retry_recommended or csv_error.retry_recommended
+                        ),
+                        retry_after_seconds=(
+                            csv_error.retry_after_seconds or mirror_error.retry_after_seconds
+                        ),
+                        status_code=csv_error.status_code,
+                    ) from csv_error
+            raise
+        response = gateway_response.normalized_response
+        if (
+            gateway_response.routing.selected_source_id == GOOGLE_DRIVE_CSV_SOURCE_ID
+            and mirror_backend is not None
+        ):
+            mirror_error = mirror_backend.last_error
+            mirror_error_code = (
+                mirror_error.code if mirror_error is not None else ErrorCode.SOURCE_UNAVAILABLE
+            )
+            response = response.model_copy(
+                update={
+                    "data_quality_warnings": [
+                        *response.data_quality_warnings,
+                        structured_warning(
+                            "SOURCE_STATUS",
+                            "CSV_FALLBACK_USED",
+                            f"Primary mirror failed ({mirror_error_code}); using the configured CSV "
+                            "snapshot fallback.",
+                        ),
+                    ]
+                }
+            )
+        return response
 
 
 class CcassService:
