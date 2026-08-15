@@ -29,18 +29,34 @@ from ccass_core.source_trace import (
 )
 from app.sources.google_drive_csv import GoogleDriveCsvSource
 from app.sources.registry import (
+    HKEX_SDW_SOURCE_ID,
     GOOGLE_DRIVE_CSV_SOURCE_ID,
     WEBBSITE_SOURCE_ID,
     SourceDefinition,
     SourceRegistry,
     build_source_registry,
 )
+from app.sources.hkex_sdw import HKEXSdwClient
 from app.sources.webbsite import WebbsiteClient
 from app.storage.history import NormalizedSnapshotRepository
 
 
 class HoldingsSource(Protocol):
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse: ...
+
+
+class _DeferredHoldingsSource:
+    def __init__(self, factory) -> None:
+        self._factory = factory
+        self._backend: HoldingsSource | None = None
+
+    def _resolve(self) -> HoldingsSource:
+        if self._backend is None:
+            self._backend = self._factory()
+        return self._backend
+
+    async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
+        return await self._resolve().get_holdings(code, limit=limit)
 
 
 class RepositorySnapshotBackend:
@@ -278,6 +294,8 @@ class CcassService:
     def _build_live_source(self, definition: SourceDefinition) -> HoldingsSource:
         if definition.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
             return GoogleDriveCsvSource(self.settings)
+        if definition.source_id == HKEX_SDW_SOURCE_ID:
+            return HKEXSdwClient(self.settings)
         return WebbsiteClient(self.settings)
 
     def _build_cache_backend(self) -> RepositorySnapshotBackend | None:
@@ -315,13 +333,28 @@ class CcassService:
                 fallback_eligible=True,
             )
         ]
+        if (
+            self.settings.data_source == "auto"
+            and live_definition.source_id == WEBBSITE_SOURCE_ID
+            and any(source.source_id == HKEX_SDW_SOURCE_ID for source in self.available_sources)
+        ):
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id=HKEX_SDW_SOURCE_ID,
+                    source_name="HKEX SDW",
+                    priority=1,
+                    status="active",
+                    backend=_DeferredHoldingsSource(lambda: HKEXSdwClient(self.settings)),
+                    fallback_eligible=False,
+                )
+            )
         recovery_backend = self._build_recovery_backend(live_definition.source_id)
         if recovery_backend is not None:
             candidates.append(
                 GatewaySourceCandidate(
                     source_id="persistent_lkg",
                     source_name="Persistent LKG",
-                    priority=1,
+                    priority=2,
                     status="fallback",
                     backend=recovery_backend,
                     fallback_eligible=True,
@@ -334,7 +367,7 @@ class CcassService:
                 GatewaySourceCandidate(
                     source_id=GOOGLE_DRIVE_CSV_SOURCE_ID,
                     source_name="Google Drive CSV",
-                    priority=2,
+                    priority=3,
                     status="fallback",
                     backend=GoogleDriveCsvSource(self.settings),
                     fallback_eligible=True,

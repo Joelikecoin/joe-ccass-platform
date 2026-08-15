@@ -82,3 +82,28 @@ def test_markdown_report_endpoint_reuses_core_without_breaking_json_api(current_
     )
     assert service.calls == [("01592", 25), ("1592", 25)]
     assert announcements_service.calls == [("01592", None, None)]
+
+
+def test_json_api_passes_through_hkex_sdw_metadata(current_response):
+    hkex_response = current_response.model_copy(
+        update={
+            "metadata": current_response.metadata.model_copy(
+                update={
+                    "source_name": "HKEX SDW",
+                    "source_url": "https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+                }
+            )
+        }
+    )
+    service = FixtureService(hkex_response)
+    app.dependency_overrides[get_ccass_service] = lambda: service
+    client = TestClient(app)
+    try:
+        json_response = client.get("/api/v1/ccass/1592", params={"holdings_limit": 25})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert json_response.status_code == 200
+    assert json_response.json()["metadata"]["source_name"] == "HKEX SDW"
+    assert json_response.json()["metadata"]["source_url"].startswith("https://www3.hkexnews.hk/")
+    assert service.calls == [("1592", 25)]

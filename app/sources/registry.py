@@ -12,6 +12,11 @@ from urllib.parse import urlsplit
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
 from app.sources.google_drive_csv import google_drive_download_url
+from app.sources.hkex_sdw_parser import (
+    HKEX_SDW_PARSER_ID,
+    HKEX_SDW_PARSER_VERSION,
+    HKEX_SDW_SCHEMA_VERSION,
+)
 from app.sources.webbsite_parser import (
     WEBBSITE_PARSER_ID,
     WEBBSITE_PARSER_VERSION,
@@ -19,6 +24,7 @@ from app.sources.webbsite_parser import (
 )
 
 WEBBSITE_SOURCE_ID = "webbsite"
+HKEX_SDW_SOURCE_ID = "hkex_sdw"
 GOOGLE_DRIVE_CSV_SOURCE_ID = "google_drive_csv"
 SourceMode = Literal["auto", "webbsite", "google_drive_csv"]
 
@@ -358,6 +364,40 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             "persistent LKG is guarded by configured age and transient-error policy",
         ),
     )
+    hkex_sdw = _definition(
+        source_id=HKEX_SDW_SOURCE_ID,
+        display_name="HKEX SDW",
+        priority=30,
+        configured=True,
+        setting_enabled=settings.webbsite_enabled,
+        audit_state=SourceAuditState.APPROVED,
+        audit_date=None,
+        active_status=SourceStatus.ACTIVE,
+        capabilities=frozenset({SourceCapability.LATEST}),
+        fallback_eligible=False,
+        parser_id=HKEX_SDW_PARSER_ID,
+        parser_version=HKEX_SDW_PARSER_VERSION,
+        schema_version=HKEX_SDW_SCHEMA_VERSION,
+        policy=SourcePolicy(
+            timeout_seconds=settings.request_timeout_seconds,
+            max_bytes=settings.webbsite_max_bytes,
+            retry_attempts=settings.source_retry_attempts,
+            minimum_interval_seconds=settings.min_request_interval_seconds,
+            cache_ttl_seconds=settings.cache_ttl_seconds,
+            cache_policy="process_memory",
+            last_known_good_policy="persistent_normalized_snapshot",
+            lkg_max_age_seconds=settings.holdings_lkg_max_age_seconds,
+        ),
+        hostname="www3.hkexnews.hk",
+        attribution="HKEX SDW official shareholding search",
+        terms_review="approved_existing_source_scope",
+        robots_review="approved_existing_source_scope",
+        limitations=(
+            "latest holdings only",
+            "date-specific shareholding search uses the official SDW form",
+            "official publication window is limited to the past 12 months",
+        ),
+    )
     google = _definition(
         source_id=GOOGLE_DRIVE_CSV_SOURCE_ID,
         display_name="Google Drive CSV",
@@ -400,7 +440,13 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             "persistent normalized LKG is collector/service managed",
         ),
     )
-    return SourceRegistry({webbsite.source_id: webbsite, google.source_id: google})
+    return SourceRegistry(
+        {
+            webbsite.source_id: webbsite,
+            google.source_id: google,
+            hkex_sdw.source_id: hkex_sdw,
+        }
+    )
 
 
 def _definition(

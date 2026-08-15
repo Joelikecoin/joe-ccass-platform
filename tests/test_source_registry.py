@@ -11,6 +11,7 @@ from app.errors import ErrorCode, PlatformError
 from app.services.ccass import CcassService
 from app.sources.registry import (
     GOOGLE_DRIVE_CSV_SOURCE_ID,
+    HKEX_SDW_SOURCE_ID,
     WEBBSITE_SOURCE_ID,
     SourceAuditState,
     SourceCapability,
@@ -42,6 +43,7 @@ def test_registry_has_truthful_capabilities_and_configured_policies():
     registry = build_source_registry(settings)
     webbsite = registry.get(WEBBSITE_SOURCE_ID)
     google = registry.get(GOOGLE_DRIVE_CSV_SOURCE_ID)
+    hkex = registry.get(HKEX_SDW_SOURCE_ID)
 
     assert webbsite.status == SourceStatus.ACTIVE
     assert webbsite.audit.state == SourceAuditState.APPROVED
@@ -77,6 +79,19 @@ def test_registry_has_truthful_capabilities_and_configured_policies():
     assert google.policy.last_known_good_policy == "persistent_normalized_snapshot"
     assert google.policy.lkg_max_age_seconds == 604_800
 
+    assert hkex.status == SourceStatus.ACTIVE
+    assert hkex.audit.state == SourceAuditState.APPROVED
+    assert hkex.audit.terms_review == "approved_existing_source_scope"
+    assert hkex.audit.robots_review == "approved_existing_source_scope"
+    assert hkex.capabilities == frozenset({SourceCapability.LATEST})
+    assert hkex.supported_sections == frozenset({"holdings"})
+    assert not hkex.fallback_eligible
+    assert hkex.policy.timeout_seconds == 7.5
+    assert hkex.policy.max_bytes == 654_321
+    assert hkex.policy.retry_attempts == 3
+    assert hkex.policy.minimum_interval_seconds == 2.5
+    assert hkex.policy.cache_ttl_seconds == 321
+
 
 def test_registry_exposes_holdings_selection_roles_and_provenance():
     settings = Settings(ccass_csv_url=GOOGLE_URL)
@@ -85,22 +100,24 @@ def test_registry_exposes_holdings_selection_roles_and_provenance():
     selection = registry.select_holdings_sources("auto")
     webbsite = registry.get(WEBBSITE_SOURCE_ID)
     google = registry.get(GOOGLE_DRIVE_CSV_SOURCE_ID)
+    hkex = registry.get(HKEX_SDW_SOURCE_ID)
 
     assert selection.primary is webbsite
-    assert selection.fallback == (google,)
+    assert selection.fallback == (google, hkex)
     assert selection.unavailable == ()
-    assert selection.available == (webbsite, google)
+    assert selection.available == (webbsite, google, hkex)
     assert webbsite.availability.status == SourceStatus.ACTIVE
     assert webbsite.provenance.parser_id
     assert webbsite.provenance.attribution
     assert webbsite.provenance.known_limitations
     assert webbsite.safe_diagnostic()["availability"]["status"] == "active"
     assert webbsite.safe_diagnostic()["provenance"]["parser_id"] == webbsite.parser_id
+    assert hkex.safe_diagnostic()["safe_hostname"] == "www3.hkexnews.hk"
 
     explicit = registry.select_holdings_sources("webbsite")
     assert explicit.primary is webbsite
     assert explicit.fallback == ()
-    assert explicit.unavailable == (google,)
+    assert explicit.unavailable == (google, hkex)
 
 
 def test_safe_diagnostics_redact_urls_queries_credentials_and_private_paths():
@@ -116,14 +133,19 @@ def test_safe_diagnostics_redact_urls_queries_credentials_and_private_paths():
     assert {item["source_id"] for item in diagnostics} == {
         WEBBSITE_SOURCE_ID,
         GOOGLE_DRIVE_CSV_SOURCE_ID,
+        HKEX_SDW_SOURCE_ID,
     }
     google = next(item for item in diagnostics if item["source_id"] == GOOGLE_DRIVE_CSV_SOURCE_ID)
+    hkex = next(item for item in diagnostics if item["source_id"] == HKEX_SDW_SOURCE_ID)
     assert google["status"] == "unverified"
     assert google["capabilities"] == ()
     assert google["disabled_reason"] == "audit_unverified"
     assert google["safe_hostname"] == "drive.google.com"
     assert google["terms_review"] == "approved_configured_import_scope"
     assert google["robots_review"] == "not_applicable_no_crawling"
+    assert hkex["status"] == "active"
+    assert hkex["capabilities"] == ("latest",)
+    assert hkex["safe_hostname"] == "www3.hkexnews.hk"
     for forbidden in (
         "registry-fixture",
         "private-resource-key",
