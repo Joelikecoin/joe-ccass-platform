@@ -65,9 +65,6 @@ from ccass_core.research_workflow_presentation import build_research_workflow_su
 from ccass_core.source_trace import SourceTraceView, build_source_trace_markdown, build_source_trace_view
 
 NAV_SECTION_KEYS = (
-    "full_summary",
-    "company",
-    "metadata",
     "fetch_summary",
     "all_tables",
     "dt_rainbow",
@@ -75,11 +72,12 @@ NAV_SECTION_KEYS = (
     "stock_events",
     "capital_information",
     "officers",
+    "price",
+    "company",
     "holdings",
     "changes",
     "big_changes",
     "concentration",
-    "price",
     "raw_previews",
     "copy_for_chatgpt",
     "downloads",

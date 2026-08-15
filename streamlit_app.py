@@ -233,6 +233,178 @@ def _render_download_copy_controls(
                     )
 
 
+def _render_resolved_metadata_cards(
+    prepared,
+    *,
+    locale: str,
+) -> None:
+    response = getattr(prepared, "response", None)
+    if response is None:
+        st.markdown("### Resolved Metadata")
+        st.info(ui_text(locale, "report.data_not_available"))
+        return
+
+    metadata = response.metadata
+    source_trace = getattr(prepared, "source_trace", None)
+    lookup_status = (
+        "success"
+        if metadata.issue_id is not None and response.metadata.holdings_date is not None
+        else "not fetched"
+    )
+    st.markdown("### Resolved Metadata")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown("**Stock code**")
+        st.metric(label="Stock code", value=_display_text(metadata.code, locale))
+    with col2:
+        st.markdown("**Webb-site issue ID**")
+        st.metric(label="Webb-site issue ID", value=_display_text(metadata.issue_id, locale))
+    with col3:
+        st.markdown("**ID lookup status**")
+        st.metric(label="ID lookup status", value=lookup_status)
+
+    source_name = _display_text(metadata.source_name, locale)
+    source_url = _display_text(metadata.source_url, locale)
+    data_as_of = _display_text(metadata.data_as_of, locale)
+    fetched_at = _display_text(metadata.fetched_at, locale)
+    source_used = (
+        _display_text(getattr(source_trace.source_identity, "source_name", None), locale)
+        if source_trace is not None
+        else source_name
+    )
+    source_mode = (
+        _display_text(getattr(source_trace.selection, "selected_source_id", None), locale)
+        if source_trace is not None
+        else "not recorded"
+    )
+    st.caption(
+        f"Source mode: {source_mode} | Source used: {source_used} | Data as of: {data_as_of} | Fetched at: {fetched_at}"
+    )
+    st.caption(
+        f"Source URL: {source_url}"
+    )
+    st.info(
+        metadata.settlement_note
+        if metadata.settlement_note
+        else ui_text(locale, "report.data_not_available")
+    )
+
+
+def _render_price_turnover_history_section(
+    prepared,
+    *,
+    locale: str,
+) -> None:
+    response = getattr(prepared, "response", None)
+    price_history = getattr(prepared, "price_history", None)
+
+    st.markdown("## Price & Turnover History")
+    if response is None:
+        st.info(ui_text(locale, "report.data_not_available"))
+        return
+    if price_history is None or not price_history.prices:
+        st.info(ui_text(locale, "report.price_history.unavailable"))
+        return
+
+    latest = price_history.prices[-1]
+    previous = price_history.prices[-2] if len(price_history.prices) > 1 else None
+    latest_vwap = None
+    if latest.volume not in (None, 0) and latest.turnover is not None:
+        try:
+            latest_vwap = latest.turnover / latest.volume
+        except Exception:
+            latest_vwap = None
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown("**Latest Close**")
+        st.metric("Latest Close", _display_text(latest.close, locale))
+    with c2:
+        st.markdown("**Volume**")
+        st.metric("Volume", _display_text(latest.volume, locale))
+    with c3:
+        st.markdown("**Turnover**")
+        st.metric("Turnover", _display_text(latest.turnover, locale))
+    with c4:
+        st.markdown("**Latest Daily VWAP**")
+        st.metric("Latest Daily VWAP", _display_text(latest_vwap or latest.adjusted_close or latest.close, locale))
+    st.caption(
+        "Price history comes from the configured source contract and is shown as the latest available closing-price and turnover path."
+    )
+    try:
+        import pandas as pd
+
+        chart_rows = [
+            {
+                "date": row.price_date,
+                "close": row.close,
+                "turnover": row.turnover,
+                "volume": row.volume,
+            }
+            for row in price_history.prices
+        ]
+        frame = pd.DataFrame(chart_rows).set_index("date")
+        st.line_chart(frame[["close"]], height=260, use_container_width=True)
+        st.bar_chart(frame[["turnover"]], height=220, use_container_width=True)
+    except Exception:
+        st.info("Chart rendering is unavailable in the current runtime, but the price history rows remain available below.")
+    if previous is not None:
+        st.caption(
+            f"Previous close: {previous.close if previous.close is not None else 'n/a'} | Previous turnover: {previous.turnover if previous.turnover is not None else 'n/a'}"
+        )
+
+
+def _render_download_this_stock_section(
+    prepared,
+    *,
+    locale: str,
+) -> None:
+    response = getattr(prepared, "response", None)
+    st.markdown("## Download This Stock")
+    st.caption(
+        "One CSV contains Holdings, Changes, Big Changes and Concentration with source URL, fetched time and data meaning."
+    )
+    if response is None:
+        st.info(ui_text(locale, "downloads_unavailable"))
+        return
+
+    download_artifacts = build_download_artifacts(response, locale=locale)
+    combined_col, workbook_col, backup_col = st.columns(3)
+    with combined_col:
+        st.markdown("**Download All CCASS Data CSV**")
+        st.download_button(
+            "Download All CCASS Data CSV",
+            data=download_artifacts.combined_csv_bytes,
+            file_name=download_artifacts.combined_csv_filename,
+            mime="text/csv",
+            use_container_width=True,
+        )
+    with workbook_col:
+        st.markdown("**Download Excel**")
+        st.download_button(
+            "Download Excel",
+            data=download_artifacts.workbook_bytes,
+            file_name=download_artifacts.workbook_filename,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+    with backup_col:
+        st.markdown("**Download Snapshot DB Backup**")
+        sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
+        if sqlite_path.is_file():
+            st.download_button(
+                "Download Snapshot DB Backup",
+                data=sqlite_path.read_bytes(),
+                file_name=sqlite_path.name,
+                mime="application/octet-stream",
+                use_container_width=True,
+            )
+        else:
+            st.info("Snapshot DB backup is unavailable in this runtime.")
+    with st.expander("CSV content preview", expanded=False):
+        st.caption(ui_text(locale, "downloads_first_80_csv_lines"))
+        st.code(download_artifacts.combined_csv_preview, language="csv")
+
+
 def _history_range_start(end_date: date, history_range: str) -> date:
     windows = {
         "7 days": 7,
@@ -265,29 +437,24 @@ def _announcement_period_start(end_date: date, announcement_period: str) -> date
 
 _load_streamlit_secrets()
 settings = get_settings()
+# Reference Website is English-first; keep the initial Joe Clone session aligned.
 if "locale" not in st.session_state:
-    st.session_state.locale = DEFAULT_LOCALE
-current_locale = st.session_state.get("locale", DEFAULT_LOCALE)
-st.set_page_config(page_title=ui_text(current_locale, "app_title"), page_icon="??", layout="wide")
+    st.session_state.locale = "en"
+current_locale = st.session_state.get("locale", "en")
+st.set_page_config(page_title=ui_text(current_locale, "app_title"), page_icon="📊", layout="wide")
 st.markdown(streamlit_responsive_layout_css(), unsafe_allow_html=True)
 st.title(ui_text(current_locale, "app_title"))
 st.caption(ui_text(current_locale, "app_caption"))
 st.markdown(streamlit_navigation_links(current_locale))
 st.caption(ui_text(current_locale, "jump_links_caption"))
-st.markdown(build_research_workflow_overview_markdown(locale=current_locale))
+with st.expander(ui_text(current_locale, "research_workflow_heading"), expanded=False):
+    st.markdown(build_research_workflow_overview_markdown(locale=current_locale))
 st.caption(
     "Research note: the flow reuses existing CCASS holdings, snapshot, research, and report surfaces without changing the backend contract."
 )
 
 with st.sidebar:
     st.header(ui_text(current_locale, "sidebar_header"))
-    st.selectbox(
-        ui_text(current_locale, "sidebar_language"),
-        SUPPORTED_LOCALES,
-        key="locale",
-        format_func=lambda value: ui_text(value, f"locale_name.{value}"),
-    )
-    current_locale = st.session_state.get("locale", DEFAULT_LOCALE)
     input_type = st.radio(
         ui_text(current_locale, "sidebar_input_type"),
         ("Stock Code", "Webb-site Issue ID"),
@@ -300,47 +467,59 @@ with st.sidebar:
         value=float(settings.request_timeout_seconds),
         step=1.0,
     )
-    big_change_threshold = st.number_input(
-        ui_text(current_locale, "sidebar_big_change_threshold"),
-        min_value=0,
-        value=settings.big_changes_threshold_shares,
-        step=100000,
-    )
     announcement_period = st.selectbox(
         ui_text(current_locale, "sidebar_announcement_period"),
         ("All", "7 days", "30 days", "90 days"),
         index=0,
         format_func=lambda value: _choice_label(current_locale, "announcement_period", value),
     )
-    source_mode = st.selectbox(
-        ui_text(current_locale, "sidebar_source_mode"),
-        ("auto", "webbsite", "google_drive_csv"),
-        index=("auto", "webbsite", "google_drive_csv").index(settings.data_source),
-        format_func=lambda value: _choice_label(current_locale, "source_mode", value),
-    )
-    data_date = st.date_input(ui_text(current_locale, "sidebar_data_date"), value=date.today())
-    history_range = st.selectbox(
-        ui_text(current_locale, "sidebar_history_range"),
-        ("Latest", "7 days", "30 days", "90 days", "Custom"),
-        index=0,
-        format_func=lambda value: _choice_label(current_locale, "history_range", value),
-    )
-    top_n = st.slider(ui_text(current_locale, "sidebar_top_n"), min_value=5, max_value=100, value=20, step=5)
-    percentage_basis = st.selectbox(
-        ui_text(current_locale, "sidebar_percentage_basis"),
-        ("CCASS", "Issued Shares"),
-        index=0,
-        format_func=lambda value: _choice_label(current_locale, "percentage_basis", value),
-    )
-    show_rendered_markdown = st.checkbox(ui_text(current_locale, "sidebar_show_rendered_markdown"), value=True)
-    use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=False)
-    st.caption(ui_text(current_locale, "sidebar_use_local_history_caption"))
-    load_price_history = st.checkbox(ui_text(current_locale, "sidebar_load_price_history"), value=False)
-    show_optional_heavy_sections = st.checkbox(
-        ui_text(current_locale, "sidebar_show_optional_heavy_sections"),
-        value=False,
-    )
-    st.caption(ui_text(current_locale, "sidebar_show_optional_heavy_sections_caption"))
+    show_rendered_markdown = False
+    use_local_history = True
+    load_price_history = True
+    show_optional_heavy_sections = True
+    with st.expander("Advanced Settings", expanded=False):
+        st.selectbox(
+            ui_text(current_locale, "sidebar_language"),
+            SUPPORTED_LOCALES,
+            key="locale",
+            format_func=lambda value: ui_text(value, f"locale_name.{value}"),
+        )
+        current_locale = st.session_state.get("locale", "en")
+        big_change_threshold = st.number_input(
+            ui_text(current_locale, "sidebar_big_change_threshold"),
+            min_value=0,
+            value=settings.big_changes_threshold_shares,
+            step=100000,
+        )
+        source_mode = st.selectbox(
+            ui_text(current_locale, "sidebar_source_mode"),
+            ("auto", "webbsite", "google_drive_csv"),
+            index=("auto", "webbsite", "google_drive_csv").index(settings.data_source),
+            format_func=lambda value: _choice_label(current_locale, "source_mode", value),
+        )
+        data_date = st.date_input(ui_text(current_locale, "sidebar_data_date"), value=date.today())
+        history_range = st.selectbox(
+            ui_text(current_locale, "sidebar_history_range"),
+            ("Latest", "7 days", "30 days", "90 days", "Custom"),
+            index=0,
+            format_func=lambda value: _choice_label(current_locale, "history_range", value),
+        )
+        top_n = st.slider(ui_text(current_locale, "sidebar_top_n"), min_value=5, max_value=100, value=20, step=5)
+        percentage_basis = st.selectbox(
+            ui_text(current_locale, "sidebar_percentage_basis"),
+            ("CCASS", "Issued Shares"),
+            index=0,
+            format_func=lambda value: _choice_label(current_locale, "percentage_basis", value),
+        )
+        show_rendered_markdown = st.checkbox(ui_text(current_locale, "sidebar_show_rendered_markdown"), value=True)
+        use_local_history = st.checkbox(ui_text(current_locale, "sidebar_use_local_history"), value=True)
+        st.caption(ui_text(current_locale, "sidebar_use_local_history_caption"))
+        load_price_history = st.checkbox(ui_text(current_locale, "sidebar_load_price_history"), value=True)
+        show_optional_heavy_sections = st.checkbox(
+            ui_text(current_locale, "sidebar_show_optional_heavy_sections"),
+            value=True,
+        )
+        st.caption(ui_text(current_locale, "sidebar_show_optional_heavy_sections_caption"))
     st.caption(
         ui_text(
             current_locale,
@@ -497,6 +676,9 @@ if prepared is not None:
         if prepared.fetch_error:
             st.error(prepared.fetch_error)
             st.info(ui_text(current_locale, "fetch_summary_remaining"))
+        _render_resolved_metadata_cards(prepared, locale=current_locale)
+        _render_price_turnover_history_section(prepared, locale=current_locale)
+        _render_download_this_stock_section(prepared, locale=current_locale)
         st.markdown(build_research_workflow_summary_markdown(prepared.workflow, locale=current_locale))
         research_context_entry = (
             prepared.research_context_entry
@@ -504,7 +686,8 @@ if prepared is not None:
             else build_ai_research_context_consumer_entry_from_prepared_report(prepared)
         )
         if research_context_entry is not None:
-            st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))
+            with st.expander("AI Research Context", expanded=False):
+                st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))
         st.markdown(build_research_dashboard_markdown(prepared, history_snapshots=history_snapshots, locale=current_locale))
         st.markdown(build_ownership_distribution_markdown(prepared, locale=current_locale))
         st.markdown(build_broker_distribution_markdown(prepared, locale=current_locale))
@@ -558,12 +741,6 @@ if prepared is not None:
             _render_markdown_sections(("research_context_handoff", "company"), report_sections)
             st.markdown(f"### {ui_text(current_locale, 'company_information_heading')}")
             st.caption(ui_text(current_locale, "company_information_caption"))
-            _render_download_copy_controls(
-                locale=current_locale,
-                prepared=prepared,
-                localized_markdown=localized_markdown,
-                localized_chatgpt_payload=localized_chatgpt_payload,
-            )
             _render_named_expander(
                 ui_text(current_locale, "hkex_announcements_heading"),
                 report_sections.get("announcements"),
@@ -595,6 +772,12 @@ if prepared is not None:
             )
             with st.expander(ui_text(current_locale, "report_detail_historical_information"), expanded=False):
                 _render_markdown_sections(("concentration_history", "price_history"), report_sections)
+            _render_download_copy_controls(
+                locale=current_locale,
+                prepared=prepared,
+                localized_markdown=localized_markdown,
+                localized_chatgpt_payload=localized_chatgpt_payload,
+            )
 
         if show_rendered_markdown:
             st.markdown(f"### {ui_text(current_locale, 'rendered_markdown')}")
