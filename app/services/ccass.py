@@ -107,20 +107,20 @@ class RepositorySnapshotBackend:
             candidates = [
                 snapshot
                 for source_id in self.source_ids
-                if (snapshot := self.repository.latest(code, source_id=source_id, include_partial=False))
+                if (snapshot := self.repository.latest(code, source_id=source_id, include_partial=True))
                 is not None
             ]
             if not candidates:
                 return None
             return max(candidates, key=lambda snapshot: snapshot.fetched_at)
-        return self.repository.latest(code, include_partial=False)
+        return self.repository.latest(code, include_partial=True)
 
     def _is_valid_snapshot(
         self,
         snapshot: HistoricalSnapshot,
         requested_at=None,
     ) -> bool:
-        if snapshot.partial or snapshot.stale:
+        if snapshot.stale:
             return False
         fetched_at = snapshot.fetched_at
         if fetched_at.tzinfo is None or fetched_at.utcoffset() is None:

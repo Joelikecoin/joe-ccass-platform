@@ -678,6 +678,42 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     assert len(service.calls) == 1
 
 
+def test_render_prepared_report_falls_back_when_ai_context_memory_pressure_occurs(
+    monkeypatch,
+    current_response,
+):
+    import app.streamlit_ui as streamlit_ui
+
+    service = SuccessfulService(current_response)
+
+    async def _build_prepared_report():
+        return await prepare_report(
+            '1592',
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=service,
+            locale=DEFAULT_LOCALE,
+        )
+
+    prepared = asyncio.run(_build_prepared_report())
+
+    def _raise_memory_error(*args, **kwargs):
+        raise MemoryError("simulated memory pressure")
+
+    monkeypatch.setattr(
+        streamlit_ui,
+        "build_ai_research_context_consumer_entry_for_result",
+        _raise_memory_error,
+    )
+
+    markdown, payload = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
+
+    assert "MemoryError" not in markdown
+    assert "Holdings" in markdown
+    assert isinstance(payload, str)
+    assert len(service.calls) == 1
+
+
 def test_streamlit_company_section_renders_identity_details(monkeypatch, current_response):
     import app.services.ccass as ccass_service
 

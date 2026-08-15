@@ -400,19 +400,29 @@ async def prepare_report(
         research_workflow=workflow,
         locale=locale,
     )
-    research_context_entry = build_ai_research_context_consumer_entry_for_result(
-        code=code,
-        response=response,
-        analysis=analysis,
-        previous_response=previous,
-        announcements=announcements,
-        stock_events=stock_events,
-        capital_information=capital_information,
-        officers=officers,
-        price_history=price_history,
-        workflow=workflow,
-        source_trace=source_trace,
-    )
+    try:
+        research_context_entry = build_ai_research_context_consumer_entry_for_result(
+            code=code,
+            response=response,
+            analysis=analysis,
+            previous_response=previous,
+            announcements=announcements,
+            stock_events=stock_events,
+            capital_information=capital_information,
+            officers=officers,
+            price_history=price_history,
+            workflow=workflow,
+            source_trace=source_trace,
+        )
+    except MemoryError as exc:
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "AI_RESEARCH_CONTEXT_UNAVAILABLE",
+                f"AI research context is unavailable (MemoryError: {type(exc).__name__}).",
+            )
+        )
+        research_context_entry = None
     if source_trace is not None:
         markdown = "\n\n".join((markdown.rstrip(), build_source_trace_markdown(source_trace)))
     _progress(progress, 100, ui_text(locale, "progress_ready"))
@@ -655,19 +665,22 @@ def build_download_artifacts(
 def build_ai_research_context_consumer_entry_from_prepared_report(
     prepared: PreparedReport,
 ) -> AIResearchContextConsumerEntry | None:
-    return build_ai_research_context_consumer_entry_for_result(
-        code=prepared.code,
-        response=prepared.response,
-        analysis=prepared.analysis,
-        previous_response=prepared.previous_response,
-        announcements=prepared.announcements,
-        stock_events=prepared.stock_events,
-        capital_information=prepared.capital_information,
-        officers=prepared.officers,
-        price_history=prepared.price_history,
-        workflow=prepared.workflow,
-        source_trace=prepared.source_trace,
-    )
+    try:
+        return build_ai_research_context_consumer_entry_for_result(
+            code=prepared.code,
+            response=prepared.response,
+            analysis=prepared.analysis,
+            previous_response=prepared.previous_response,
+            announcements=prepared.announcements,
+            stock_events=prepared.stock_events,
+            capital_information=prepared.capital_information,
+            officers=prepared.officers,
+            price_history=prepared.price_history,
+            workflow=prepared.workflow,
+            source_trace=prepared.source_trace,
+        )
+    except MemoryError:
+        return None
 
 
 def build_ai_research_context_consumer_entry_for_result(

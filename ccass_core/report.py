@@ -1134,7 +1134,17 @@ def build_markdown_report(
     if research_context_entry is not None:
         from ccass_core.ai_research_context_entry import build_ai_research_context_consumer_entry_markdown
 
-        lines.extend([build_ai_research_context_consumer_entry_markdown(research_context_entry), ""])
+        try:
+            lines.extend([build_ai_research_context_consumer_entry_markdown(research_context_entry), ""])
+        except MemoryError:
+            lines.extend(
+                [
+                    "### AI Research Context",
+                    "",
+                    "AI research context is unavailable because rendering exceeded the runtime memory limit.",
+                    "",
+                ]
+            )
 
     if response is None:
         reason = fetch_error or translate_text(locale, "report.no_source_response")

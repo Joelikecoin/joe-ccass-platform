@@ -40,6 +40,7 @@ from app.streamlit_ui import (
     streamlit_navigation_links,
     streamlit_responsive_layout_css,
     split_report_markdown_sections,
+    _display_text,
     ui_text,
 )
 from app.storage.history import NormalizedSnapshotRepository
@@ -680,11 +681,12 @@ if prepared is not None:
         _render_price_turnover_history_section(prepared, locale=current_locale)
         _render_download_this_stock_section(prepared, locale=current_locale)
         st.markdown(build_research_workflow_summary_markdown(prepared.workflow, locale=current_locale))
-        research_context_entry = (
-            prepared.research_context_entry
-            if prepared.research_context_entry is not None
-            else build_ai_research_context_consumer_entry_from_prepared_report(prepared)
-        )
+        research_context_entry = prepared.research_context_entry
+        if research_context_entry is None:
+            try:
+                research_context_entry = build_ai_research_context_consumer_entry_from_prepared_report(prepared)
+            except MemoryError:
+                research_context_entry = None
         if research_context_entry is not None:
             with st.expander("AI Research Context", expanded=False):
                 st.markdown(build_ai_research_context_consumer_entry_markdown(research_context_entry))

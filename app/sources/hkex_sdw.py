@@ -81,28 +81,41 @@ class HKEXSdwClient:
         async with self._request_lock:
             client = await self._get_session_client()
             await self._maybe_wait()
-            landing_response = await self._request_html(
-                client,
-                "GET",
-                landing_url,
-                headers=landing_headers,
-                phase="landing",
-            )
-            search_payload = self._build_search_payload(landing_response.html, code, search_date)
-            search_headers = self._browser_headers(
-                base_url,
-                referer=landing_response.source_url,
-            )
-            await self._maybe_wait()
-            result_response = await self._request_html(
-                client,
-                "POST",
-                urljoin(landing_url, search_payload.pop("_action", HKEX_SDW_SEARCH_PATH)),
-                data=search_payload,
-                headers=search_headers,
-                phase="search",
-            )
-            return result_response
+            try:
+                landing_response = await self._request_html(
+                    client,
+                    "GET",
+                    landing_url,
+                    headers=landing_headers,
+                    phase="landing",
+                )
+                search_payload = self._build_search_payload(
+                    landing_response.html, code, search_date
+                )
+                search_headers = self._browser_headers(
+                    base_url,
+                    referer=landing_response.source_url,
+                )
+                await self._maybe_wait()
+                result_response = await self._request_html(
+                    client,
+                    "POST",
+                    urljoin(landing_url, search_payload.pop("_action", HKEX_SDW_SEARCH_PATH)),
+                    data=search_payload,
+                    headers=search_headers,
+                    phase="search",
+                )
+                return result_response
+            except PlatformError as primary_error:
+                browser_page = await self._fetch_holdings_page_via_browser(
+                    base_url=base_url,
+                    landing_url=landing_url,
+                    code=code,
+                    search_date=search_date,
+                )
+                if browser_page is not None:
+                    return browser_page
+                raise primary_error
 
     async def _request_html(
         self,
@@ -197,6 +210,77 @@ class HKEXSdwClient:
             )
 
         return FetchedPage(html=html, source_url=str(response.url), cached=False)
+
+    @staticmethod
+    def _load_playwright_async_api():
+        try:
+            from playwright.async_api import async_playwright
+        except ImportError:
+            return None
+        return async_playwright
+
+    async def _fetch_holdings_page_via_browser(
+        self,
+        *,
+        base_url: str,
+        landing_url: str,
+        code: str,
+        search_date: str,
+    ) -> FetchedPage | None:
+        async_playwright = self._load_playwright_async_api()
+        if async_playwright is None:
+            return None
+
+        browser = None
+        context = None
+        try:
+            async with async_playwright() as playwright:
+                browser = await playwright.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    user_agent=self.settings.user_agent,
+                    extra_http_headers=self._browser_headers(base_url),
+                )
+                page = await context.new_page()
+                await page.goto(landing_url, wait_until="domcontentloaded")
+                date_input = page.locator("#txtShareholdingDate")
+                try:
+                    await date_input.evaluate(
+                        """(element, value) => {
+                            element.removeAttribute('readonly');
+                            element.value = value;
+                            element.dispatchEvent(new Event('input', { bubbles: true }));
+                            element.dispatchEvent(new Event('change', { bubbles: true }));
+                        }""",
+                        search_date,
+                    )
+                except Exception:
+                    pass
+                await page.locator("#txtStockCode").fill(code)
+                try:
+                    await page.locator("#btnSearch").click()
+                except Exception:
+                    await page.locator("form").evaluate("form => form.requestSubmit()")
+                try:
+                    await page.wait_for_load_state("networkidle")
+                except Exception:
+                    pass
+                html = await page.content()
+                if not html.strip():
+                    return None
+                return FetchedPage(html=html, source_url=page.url or landing_url, cached=False)
+        except Exception:
+            return None
+        finally:
+            if context is not None:
+                try:
+                    await context.close()
+                except Exception:
+                    pass
+            if browser is not None:
+                try:
+                    await browser.close()
+                except Exception:
+                    pass
 
     def _build_search_payload(self, html: str, code: str, search_date: str) -> dict[str, str]:
         soup = BeautifulSoup(html, "html.parser")

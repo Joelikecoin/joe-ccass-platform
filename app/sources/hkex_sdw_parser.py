@@ -15,12 +15,18 @@ HKEX_SDW_PARSER_VERSION = "1"
 HKEX_SDW_SCHEMA_VERSION = "ccass-response-v1"
 
 _DATE_PATTERN = re.compile(r"CCASS holdings on \d{4}-\d{2}-\d{2}", re.IGNORECASE)
+_DATE_VALUE_PATTERN = re.compile(r"\d{4}[/-]\d{2}[/-]\d{2}")
 _PARTICIPANT_ID_PATTERN = re.compile(r"[A-Z]\d{5}")
 _SUMMARY_LABELS = (
     "Total in CCASS",
     "Issued securities",
     "Securities not in CCASS",
 )
+_LIVE_SUMMARY_LABELS = {
+    "市場中介者",
+    "不願意披露的投資者戶口持有人",
+    "總數",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,7 +52,7 @@ def parse_hkex_sdw_holdings(html: str, *, requested_code: str) -> ParsedHKEXSdwH
     issue_id, name = _parse_identity(soup, requested_code)
     holdings_date = _parse_snapshot_date(soup)
     summary_values = _parse_summary(soup)
-    holdings = _parse_holdings_rows(soup)
+    holdings = _parse_holdings_rows(soup, total_ccass_shares=summary_values["Total in CCASS"][0])
     summary = _build_summary(summary_values, holdings, holdings_date)
 
     warnings: list[str] = []
@@ -128,42 +134,110 @@ def _parse_identity(soup: BeautifulSoup, requested_code: str) -> tuple[int, str 
 def _parse_snapshot_date(soup: BeautifulSoup) -> date | None:
     date_heading = soup.find(string=lambda value: bool(value and _DATE_PATTERN.search(value)))
     if date_heading is None:
+        original_date = soup.select_one('input[name="originalShareholdingDate"][value]')
+        if original_date is not None:
+            raw_value = str(original_date.get("value") or "").strip()
+            if raw_value:
+                normalized = raw_value.replace("/", "-")
+                parsed = parse_iso_date(normalized)
+                if parsed is not None:
+                    return parsed
         return None
-    return parse_iso_date(str(date_heading))
+    parsed = parse_iso_date(str(date_heading))
+    if parsed is not None:
+        return parsed
+    match = _DATE_VALUE_PATTERN.search(str(date_heading))
+    if match:
+        return parse_iso_date(match.group(0).replace("/", "-"))
+    return None
 
 
 def _parse_summary(soup: BeautifulSoup) -> dict[str, tuple[int, float]]:
-    summary_table = next(
-        (
-            table
-            for table in soup.find_all("table")
-            if all(label in table.get_text(" ", strip=True) for label in _SUMMARY_LABELS)
-        ),
-        None,
-    )
-    if summary_table is None:
+    summary_root = soup.select_one("div.ccass-search-summary-table")
+    values: dict[str, tuple[int, float]] = {}
+
+    if summary_root is not None:
+        rows = summary_root.select("div.ccass-search-datarow")
+        if rows:
+            total_ccass: int | None = None
+            issued_shares: int | None = None
+            total_pct: float | None = None
+            for row in rows:
+                category = row.select_one("div.summary-category")
+                shareholding = row.select_one("div.shareholding div.value")
+                participants = row.select_one("div.number-of-participants div.value")
+                pct = row.select_one("div.percent-of-participants div.value")
+                if category is None or shareholding is None or participants is None or pct is None:
+                    continue
+                label = category.get_text(" ", strip=True)
+                if label not in _LIVE_SUMMARY_LABELS:
+                    continue
+                try:
+                    shares = parse_int(shareholding.get_text(" ", strip=True))
+                    percent = parse_float(pct.get_text(" ", strip=True))
+                    if label == "總數":
+                        total_ccass = shares
+                        total_pct = percent
+                    elif label == "市場中介者":
+                        values["Market intermediaries"] = (shares, percent)
+                    elif label == "不願意披露的投資者戶口持有人":
+                        values["Non-disclosing investor account holders"] = (shares, percent)
+                except ValueError as exc:
+                    raise PlatformError(
+                        ErrorCode.PARSE_ERROR,
+                        f"Could not parse HKEX SDW summary field {label!r}.",
+                    ) from exc
+
+            remarks_value = summary_root.select_one("div.ccass-search-remarks div.summary-value")
+            if remarks_value is not None:
+                try:
+                    issued_shares = parse_int(remarks_value.get_text(" ", strip=True))
+                except ValueError as exc:
+                    raise PlatformError(
+                        ErrorCode.PARSE_ERROR,
+                        "Could not parse HKEX SDW issued shares value.",
+                    ) from exc
+
+            if total_ccass is not None and issued_shares is not None:
+                total_pct = round(total_ccass / issued_shares * 100, 4) if issued_shares else None
+                non_ccass = issued_shares - total_ccass
+                non_ccass_pct = round(100 - total_pct, 4) if total_pct is not None else None
+                values["Total in CCASS"] = (total_ccass, total_pct if total_pct is not None else 0.0)
+                values["Issued securities"] = (issued_shares, 100.0)
+                values["Securities not in CCASS"] = (non_ccass, non_ccass_pct if non_ccass_pct is not None else 0.0)
+
+        if not values:
+            summary_table = next(
+                (
+                    table
+                    for table in soup.find_all("table")
+                    if all(label in table.get_text(" ", strip=True) for label in _SUMMARY_LABELS)
+                ),
+                None,
+            )
+            if summary_table is not None:
+                for row in summary_table.select("tr"):
+                    cells = _cells(row)
+                    if not cells or cells[0] not in _SUMMARY_LABELS:
+                        continue
+                    if len(cells) < 3:
+                        raise PlatformError(
+                            ErrorCode.SOURCE_CHANGED,
+                            f"The HKEX SDW summary field {cells[0]!r} has changed shape.",
+                        )
+                    try:
+                        values[cells[0]] = (parse_int(cells[1]), parse_float(cells[2]))
+                    except ValueError as exc:
+                        raise PlatformError(
+                            ErrorCode.PARSE_ERROR,
+                            f"Could not parse HKEX SDW summary field {cells[0]!r}.",
+                        ) from exc
+
+    if not values:
         raise PlatformError(
             ErrorCode.SOURCE_CHANGED,
             "The HKEX SDW Holdings summary table or required fields were not found.",
         )
-
-    values: dict[str, tuple[int, float]] = {}
-    for row in summary_table.select("tr"):
-        cells = _cells(row)
-        if not cells or cells[0] not in _SUMMARY_LABELS:
-            continue
-        if len(cells) < 3:
-            raise PlatformError(
-                ErrorCode.SOURCE_CHANGED,
-                f"The HKEX SDW summary field {cells[0]!r} has changed shape.",
-            )
-        try:
-            values[cells[0]] = (parse_int(cells[1]), parse_float(cells[2]))
-        except ValueError as exc:
-            raise PlatformError(
-                ErrorCode.PARSE_ERROR,
-                f"Could not parse HKEX SDW summary field {cells[0]!r}.",
-            ) from exc
 
     missing = [label for label in _SUMMARY_LABELS if label not in values]
     if missing:
@@ -174,7 +248,69 @@ def _parse_summary(soup: BeautifulSoup) -> dict[str, tuple[int, float]]:
     return values
 
 
-def _parse_holdings_rows(soup: BeautifulSoup) -> list[HoldingRow]:
+def _parse_holdings_rows(
+    soup: BeautifulSoup,
+    *,
+    total_ccass_shares: int | None,
+) -> list[HoldingRow]:
+    live_table = next(
+        (
+            table
+            for table in soup.find_all("table")
+            if "參與者編號" in table.get_text(" ", strip=True)
+            and "持股量" in table.get_text(" ", strip=True)
+            and "百分比" in table.get_text(" ", strip=True)
+        ),
+        None,
+    )
+    if live_table is not None:
+        live_rows = live_table.select("tbody tr")
+        holdings: list[HoldingRow] = []
+        cumulative_pct = 0.0
+        for rank, row in enumerate(live_rows, start=1):
+            cells = [cell.get_text(" ", strip=True) for cell in row.select("div.mobile-list-body")]
+            if len(cells) < 5:
+                continue
+            participant_id = cells[0]
+            participant_name = cells[1]
+            shares_text = cells[3]
+            pct_text = cells[4]
+            if not participant_id or not participant_name:
+                continue
+            try:
+                shares = parse_int(shares_text)
+                pct_of_issued = parse_float(pct_text)
+            except ValueError as exc:
+                raise PlatformError(
+                    ErrorCode.PARSE_ERROR,
+                    f"Could not parse HKEX SDW Holdings row at rank {rank}.",
+                ) from exc
+            cumulative_pct += pct_of_issued
+            holdings.append(
+                HoldingRow(
+                    rank=rank,
+                    participant_id=participant_id,
+                    participant=participant_name,
+                    shares=shares,
+                    last_change=None,
+                    pct_of_issued=pct_of_issued,
+                    pct_of_ccass=(
+                        round(shares / total_ccass_shares * 100, 6)
+                        if total_ccass_shares
+                        else None
+                    ),
+                    cumulative_pct_of_issued=round(cumulative_pct, 6),
+                    participant_category=classify_participant(participant_id, participant_name),
+                )
+            )
+
+        if not holdings:
+            raise PlatformError(
+                ErrorCode.PARSE_ERROR,
+                "The HKEX SDW Holdings table was present but contained no participant rows.",
+            )
+        return holdings
+
     details_table = next(
         (
             table
