@@ -64,6 +64,16 @@ class CcassResponse(BaseModel):
     holdings_summary: HoldingsSummary
     holdings: list[HoldingRow] = Field(default_factory=list)
     data_quality_warnings: list[str] = Field(default_factory=list)
+    fetch_summary: str | None = None
+    errors: list[str] = Field(default_factory=list)
+    changes: "ChangesResponse | None" = None
+    big_changes: "BigChangesResponse | None" = None
+    concentration: "ConcentrationResponse | None" = None
+    price_history: "PriceHistoryResponse | None" = None
+    announcements: "AnnouncementsResponse | None" = None
+    stock_events: "StockEventsResponse | None" = None
+    capital_information: "CapitalInformationResponse | None" = None
+    officers: "OfficersResponse | None" = None
 
 
 class ChangesSourceMetadata(BaseModel):

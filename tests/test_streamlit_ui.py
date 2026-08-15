@@ -1341,6 +1341,62 @@ def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_resp
     ]
 
 
+def test_build_download_artifacts_includes_related_contract_sheets(current_response):
+    enriched = current_response.model_copy(
+        update={
+            "announcements": _sample_announcements_response(),
+            "officers": _ready_officers_response(),
+            "price_history": PriceHistoryResponse(
+                metadata=PriceHistoryMetadata(
+                    code="01592",
+                    name="TEST FIXTURE ??GOLDEN STOCK",
+                    ticker="01592.HK",
+                    price_date_from=date(2026, 7, 19),
+                    price_date_to=date(2026, 7, 20),
+                    source_name="Yahoo Finance",
+                    source_url="https://query1.finance.yahoo.com/v8/finance/chart/01592.HK",
+                    fetched_at=datetime(2026, 7, 21, 9, 0, 0, tzinfo=UTC),
+                    adjustment_state="adjusted",
+                    currency="HKD",
+                    adjustment_note="Adjusted close values are available from Yahoo Finance.",
+                ),
+                prices=[
+                    PriceHistoryRow(
+                        price_date=date(2026, 7, 20),
+                        open=1.0,
+                        high=1.1,
+                        low=0.9,
+                        close=1.05,
+                        adjusted_close=1.01,
+                        volume=1000,
+                        turnover=1050.0,
+                    )
+                ],
+            ),
+        }
+    )
+
+    artifacts = build_download_artifacts(enriched)
+
+    with zipfile.ZipFile(BytesIO(artifacts.workbook_bytes)) as workbook_archive:
+        workbook_xml = ET.fromstring(workbook_archive.read("xl/workbook.xml"))
+
+    namespace = {"a": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
+    sheet_names = [
+        sheet.attrib["name"]
+        for sheet in workbook_xml.findall("a:sheets/a:sheet", namespace)
+    ]
+    assert sheet_names == [
+        "Combined CSV",
+        "Report Metadata",
+        "Price History",
+        "HKEX Announcements",
+        "Officers",
+        "Raw Preview Summary",
+        "Raw Preview Holdings",
+    ]
+
+
 def test_build_download_artifacts_uses_localized_no_data_placeholders():
     partial_response = CcassResponse(
         metadata=SourceMetadata(

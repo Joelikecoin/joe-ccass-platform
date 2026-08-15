@@ -14,6 +14,14 @@ from app.services.data_gateway import (
 )
 from app.services.latest_holdings import finalize_latest_holdings
 from app.domain.history import HistoricalSnapshot
+from app.services.announcements import get_announcements_service
+from app.services.capital_information import get_capital_information_service
+from app.services.officers import get_officers_service
+from app.services.price_history import get_price_history_service
+from app.services.stock_events import get_stock_events_service
+from app.services.concentration import get_concentration_service
+from app.services.changes import get_changes_service
+from app.services.big_changes import get_big_changes_service
 from app.services.holdings_lkg import (
     FreshnessStatus,
     LKG_AGE_SECONDS_PREFIX,
@@ -25,6 +33,7 @@ from app.services.holdings_lkg import (
 from ccass_core.source_trace import (
     SourceTraceView,
     build_source_trace_view,
+    build_source_trace_markdown,
     validate_ccass_date_convention,
 )
 from app.sources.google_drive_csv import GoogleDriveCsvSource
@@ -466,6 +475,12 @@ class CcassService:
         )
         gateway_response = gateway_response.model_copy(update={"normalized_response": normalized_response})
         normalized_response = self._apply_recovery_metadata(gateway_response)
+        normalized_response = await self._attach_related_surfaces(
+            normalized_response,
+            normalized_stock_code=normalized,
+            holdings_limit=holdings_limit,
+            source_trace_view=source_trace_view,
+        )
         return gateway_response.model_copy(update={"normalized_response": normalized_response})
 
     def _persist_gateway_response(self, gateway_response: "GatewayResponse") -> str | None:
@@ -548,6 +563,196 @@ class CcassService:
             )
         )
         return response.model_copy(update={"data_quality_warnings": list(dict.fromkeys(warnings))})
+
+    async def _attach_related_surfaces(
+        self,
+        response: CcassResponse,
+        *,
+        normalized_stock_code: str,
+        holdings_limit: int,
+        source_trace_view: SourceTraceView | None,
+    ) -> CcassResponse:
+        warnings = list(response.data_quality_warnings)
+        errors = list(response.errors)
+        previous_response = self._previous_response(response)
+
+        changes = response.changes
+        big_changes = response.big_changes
+        if previous_response is not None and response.metadata.data_as_of is not None:
+            compare_date = (
+                previous_response.metadata.data_as_of
+                or previous_response.metadata.holdings_date
+            )
+            if compare_date is None:
+                previous_response = None
+            else:
+                try:
+                    changes = get_changes_service().get_changes(
+                        normalized_stock_code,
+                        snapshot_date=response.metadata.data_as_of,
+                        compare_date=compare_date,
+                    )
+                    if changes.data_quality_warnings:
+                        warnings.extend(changes.data_quality_warnings)
+                except Exception as exc:
+                    errors.append(f"changes: {type(exc).__name__}")
+                    warnings.append(
+                        structured_warning(
+                            "DATA_LIMITATION",
+                            "CHANGES_UNAVAILABLE",
+                            f"Changes are unavailable ({type(exc).__name__}).",
+                        )
+                    )
+                try:
+                    big_changes = get_big_changes_service().get_big_changes(
+                        normalized_stock_code,
+                        snapshot_date=response.metadata.data_as_of,
+                        compare_date=compare_date,
+                        threshold_shares=self.settings.big_changes_threshold_shares,
+                    )
+                    if big_changes.data_quality_warnings:
+                        warnings.extend(big_changes.data_quality_warnings)
+                except Exception as exc:
+                    errors.append(f"big_changes: {type(exc).__name__}")
+                    warnings.append(
+                        structured_warning(
+                            "DATA_LIMITATION",
+                            "BIG_CHANGES_UNAVAILABLE",
+                            f"Big changes are unavailable ({type(exc).__name__}).",
+                        )
+                    )
+        concentration = response.concentration
+        if response.metadata.data_as_of is not None:
+            try:
+                concentration = get_concentration_service().get_concentration(
+                    normalized_stock_code,
+                    snapshot_date=response.metadata.data_as_of,
+                    top_holders_limit=max(1, min(holdings_limit, 100)),
+                )
+                if concentration.data_quality_warnings:
+                    warnings.extend(concentration.data_quality_warnings)
+            except Exception as exc:
+                errors.append(f"concentration: {type(exc).__name__}")
+                warnings.append(
+                    structured_warning(
+                        "DATA_LIMITATION",
+                        "CONCENTRATION_UNAVAILABLE",
+                        f"Concentration is unavailable ({type(exc).__name__}).",
+                    )
+                )
+        announcements = response.announcements
+        try:
+            announcements = await get_announcements_service().get_announcements(normalized_stock_code)
+            if announcements.data_quality_warnings:
+                warnings.extend(announcements.data_quality_warnings)
+        except Exception as exc:
+            errors.append(f"announcements: {type(exc).__name__}")
+            warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "ANNOUNCEMENTS_UNAVAILABLE",
+                    f"Announcements are unavailable ({type(exc).__name__}).",
+                )
+            )
+            announcements = None
+
+        stock_events = response.stock_events
+        try:
+            stock_events = await get_stock_events_service().get_stock_events(normalized_stock_code)
+            if stock_events.data_quality_warnings:
+                warnings.extend(stock_events.data_quality_warnings)
+        except Exception as exc:
+            errors.append(f"stock_events: {type(exc).__name__}")
+            warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({type(exc).__name__}).",
+                )
+            )
+            stock_events = None
+
+        capital_information = response.capital_information
+        try:
+            capital_information = await get_capital_information_service().get_capital_information(normalized_stock_code)
+            if capital_information.data_quality_warnings:
+                warnings.extend(capital_information.data_quality_warnings)
+        except Exception as exc:
+            errors.append(f"capital_information: {type(exc).__name__}")
+            warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({type(exc).__name__}).",
+                )
+            )
+            capital_information = None
+
+        officers = response.officers
+        try:
+            officers = await get_officers_service().get_officers(normalized_stock_code)
+            if officers.data_quality_warnings:
+                warnings.extend(officers.data_quality_warnings)
+        except Exception as exc:
+            errors.append(f"officers: {type(exc).__name__}")
+            warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "OFFICERS_UNAVAILABLE",
+                    f"Officers are unavailable ({type(exc).__name__}).",
+                )
+            )
+            officers = None
+
+        price_history = response.price_history
+        try:
+            price_history = await get_price_history_service().get_price_history(normalized_stock_code)
+            if price_history.data_quality_warnings:
+                warnings.extend(price_history.data_quality_warnings)
+        except Exception as exc:
+            errors.append(f"price_history: {type(exc).__name__}")
+            warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "PRICE_HISTORY_UNAVAILABLE",
+                    f"Price history is unavailable ({type(exc).__name__}).",
+                )
+            )
+            price_history = None
+
+        fetch_summary = response.fetch_summary
+        if source_trace_view is not None:
+            fetch_summary = build_source_trace_markdown(source_trace_view)
+
+        current = response.model_copy(
+            update={
+                "data_quality_warnings": list(dict.fromkeys(warnings)),
+                "errors": list(dict.fromkeys(errors)),
+                "fetch_summary": fetch_summary,
+                "changes": changes,
+                "big_changes": big_changes,
+                "concentration": concentration,
+                "price_history": price_history,
+                "announcements": announcements,
+                "stock_events": stock_events,
+                "capital_information": capital_information,
+                "officers": officers,
+            }
+        )
+        return current
+
+    def _previous_response(self, response: CcassResponse) -> CcassResponse | None:
+        if self.lkg_repository is None:
+            return None
+        data_as_of = response.metadata.data_as_of
+        if data_as_of is None:
+            return None
+        previous_snapshot = self.lkg_repository.previous(
+            response.metadata.code,
+            before_date=data_as_of,
+            include_partial=False,
+        )
+        return previous_snapshot.to_response() if previous_snapshot is not None else None
 
     async def get_stock_source_trace(
         self,

@@ -1,9 +1,21 @@
+import asyncio
 from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
 
+from app import mcp_server
 from app.api import app
-from app.models import AnnouncementRow, AnnouncementsMetadata, AnnouncementsResponse
+from app.models import (
+    AnnouncementRow,
+    AnnouncementsMetadata,
+    AnnouncementsResponse,
+    OfficerRow,
+    OfficersMetadata,
+    OfficersResponse,
+    PriceHistoryMetadata,
+    PriceHistoryResponse,
+    PriceHistoryRow,
+)
 from app.services.announcements import get_announcements_service
 from app.services.ccass import get_ccass_service
 from ccass_core.report import DEFAULT_LOCALE, SECTION_HEADINGS, translate_text
@@ -48,6 +60,71 @@ def _announcements_response() -> AnnouncementsResponse:
                 link="https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0720/2026072000123.pdf",
             )
         ],
+    )
+
+
+def _officers_response() -> OfficersResponse:
+    return OfficersResponse(
+        metadata=OfficersMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            source_name="同花順 F10 managers",
+            source_url="https://stockpage.10jqka.com.cn/basicweb/176/HK1351/manager.html",
+            fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+            data_as_of=None,
+            officers_count=1,
+            source_status="ready",
+        ),
+        officers=[
+            OfficerRow(
+                name="董晖",
+                positions=["主席", "执行董事", "行政总裁"],
+                is_current=True,
+                biography="董晖先生，于2018年11月8日获委任。",
+            )
+        ],
+    )
+
+
+def _price_history_response() -> PriceHistoryResponse:
+    return PriceHistoryResponse(
+        metadata=PriceHistoryMetadata(
+            code="01592",
+            name="TEST FIXTURE ??GOLDEN STOCK",
+            ticker="01592.HK",
+            price_date_from=date(2026, 7, 19),
+            price_date_to=date(2026, 7, 20),
+            source_name="Yahoo Finance",
+            source_url="https://query1.finance.yahoo.com/v8/finance/chart/01592.HK",
+            fetched_at=datetime(2026, 7, 21, 9, 0, tzinfo=UTC),
+            adjustment_state="adjusted",
+            currency="HKD",
+            adjustment_note="Adjusted close values are available from Yahoo Finance.",
+        ),
+        prices=[
+            PriceHistoryRow(
+                price_date=date(2026, 7, 20),
+                open=1.0,
+                high=1.1,
+                low=0.9,
+                close=1.05,
+                adjusted_close=1.01,
+                volume=1000,
+                turnover=1050.0,
+            )
+        ],
+    )
+
+
+def _enriched_response(base_response):
+    return base_response.model_copy(
+        update={
+            "announcements": _announcements_response(),
+            "officers": _officers_response(),
+            "price_history": _price_history_response(),
+            "fetch_summary": "Source trace summary",
+            "errors": ["NONE"],
+        }
     )
 
 
@@ -107,3 +184,24 @@ def test_json_api_passes_through_hkex_sdw_metadata(current_response):
     assert json_response.json()["metadata"]["source_name"] == "HKEX SDW"
     assert json_response.json()["metadata"]["source_url"].startswith("https://www3.hkexnews.hk/")
     assert service.calls == [("1592", 25)]
+
+
+def test_api_and_mcp_return_the_same_enriched_stock_payload(current_response):
+    enriched_response = _enriched_response(current_response)
+    service = FixtureService(enriched_response)
+    app.dependency_overrides[get_ccass_service] = lambda: service
+    original_getter = mcp_server.get_ccass_service
+    mcp_server.get_ccass_service = lambda: service
+    client = TestClient(app)
+    try:
+        api_response = client.get("/api/v1/ccass/1592", params={"holdings_limit": 25})
+        mcp_response = asyncio.run(mcp_server.get_ccass_stock_data("1592", holdings_limit=25))
+    finally:
+        app.dependency_overrides.clear()
+        mcp_server.get_ccass_service = original_getter
+
+    assert api_response.status_code == 200
+    assert api_response.json() == mcp_response
+    assert api_response.json()["announcements"]["metadata"]["source_name"] == "HKEXnews"
+    assert api_response.json()["officers"]["metadata"]["source_name"] == "同花順 F10 managers"
+    assert api_response.json()["price_history"]["metadata"]["source_name"] == "Yahoo Finance"

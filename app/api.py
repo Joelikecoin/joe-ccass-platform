@@ -337,69 +337,88 @@ async def get_ccass_stock_report(
 ) -> PlainTextResponse:
     normalized = normalize_stock_code(code)
     response = await service.get_stock_data(normalized, holdings_limit=holdings_limit)
+    previous = None
+    lkg_repository = getattr(service, "lkg_repository", None)
+    if lkg_repository is not None and response.metadata.data_as_of is not None:
+        previous_snapshot = lkg_repository.previous(
+            normalized,
+            before_date=response.metadata.data_as_of,
+            include_partial=False,
+        )
+        previous = previous_snapshot.to_response() if previous_snapshot is not None else None
     analysis = compute_analysis(
         response,
-        previous=None,
+        previous=previous,
         big_change_threshold=big_change_threshold,
     )
-    announcements = None
-    try:
-        announcements = await announcements_service.get_announcements(normalized)
-    except PlatformError:
-        announcements = None
-    stock_events = None
-    try:
-        stock_events = await stock_events_service.get_stock_events(normalized)
-    except PlatformError as exc:
-        stock_events = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "STOCK_EVENTS_UNAVAILABLE",
-                f"Stock events are unavailable ({exc.code}: {exc.message}).",
+    announcements = response.announcements
+    if announcements is None:
+        try:
+            announcements = await announcements_service.get_announcements(normalized)
+            response = response.model_copy(update={"announcements": announcements})
+            response.data_quality_warnings.extend(announcements.data_quality_warnings)
+        except PlatformError:
+            announcements = None
+
+    stock_events = response.stock_events
+    if stock_events is None:
+        try:
+            stock_events = await stock_events_service.get_stock_events(normalized)
+            response = response.model_copy(update={"stock_events": stock_events})
+        except PlatformError as exc:
+            stock_events = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({exc.code}: {exc.message}).",
+                )
             )
-        )
-    except Exception as exc:
-        stock_events = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "STOCK_EVENTS_UNAVAILABLE",
-                f"Stock events are unavailable ({type(exc).__name__}).",
+        except Exception as exc:
+            stock_events = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({type(exc).__name__}).",
+                )
             )
-        )
-    else:
-        response.data_quality_warnings.extend(stock_events.data_quality_warnings)
-    capital_information = None
-    try:
-        capital_information = await capital_information_service.get_capital_information(normalized)
-    except PlatformError as exc:
-        capital_information = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "CAPITAL_INFORMATION_UNAVAILABLE",
-                f"Capital information is unavailable ({exc.code}: {exc.message}).",
+        else:
+            response.data_quality_warnings.extend(stock_events.data_quality_warnings)
+    capital_information = response.capital_information
+    if capital_information is None:
+        try:
+            capital_information = await capital_information_service.get_capital_information(normalized)
+            response = response.model_copy(update={"capital_information": capital_information})
+        except PlatformError as exc:
+            capital_information = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({exc.code}: {exc.message}).",
+                )
             )
-        )
-    except Exception as exc:
-        capital_information = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "CAPITAL_INFORMATION_UNAVAILABLE",
-                f"Capital information is unavailable ({type(exc).__name__}).",
+        except Exception as exc:
+            capital_information = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({type(exc).__name__}).",
+                )
             )
-        )
-    else:
-        response.data_quality_warnings.extend(capital_information.data_quality_warnings)
-    officers = None
-    try:
-        officers = await officers_service.get_officers(normalized)
-    except PlatformError:
-        officers = None
-    else:
-        response.data_quality_warnings.extend(officers.data_quality_warnings)
+        else:
+            response.data_quality_warnings.extend(capital_information.data_quality_warnings)
+    officers = response.officers
+    if officers is None:
+        try:
+            officers = await officers_service.get_officers(normalized)
+            response = response.model_copy(update={"officers": officers})
+        except PlatformError:
+            officers = None
+        else:
+            response.data_quality_warnings.extend(officers.data_quality_warnings)
     report = build_markdown_report(
         response,
         code=normalized,

@@ -19,8 +19,11 @@ from app.errors import ErrorCode, PlatformError
 from app.data_quality import structured_warning, warning_code
 from app.models import (
     AnnouncementsResponse,
+    BigChangesResponse,
     CapitalInformationResponse,
     CcassResponse,
+    ChangesResponse,
+    ConcentrationResponse,
     OfficersResponse,
     PriceHistoryResponse,
     StockEventsResponse,
@@ -230,18 +233,15 @@ async def prepare_report(
             )
         )
         previous = None
-    announcements: AnnouncementsResponse | None = None
-    stock_events: StockEventsResponse | None = None
-    capital_information: CapitalInformationResponse | None = None
-    officers: OfficersResponse | None = None
-    price_history: PriceHistoryResponse | None = None
-    if announcements_enabled:
+    announcements = response.announcements
+    if announcements_enabled and announcements is None:
         try:
             announcements = await get_announcements_service().get_announcements(
                 code,
                 start_date=announcement_start_date,
                 end_date=announcement_end_date,
             )
+            response = response.model_copy(update={"announcements": announcements})
         except PlatformError as exc:
             response.data_quality_warnings.append(
                 structured_warning(
@@ -258,97 +258,119 @@ async def prepare_report(
                     f"Announcements are unavailable ({type(exc).__name__}).",
                 )
             )
-    try:
-        stock_events = await get_stock_events_service().get_stock_events(code)
-    except PlatformError as exc:
-        stock_events = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "STOCK_EVENTS_UNAVAILABLE",
-                f"Stock events are unavailable ({exc.code}: {exc.message}).",
-            )
-        )
-    except Exception as exc:
-        stock_events = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "STOCK_EVENTS_UNAVAILABLE",
-                f"Stock events are unavailable ({type(exc).__name__}).",
-            )
-        )
-    else:
-        response.data_quality_warnings.extend(stock_events.data_quality_warnings)
-    try:
-        capital_information = await get_capital_information_service().get_capital_information(code)
-    except PlatformError as exc:
-        capital_information = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "CAPITAL_INFORMATION_UNAVAILABLE",
-                f"Capital information is unavailable ({exc.code}: {exc.message}).",
-            )
-        )
-    except Exception as exc:
-        capital_information = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "CAPITAL_INFORMATION_UNAVAILABLE",
-                f"Capital information is unavailable ({type(exc).__name__}).",
-            )
-        )
-    else:
-        response.data_quality_warnings.extend(capital_information.data_quality_warnings)
-    try:
-        officers = await get_officers_service().get_officers(code)
-    except PlatformError as exc:
-        officers = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "OFFICERS_UNAVAILABLE",
-                f"Officers are unavailable ({exc.code}: {exc.message}).",
-            )
-        )
-    except Exception as exc:
-        officers = None
-        response.data_quality_warnings.append(
-            structured_warning(
-                "DATA_LIMITATION",
-                "OFFICERS_UNAVAILABLE",
-                f"Officers are unavailable ({type(exc).__name__}).",
-            )
-        )
-    else:
-        response.data_quality_warnings.extend(officers.data_quality_warnings)
-    if price_history_enabled:
+        else:
+            response.data_quality_warnings.extend(announcements.data_quality_warnings)
+
+    stock_events = response.stock_events
+    if stock_events is None:
         try:
-            price_history = await get_price_history_service().get_price_history(
-                code,
-                start_date=price_history_start_date,
-                end_date=price_history_end_date,
-            )
+            stock_events = await get_stock_events_service().get_stock_events(code)
+            response = response.model_copy(update={"stock_events": stock_events})
         except PlatformError as exc:
+            stock_events = None
             response.data_quality_warnings.append(
                 structured_warning(
                     "DATA_LIMITATION",
-                    "PRICE_HISTORY_UNAVAILABLE",
-                    f"Price history is unavailable ({exc.code}: {exc.message}).",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({exc.code}: {exc.message}).",
                 )
             )
         except Exception as exc:
+            stock_events = None
             response.data_quality_warnings.append(
                 structured_warning(
                     "DATA_LIMITATION",
-                    "PRICE_HISTORY_UNAVAILABLE",
-                    f"Price history is unavailable ({type(exc).__name__}).",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({type(exc).__name__}).",
                 )
             )
         else:
-            response.data_quality_warnings.extend(price_history.data_quality_warnings)
+            response.data_quality_warnings.extend(stock_events.data_quality_warnings)
+
+    capital_information = response.capital_information
+    if capital_information is None:
+        try:
+            capital_information = await get_capital_information_service().get_capital_information(code)
+            response = response.model_copy(update={"capital_information": capital_information})
+        except PlatformError as exc:
+            capital_information = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({exc.code}: {exc.message}).",
+                )
+            )
+        except Exception as exc:
+            capital_information = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({type(exc).__name__}).",
+                )
+            )
+        else:
+            response.data_quality_warnings.extend(capital_information.data_quality_warnings)
+
+    officers = response.officers
+    if officers is None:
+        try:
+            officers = await get_officers_service().get_officers(code)
+            response = response.model_copy(update={"officers": officers})
+        except PlatformError as exc:
+            officers = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "OFFICERS_UNAVAILABLE",
+                    f"Officers are unavailable ({exc.code}: {exc.message}).",
+                )
+            )
+        except Exception as exc:
+            officers = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "OFFICERS_UNAVAILABLE",
+                    f"Officers are unavailable ({type(exc).__name__}).",
+                )
+            )
+        else:
+            response.data_quality_warnings.extend(officers.data_quality_warnings)
+
+    price_history: PriceHistoryResponse | None = response.price_history if price_history_enabled else None
+    if price_history_enabled:
+        if (
+            price_history is None
+            or price_history.metadata.price_date_from != price_history_start_date
+            or price_history.metadata.price_date_to != price_history_end_date
+        ):
+            try:
+                price_history = await get_price_history_service().get_price_history(
+                    code,
+                    start_date=price_history_start_date,
+                    end_date=price_history_end_date,
+                )
+                response = response.model_copy(update={"price_history": price_history})
+            except PlatformError as exc:
+                response.data_quality_warnings.append(
+                    structured_warning(
+                        "DATA_LIMITATION",
+                        "PRICE_HISTORY_UNAVAILABLE",
+                        f"Price history is unavailable ({exc.code}: {exc.message}).",
+                    )
+                )
+            except Exception as exc:
+                response.data_quality_warnings.append(
+                    structured_warning(
+                        "DATA_LIMITATION",
+                        "PRICE_HISTORY_UNAVAILABLE",
+                        f"Price history is unavailable ({type(exc).__name__}).",
+                    )
+                )
+            else:
+                response.data_quality_warnings.extend(price_history.data_quality_warnings)
     analysis = compute_analysis(
         response,
         previous=previous,
@@ -1596,17 +1618,47 @@ def _build_download_workbook_bytes(
                 {"Field": "Participant count", "Value": response.holdings_summary.participant_count},
             ],
         ),
-        (
-            "Raw Preview Summary",
-            raw_preview_tables[0].columns,
-            list(raw_preview_tables[0].sample_rows),
-        ),
-        (
-            "Raw Preview Holdings",
-            raw_preview_tables[1].columns,
-            list(raw_preview_tables[1].sample_rows),
-        ),
     ]
+    extra_sheets: list[tuple[str, tuple[str, ...], list[dict[str, object]]]] = []
+    if response.changes is not None and response.changes.changes:
+        headers, rows = _rows_from_models(response.changes.changes)
+        extra_sheets.append(("Changes", headers, rows))
+    if response.big_changes is not None and response.big_changes.big_changes:
+        headers, rows = _rows_from_models(response.big_changes.big_changes)
+        extra_sheets.append(("Big Changes", headers, rows))
+    if response.concentration is not None and response.concentration.participant_ranking:
+        headers, rows = _rows_from_models(response.concentration.participant_ranking)
+        extra_sheets.append(("Concentration", headers, rows))
+    if response.price_history is not None and response.price_history.prices:
+        headers, rows = _rows_from_models(response.price_history.prices)
+        extra_sheets.append(("Price History", headers, rows))
+    if response.announcements is not None and response.announcements.announcements:
+        headers, rows = _rows_from_models(response.announcements.announcements)
+        extra_sheets.append(("HKEX Announcements", headers, rows))
+    if response.stock_events is not None and response.stock_events.stock_events:
+        headers, rows = _rows_from_models(response.stock_events.stock_events)
+        extra_sheets.append(("Corporate Events", headers, rows))
+    if response.capital_information is not None and response.capital_information.capital_information:
+        headers, rows = _rows_from_models(response.capital_information.capital_information)
+        extra_sheets.append(("Capital Information", headers, rows))
+    if response.officers is not None and response.officers.officers:
+        headers, rows = _rows_from_models(response.officers.officers)
+        extra_sheets.append(("Officers", headers, rows))
+    workbook_sheets.extend(extra_sheets)
+    workbook_sheets.extend(
+        [
+            (
+                "Raw Preview Summary",
+                raw_preview_tables[0].columns,
+                list(raw_preview_tables[0].sample_rows),
+            ),
+            (
+                "Raw Preview Holdings",
+                raw_preview_tables[1].columns,
+                list(raw_preview_tables[1].sample_rows),
+            ),
+        ]
+    )
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
         sheet_names = [sheet_name for sheet_name, _, _ in workbook_sheets]
@@ -1627,6 +1679,19 @@ def _csv_rows_from_bytes(csv_bytes: bytes) -> tuple[list[dict[str, object]], tup
     reader = csv.DictReader(io.StringIO(text))
     headers = tuple(reader.fieldnames or ())
     return [dict(row) for row in reader], headers
+
+
+def _rows_from_models(rows: Sequence[object]) -> tuple[tuple[str, ...], list[dict[str, object]]]:
+    normalized_rows: list[dict[str, object]] = []
+    for row in rows:
+        if hasattr(row, "model_dump"):
+            normalized_rows.append(dict(row.model_dump(mode="json")))
+        elif isinstance(row, dict):
+            normalized_rows.append(dict(row))
+        else:
+            normalized_rows.append({"value": row})
+    headers = tuple(normalized_rows[0].keys()) if normalized_rows else ()
+    return headers, normalized_rows
 
 
 def _build_xlsx_content_types(sheet_count: int) -> str:
