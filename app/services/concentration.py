@@ -5,6 +5,7 @@ from datetime import date
 from functools import lru_cache
 
 from app.config import Settings, get_settings
+from app.data_quality import structured_warning
 from app.domain.history import HistoricalSnapshot
 from app.errors import ErrorCode, PlatformError
 from app.models import (
@@ -15,10 +16,7 @@ from app.models import (
     ConcentrationSummary,
     HoldingRow,
 )
-from app.services.latest_holdings import (
-    finalize_latest_holdings,
-    latest_holdings_is_complete,
-)
+from app.services.latest_holdings import finalize_latest_holdings
 from app.sources.registry import SourceDefinition, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
@@ -93,13 +91,37 @@ def _build_concentration(
         source=source,
     )
     rows = response.holdings
-    issued_shares = response.holdings_summary.issued_shares
-    ccass_shares = response.holdings_summary.total_in_ccass_shares
-    assert issued_shares is not None and ccass_shares is not None
+    summary = response.holdings_summary
+    issued_shares = summary.issued_shares
+    ccass_shares = summary.total_in_ccass_shares
     top1 = rows[:1]
     top5 = rows[:5]
     top10 = rows[:10]
     warnings = list(response.data_quality_warnings)
+    if issued_shares is None or issued_shares <= 0:
+        warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "ISSUED_SHARES_UNAVAILABLE",
+                "Issued shares are unavailable; issued-share-based concentration can only be partially interpreted.",
+            )
+        )
+    elif summary.issued_shares_as_of is not None and summary.issued_shares_as_of < snapshot.snapshot_date:
+        warnings.append(
+            structured_warning(
+                "DATA_QUALITY",
+                "ISSUED_SHARES_STALE",
+                "Issued shares are older than the CCASS date; percentage denominators may be stale.",
+            )
+        )
+    if ccass_shares is None or ccass_shares <= 0:
+        warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "CCASS_SHARES_UNAVAILABLE",
+                "CCASS total shares are unavailable; CCASS-share percentages cannot be recomputed.",
+            )
+        )
     warnings.extend(
         (
             CONCENTRATION_VALIDATION_WARNING,
@@ -108,6 +130,24 @@ def _build_concentration(
             "no market meaning or cause is inferred.",
         )
     )
+
+    total_tracked_pct_of_issued = summary.total_in_ccass_pct_of_issued or 0.0
+    total_tracked_pct_of_ccass = _percentage(rows, ccass_shares) if ccass_shares else 0.0
+
+    top1_pct_of_issued = top1[0].pct_of_issued if top1 else 0.0
+    top1_pct_of_ccass = top1[0].pct_of_ccass if top1 and top1[0].pct_of_ccass is not None else 0.0
+    top5_pct_of_issued = summary.top5_pct_of_issued
+    if top5_pct_of_issued is None and issued_shares:
+        top5_pct_of_issued = _percentage(top5, issued_shares)
+    top10_pct_of_issued = summary.top10_pct_of_issued
+    if top10_pct_of_issued is None and issued_shares:
+        top10_pct_of_issued = _percentage(top10, issued_shares)
+    top5_pct_of_ccass = summary.top5_pct_of_ccass
+    if top5_pct_of_ccass is None and ccass_shares:
+        top5_pct_of_ccass = _percentage(top5, ccass_shares)
+    top10_pct_of_ccass = summary.top10_pct_of_ccass
+    if top10_pct_of_ccass is None and ccass_shares:
+        top10_pct_of_ccass = _percentage(top10, ccass_shares)
     return ConcentrationResponse(
         metadata=ConcentrationMetadata(
             code=requested_code,
@@ -120,14 +160,14 @@ def _build_concentration(
         summary=ConcentrationSummary(
             participant_count=len(rows),
             total_tracked_shares=sum(row.shares for row in rows),
-            total_tracked_pct_of_issued=_percentage(rows, issued_shares),
-            total_tracked_pct_of_ccass=_percentage(rows, ccass_shares),
-            top1_pct_of_issued=_percentage(top1, issued_shares),
-            top1_pct_of_ccass=_percentage(top1, ccass_shares),
-            top5_pct_of_issued=_percentage(top5, issued_shares),
-            top5_pct_of_ccass=_percentage(top5, ccass_shares),
-            top10_pct_of_issued=_percentage(top10, issued_shares),
-            top10_pct_of_ccass=_percentage(top10, ccass_shares),
+            total_tracked_pct_of_issued=total_tracked_pct_of_issued,
+            total_tracked_pct_of_ccass=total_tracked_pct_of_ccass,
+            top1_pct_of_issued=top1_pct_of_issued,
+            top1_pct_of_ccass=top1_pct_of_ccass,
+            top5_pct_of_issued=top5_pct_of_issued,
+            top5_pct_of_ccass=top5_pct_of_ccass,
+            top10_pct_of_issued=top10_pct_of_issued,
+            top10_pct_of_ccass=top10_pct_of_ccass,
         ),
         participant_ranking=rows,
         top_holders=rows[:top_holders_limit],
@@ -171,7 +211,7 @@ def _validate_snapshot(
         snapshot.to_response(),
         requested_code=requested_code,
     )
-    if not latest_holdings_is_complete(response):
+    if not _allows_issued_shares_staleness(response) and not _response_is_complete(response):
         raise PlatformError(
             ErrorCode.INVALID_SCHEMA,
             "Concentration snapshot failed complete-snapshot product validation.",
@@ -200,6 +240,23 @@ def _source_metadata(snapshot: HistoricalSnapshot) -> ChangesSourceMetadata:
         cached=snapshot.cached,
         stale=snapshot.stale,
         partial=snapshot.partial,
+    )
+
+
+def _response_is_complete(response) -> bool:
+    from app.services.latest_holdings import latest_holdings_is_complete
+
+    return latest_holdings_is_complete(response)
+
+
+def _allows_issued_shares_staleness(response) -> bool:
+    summary = response.holdings_summary
+    metadata = response.metadata
+    return (
+        summary.issued_shares_as_of is not None
+        and summary.issued_shares is not None
+        and summary.issued_shares > 0
+        and summary.issued_shares_as_of < metadata.holdings_date
     )
 
 

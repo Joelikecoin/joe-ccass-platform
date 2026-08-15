@@ -187,6 +187,21 @@ def test_concentration_markdown_report_contains_summary_ranking_and_provenance(
     assert "CONCENTRATION_VALIDATION: COMPLETE" in report
 
 
+def test_concentration_warns_when_issued_shares_are_stale(tmp_path, current_response):
+    stale = current_response.model_copy(deep=True)
+    stale.holdings_summary.issued_shares_as_of = date(2026, 7, 19)
+    service, _, _ = _service(tmp_path, stale)
+
+    result = service.get_concentration("01592", snapshot_date=date(2026, 7, 20))
+
+    assert any(
+        warning.startswith("DATA_QUALITY: ISSUED_SHARES_STALE")
+        for warning in result.data_quality_warnings
+    )
+    assert result.summary.top5_pct_of_issued == 33.0
+    assert result.summary.total_tracked_pct_of_issued == 33.0
+
+
 def test_concentration_api_and_report_are_additive_without_contract_regression(
     tmp_path,
     current_response,

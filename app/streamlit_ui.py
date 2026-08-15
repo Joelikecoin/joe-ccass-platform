@@ -2,6 +2,7 @@ import base64
 import csv
 import html
 import io
+import os
 import re
 import tempfile
 import warnings
@@ -32,6 +33,7 @@ from app.services.price_history import get_price_history_service
 from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.collector import export_latest_csv
+from ccass_core.collector import SnapshotStore
 from ccass_core.compute import AnalysisResult, compute_analysis
 from ccass_core.ai_read_model import build_ai_read_model_v0_1
 from ccass_core.ai_read_model_governance import build_ai_read_model_consumer_view
@@ -215,7 +217,10 @@ async def prepare_report(
 
     _progress(progress, 65, ui_text(locale, "progress_computing_analysis"))
     try:
-        previous = previous_loader(response) if previous_loader else None
+        if previous_loader is not None:
+            previous = previous_loader(response)
+        else:
+            previous = _load_previous_snapshot_from_local_history(response)
     except Exception as exc:
         response.data_quality_warnings.append(
             structured_warning(
@@ -408,6 +413,14 @@ async def prepare_report(
         workflow=workflow,
         research_context_entry=research_context_entry,
     )
+
+
+def _load_previous_snapshot_from_local_history(response: CcassResponse) -> CcassResponse | None:
+    sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
+    if not sqlite_path.is_file():
+        return None
+    store = SnapshotStore(sqlite_path)
+    return store.previous_for(response.metadata.code, response)
 
 
 def ui_text(locale: str, key: str, /, **values: object) -> str:

@@ -358,6 +358,33 @@ def test_optional_previous_snapshot_failure_preserves_report(current_response):
     )
 
 
+def test_prepare_report_uses_local_history_when_previous_loader_is_not_provided(
+    tmp_path,
+    monkeypatch,
+    current_response,
+    previous_response,
+):
+    repository = NormalizedSnapshotRepository(tmp_path / "history.db")
+    repository.save_response(previous_response, source_id="webbsite")
+    monkeypatch.setenv("CCASS_SQLITE_PATH", str(repository.path))
+
+    prepared = asyncio.run(
+        prepare_report(
+            "1592",
+            holdings_limit=20,
+            big_change_threshold=500,
+            service=SuccessfulService(current_response),
+            locale=DEFAULT_LOCALE,
+        )
+    )
+
+    assert prepared.analysis is not None
+    assert prepared.analysis.previous_available is True
+    assert translate_text(DEFAULT_LOCALE, "report.section.changes") in prepared.markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.big_changes") in prepared.markdown
+    assert translate_text(DEFAULT_LOCALE, "report.comparison.available") in prepared.markdown
+
+
 def test_copy_button_contains_exact_utf8_payload_and_chatgpt_header():
     payload = CHATGPT_COPY_HEADER + "\n\n# 測試報告\n"
     markup = copy_button_html("Copy for ChatGPT", payload, element_id="copy-chatgpt")
