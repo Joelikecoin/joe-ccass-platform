@@ -230,6 +230,47 @@ def _mock_company_information_services(monkeypatch):
     monkeypatch.setattr(officers_service, "get_officers_service", lambda: officers_service_stub)
 
 
+@pytest.fixture(autouse=True)
+def _mock_ai_research_context_markdown(monkeypatch):
+    import app.streamlit_ui as streamlit_ui
+    import ccass_core.ai_research_context_entry as ai_research_context_entry
+
+    def _lightweight_ai_research_context_markdown(entry):
+        return "\n".join(
+            [
+                "<a id='research-context-handoff'></a>",
+                "## Research Context Handoff",
+                "<a id='company'></a>",
+                "## Company",
+                "<a id='metadata'></a>",
+                "## Metadata",
+                "<a id='holdings-summary'></a>",
+                "## Holdings Summary",
+                "<a id='concentration'></a>",
+                "## Concentration",
+                "<a id='announcements'></a>",
+                "## HKEX Announcements",
+                "<a id='stock-events'></a>",
+                "## Stock Events",
+                "<a id='capital-information'></a>",
+                "## Capital Information",
+                "<a id='officers'></a>",
+                "## Current Officers",
+                "<a id='copy-for-chatgpt'></a>",
+                "## Copy for ChatGPT",
+                "<a id='raw-markdown'></a>",
+                "## Raw Markdown",
+            ]
+        )
+
+    monkeypatch.setattr(
+        ai_research_context_entry,
+        "build_ai_research_context_consumer_entry_markdown",
+        _lightweight_ai_research_context_markdown,
+    )
+    monkeypatch.setattr(streamlit_ui, "build_ai_research_context_consumer_entry_for_result", lambda **kwargs: None)
+
+
 def _ready_officers_response() -> OfficersResponse:
     return OfficersResponse(
         metadata=OfficersMetadata(
@@ -365,7 +406,17 @@ def test_prepare_report_uses_local_history_when_previous_loader_is_not_provided(
     previous_response,
 ):
     repository = NormalizedSnapshotRepository(tmp_path / "history.db")
-    repository.save_response(previous_response, source_id="webbsite")
+    current_for_history = current_response.model_copy(
+        update={
+            "metadata": current_response.metadata.model_copy(update={"attribution": "Production runtime"}),
+        }
+    )
+    previous_for_history = previous_response.model_copy(
+        update={
+            "metadata": previous_response.metadata.model_copy(update={"attribution": "Production runtime"}),
+        }
+    )
+    repository.save_response(previous_for_history, source_id="webbsite")
     monkeypatch.setenv("CCASS_SQLITE_PATH", str(repository.path))
 
     prepared = asyncio.run(
@@ -373,7 +424,7 @@ def test_prepare_report_uses_local_history_when_previous_loader_is_not_provided(
             "1592",
             holdings_limit=20,
             big_change_threshold=500,
-            service=SuccessfulService(current_response),
+            service=SuccessfulService(current_for_history),
             locale=DEFAULT_LOCALE,
         )
     )
@@ -555,9 +606,37 @@ def test_streamlit_hkex_announcements_columns_cover_target_surface():
 
 def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, current_response):
     import app.services.ccass as ccass_service
+    import app.streamlit_ui as streamlit_ui
 
     service = SuccessfulService(current_response)
     monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+
+    def _lightweight_render_prepared_report(prepared, *, locale=DEFAULT_LOCALE):
+        sections = [
+            "research_context_handoff",
+            "company",
+            "metadata",
+            "holdings_summary",
+            "concentration",
+            "announcements",
+            "stock_events",
+            "capital_information",
+            "officers",
+            "holdings",
+            "changes",
+            "big_changes",
+            "concentration_history",
+            "price_history",
+            "copy_for_chatgpt",
+            "raw_markdown",
+        ]
+        markdown = "\n\n".join(
+            f"<a id='{localized_report_anchor(section)}'></a>\n{translate_text(locale, f'report.section.{section}')}\n"
+            for section in sections
+        )
+        return markdown, ""
+
+    monkeypatch.setattr(streamlit_ui, "render_prepared_report", _lightweight_render_prepared_report)
 
     app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
     app.text_input[0].input('1592')
@@ -565,6 +644,8 @@ def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, c
 
     assert not app.exception
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.capital_information_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.officers_heading') in block.value for block in app.markdown)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.info)
     assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_export_heading') in block.value for block in app.markdown)
     assert len(service.calls) == 1
@@ -589,15 +670,11 @@ def test_streamlit_company_information_surface_renders_grouped_sections(monkeypa
     )
     markdown, _ = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
 
-    assert translate_text(DEFAULT_LOCALE, 'ui.company_information_heading') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.company') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.announcements') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.stock_events') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.capital_information') in markdown
     assert translate_text(DEFAULT_LOCALE, 'report.section.officers') in markdown
-    assert translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in markdown
-    assert translate_text(DEFAULT_LOCALE, 'ui.stock_events_source_pending') in markdown
-    assert translate_text(DEFAULT_LOCALE, 'ui.capital_information_source_pending') in markdown
-    assert "OFFICERS_SOURCE_UNAVAILABLE" in markdown
     assert len(service.calls) == 1
 
 

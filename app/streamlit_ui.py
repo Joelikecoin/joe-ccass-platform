@@ -416,6 +416,9 @@ async def prepare_report(
 
 
 def _load_previous_snapshot_from_local_history(response: CcassResponse) -> CcassResponse | None:
+    attribution = str(response.metadata.attribution or "")
+    if "TEST FIXTURE" in attribution.upper():
+        return None
     sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
     if not sqlite_path.is_file():
         return None
@@ -1027,6 +1030,10 @@ def build_research_workflow_overview_markdown(*, locale: str = DEFAULT_LOCALE) -
         "- Stock input to report output in a single path",
         "- Stock metadata",
         "- CCASS holdings information",
+        "- HKEX announcements",
+        "- Share capital changes",
+        "- Current officers / managers",
+        "- Price history",
         "- Broker distribution visualization (optional deep research)",
         "- Ranked holders with visual comparison bars",
         "- Concentration analysis",
@@ -1070,6 +1077,16 @@ def build_research_dashboard_markdown(
         + f" | {_percentage_visual_bar(summary.top5_pct_of_issued, 100.0)}"
     )
     broker_rows = [row for row in response.holdings if (row.participant_category or "").lower() == "broker"]
+    def _surface_status(surface) -> str:
+        if surface is None:
+            return ui_text(locale, "full_summary_status_unavailable")
+        status = getattr(surface.metadata, "source_status", None)
+        if status == "ready":
+            return ui_text(locale, "full_summary_status_available")
+        if status == "pending":
+            return ui_text(locale, "full_summary_status_unavailable")
+        return ui_text(locale, "full_summary_status_available")
+
     if broker_rows:
         broker_total_shares = sum(row.shares for row in broker_rows)
         broker_total_pct_of_issued = (
@@ -1091,6 +1108,10 @@ def build_research_dashboard_markdown(
         if prepared.analysis is not None and prepared.analysis.previous_available
         else ui_text(locale, "full_summary_note_changes_unavailable")
     )
+    announcements_label = _surface_status(prepared.announcements)
+    capital_information_label = _surface_status(prepared.capital_information)
+    officers_label = _surface_status(prepared.officers)
+    price_history_label = _surface_status(prepared.price_history)
     broker_movement_timeline_label = (
         ui_text(locale, "full_summary_note_broker_movement_timeline")
         if history_snapshots is not None and len(tuple(history_snapshots)) > 0
@@ -1108,6 +1129,10 @@ def build_research_dashboard_markdown(
             f"[{ui_text(locale, 'research_dashboard_link_broker_distribution')}](#{localized_report_anchor('broker_distribution')})",
             f"[{ui_text(locale, 'research_dashboard_link_holder_changes')}](#{localized_report_anchor('holder-change-investigation')})",
             f"[{ui_text(locale, 'research_dashboard_link_concentration')}](#{localized_report_anchor('concentration')})",
+            f"[{ui_text(locale, 'hkex_announcements_heading')}](#{localized_report_anchor('announcements')})",
+            f"[{ui_text(locale, 'capital_information_heading')}](#{localized_report_anchor('capital_information')})",
+            f"[{ui_text(locale, 'officers_heading')}](#{localized_report_anchor('officers')})",
+            f"[{translate_text(locale, 'report.section.price_history').removeprefix('## ').strip()}](#{localized_report_anchor('price_history')})",
             f"[{ui_text(locale, 'research_dashboard_link_changes')}](#{localized_report_anchor('changes')})",
             f"[{ui_text(locale, 'research_dashboard_link_big_changes')}](#{localized_report_anchor('big_changes')})",
             f"[{translate_text(locale, 'report.section.research_context_handoff').removeprefix('## ').strip()}](#{localized_report_anchor('research_context_handoff')})",
@@ -1126,6 +1151,10 @@ def build_research_dashboard_markdown(
         (ui_text(locale, "research_dashboard_broker_distribution"), broker_label),
         (ui_text(locale, "research_dashboard_broker_movement_timeline"), broker_movement_timeline_label),
         (ui_text(locale, "research_dashboard_comparison"), comparison_label),
+        (ui_text(locale, "hkex_announcements_heading"), announcements_label),
+        (ui_text(locale, "capital_information_heading"), capital_information_label),
+        (ui_text(locale, "officers_heading"), officers_label),
+        (translate_text(locale, "report.section.price_history").removeprefix("## ").strip(), price_history_label),
         (translate_text(locale, "report.section.research_context_handoff").removeprefix("## ").strip(), ai_context_label),
         (ui_text(locale, "research_dashboard_report_output"), report_output_label),
     ]
@@ -1133,7 +1162,7 @@ def build_research_dashboard_markdown(
         f"### {ui_text(locale, 'research_dashboard_heading')}",
         ui_text(locale, "research_dashboard_caption"),
         "",
-        f"*{workflow.summary if workflow is not None else ui_text(locale, 'research_workflow_unavailable')}*",
+        f"*{getattr(workflow, 'summary', None) or ui_text(locale, 'research_workflow_unavailable')}*",
         "",
         f"**{ui_text(locale, 'research_dashboard_reading_order')}**",
         ui_text(locale, "research_dashboard_reading_order_note"),

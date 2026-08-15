@@ -146,6 +146,10 @@ def test_build_research_workflow_overview_markdown_describes_usable_path():
     assert "Analysis Display" in markdown
     assert "Report Output" in markdown
     assert "CCASS holdings information" in markdown
+    assert "HKEX announcements" in markdown
+    assert "Share capital changes" in markdown
+    assert "Current officers / managers" in markdown
+    assert "Price history" in markdown
     assert "Broker distribution visualization" in markdown
     assert "AI-ready research context handoff in the report output" in markdown
     assert "Ranked holders with visual comparison bars" in markdown
@@ -180,6 +184,10 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_concentration") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_broker_distribution") in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_broker_movement_timeline") in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.announcements").removeprefix("## ").strip() in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.capital_information").removeprefix("## ").strip() in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.officers").removeprefix("## ").strip() in markdown
+    assert translate_text(DEFAULT_LOCALE, "report.section.price_history").removeprefix("## ").strip() in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_link_broker_distribution") in markdown
     assert "#broker-distribution" in markdown
     assert translate_text(DEFAULT_LOCALE, "ui.research_dashboard_comparison") in markdown
@@ -198,6 +206,10 @@ def test_build_research_dashboard_markdown_summarizes_research_state(current_res
     assert "#research-context-handoff" in markdown
     assert "#copy-for-chatgpt" in markdown
     assert "#raw-markdown" in markdown
+    assert "#announcements" in markdown
+    assert "#capital-information" in markdown
+    assert "#officers" in markdown
+    assert "#price-history" in markdown
 
 
 def test_build_ownership_distribution_markdown_summarizes_holder_distribution_and_change_focus(

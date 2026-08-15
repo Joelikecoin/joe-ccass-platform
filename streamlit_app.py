@@ -573,6 +573,10 @@ if prepared is not None:
                 report_sections.get("stock_events"),
             )
             _render_named_expander(
+                ui_text(current_locale, "capital_information_heading"),
+                report_sections.get("capital_information"),
+            )
+            _render_named_expander(
                 ui_text(current_locale, "officers_heading"),
                 report_sections.get("officers"),
             )
