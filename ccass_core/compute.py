@@ -4,6 +4,9 @@ from app.data_quality import structured_warning
 from app.models import CcassResponse, HoldingRow
 
 
+BIG_CHANGE_PERCENT_THRESHOLD = 0.25
+
+
 @dataclass(frozen=True, slots=True)
 class HoldingChange:
     participant_id: str
@@ -96,7 +99,8 @@ def compute_analysis(
     big_changes = tuple(
         change
         for change in ordered_changes
-        if change.share_change != 0 and abs(change.share_change) >= threshold
+        if change.status in {"increased", "decreased"}
+        and abs(change.pct_point_change) > BIG_CHANGE_PERCENT_THRESHOLD
     )
     transfers = _detect_transfer_patterns(ordered_changes, tolerance=transfer_tolerance)
     return AnalysisResult(

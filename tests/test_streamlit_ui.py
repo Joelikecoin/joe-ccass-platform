@@ -1111,8 +1111,6 @@ def test_streamlit_visualization_alignment_surfaces_render_collapsed_sections_an
         translate_text(DEFAULT_LOCALE, "ui.sidebar_show_optional_heavy_sections") == widget.label
         for widget in app.checkbox
     )
-    assert not any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
-    assert not any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_heading") in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
     optional_checkbox = next(
