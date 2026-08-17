@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import csv
 import html
@@ -262,7 +263,10 @@ async def prepare_report(
     stock_events = response.stock_events
     if stock_events is None:
         try:
-            stock_events = await get_stock_events_service().get_stock_events(code)
+            stock_events = await asyncio.wait_for(
+                asyncio.to_thread(_run_async_blocking, get_stock_events_service().get_stock_events, code),
+                timeout=8.0,
+            )
             response = response.model_copy(update={"stock_events": stock_events})
         except PlatformError as exc:
             stock_events = None
@@ -288,7 +292,14 @@ async def prepare_report(
     capital_information = response.capital_information
     if capital_information is None:
         try:
-            capital_information = await get_capital_information_service().get_capital_information(code)
+            capital_information = await asyncio.wait_for(
+                asyncio.to_thread(
+                    _run_async_blocking,
+                    get_capital_information_service().get_capital_information,
+                    code,
+                ),
+                timeout=8.0,
+            )
             response = response.model_copy(update={"capital_information": capital_information})
         except PlatformError as exc:
             capital_information = None
@@ -314,7 +325,10 @@ async def prepare_report(
     officers = response.officers
     if officers is None:
         try:
-            officers = await get_officers_service().get_officers(code)
+            officers = await asyncio.wait_for(
+                asyncio.to_thread(_run_async_blocking, get_officers_service().get_officers, code),
+                timeout=8.0,
+            )
             response = response.model_copy(update={"officers": officers})
         except PlatformError as exc:
             officers = None
@@ -1922,6 +1936,10 @@ def _percentage_visual_bar(value: float | None, maximum: float | None, width: in
 def _progress(callback: Callable[[int, str], None] | None, value: int, label: str) -> None:
     if callback:
         callback(value, label)
+
+
+def _run_async_blocking(func: Callable[..., object], /, *args: object, **kwargs: object) -> object:
+    return asyncio.run(func(*args, **kwargs))
 
 
 def _streamlit_anchor_id(label: str) -> str:

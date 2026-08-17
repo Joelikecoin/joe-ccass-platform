@@ -44,6 +44,11 @@ def test_report_supports_english_locale(current_response, previous_response):
     assert report.startswith("# CCASS Report ? 01592 ")
 
 
+def test_report_zh_hk_translations_do_not_return_placeholder_marks():
+    assert "?" not in translate_text("zh_HK", "ui.app_title")
+    assert "?" not in translate_text("zh_HK", "report.metadata.issue_id", value=15920)
+
+
 def _ready_officers_response() -> OfficersResponse:
     return OfficersResponse(
         metadata=OfficersMetadata(

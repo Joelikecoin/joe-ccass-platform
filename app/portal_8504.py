@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-import yfinance as yf
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, StreamingResponse
 
@@ -71,6 +70,7 @@ APP_SUBTITLE_EN = "Functional + data fidelity recovery for live CCASS, market co
 APP_SUBTITLE_ZH = "面向功能與資料真實度復原：即時 CCASS、市場脈絡與歷史資料。"
 
 DEFAULT_PORTAL_CODE = "00700"
+PRICE_HISTORY_LOAD_TIMEOUT_SECONDS = 5.0
 PRICE_RANGE_WINDOWS: dict[str, int | None] = {
     "1M": 21,
     "3M": 63,
@@ -95,6 +95,11 @@ RAINBOW_COLOR_PALETTE = (
     "#cc0000",
     "#999999",
 )
+
+try:  # pragma: no cover - optional dependency guard
+    import yfinance as yf
+except Exception:  # pragma: no cover - dependency is optional in recovery mode
+    yf = None
 
 
 def _format_decimal(value: float | None, digits: int = 2) -> str:
@@ -281,6 +286,8 @@ def _price_chart_svg(
 
 
 def _load_price_history(symbol: str) -> list[dict[str, object]]:
+    if yf is None:
+        return []
     ticker = yf.Ticker(symbol)
     dataframe = None
     for period in ("max", "1y", "6mo"):
@@ -807,7 +814,22 @@ async def _build_portal_8504_bundle(
     )
     price_rows: list[dict[str, object]] = []
     if base.live_product is not None:
-        price_rows = list(await asyncio.to_thread(_cached_price_history, base.live_product.symbol))
+        try:
+            price_rows = list(
+                await asyncio.wait_for(
+                    asyncio.to_thread(_cached_price_history, base.live_product.symbol),
+                    timeout=PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
+                )
+            )
+        except TimeoutError:
+            base.live_product.source_notes.append(
+                f"Price history lookup timed out after {PRICE_HISTORY_LOAD_TIMEOUT_SECONDS:g}s; "
+                "the page is rendering without the extended chart."
+            )
+        except Exception as exc:
+            base.live_product.source_notes.append(
+                f"Price history lookup failed with {type(exc).__name__}; the page is rendering without the extended chart."
+            )
         if not price_rows:
             price_rows = _normalize_price_rows(base.live_product.price_history)
     concentration_rows = _concentration_history_rows(base)

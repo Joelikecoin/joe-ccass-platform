@@ -17,7 +17,12 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 
 from app.config import get_settings
 from app.errors import PlatformError
-from app.live_product import build_live_download_artifacts, build_live_preview_tables, prepare_live_product, render_live_markdown
+from app.live_product import (
+    build_live_download_artifacts,
+    build_live_preview_tables,
+    build_live_product_from_response,
+    render_live_markdown,
+)
 from app.services.ccass import get_ccass_service
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
@@ -220,7 +225,6 @@ async def _build_bundle(
 
         previous_loader = _load_previous
 
-    live_product_task = prepare_live_product(resolved_code)
     ccass_task = prepare_report(
         resolved_code,
         holdings_limit=top_n,
@@ -229,7 +233,12 @@ async def _build_bundle(
         locale="en",
         previous_loader=previous_loader,
     )
-    live_product, prepared = await asyncio.gather(live_product_task, ccass_task)
+    prepared = await ccass_task
+    live_product = (
+        build_live_product_from_response(prepared.response, source_trace=prepared.source_trace)
+        if prepared.response is not None
+        else None
+    )
 
     if previous_loader and prepared.response is not None:
         try:
@@ -372,14 +381,16 @@ def _ccass_summary(bundle: PortalBundle, locale: str) -> str:
     response = prepared.response
     md = response.metadata
     summary = response.holdings_summary
+    requested_date = getattr(md, "requested_date", None) or md.holdings_date or md.data_as_of
+    acquisition_method = getattr(md, "acquisition_method", None) or getattr(md, "source_name", None) or "—"
     rows = [
         ("Code", _escape(md.code)),
         ("Issue ID", _escape(md.issue_id)),
-        ("Requested Date", _escape(_format_date(md.requested_date))),
+        ("Requested Date", _escape(_format_date(requested_date))),
         ("Holdings Date", _escape(_format_date(md.holdings_date))),
         ("Fetched At", _escape(_format_datetime(md.fetched_at))),
         ("Source Name", _escape(md.source_name)),
-        ("Acquisition", _escape(md.acquisition_method or "—")),
+        ("Acquisition", _escape(acquisition_method)),
         ("Cached", _escape("Yes" if md.cached else "No")),
     ]
     metrics = [

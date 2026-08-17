@@ -76,6 +76,31 @@ class LiveProduct:
         }
 
 
+def build_live_product_from_response(
+    response: CcassResponse,
+    *,
+    source_trace: SourceTraceView | None = None,
+) -> LiveProduct:
+    announcements, events, capital_information, officers = _build_response_tables(response)
+    normalized_code = response.metadata.code
+    return LiveProduct(
+        code=response.metadata.code,
+        symbol=(response.price_history.metadata.ticker if response.price_history is not None else f"{normalized_code}.HK"),
+        company=_build_company_dict(response),
+        latest_price=_build_latest_price(response),
+        price_history=_build_price_history_rows(response),
+        announcements=announcements,
+        corporate_events=events,
+        share_capital_changes=capital_information,
+        officers=officers,
+        source_notes=_build_source_notes(response, source_trace),
+        diagnostics=_build_diagnostics(response, source_trace),
+        fetched_at=response.metadata.fetched_at,
+        response=response,
+        source_trace=source_trace,
+    )
+
+
 def _dump_pydantic(value: Any) -> Any:
     if value is None:
         return None
@@ -312,24 +337,9 @@ async def prepare_live_product(code: str | int) -> LiveProduct | None:
     except Exception:
         return None
 
-    response = gateway_response.normalized_response
-    source_trace = build_source_trace_view(gateway_response)
-    announcements, events, capital_information, officers = _build_response_tables(response)
-    return LiveProduct(
-        code=response.metadata.code,
-        symbol=(response.price_history.metadata.ticker if response.price_history is not None else f"{normalized}.HK"),
-        company=_build_company_dict(response),
-        latest_price=_build_latest_price(response),
-        price_history=_build_price_history_rows(response),
-        announcements=announcements,
-        corporate_events=events,
-        share_capital_changes=capital_information,
-        officers=officers,
-        source_notes=_build_source_notes(response, source_trace),
-        diagnostics=_build_diagnostics(response, source_trace),
-        fetched_at=response.metadata.fetched_at,
-        response=response,
-        source_trace=source_trace,
+    return build_live_product_from_response(
+        gateway_response.normalized_response,
+        source_trace=build_source_trace_view(gateway_response),
     )
 
 

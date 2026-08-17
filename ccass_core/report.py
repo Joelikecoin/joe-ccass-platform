@@ -1002,6 +1002,31 @@ CHATGPT_COPY_HEADER = (
 )
 
 
+def _is_placeholder_translation(template: str) -> bool:
+    stripped = template.strip()
+    if not stripped or "?" not in stripped:
+        return False
+    if any("\u4e00" <= char <= "\u9fff" for char in stripped):
+        return False
+    allowed = set(" ?!.,;:-_()/[]{}<>|\\'\"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+    return all(char in allowed for char in stripped)
+
+
+def _repair_placeholder_translations() -> None:
+    english = TRANSLATION_REGISTRY.get("en", {})
+    zh_hk = TRANSLATION_REGISTRY.get("zh_HK", {})
+    for key, template in list(zh_hk.items()):
+        if isinstance(template, str) and _is_placeholder_translation(template):
+            fallback = english.get(key)
+            if fallback is not None:
+                zh_hk[key] = fallback
+
+
+_repair_placeholder_translations()
+SECTION_HEADINGS = tuple(TRANSLATION_REGISTRY[DEFAULT_LOCALE][f"report.section.{key}"] for key in REPORT_SECTION_KEYS)
+DATA_NOT_AVAILABLE = TRANSLATION_REGISTRY[DEFAULT_LOCALE]["report.data_not_available"]
+
+
 def translate_text(locale: str, key: str, /, **values: object) -> str:
     locale_map = TRANSLATION_REGISTRY.get(locale, {})
     template = locale_map.get(key)
