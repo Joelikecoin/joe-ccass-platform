@@ -148,7 +148,9 @@ def latest_holdings_is_complete(response: CcassResponse) -> bool:
         if warning.startswith(PRODUCT_VALIDATION_PREFIX)
     ]
     if statuses:
-        return statuses[-1] == f"{PRODUCT_VALIDATION_PREFIX} COMPLETE"
+        if statuses[-1] == f"{PRODUCT_VALIDATION_PREFIX} COMPLETE":
+            return True
+        return len(response.holdings) == response.holdings_summary.participant_count
     return (
         len(response.holdings) == response.holdings_summary.participant_count
         and not any("partial" in warning.lower() for warning in response.data_quality_warnings)

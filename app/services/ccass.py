@@ -318,14 +318,16 @@ class CcassService:
 
     def _build_recovery_backend(
         self,
-        source_id: str,
+        source_ids: tuple[str, ...] | None = None,
     ) -> RepositorySnapshotBackend | None:
         if self.lkg_repository is None:
+            return None
+        if source_ids is not None and not source_ids:
             return None
         return RepositorySnapshotBackend(
             self.lkg_repository,
             max_age_seconds=self.settings.holdings_lkg_max_age_seconds,
-            source_ids=(source_id,),
+            source_ids=source_ids,
         )
 
     def _build_source_candidates(
@@ -354,10 +356,15 @@ class CcassService:
                     priority=1,
                     status="active",
                     backend=_DeferredHoldingsSource(lambda: HKEXSdwClient(self.settings)),
-                    fallback_eligible=False,
+                    fallback_eligible=True,
                 )
             )
-        recovery_backend = self._build_recovery_backend(live_definition.source_id)
+        recovery_source_ids = tuple(
+            source.source_id
+            for source in self.available_sources
+            if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
+        )
+        recovery_backend = self._build_recovery_backend(recovery_source_ids)
         if recovery_backend is not None:
             candidates.append(
                 GatewaySourceCandidate(

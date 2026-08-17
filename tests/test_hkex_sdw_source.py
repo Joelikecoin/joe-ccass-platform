@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
 from app.services.ccass import CcassService
@@ -121,3 +123,76 @@ async def test_service_auto_routes_webbsite_failure_to_hkex_sdw_and_persists_sna
     assert repository.latest("01592", source_id=HKEX_SDW_SOURCE_ID) is not None
     assert dashboard.startswith("###")
     assert "01592" in dashboard
+
+
+async def test_service_auto_uses_persistent_lkg_recovery_after_hkex_failure(
+    tmp_path,
+    monkeypatch,
+    current_response,
+):
+    repository = NormalizedSnapshotRepository(tmp_path / "lkg.db")
+    real_repository = NormalizedSnapshotRepository(Path("data/ccass_snapshots.db"))
+    real_snapshot = real_repository.latest("01592", source_id=HKEX_SDW_SOURCE_ID)
+    assert real_snapshot is not None
+    recovered_snapshots = [
+        snapshot
+        for source_id in ("webbsite", HKEX_SDW_SOURCE_ID)
+        if (snapshot := real_repository.latest("01592", source_id=source_id)) is not None
+    ]
+    for snapshot in recovered_snapshots:
+        repository.save(snapshot)
+
+    calls: list[str] = []
+
+    class FailingWebbsite:
+        def __init__(self, settings):
+            calls.append("webbsite")
+
+        async def get_holdings(self, code, limit=15):
+            raise PlatformError(
+                ErrorCode.SOURCE_FORBIDDEN,
+                "Webb-site mirror blocked in test fixture.",
+                status_code=403,
+            )
+
+    class FailingHKEX:
+        def __init__(self, settings):
+            calls.append("hkex")
+
+        async def get_holdings(self, code, limit=15):
+            raise PlatformError(
+                ErrorCode.SOURCE_UNAVAILABLE,
+                "HKEX SDW blocked in test fixture.",
+                retry_recommended=True,
+                status_code=503,
+            )
+
+    class FailingCSV:
+        def __init__(self, settings):
+            calls.append("csv")
+
+        async def get_holdings(self, code, limit=15):  # pragma: no cover - defensive
+            raise AssertionError("CSV fallback must not be selected when LKG succeeds")
+
+    monkeypatch.setattr("app.services.ccass.WebbsiteClient", FailingWebbsite)
+    monkeypatch.setattr("app.services.ccass.HKEXSdwClient", FailingHKEX)
+    monkeypatch.setattr("app.services.ccass.GoogleDriveCsvSource", FailingCSV)
+
+    service = CcassService(
+        settings=Settings(),
+        lkg_repository=repository,
+    )
+
+    gateway_response = await service.get_stock_gateway_response("1592", holdings_limit=2)
+    response = gateway_response.normalized_response
+
+    assert calls == ["webbsite", "hkex"]
+    assert gateway_response.routing.selected_source_id == "persistent_lkg"
+    assert gateway_response.routing.selected_source_status == "fallback"
+    assert response.metadata.source_name == "HKEX SDW"
+    assert response.metadata.source_url.startswith("https://www3.hkexnews.hk/")
+    assert response.metadata.data_as_of == real_snapshot.snapshot_date
+    assert len(response.holdings) == real_snapshot.participant_count
+    assert response.changes is not None
+    assert response.big_changes is not None
+    assert response.concentration is not None

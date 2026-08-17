@@ -59,30 +59,44 @@ class ChangesService:
                 status_code=400,
             )
 
+        snapshot_candidates: list[tuple[HistoricalSnapshot, SourceDefinition]] = []
+        compare_candidates: list[tuple[HistoricalSnapshot, SourceDefinition]] = []
         for source in self.sources:
             snapshot = self.repository.snapshot_on(
                 normalized,
                 snapshot_date,
                 source_id=source.source_id,
             )
+            if snapshot is not None:
+                snapshot_candidates.append((snapshot, source))
             compare = self.repository.snapshot_on(
                 normalized,
                 compare_date,
                 source_id=source.source_id,
             )
-            if snapshot is not None and compare is not None:
+            if compare is not None:
+                compare_candidates.append((compare, source))
+
+        for snapshot, snapshot_source in snapshot_candidates:
+            for compare, compare_source in compare_candidates:
+                if (
+                    snapshot.source.source_id == compare.source.source_id
+                    and snapshot.source.issue_id != compare.source.issue_id
+                ):
+                    continue
                 return _build_changes(
                     snapshot,
                     compare,
                     requested_code=normalized,
                     requested_snapshot_date=snapshot_date,
                     requested_compare_date=compare_date,
-                    source=source,
+                    snapshot_source=snapshot_source,
+                    compare_source=compare_source,
                 )
 
         raise PlatformError(
             ErrorCode.NOT_FOUND,
-            "No approved active source has both requested exact CCASS snapshots.",
+            "No approved active source pair has both requested exact CCASS snapshots.",
             status_code=404,
         )
 
@@ -94,23 +108,27 @@ def _build_changes(
     requested_code: str,
     requested_snapshot_date: date,
     requested_compare_date: date,
-    source: SourceDefinition,
+    snapshot_source: SourceDefinition,
+    compare_source: SourceDefinition,
 ) -> ChangesResponse:
     _validate_snapshot(
         snapshot,
         requested_code=requested_code,
         requested_date=requested_snapshot_date,
-        source=source,
+        source=snapshot_source,
         label="snapshot",
     )
     _validate_snapshot(
         compare,
         requested_code=requested_code,
         requested_date=requested_compare_date,
-        source=source,
+        source=compare_source,
         label="compare",
     )
-    if snapshot.source.issue_id != compare.source.issue_id:
+    if (
+        snapshot.source.source_id == compare.source.source_id
+        and snapshot.source.issue_id != compare.source.issue_id
+    ):
         raise PlatformError(
             ErrorCode.INVALID_SCHEMA,
             "Changes identity validation failed: snapshot issue IDs do not match.",
@@ -132,6 +150,11 @@ def _build_changes(
     ]
     warnings.extend(f"COMPARE_SNAPSHOT_WARNING: {warning}" for warning in compare.warnings)
     warnings.extend(f"SNAPSHOT_WARNING: {warning}" for warning in snapshot.warnings)
+    if snapshot.source.issue_id != compare.source.issue_id:
+        warnings.append(
+            "CROSS_SOURCE_ISSUE_ID_MISMATCH: requested snapshots came from different sources; "
+            "stock code and exact dates were preserved."
+        )
     if snapshot.issued_shares != compare.issued_shares:
         warnings.append(
             "DENOMINATOR_CHANGED: issued_shares differs between the requested snapshots; "
@@ -192,17 +215,16 @@ def _validate_snapshot(
             f"Changes {label} is stale and cannot be used as product data.",
             status_code=409,
         )
-    if snapshot.partial:
+    response = finalize_latest_holdings(
+        snapshot.to_response(),
+        requested_code=requested_code,
+    )
+    if snapshot.partial and not latest_holdings_is_complete(response):
         raise PlatformError(
             ErrorCode.INVALID_SCHEMA,
             f"Changes {label} is partial; missing participants cannot be treated as zero.",
             status_code=422,
         )
-
-    response = finalize_latest_holdings(
-        snapshot.to_response(),
-        requested_code=requested_code,
-    )
     if not latest_holdings_is_complete(response):
         raise PlatformError(
             ErrorCode.INVALID_SCHEMA,

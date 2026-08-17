@@ -16,7 +16,7 @@ from app.models import (
     ConcentrationSummary,
     HoldingRow,
 )
-from app.services.latest_holdings import finalize_latest_holdings
+from app.services.latest_holdings import finalize_latest_holdings, latest_holdings_is_complete
 from app.sources.registry import SourceDefinition, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
@@ -201,16 +201,16 @@ def _validate_snapshot(
             "Concentration snapshot is stale and cannot be used as product data.",
             status_code=409,
         )
-    if snapshot.partial:
+    response = finalize_latest_holdings(
+        snapshot.to_response(),
+        requested_code=requested_code,
+    )
+    if snapshot.partial and not latest_holdings_is_complete(response):
         raise PlatformError(
             ErrorCode.INVALID_SCHEMA,
             "Concentration snapshot is partial; missing participants cannot be ranked.",
             status_code=422,
         )
-    response = finalize_latest_holdings(
-        snapshot.to_response(),
-        requested_code=requested_code,
-    )
     if not _allows_issued_shares_staleness(response) and not _response_is_complete(response):
         raise PlatformError(
             ErrorCode.INVALID_SCHEMA,
