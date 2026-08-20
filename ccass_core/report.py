@@ -449,6 +449,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.price_history.table_adjusted_close": "Adjusted close",
         "report.price_history.table_volume": "Volume",
         "report.price_history.table_turnover": "Turnover",
+        "report.price_history.table_vwap": "VWAP",
         "report.price_history.metadata_source": "- Source: {value}",
         "report.price_history.metadata_source_url": "- Source URL: {value}",
         "report.price_history.metadata_price_date_from": "- Price date from: {value}",
@@ -922,6 +923,7 @@ TRANSLATION_REGISTRY: dict[str, dict[str, str]] = {
         "report.price_history.table_adjusted_close": "調整後收市",
         "report.price_history.table_volume": "成交量",
         "report.price_history.table_turnover": "成交額",
+        "report.price_history.table_vwap": "VWAP",
         "report.price_history.metadata_source": "- 來源：{value}",
         "report.price_history.metadata_source_url": "- 來源網址：{value}",
         "report.price_history.metadata_price_date_from": "- 價格起始日：{value}",
@@ -1826,8 +1828,8 @@ def _price_history_section(price_history: PriceHistoryResponse | None, locale: s
 
     lines.extend(
         [
-            f"| {translate_text(locale, 'report.price_history.table_date')} | {translate_text(locale, 'report.price_history.table_open')} | {translate_text(locale, 'report.price_history.table_high')} | {translate_text(locale, 'report.price_history.table_low')} | {translate_text(locale, 'report.price_history.table_close')} | {translate_text(locale, 'report.price_history.table_adjusted_close')} | {translate_text(locale, 'report.price_history.table_volume')} | {translate_text(locale, 'report.price_history.table_turnover')} |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|",
+            f"| {translate_text(locale, 'report.price_history.table_date')} | {translate_text(locale, 'report.price_history.table_open')} | {translate_text(locale, 'report.price_history.table_high')} | {translate_text(locale, 'report.price_history.table_low')} | {translate_text(locale, 'report.price_history.table_close')} | {translate_text(locale, 'report.price_history.table_adjusted_close')} | {translate_text(locale, 'report.price_history.table_volume')} | {translate_text(locale, 'report.price_history.table_turnover')} | {translate_text(locale, 'report.price_history.table_vwap')} |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in price_history.prices:
@@ -1843,6 +1845,7 @@ def _price_history_section(price_history: PriceHistoryResponse | None, locale: s
                     _decimal(row.adjusted_close, locale),
                     _integer(row.volume, locale),
                     _money(row.turnover, locale),
+                    _decimal(row.vwap, locale),
                 ]
             )
             + " |"

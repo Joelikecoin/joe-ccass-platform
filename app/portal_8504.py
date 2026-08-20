@@ -125,8 +125,18 @@ def _normalize_price_rows(result) -> list[dict[str, object]]:
         close = row.get("close")
         volume = row.get("volume")
         turnover = row.get("turnover")
+        vwap = row.get("vwap")
+        price_source = row.get("price_source")
+        turnover_est = row.get("turnover_est")
+        vwap_est = row.get("vwap_est")
         if turnover is None and close is not None and volume is not None:
             turnover = float(close) * float(volume)
+            if turnover_est is None:
+                turnover_est = turnover
+        if vwap is None and turnover is not None and volume not in (None, 0):
+            vwap = float(turnover) / float(volume)
+            if vwap_est is None:
+                vwap_est = vwap
         close_float = float(close) if close is not None else None
         row_change = None if previous_close is None or close_float is None else close_float - previous_close
         row_change_pct = None
@@ -141,10 +151,14 @@ def _normalize_price_rows(result) -> list[dict[str, object]]:
                 "high": row.get("high"),
                 "low": row.get("low"),
                 "close": close_float,
+                "vwap": float(vwap) if vwap is not None else None,
                 "volume": int(volume) if volume is not None else None,
                 "turnover": float(turnover) if turnover is not None else None,
                 "dividends": row.get("dividends") or 0.0,
                 "splits": row.get("splits") or 0.0,
+                "price_source": price_source,
+                "turnover_est": float(turnover_est) if turnover_est is not None else None,
+                "vwap_est": float(vwap_est) if vwap_est is not None else None,
                 "source": row.get("source"),
                 "source_url": row.get("source_url"),
                 "change": row_change,
@@ -321,11 +335,15 @@ def _load_price_history(symbol: str) -> list[dict[str, object]]:
                 "high": float(item["High"]) if item.get("High") is not None else None,
                 "low": float(item["Low"]) if item.get("Low") is not None else None,
                 "close": float(item["Close"]) if item.get("Close") is not None else None,
+                "vwap": float(item["Close"]) if item.get("Close") is not None else None,
                 "volume": int(item["Volume"]) if item.get("Volume") is not None else None,
-                "turnover": None,
+                "turnover": float(item["Close"]) * float(item["Volume"]) if item.get("Close") is not None and item.get("Volume") is not None else None,
+                "price_source": "yahoo",
+                "turnover_est": float(item["Close"]) * float(item["Volume"]) if item.get("Close") is not None and item.get("Volume") is not None else None,
+                "vwap_est": float(item["Close"]) if item.get("Close") is not None else None,
                 "dividends": float(item["Dividends"]) if "Dividends" in item and item.get("Dividends") else 0.0,
                 "splits": float(item["Stock Splits"]) if "Stock Splits" in item and item.get("Stock Splits") else 0.0,
-                "source": "Yahoo Finance extended history",
+                "source": "Yahoo Finance",
                 "source_url": YAHOO_CHART_API_URL.format(symbol=symbol),
             }
         )
@@ -542,10 +560,15 @@ def _rainbow_svg(rows: list[dict[str, object]], *, width: int = 940, height: int
 def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> str:
     if bundle.live_product is None:
         return '<div class="empty-state">Price history unavailable.</div>'
+    source_name = "—"
+    if bundle.live_product.price_history:
+        source_name = bundle.live_product.price_history.metadata.source_name
     if not price_rows and bundle.live_product.price_history:
         price_rows = _normalize_price_rows(bundle.live_product.price_history)
     if not price_rows:
         return '<div class="empty-state">No usable price history rows were returned from the live source.</div>'
+    if price_rows:
+        source_name = str(price_rows[-1].get("source") or source_name)
     windows = _history_windows(price_rows)
     default_range = "1Y" if windows["1Y"] else "Max"
     default_metric = "turnover" if any(row.get("turnover") is not None for row in price_rows) else "volume"
@@ -570,14 +593,15 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
             _svg_escape(_format_decimal(row.get("low"), 3)),
             _svg_escape(_format_decimal(row.get("close"), 3)),
             _svg_escape(_int_text(row.get("volume"))),
-            _svg_escape(_int_text(row.get("turnover"))),
+            _svg_escape(_format_decimal(row.get("turnover"), 2)),
+            _svg_escape(_format_decimal(row.get("vwap") if row.get("vwap") is not None else row.get("vwap_est"), 4)),
         ]
         for row in windows[default_range][-12:]
     ]
     metric_card_rows = [
         _metric_card("Latest Close", "最新收市", _format_decimal(float(latest_close), 3) if latest_close is not None else "—", tone="primary"),
         _metric_card("Latest Change", "最新變動", f"{_format_decimal(latest_change, 3)} ({_format_percent(latest_change_pct, 2)})" if latest_change is not None else "—", tone="accent"),
-        _metric_card("Turnover", "成交額", f"{_format_int(int(latest_turnover)) if latest_turnover is not None else '—'}", note="Estimated from close × volume when raw turnover is not available.", tone="secondary"),
+        _metric_card("Turnover", "成交額", _format_decimal(float(latest_turnover), 2) if latest_turnover is not None else "—", note="Estimated from close × volume when raw turnover is not available." if any(row.get("turnover_est") is not None for row in price_rows) else None, tone="secondary"),
         _metric_card("Volume", "成交量", _format_int(int(latest_volume)) if latest_volume is not None else "—", tone="muted"),
     ]
     chart_cards = []
@@ -591,13 +615,13 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
                   <div class="price-pane-head">
                     <div>
                       <div class="chart-title">Range: {window} / Bars: {PRICE_METRIC_LABELS[metric][0]}</div>
-                      <div class="chart-source">Source: Yahoo Finance history | data_as_of: {_svg_escape(latest_date or '—')}</div>
+                      <div class="chart-source">Source: {_svg_escape(source_name)} | data_as_of: {_svg_escape(latest_date or '—')}</div>
                     </div>
                     <div class="chart-mini-note">Rows: {len(pane_rows):,}</div>
                   </div>
                   { _price_chart_svg(pane_rows, metric=metric) }
                   <div class="chart-table-wrap">
-                    {_table(["Date", "Open", "High", "Low", "Close", "Volume", "Turnover"], default_table_rows if selected else [
+                    {_table(["Date", "Open", "High", "Low", "Close", "Volume", "Turnover", "VWAP"], default_table_rows if selected else [
                         [
                             _svg_escape(row.get("date") or "—"),
                             _svg_escape(_format_decimal(row.get("open"), 3)),
@@ -605,7 +629,8 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
                             _svg_escape(_format_decimal(row.get("low"), 3)),
                             _svg_escape(_format_decimal(row.get("close"), 3)),
                             _svg_escape(_int_text(row.get("volume"))),
-                            _svg_escape(_int_text(row.get("turnover"))),
+                            _svg_escape(_format_decimal(row.get("turnover"), 2)),
+                            _svg_escape(_format_decimal(row.get("vwap") if row.get("vwap") is not None else row.get("vwap_est"), 4)),
                         ]
                         for row in pane_rows[-12:]
                     ], class_name="compact-table")}
@@ -626,7 +651,7 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
       <div class="chart-header">
         <div>
           <h3>Price &amp; Turnover History</h3>
-          <div class="source-note">Price chart: Yahoo Finance extended history | Bars are independently scaled inside the chart.</div>
+          <div class="source-note">Price chart: {_svg_escape(source_name)} | Bars are independently scaled inside the chart.</div>
         </div>
         <div class="chart-actions">
           <button type="button" class="icon-btn" data-price-download>Download as PNG</button>
@@ -647,7 +672,7 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
       <details class="event-lines">
         <summary>Cost / event lines</summary>
         <div class="event-lines-body">
-          Dividend and split markers are drawn from Yahoo Finance corporate action fields when available. They are contextual markers only.
+          Dividend and split markers are drawn from the current price source corporate action fields when available. They are contextual markers only.
         </div>
       </details>
       <div class="price-panes">
@@ -749,10 +774,15 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
     price_date = price_rows[-1]["date"] if price_rows else None
     snapshot_count = len(concentration_rows)
     source_mode = bundle.source_mode
+    price_source_name = "Unavailable"
+    if result and result.price_history is not None:
+        price_source_name = result.price_history.metadata.source_name
+    elif price_rows and price_rows[-1].get("source"):
+        price_source_name = str(price_rows[-1].get("source"))
     cards = [
         _metric_card("Portal", "入口", APP_TITLE_EN, tone="primary"),
         _metric_card("CCASS Source", "CCASS 來源", "HKEX SDW" if prepared and prepared.response else "Unavailable", tone="success"),
-        _metric_card("Price Source", "價格來源", "Yahoo Finance", tone="accent"),
+        _metric_card("Price Source", "價格來源", price_source_name, tone="accent"),
         _metric_card("Announcement Source", "公告來源", "HKEX News", tone="muted"),
         _metric_card("Snapshot History", "快照歷史", _format_int(snapshot_count), tone="secondary"),
         _metric_card("Last CCASS Date", "最近 CCASS 日期", _format_date(ccass_date), tone="secondary"),
@@ -814,13 +844,16 @@ async def _build_portal_8504_bundle(
     )
     price_rows: list[dict[str, object]] = []
     if base.live_product is not None:
+        if base.live_product.price_history:
+            price_rows = _normalize_price_rows(base.live_product.price_history)
         try:
-            price_rows = list(
-                await asyncio.wait_for(
-                    asyncio.to_thread(_cached_price_history, base.live_product.symbol),
-                    timeout=PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
+            if not price_rows:
+                price_rows = list(
+                    await asyncio.wait_for(
+                        asyncio.to_thread(_cached_price_history, base.live_product.symbol),
+                        timeout=PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
+                    )
                 )
-            )
         except TimeoutError:
             base.live_product.source_notes.append(
                 f"Price history lookup timed out after {PRICE_HISTORY_LOAD_TIMEOUT_SECONDS:g}s; "
@@ -830,7 +863,7 @@ async def _build_portal_8504_bundle(
             base.live_product.source_notes.append(
                 f"Price history lookup failed with {type(exc).__name__}; the page is rendering without the extended chart."
             )
-        if not price_rows:
+        if not price_rows and base.live_product.price_history:
             price_rows = _normalize_price_rows(base.live_product.price_history)
     concentration_rows = _concentration_history_rows(base)
     for row in concentration_rows:

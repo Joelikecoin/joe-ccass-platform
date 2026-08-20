@@ -217,9 +217,13 @@ class PriceHistoryRow(BaseModel):
     high: float | None = None
     low: float | None = None
     close: float | None = None
+    vwap: float | None = None
     adjusted_close: float | None = None
     volume: int | None = None
     turnover: float | None = None
+    price_source: str | None = None
+    turnover_est: float | None = None
+    vwap_est: float | None = None
 
 
 class PriceHistoryMetadata(BaseModel):

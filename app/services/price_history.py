@@ -5,13 +5,13 @@ from functools import lru_cache
 
 from app.config import Settings, get_settings
 from app.models import PriceHistoryResponse
-from app.sources.price_history import YahooFinancePriceHistorySource
+from app.sources.price_history import PriceHistorySource
 
 
 class PriceHistoryService:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self.source = YahooFinancePriceHistorySource(self.settings)
+        self.source = PriceHistorySource(self.settings)
 
     async def get_price_history(
         self,
