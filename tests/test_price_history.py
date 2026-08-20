@@ -125,11 +125,8 @@ async def test_yahoo_price_history_source_parses_adjusted_close_and_turnover():
 
 
 @pytest.mark.asyncio
-async def test_price_history_source_falls_back_to_webbsite_with_provenance(monkeypatch):
+async def test_price_history_source_uses_webbsite_first_without_calling_yahoo(monkeypatch):
     source = PriceHistorySource()
-
-    async def fail_yahoo(*args, **kwargs):
-        raise PlatformError(ErrorCode.SOURCE_UNAVAILABLE, "Yahoo unavailable", retry_recommended=True)
 
     html = """
     <html><body>
@@ -144,8 +141,6 @@ async def test_price_history_source_falls_back_to_webbsite_with_provenance(monke
     </body></html>
     """
 
-    monkeypatch.setattr(source.yahoo_source, "get_price_history", fail_yahoo)
-
     async def fake_resolve_issue_id(code):
         return 12345, "Sample Company"
 
@@ -155,6 +150,15 @@ async def test_price_history_source_falls_back_to_webbsite_with_provenance(monke
     monkeypatch.setattr(source.webbsite_source.client, "resolve_issue_id", fake_resolve_issue_id)
     monkeypatch.setattr(source.webbsite_source.client, "get_price_history_page", fake_get_price_history_page)
 
+    called = False
+
+    async def fail_yahoo(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise PlatformError(ErrorCode.SOURCE_UNAVAILABLE, "Yahoo should not be called", retry_recommended=True)
+
+    monkeypatch.setattr(source.yahoo_source, "get_price_history", fail_yahoo)
+
     response = await source.get_price_history("1592", start_date=date(2026, 7, 19), end_date=date(2026, 7, 19))
 
     assert response.metadata.source_name == "Webb-site"
@@ -162,6 +166,28 @@ async def test_price_history_source_falls_back_to_webbsite_with_provenance(monke
     assert response.prices[0].price_source == "webbsite"
     assert response.prices[0].turnover == 1050.0
     assert response.prices[0].vwap == 1.05
+    assert called is False
+    assert response.data_quality_warnings == []
+
+
+@pytest.mark.asyncio
+async def test_price_history_source_falls_back_to_yahoo_with_provenance(monkeypatch):
+    source = PriceHistorySource()
+
+    async def fail_webbsite(*args, **kwargs):
+        raise PlatformError(ErrorCode.SOURCE_UNAVAILABLE, "Webb-site unavailable", retry_recommended=True)
+
+    monkeypatch.setattr(source.webbsite_source, "get_price_history", fail_webbsite)
+
+    async def fake_yahoo(*args, **kwargs):
+        return _price_history_response()
+
+    monkeypatch.setattr(source.yahoo_source, "get_price_history", fake_yahoo)
+
+    response = await source.get_price_history("1592", start_date=date(2026, 7, 19), end_date=date(2026, 7, 20))
+
+    assert response.metadata.source_name == "Yahoo Finance"
+    assert response.prices[0].price_source == "yahoo"
     assert any("fallback was used" in warning.lower() for warning in response.data_quality_warnings)
 
 

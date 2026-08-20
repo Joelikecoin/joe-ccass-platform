@@ -334,8 +334,8 @@ class WebbsitePriceHistorySource:
 class PriceHistorySource:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self.yahoo_source = YahooFinancePriceHistorySource(self.settings)
         self.webbsite_source = WebbsitePriceHistorySource(self.settings)
+        self.yahoo_source = YahooFinancePriceHistorySource(self.settings)
         self._cache: dict[tuple[str, date, date], PriceHistoryResponse] = {}
 
     async def get_price_history(
@@ -354,7 +354,7 @@ class PriceHistorySource:
 
         primary_failure: PlatformError | None = None
         try:
-            response = await self.yahoo_source.get_price_history(
+            response = await self.webbsite_source.get_price_history(
                 request.code,
                 start_date=request.start_date,
                 end_date=request.end_date,
@@ -367,7 +367,7 @@ class PriceHistorySource:
             primary_failure = exc
 
         try:
-            response = await self.webbsite_source.get_price_history(
+            response = await self.yahoo_source.get_price_history(
                 request.code,
                 start_date=request.start_date,
                 end_date=request.end_date,
@@ -377,8 +377,8 @@ class PriceHistorySource:
                 raise PlatformError(
                     primary_failure.code,
                     (
-                        f"Yahoo Finance price history failed ({primary_failure.message}); "
-                        f"Webb-site fallback also failed ({fallback_exc.message})."
+                        f"Webb-site price history failed ({primary_failure.message}); "
+                        f"Yahoo Finance fallback also failed ({fallback_exc.message})."
                     ),
                     retry_recommended=primary_failure.retry_recommended or fallback_exc.retry_recommended,
                     retry_after_seconds=primary_failure.retry_after_seconds
@@ -393,8 +393,8 @@ class PriceHistorySource:
                     "PRICE_HISTORY",
                     "PRIMARY_SOURCE_FALLBACK",
                     (
-                        "Yahoo Finance price history was unavailable; "
-                        "Webb-site fallback was used."
+                        "Webb-site price history was unavailable; "
+                        "Yahoo Finance fallback was used."
                     ),
                 ),
                 *response.data_quality_warnings,
