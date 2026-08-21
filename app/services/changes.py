@@ -22,6 +22,7 @@ from app.services.latest_holdings import (
 from app.sources.registry import SourceDefinition, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
+from pydantic import ValidationError
 
 CHANGES_VALIDATION_WARNING = "CHANGES_VALIDATION: COMPLETE"
 CHANGES_COMPLETENESS_WARNING = "SNAPSHOT_COMPLETENESS: compare=COMPLETE snapshot=COMPLETE"
@@ -286,22 +287,35 @@ def _summary(rows: list[ChangeRow]) -> ChangesSummary:
 
 
 def _source_metadata(snapshot: HistoricalSnapshot) -> ChangesSourceMetadata:
-    return ChangesSourceMetadata(
-        source_id=snapshot.source.source_id,
-        source_name=snapshot.source.display_name,
-        safe_identifier=snapshot.source.safe_identifier,
-        issue_id=snapshot.source.issue_id,
-        fetched_at=snapshot.fetched_at,
-        parser_version=snapshot.parser_version,
-        schema_version=snapshot.schema_version,
-        checksum_sha256=snapshot.provenance.checksum_sha256,
-        attribution=snapshot.attribution,
-        issued_shares=snapshot.issued_shares,
-        issued_shares_as_of=snapshot.issued_shares_as_of,
-        cached=snapshot.cached,
-        stale=snapshot.stale,
-        partial=snapshot.partial,
-    )
+    if snapshot.issued_shares is not None and snapshot.issued_shares_as_of is None:
+        raise PlatformError(
+            ErrorCode.INVALID_SCHEMA,
+            "Changes source metadata requires issued_shares_as_of when issued_shares is present.",
+            status_code=502,
+        )
+    try:
+        return ChangesSourceMetadata(
+            source_id=snapshot.source.source_id,
+            source_name=snapshot.source.display_name,
+            safe_identifier=snapshot.source.safe_identifier,
+            issue_id=snapshot.source.issue_id,
+            fetched_at=snapshot.fetched_at,
+            parser_version=snapshot.parser_version,
+            schema_version=snapshot.schema_version,
+            checksum_sha256=snapshot.provenance.checksum_sha256,
+            attribution=snapshot.attribution,
+            issued_shares=snapshot.issued_shares,
+            issued_shares_as_of=snapshot.issued_shares_as_of,
+            cached=snapshot.cached,
+            stale=snapshot.stale,
+            partial=snapshot.partial,
+        )
+    except ValidationError as error:
+        raise PlatformError(
+            ErrorCode.INVALID_SCHEMA,
+            "Changes source metadata validation failed.",
+            status_code=502,
+        ) from error
 
 
 @lru_cache

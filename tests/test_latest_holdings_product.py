@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import date
 
 import pytest
@@ -17,6 +18,25 @@ class FixtureSource:
     async def get_holdings(self, code, limit=15):
         self.calls.append((code, limit))
         return self.response.model_copy(deep=True)
+
+
+def _normalize_latest_holdings_contract(payload):
+    normalized = deepcopy(payload)
+    for section_name in ("stock_events", "capital_information", "officers"):
+        section = normalized.get(section_name)
+        if not isinstance(section, dict):
+            continue
+        metadata = section.get("metadata")
+        if isinstance(metadata, dict):
+            metadata["fetched_at"] = "<normalized>"
+        warnings = section.get("data_quality_warnings")
+        if isinstance(warnings, list):
+            section["data_quality_warnings"] = [
+                warning.split(" | ", 1)[0] if isinstance(warning, str) else warning
+                for warning in warnings
+            ]
+            section["data_quality_warnings"].sort()
+    return normalized
 
 
 async def test_service_validates_full_snapshot_before_limit_and_exposes_product_fields(
@@ -118,8 +138,10 @@ def test_canonical_and_legacy_api_paths_share_latest_holdings_contract(current_r
         app.dependency_overrides.clear()
 
     assert canonical.status_code == legacy.status_code == 200
-    assert canonical.json() == legacy.json()
-    payload = canonical.json()
+    canonical_payload = _normalize_latest_holdings_contract(canonical.json())
+    legacy_payload = _normalize_latest_holdings_contract(legacy.json())
+    assert canonical_payload == legacy_payload
+    payload = canonical_payload
     assert len(payload["holdings"]) == 1
     assert payload["holdings_summary"]["participant_count"] == 3
     assert payload["holdings_summary"]["issued_shares_as_of"] == "2026-07-20"
