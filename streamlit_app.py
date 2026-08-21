@@ -118,6 +118,17 @@ def _render_markdown_sections(section_keys: tuple[str, ...], sections: dict[str,
             st.markdown(section_markdown)
 
 
+def _raw_preview_display_rows(rows: list[dict[str, object]]) -> list[dict[str, str]]:
+    def _stringify(value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        return str(value)
+
+    return [{str(key): _stringify(value) for key, value in row.items()} for row in rows]
+
+
 def _render_named_expander(label: str, section_markdown: str | None) -> None:
     if not section_markdown:
         return
@@ -811,13 +822,13 @@ if prepared is not None:
                             }
                             for table in raw_preview_tables
                         ]
-                        st.table(overview_rows)
+                        st.table(_raw_preview_display_rows(overview_rows))
                         for table in raw_preview_tables:
                             st.markdown(f"### {table.table_index}. {table.title}")
                             st.caption(f"{ui_text(current_locale, 'raw_previews_shape')}: {table.shape[0]} ? {table.shape[1]}")
                             st.caption(f"{ui_text(current_locale, 'raw_previews_columns')}: {', '.join(table.columns)}")
                             if table.sample_rows:
-                                st.table(list(table.sample_rows))
+                                st.table(_raw_preview_display_rows(list(table.sample_rows)))
                             else:
                                 st.info(ui_text(current_locale, "raw_previews_no_sample_rows"))
         else:
