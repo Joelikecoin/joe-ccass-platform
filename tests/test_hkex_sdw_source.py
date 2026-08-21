@@ -17,13 +17,18 @@ def test_hkex_sdw_parser_accepts_existing_holdings_shape_and_txt_stock_code_fall
         <h2>FICTITIOUS LIMITED</h2>
         <p>CCASS holdings on 2026-07-20</p>
         <form>
+          <input name="i" value="1592" />
           <input name="txtStockCode" value="01592" />
         </form>
-        <table>
-          <tr><td>Total in CCASS</td><td>100</td><td>80.0</td></tr>
-          <tr><td>Issued securities</td><td>125</td><td>100.0</td></tr>
-          <tr><td>Securities not in CCASS</td><td>25</td><td>20.0</td></tr>
-        </table>
+        <div class="ccass-search-summary-table">
+          <div class="ccass-search-datarow">
+            <div class="summary-category">總數</div>
+            <div class="shareholding"><div class="value">100</div></div>
+            <div class="number-of-participants"><div class="value">2</div></div>
+            <div class="percent-of-participants"><div class="value">80.0</div></div>
+          </div>
+          <div class="ccass-search-remarks"><div class="summary-value">125</div></div>
+        </div>
         <table>
           <tr>
             <th>Rank</th><th>CCASS ID</th><th>Participant</th><th>Holding</th>
@@ -192,7 +197,7 @@ async def test_service_auto_uses_persistent_lkg_recovery_after_hkex_failure(
     assert response.metadata.source_name == "HKEX SDW"
     assert response.metadata.source_url.startswith("https://www3.hkexnews.hk/")
     assert response.metadata.data_as_of == real_snapshot.snapshot_date
-    assert len(response.holdings) == real_snapshot.participant_count
+    assert len(response.holdings) == 2
     assert response.changes is not None
     assert response.big_changes is not None
     assert response.concentration is not None

@@ -148,7 +148,7 @@ async def test_collector_passes_each_existing_source_mode_to_shared_service(
         def __init__(self, settings):
             constructed.append(settings.data_source)
 
-        async def get_stock_data(self, code, holdings_limit=15):
+        async def get_stock_data(self, code, holdings_limit=15, cache_first=False):
             return current_response
 
     monkeypatch.setattr(collector_module, "CcassService", FixtureService)
