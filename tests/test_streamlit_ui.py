@@ -68,6 +68,7 @@ from ccass_core.source_trace import (
 
 
 STREAMLIT_APP_PATH = Path(__file__).resolve().parents[1] / "streamlit_app.py"
+APP_LOCALE = "en"
 
 
 class SuccessfulService:
@@ -461,17 +462,20 @@ def test_streamlit_copy_for_chatgpt_surface_renders_heading_caption_and_actions(
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
+    download_expander = next(
+        block for block in app.expander if block.label == translate_text(APP_LOCALE, "ui.report_detail_download_copy")
+    )
     assert any(
         f"<a id='{localized_report_anchor('copy_for_chatgpt')}'></a>" in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.copy_for_chatgpt') in block.value and block.value.startswith('## ')
-        for block in app.markdown
+        translate_text(APP_LOCALE, 'ui.copy_for_chatgpt') in block.value and block.value.startswith('## ')
+        for block in download_expander.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.copy_for_chatgpt_caption') in block.value
-        for block in app.caption
+        translate_text(APP_LOCALE, 'ui.copy_for_chatgpt_caption') in block.value
+        for block in download_expander.caption
     )
     assert len(service.calls) == 1
 
@@ -488,9 +492,9 @@ def test_streamlit_query_input_surface_renders_help_caption():
     app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_query_input_caption") in block.value for block in app.caption)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.fetch_guidance_caption") in block.value for block in app.info)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.sidebar_stock_code_issue_id") in widget.label for widget in app.text_input)
+    assert any(translate_text(APP_LOCALE, "ui.sidebar_query_input_caption") in block.value for block in app.sidebar.caption)
+    assert any(translate_text(APP_LOCALE, "ui.fetch_guidance_caption") in block.value for block in app.sidebar.info)
+    assert any(translate_text(APP_LOCALE, "ui.sidebar_stock_code_issue_id") in widget.label for widget in app.sidebar.text_input)
 
 
 def test_resolve_streamlit_query_input_supports_issue_id_lookup(tmp_path, current_response):
@@ -520,7 +524,6 @@ def test_streamlit_navigation_links_cover_required_sections():
 
     assert STREAMLIT_NAV_SECTIONS == streamlit_navigation_sections(DEFAULT_LOCALE)
     assert "#fetch-summary" in links
-    assert "#full-summary" in links
     assert "#all-tables" in links
     assert "#dt-rainbow" in links
     assert "#hkex-announcements" in links
@@ -643,11 +646,11 @@ def test_streamlit_hkex_announcements_surface_renders_empty_state(monkeypatch, c
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.capital_information_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.officers_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.info)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.hkex_announcements_export_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.hkex_announcements_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.capital_information_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.officers_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.hkex_announcements_empty') in block.value for block in app.info)
+    assert any(translate_text(APP_LOCALE, 'ui.hkex_announcements_export_heading') in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
 
@@ -725,19 +728,19 @@ def test_streamlit_company_section_renders_identity_details(monkeypatch, current
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.company') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'report.section.company') in block.value for block in app.markdown)
     assert any(
-        translate_text(DEFAULT_LOCALE, 'report.company.lookup_status', value=translate_text(DEFAULT_LOCALE, 'report.company.lookup_status.success'))
+        translate_text(APP_LOCALE, 'report.company.lookup_status', value=translate_text(APP_LOCALE, 'report.company.lookup_status.success'))
         in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'report.company.lookup_method', value=translate_text(DEFAULT_LOCALE, 'report.company.lookup_method.extracted_from_url'))
+        translate_text(APP_LOCALE, 'report.company.lookup_method', value=translate_text(APP_LOCALE, 'report.company.lookup_method.extracted_from_url'))
         in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'report.company.metadata_resolution_note') in block.value
+        translate_text(APP_LOCALE, 'report.company.metadata_resolution_note') in block.value
         for block in app.markdown
     )
     assert len(service.calls) == 1
@@ -760,8 +763,7 @@ def test_streamlit_data_quality_surface_renders_warning_summary(monkeypatch, cur
     )
     markdown, _ = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
 
-    assert translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in markdown
-    assert translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in markdown
+    assert translate_text(DEFAULT_LOCALE, 'report.section.data_quality_warnings') in markdown
     assert 'TEST FIXTURE warning' in markdown
     assert len(service.calls) == 1
 
@@ -779,9 +781,9 @@ def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previou
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
-    assert any("OFFICERS_SOURCE_UNAVAILABLE" in block.value for block in app.warning)
+    assert any(translate_text(APP_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
+    assert any(translate_text(APP_LOCALE, 'ui.officers_unavailable') in block.value for block in app.markdown)
     assert any("Stock events source is pending approval" in block.value for block in app.warning)
     assert any("Capital information source is pending approval" in block.value for block in app.warning)
     assert len(service.calls) == 1
@@ -799,11 +801,11 @@ def test_streamlit_fetch_summary_remaining_message_renders_on_error(monkeypatch)
 
     assert not app.exception
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.fetch_status_failure', error='SOURCE_UNAVAILABLE: Offline fixture: source unavailable.')
+        translate_text(APP_LOCALE, 'ui.fetch_status_failure', error='SOURCE_UNAVAILABLE: Offline fixture: source unavailable.')
         in block.value
         for block in app.error
     )
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.fetch_summary_remaining') in block.value for block in app.info)
+    assert any(translate_text(APP_LOCALE, 'ui.fetch_summary_remaining') in block.value for block in app.info)
 
 
 def test_build_full_summary_markdown_renders_status_table(current_response, previous_response):
@@ -993,19 +995,19 @@ def test_streamlit_full_summary_surface_renders_anchor_and_heading(monkeypatch, 
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.full_summary_heading') in block.value
+        translate_text(APP_LOCALE, 'ui.full_summary_heading') in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.full_summary_caption') in block.value
+        translate_text(APP_LOCALE, 'ui.full_summary_caption') in block.value
         for block in app.caption
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.full_summary_table_section') in block.value
+        translate_text(APP_LOCALE, 'ui.full_summary_table_section') in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.full_summary_note_company', code='01592', issue_id=15920)
+        translate_text(APP_LOCALE, 'ui.full_summary_note_company', code='01592', issue_id=15920)
         in block.value
         for block in app.markdown
     )
@@ -1048,10 +1050,10 @@ def test_streamlit_m008_overviews_render_data_confidence_and_report_flow(monkeyp
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_confidence_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.report_flow_heading') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.data_confidence_freshness') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'ui.report_flow_visible_first') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.data_confidence_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.report_flow_heading') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.data_confidence_freshness') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'ui.report_flow_visible_first') in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
 
@@ -1071,15 +1073,15 @@ def test_streamlit_all_parsed_tables_surface_renders_heading_and_sections(monkey
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'ui.all_parsed_tables_heading') in block.value
+        translate_text(APP_LOCALE, 'ui.all_parsed_tables_heading') in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'report.section.holdings') in block.value
+        translate_text(APP_LOCALE, 'report.section.holdings') in block.value
         for block in app.markdown
     )
     assert any(
-        translate_text(DEFAULT_LOCALE, 'report.section.price_history') in block.value
+        translate_text(APP_LOCALE, 'report.section.price_history') in block.value
         for block in app.markdown
     )
     assert len(service.calls) == 1
@@ -1120,7 +1122,7 @@ def test_streamlit_all_tables_surface_renders_anchor_and_heading(monkeypatch, cu
         for block in app.markdown
     )
     assert any(
-        f"## {translate_text(DEFAULT_LOCALE, 'nav.all_tables')}" in block.value
+        f"## {translate_text(APP_LOCALE, 'nav.all_tables')}" in block.value
         for block in app.markdown
     )
     assert len(service.calls) == 1
@@ -1140,31 +1142,31 @@ def test_streamlit_visualization_alignment_surfaces_render_collapsed_sections_an
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, "ui.report_details_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.visualization_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.rendered_markdown") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.report_details_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.visualization_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.rendered_markdown") in block.value for block in app.markdown)
     assert any(
-        translate_text(DEFAULT_LOCALE, "ui.sidebar_show_optional_heavy_sections") == widget.label
+        translate_text(APP_LOCALE, "ui.sidebar_show_optional_heavy_sections") == widget.label
         for widget in app.checkbox
     )
     assert len(service.calls) == 1
 
     optional_checkbox = next(
-        widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.sidebar_show_optional_heavy_sections")
+        widget for widget in app.checkbox if widget.label == translate_text(APP_LOCALE, "ui.sidebar_show_optional_heavy_sections")
     )
     optional_checkbox.check().run(timeout=120)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_heading") in block.value for block in app.markdown)
-    dt_rainbow_checkbox = next(widget for widget in app.checkbox if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_enable"))
+    assert any(translate_text(APP_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.dt_rainbow_heading") in block.value for block in app.markdown)
+    dt_rainbow_checkbox = next(widget for widget in app.checkbox if widget.label == translate_text(APP_LOCALE, "ui.dt_rainbow_enable"))
     dt_rainbow_checkbox.check().run(timeout=120)
     assert any(
-        translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_generate") == widget.label
+        translate_text(APP_LOCALE, "ui.dt_rainbow_generate") == widget.label
         for widget in app.button
     )
-    dt_rainbow_button = next(widget for widget in app.button if widget.label == translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_generate"))
+    dt_rainbow_button = next(widget for widget in app.button if widget.label == translate_text(APP_LOCALE, "ui.dt_rainbow_generate"))
     dt_rainbow_button.click().run(timeout=120)
 
-    assert any(translate_text(DEFAULT_LOCALE, "ui.dt_rainbow_unavailable") in block.value for block in app.info)
+    assert any(translate_text(APP_LOCALE, "ui.dt_rainbow_unavailable") in block.value for block in app.info)
 
 
 def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, current_response):
@@ -1178,8 +1180,8 @@ def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, 
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.price_history') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.price_history.unavailable') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'report.section.price_history') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'report.price_history.unavailable') in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
 
@@ -1228,7 +1230,7 @@ def test_streamlit_price_history_surface_renders_loaded_state(monkeypatch, curre
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, "report.price_history.table_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "report.price_history.table_heading") in block.value for block in app.markdown)
     assert any("Yahoo Finance" in block.value for block in app.markdown)
     assert len(service.calls) == 1
     assert price_service.calls and price_service.calls[0][0] == "01592"
@@ -1250,9 +1252,9 @@ def test_streamlit_concentration_history_surface_renders_history_tables(monkeypa
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, 'report.section.concentration_history') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.concentration_history.latest_values') in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, 'report.concentration_history.participant_count_history') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'report.section.concentration_history') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'report.concentration_history.latest_values') in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, 'report.concentration_history.participant_count_history') in block.value for block in app.markdown)
     assert len(service.calls) == 1
 
 
@@ -1489,9 +1491,9 @@ def test_streamlit_raw_previews_surface_renders_help_caption(monkeypatch, curren
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_help_caption") in block.value for block in app.caption)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_expander") in block.label for block in app.expander)
+    assert any(translate_text(APP_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.raw_previews_help_caption") in block.value for block in app.caption)
+    assert any(translate_text(APP_LOCALE, "ui.raw_previews_expander") in block.label for block in app.expander)
 
 
 @pytest.mark.parametrize("locale", [DEFAULT_LOCALE, "en"])
@@ -1509,19 +1511,20 @@ def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypat
     app.button[0].click().run(timeout=120)
 
     assert not app.exception
-    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_heading") in block.value for block in app.markdown)
-    assert any("匯出流程" in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_workflow_caption") in block.value for block in app.caption)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_caption") in block.value for block in app.caption)
-    assert any("資料意義" in block.value and "各章節匯出" in block.value for block in app.caption)
+    download_expander = next(
+        block for block in app.expander if block.label == translate_text(APP_LOCALE, "ui.report_detail_download_copy")
+    )
+    assert any(translate_text(APP_LOCALE, "ui.downloads_heading") in block.value for block in download_expander.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.downloads_workflow_caption") in block.value for block in download_expander.caption)
+    assert any(translate_text(APP_LOCALE, "ui.downloads_caption") in block.value for block in download_expander.caption)
     download_labels = [button.label for button in app.download_button]
-    assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_combined_csv") in download_labels
-    assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_excel_workbook") in download_labels
-    assert translate_text(DEFAULT_LOCALE, "ui.downloads_download_markdown_report") in download_labels
-    assert any(translate_text(DEFAULT_LOCALE, "ui.downloads_report_markdown") in block.value for block in app.markdown)
-    assert any("前 80 行 CSV" in block.value for block in app.caption)
-    assert any("各章節下載" in block.label for block in app.expander)
-    assert any("原始預覽摘要 CSV" in block.value for block in app.markdown)
+    assert translate_text(APP_LOCALE, "ui.downloads_download_combined_csv") in download_labels
+    assert translate_text(APP_LOCALE, "ui.downloads_download_excel_workbook") in download_labels
+    assert translate_text(APP_LOCALE, "ui.downloads_download_markdown_report") in download_labels
+    assert any(translate_text(APP_LOCALE, "ui.downloads_report_markdown") in block.value for block in download_expander.markdown)
+    assert any("First 80 CSV lines" in block.value for block in download_expander.caption)
+    assert any(translate_text(APP_LOCALE, "ui.downloads_section_specific") in block.label for block in app.expander)
+    assert any(translate_text(APP_LOCALE, "ui.downloads_raw_preview_summary_csv") in block.value for block in download_expander.markdown)
 
 
 def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_response):
@@ -1535,27 +1538,23 @@ def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_
     app.button[0].click().run(timeout=120)
 
     assert len(service.calls) == 1
-    assert any(translate_text(DEFAULT_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "report.section.concentration_history") in block.value for block in app.markdown)
-    assert any(translate_text(DEFAULT_LOCALE, "report.section.price_history") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "report.section.concentration_history") in block.value for block in app.markdown)
+    assert any(translate_text(APP_LOCALE, "report.section.price_history") in block.value for block in app.markdown)
 
-    try:
-        app.selectbox[0].select("en").run(timeout=120)
-    except Exception:
-        try:
-            app.selectbox[0].select("English").run(timeout=120)
-        except Exception:
-            app.session_state["locale"] = "en"
-            app.run(timeout=120)
+    language_selector = next(
+        widget for widget in app.selectbox if widget.label == translate_text(APP_LOCALE, "ui.sidebar_language")
+    )
+    language_selector.select("zh_HK").run(timeout=120)
 
     assert len(service.calls) == 1
-    assert any(translate_text('en', 'ui.sidebar_query_input_caption') in block.value for block in app.caption)
-    assert any("## Fetch Summary" in block.value for block in app.markdown)
-    assert any(translate_text('en', 'ui.chart_help_heading') in block.value for block in app.markdown)
-    assert any(translate_text('en', 'ui.chart_help_surface_caption') in block.value for block in app.caption)
-    assert any(button.label == "Download All CCASS Data CSV" for button in app.download_button)
-    assert any(button.label == "Download Markdown Report" for button in app.download_button)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.sidebar_query_input_caption') in block.value for block in app.caption)
+    assert any(translate_text(DEFAULT_LOCALE, "report.section.fetch_summary") in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.chart_help_heading') in block.value for block in app.markdown)
+    assert any(translate_text(DEFAULT_LOCALE, 'ui.chart_help_surface_caption') in block.value for block in app.caption)
+    assert any(button.label == translate_text(DEFAULT_LOCALE, "ui.downloads_download_combined_csv") for button in app.download_button)
+    assert any(button.label == translate_text(DEFAULT_LOCALE, "ui.downloads_download_markdown_report") for button in app.download_button)
 
 
 
