@@ -270,7 +270,7 @@ def test_mcp_officers_tool_returns_placeholder_payload(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "get_officers_service", lambda: fixture_service)
 
-    result = asyncio.run(get_officers("1592"))
+    result = asyncio.run(mcp_server.get_officers.fn("1592"))
 
     assert result["metadata"]["code"] == "01592"
     assert result["metadata"]["source_status"] == "pending"

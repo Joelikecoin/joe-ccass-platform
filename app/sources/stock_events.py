@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Protocol
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
@@ -189,6 +189,7 @@ class WebbsiteStockEventsSource:
         distribution = _cell_value(cells, header_map, "distribution")
         notes = _cell_value(cells, header_map, "notes")
         link = _row_link(row, source_url)
+        event_id = _event_id_from_link(link)
 
         details_parts = [
             part
@@ -212,6 +213,8 @@ class WebbsiteStockEventsSource:
             source=STOCK_EVENTS_SOURCE_NAME,
             link=link,
             details=details,
+            event_id=event_id,
+            event_details_url=link,
         )
 
     @staticmethod
@@ -325,3 +328,12 @@ def _row_link(row: Tag, source_url: str) -> str | None:
     if not href:
         return source_url
     return urljoin(source_url, href)
+
+
+def _event_id_from_link(link: str | None) -> str | None:
+    if not link:
+        return None
+    parsed = urlparse(link)
+    query = parse_qs(parsed.query)
+    event_id = query.get("e", [None])[0]
+    return event_id.strip() if isinstance(event_id, str) and event_id.strip() else None

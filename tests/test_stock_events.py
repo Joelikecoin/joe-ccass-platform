@@ -158,6 +158,8 @@ def test_webbsite_stock_events_source_parses_ready_page(monkeypatch):
     ]
     assert response.stock_events[0].event_type == "Dividend"
     assert response.stock_events[0].link == "https://webbsite.0xmd.com/dbpub/eventdets.asp?e=12345"
+    assert response.stock_events[0].event_id == "12345"
+    assert response.stock_events[0].event_details_url == "https://webbsite.0xmd.com/dbpub/eventdets.asp?e=12345"
     assert "Year-end 2023-12-31" in (response.stock_events[0].details or "")
 
 
@@ -338,7 +340,7 @@ def test_mcp_stock_events_tool_returns_placeholder_payload(monkeypatch):
 
     monkeypatch.setattr(mcp_server, "get_stock_events_service", lambda: fixture_service)
 
-    result = asyncio.run(get_stock_events("1592"))
+    result = asyncio.run(mcp_server.get_stock_events.fn("1592"))
 
     assert result["metadata"]["code"] == "01592"
     assert result["metadata"]["source_status"] == "pending"

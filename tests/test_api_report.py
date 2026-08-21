@@ -195,7 +195,7 @@ def test_api_and_mcp_return_the_same_enriched_stock_payload(current_response):
     client = TestClient(app)
     try:
         api_response = client.get("/api/v1/ccass/1592", params={"holdings_limit": 25})
-        mcp_response = asyncio.run(mcp_server.get_ccass_stock_data("1592", holdings_limit=25))
+        mcp_response = asyncio.run(mcp_server.get_ccass_stock_data.fn("1592", holdings_limit=25))
     finally:
         app.dependency_overrides.clear()
         mcp_server.get_ccass_service = original_getter

@@ -308,7 +308,7 @@ def test_api_and_mcp_return_the_same_ai_read_model(current_response, previous_re
     client = TestClient(app)
     try:
         api_response = client.get("/api/v1/ccass/1592/ai-read-model")
-        mcp_response = __import__("asyncio").run(mcp_server.get_ai_read_model("1592"))
+        mcp_response = __import__("asyncio").run(mcp_server.get_ai_read_model.fn("1592"))
     finally:
         app.dependency_overrides.clear()
         mcp_server.get_ai_read_model_service = original_getter

@@ -287,6 +287,8 @@ class StockEventRow(BaseModel):
     source: str
     link: str | None = None
     details: str | None = None
+    event_id: str | None = None
+    event_details_url: str | None = None
 
 
 class StockEventsMetadata(BaseModel):
