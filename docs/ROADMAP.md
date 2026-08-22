@@ -2,7 +2,9 @@
 
 > 路線圖只定義 phase、順序、依賴與 exit gates；每日執行狀態在 [`TASK.md`](../TASK.md)。所有 phase 受 [PROJECT_SPEC.md](PROJECT_SPEC.md) 與 [DEVELOPMENT_RULES.md](DEVELOPMENT_RULES.md) 約束。
 
-實作盤點基準：已批准 P1-01 `ec09374`、P1-02 `d8a480e`、P1-03 `f9fcf02`／`6152135`、P1-04 `7b69316`、Post-P1-04 Gap Analysis `5e34853`、P1-05 `9e83321`及P1-06 `172e50f`；規格基準 `67e35e5`。P1-07 Latest Holdings vertical slice已完成實作並等待CTO Review；局部module、UI骨架或mock-only test不等於功能完成。
+實作盤點基準：已批准 P1-01 `ec09374`、P1-02 `d8a480e`、P1-03 `f9fcf02`／`6152135`、P1-04 `7b69316`、Post-P1-04 Gap Analysis `5e34853`、P1-05 `9e83321`及P1-06 `172e50f`；規格基準 `67e35e5`。P1-07 Latest Holdings vertical slice已完成並納入目前穩定鎖定基線；局部module、UI骨架或mock-only test不等於功能完成。
+
+Current stable locked baseline: P0 / P1 / P2 / P3 confirmed slices are LOCKED / DONE. This file remains a phase-history ledger; the current lock state is recorded here only for governance reconciliation.
 
 
 ## 狀態
