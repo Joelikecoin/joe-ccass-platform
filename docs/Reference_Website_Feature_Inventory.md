@@ -25,7 +25,7 @@ Status legend:
 | HKEX announcements | HKEX Announcements | Inspect announcement list | fetched stock, date period | announcement table/list | publish time, category, title, file info, URL, count | `#hkex-announcements` | Announcements section exists | Matched | Public HKEXnews source exposed in reference |
 | Corporate events | 財技事件 Events | Inspect events section | fetched stock | events section / table | event fields, warning / empty state | `#corporate-events` | Corporate events section exists | Partial | Visible section exists; row data and source continuity need mapping |
 | Share capital changes | Share capital changes | Inspect capital changes | fetched stock | capital table / warning | date, capital / issued shares, change, reason/type, source, URL, language | section anchor visible | Capital section exists | Partial | Visible section exists; source fidelity not fully confirmed |
-| Officers / managers | 董事高管 Officers | Inspect officers | fetched stock | officers table / warning | name, role, dates, source | `#officers` | Officers section exists | Partial | Visible section exists; source/fields need alignment |
+| Officers / managers | 董事高管 Officers | Inspect officers | fetched stock | officers table / warning | name, role, dates, source | `#officers` | Officers section exists | Partial | Visible section exists; Managers F10 field set is confirmed in export evidence, but visible row layout / ordering / empty-error presentation remain unconfirmed |
 | Company / orgdata | Company | Inspect company metadata | fetched stock | company metadata table | company name, identifiers, metadata | `#company` | Company section exists | Partial | Reference has explicit company section with parsed tables |
 | Raw table previews | Raw Table Previews | Expand raw tables | fetched stock | raw table previews | raw upstream tables and shapes | `#raw-table-previews` | Raw preview surface exists | Matched | Important diagnostic surface present |
 | Fetch summary | Fetch Summary | Review data quality / warnings | fetched stock | warnings, notes, diagnostics | source diagnostics, failures, fallback notices | `#fetch-summary` | Fetch summary exists | Matched | Reference preserves failure visibility rather than hiding it |
@@ -39,7 +39,7 @@ Status legend:
 - 00700 exposes a clear split between populated price/announcement data and failed holdings/changes fetches; Joe clone needs the same fail-loud, section-preserving behavior.
 - Reference has stronger metadata/provenance surfacing around source mode, mirror status, and lookup method.
 - Reference exposes richer chart controls for price/turnover and a DT Rainbow generation path.
-- Corporate events, share capital changes, and officers are visible as first-class sections, but the exact row-level content and source fidelity still need mapping against Joe.
+- Corporate events and share capital changes are visible as first-class sections; officers field coverage is confirmed in export evidence, but the exact visible row-level layout still needs mapping against Joe.
 - The reference website is anchor-driven and single-page; Joe clone mapping is close, but exact visual fidelity remains partial.
 
 ## HC-04 Targeted Gap Fill
