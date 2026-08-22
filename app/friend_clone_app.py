@@ -247,9 +247,7 @@ async def _build_bundle(
             previous_snapshot = None
 
     live_markdown_en = render_live_markdown(live_product, locale="en") if live_product else ""
-    live_markdown_zh = render_live_markdown(live_product, locale="zh_HK") if live_product else ""
     ccass_markdown_en, _ = render_prepared_report(prepared, locale="en")
-    ccass_markdown_zh, _ = render_prepared_report(prepared, locale="zh_HK")
 
     live_artifacts = build_live_download_artifacts(live_product) if live_product else None
     ccass_artifacts = build_download_artifacts(prepared.response) if prepared.response is not None else None
@@ -265,13 +263,28 @@ async def _build_bundle(
         live_product=live_product,
         prepared=prepared,
         live_markdown_en=live_markdown_en,
-        live_markdown_zh=live_markdown_zh,
+        live_markdown_zh="",
         ccass_markdown_en=ccass_markdown_en,
-        ccass_markdown_zh=ccass_markdown_zh,
+        ccass_markdown_zh="",
         live_artifacts=live_artifacts,
         ccass_artifacts=ccass_artifacts,
         previous_available=previous_snapshot is not None,
     )
+
+
+def _bundle_markdown(bundle: PortalBundle, section: str, locale: str) -> str:
+    if section == "live":
+        if locale == "zh_HK":
+            return render_live_markdown(bundle.live_product, locale=locale) if bundle.live_product else ""
+        return bundle.live_markdown_en
+    if section == "ccass":
+        if locale == "zh_HK":
+            if bundle.prepared is None:
+                return ""
+            markdown, _ = render_prepared_report(bundle.prepared, locale=locale)
+            return markdown
+        return bundle.ccass_markdown_en
+    raise PlatformError("NOT_FOUND", f"Unsupported markdown section: {section}", status_code=404)
 
 
 def _live_summary_cards(bundle: PortalBundle) -> str:
@@ -1265,13 +1278,13 @@ def _render_page(bundle: PortalBundle) -> str:
           <div class="copy-row">
             <div class="copy-card">
               <div class="copy-actions">
-                <button class="primary-btn" type="button" data-copy-en="copy-live-en" data-copy-zh="copy-live-zh">{_i18n("Copy live markdown", "複製即時 Markdown", "en")}</button>
+                <button class="primary-btn" type="button" data-copy-section="live" data-copy-en="copy-live-en" data-copy-zh="copy-live-zh">{_i18n("Copy live markdown", "複製即時 Markdown", "en")}</button>
               </div>
               <textarea id="copy-live-preview" readonly>{_escape(bundle.live_markdown_en)}</textarea>
             </div>
             <div class="copy-card">
               <div class="copy-actions">
-                <button class="primary-btn" type="button" data-copy-en="copy-ccass-en" data-copy-zh="copy-ccass-zh">{_i18n("Copy CCASS markdown", "複製 CCASS Markdown", "en")}</button>
+                <button class="primary-btn" type="button" data-copy-section="ccass" data-copy-en="copy-ccass-en" data-copy-zh="copy-ccass-zh">{_i18n("Copy CCASS markdown", "複製 CCASS Markdown", "en")}</button>
               </div>
               <textarea id="copy-ccass-preview" readonly>{_escape(bundle.ccass_markdown_en)}</textarea>
             </div>
@@ -1296,6 +1309,51 @@ def _render_page(bundle: PortalBundle) -> str:
       return localStorage.getItem(LOCALE_KEY) || "en";
     }}
 
+    function markdownUrl(section, locale) {{
+      const params = new URLSearchParams(currentQuery);
+      params.set("locale", locale);
+      return `/download/${{section}}/md?${{params.toString()}}`;
+    }}
+
+    function copyStoreId(section, locale) {{
+      return section === "live"
+        ? (locale === "zh_HK" ? "copy-live-zh" : "copy-live-en")
+        : (locale === "zh_HK" ? "copy-ccass-zh" : "copy-ccass-en");
+    }}
+
+    function previewId(section) {{
+      return section === "live" ? "copy-live-preview" : "copy-ccass-preview";
+    }}
+
+    async function ensureMarkdown(section, locale) {{
+      const store = document.getElementById(copyStoreId(section, locale));
+      if (store && store.value) return store.value;
+      const response = await fetch(markdownUrl(section, locale), {{ credentials: "same-origin" }});
+      if (!response.ok) {{
+        throw new Error(`Markdown fetch failed: ${{response.status}}`);
+      }}
+      const text = await response.text();
+      if (store) {{
+        store.value = text;
+      }}
+      return text;
+    }}
+
+    async function syncCopyPreview(section, locale) {{
+      const preview = document.getElementById(previewId(section));
+      if (!preview) return;
+      if (locale !== "zh_HK") {{
+        const store = document.getElementById(copyStoreId(section, locale));
+        preview.value = store ? store.value : "";
+        return;
+      }}
+      try {{
+        preview.value = await ensureMarkdown(section, locale);
+      }} catch (error) {{
+        preview.value = "";
+      }}
+    }}
+
     function applyLocale(locale) {{
       document.body.dataset.locale = locale;
       document.querySelectorAll("[data-i18n-en][data-i18n-zh]").forEach((el) => {{
@@ -1312,16 +1370,8 @@ def _render_page(bundle: PortalBundle) -> str:
         url.searchParams.set("locale", locale);
         link.setAttribute("href", url.pathname + url.search);
       }});
-      const livePreview = document.getElementById("copy-live-preview");
-      const liveStore = document.getElementById(locale === "zh_HK" ? "copy-live-zh" : "copy-live-en");
-      if (livePreview && liveStore) {{
-        livePreview.value = liveStore.value;
-      }}
-      const ccassPreview = document.getElementById("copy-ccass-preview");
-      const ccassStore = document.getElementById(locale === "zh_HK" ? "copy-ccass-zh" : "copy-ccass-en");
-      if (ccassPreview && ccassStore) {{
-        ccassPreview.value = ccassStore.value;
-      }}
+      syncCopyPreview("live", locale);
+      syncCopyPreview("ccass", locale);
       document.querySelectorAll("[data-locale]").forEach((node) => {{
         node.dataset.locale = locale;
       }});
@@ -1329,9 +1379,18 @@ def _render_page(bundle: PortalBundle) -> str:
 
     async function copyCurrent(button) {{
       const locale = selectedLocale();
-      const id = locale === "zh_HK" ? button.dataset.copyZh : button.dataset.copyEn;
+      const section = button.dataset.copySection || "ccass";
+      const id = copyStoreId(section, locale);
       const target = document.getElementById(id);
       if (!target) return;
+      if (!target.value) {{
+        try {{
+          const text = await ensureMarkdown(section, locale);
+          target.value = text;
+        }} catch (error) {{
+          return;
+        }}
+      }}
       try {{
         await navigator.clipboard.writeText(target.value);
       }} catch (error) {{
@@ -1446,6 +1505,7 @@ async def _stream_bytes(data: bytes, media_type: str, filename: str) -> Streamin
 async def download(
     section: str,
     kind: str,
+    locale: str = Query(default="en"),
     code: str = Query(default=DEFAULT_CODE),
     input_type: str = Query(default="Stock Code"),
     source_mode: str = Query(default="auto"),
@@ -1475,7 +1535,11 @@ async def download(
         if kind == "json":
             return await _stream_bytes(bundle.live_artifacts.json_bytes, "application/json", bundle.live_artifacts.json_filename)
         if kind == "md":
-            return await _stream_bytes(bundle.live_markdown_en.encode("utf-8"), "text/markdown; charset=utf-8", f"{bundle.resolved_code}_live_markdown.md")
+            return await _stream_bytes(
+                _bundle_markdown(bundle, "live", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                f"{bundle.resolved_code}_live_markdown.md",
+            )
     if section == "ccass":
         if bundle.ccass_artifacts is None or bundle.prepared is None:
             raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
@@ -1488,5 +1552,9 @@ async def download(
                 bundle.ccass_artifacts.workbook_filename,
             )
         if kind == "md":
-            return await _stream_bytes(bundle.ccass_markdown_en.encode("utf-8"), "text/markdown; charset=utf-8", bundle.prepared.filename)
+            return await _stream_bytes(
+                _bundle_markdown(bundle, "ccass", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                bundle.prepared.filename,
+            )
     raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)

@@ -28,6 +28,7 @@ from app.friend_clone_app import (
     _announcement_block,
     _big_changes_block,
     _build_bundle,
+    _bundle_markdown,
     _ccass_summary,
     _changes_block,
     _close_section,
@@ -1248,13 +1249,13 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         <div class="copy-row">
           <div class="copy-card">
             <div class="copy-actions">
-              <button class="primary-btn" type="button" data-copy-en="copy-live-en" data-copy-zh="copy-live-zh">{_i18n("Copy live markdown", "複製即時 Markdown", locale)}</button>
+              <button class="primary-btn" type="button" data-copy-section="live" data-copy-en="copy-live-en" data-copy-zh="copy-live-zh">{_i18n("Copy live markdown", "複製即時 Markdown", locale)}</button>
             </div>
             <textarea id="copy-live-preview" readonly>{_escape(base.live_markdown_en)}</textarea>
           </div>
           <div class="copy-card">
             <div class="copy-actions">
-              <button class="primary-btn" type="button" data-copy-en="copy-ccass-en" data-copy-zh="copy-ccass-zh">{_i18n("Copy CCASS markdown", "複製 CCASS Markdown", locale)}</button>
+              <button class="primary-btn" type="button" data-copy-section="ccass" data-copy-en="copy-ccass-en" data-copy-zh="copy-ccass-zh">{_i18n("Copy CCASS markdown", "複製 CCASS Markdown", locale)}</button>
             </div>
             <textarea id="copy-ccass-preview" readonly>{_escape(base.ccass_markdown_en)}</textarea>
           </div>
@@ -1276,6 +1277,51 @@ def _render_page(bundle: Portal8504Bundle) -> str:
       return localStorage.getItem(LOCALE_KEY) || "en";
     }}
 
+    function markdownUrl(section, locale) {{
+      const params = new URLSearchParams(currentQuery);
+      params.set("locale", locale);
+      return `/download/${{section}}/md?${{params.toString()}}`;
+    }}
+
+    function copyStoreId(section, locale) {{
+      return section === "live"
+        ? (locale === "zh_HK" ? "copy-live-zh" : "copy-live-en")
+        : (locale === "zh_HK" ? "copy-ccass-zh" : "copy-ccass-en");
+    }}
+
+    function previewId(section) {{
+      return section === "live" ? "copy-live-preview" : "copy-ccass-preview";
+    }}
+
+    async function ensureMarkdown(section, locale) {{
+      const store = document.getElementById(copyStoreId(section, locale));
+      if (store && store.value) return store.value;
+      const response = await fetch(markdownUrl(section, locale), {{ credentials: "same-origin" }});
+      if (!response.ok) {{
+        throw new Error(`Markdown fetch failed: ${response.status}`);
+      }}
+      const text = await response.text();
+      if (store) {{
+        store.value = text;
+      }}
+      return text;
+    }}
+
+    async function syncCopyPreview(section, locale) {{
+      const preview = document.getElementById(previewId(section));
+      if (!preview) return;
+      if (locale !== "zh_HK") {{
+        const store = document.getElementById(copyStoreId(section, locale));
+        preview.value = store ? store.value : "";
+        return;
+      }}
+      try {{
+        preview.value = await ensureMarkdown(section, locale);
+      }} catch (error) {{
+        preview.value = "";
+      }}
+    }}
+
     function applyLocale(locale) {{
       document.body.dataset.locale = locale;
       document.querySelectorAll("[data-i18n-en][data-i18n-zh]").forEach((el) => {{
@@ -1292,16 +1338,8 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         url.searchParams.set("locale", locale);
         link.setAttribute("href", url.pathname + url.search);
       }});
-      const livePreview = document.getElementById("copy-live-preview");
-      const liveStore = document.getElementById(locale === "zh_HK" ? "copy-live-zh" : "copy-live-en");
-      if (livePreview && liveStore) {{
-        livePreview.value = liveStore.value;
-      }}
-      const ccassPreview = document.getElementById("copy-ccass-preview");
-      const ccassStore = document.getElementById(locale === "zh_HK" ? "copy-ccass-zh" : "copy-ccass-en");
-      if (ccassPreview && ccassStore) {{
-        ccassPreview.value = ccassStore.value;
-      }}
+      syncCopyPreview("live", locale);
+      syncCopyPreview("ccass", locale);
       document.querySelectorAll("[data-locale]").forEach((node) => {{
         node.dataset.locale = locale;
       }});
@@ -1318,9 +1356,18 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
     async function copyCurrent(button) {{
       const locale = selectedLocale();
-      const id = locale === "zh_HK" ? button.dataset.copyZh : button.dataset.copyEn;
+      const section = button.dataset.copySection || "ccass";
+      const id = copyStoreId(section, locale);
       const target = document.getElementById(id);
       if (!target) return;
+      if (!target.value) {{
+        try {{
+          const text = await ensureMarkdown(section, locale);
+          target.value = text;
+        }} catch (error) {{
+          return;
+        }}
+      }}
       try {{
         await navigator.clipboard.writeText(target.value);
       }} catch (error) {{
@@ -1502,6 +1549,7 @@ async def _stream_bytes(data: bytes, media_type: str, filename: str) -> Streamin
 async def download(
     section: str,
     kind: str,
+    locale: str = Query(default="en"),
     code: str = Query(default=DEFAULT_CODE),
     input_type: str = Query(default="Stock Code"),
     source_mode: str = Query(default="auto"),
@@ -1532,7 +1580,11 @@ async def download(
         if kind == "json":
             return await _stream_bytes(base.live_artifacts.json_bytes, "application/json", base.live_artifacts.json_filename)
         if kind == "md":
-            return await _stream_bytes(base.live_markdown_en.encode("utf-8"), "text/markdown; charset=utf-8", f"{base.resolved_code}_live_markdown.md")
+            return await _stream_bytes(
+                _bundle_markdown(base, "live", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                f"{base.resolved_code}_live_markdown.md",
+            )
     if section == "ccass":
         if base.ccass_artifacts is None or base.prepared is None:
             raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
@@ -1545,5 +1597,9 @@ async def download(
                 base.ccass_artifacts.workbook_filename,
             )
         if kind == "md":
-            return await _stream_bytes(base.ccass_markdown_en.encode("utf-8"), "text/markdown; charset=utf-8", base.prepared.filename)
+            return await _stream_bytes(
+                _bundle_markdown(base, "ccass", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                base.prepared.filename,
+            )
     raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
