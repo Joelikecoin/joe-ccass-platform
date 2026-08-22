@@ -80,3 +80,27 @@ Observed reference behavior and source-document intent are broadly aligned at th
 Yes.
 
 We have enough live reference evidence to begin the next mapping step.
+
+## Feature Replication Queue
+
+| Feature | Reference UI Confirmed? | Key UI / Controls | Current 8504 State | Replication Priority | Data Contract Step Needed? | Status |
+|---|---|---|---|---|---|---|
+| Stock search / fetch | Confirmed | Stock Code / Webb-site Issue ID mode, timeout, announcement period, headless switch, Fetch button | Comparable 8504 input / fetch flow exists | P0 | Yes | Partial |
+| Metadata resolution | Confirmed | Resolved Metadata block, source mode/source used/mirror status/lookup mapping | Metadata section exists | P0 | Yes | Partial |
+| Holdings | Confirmed | Holdings summary cards, holdings table, section anchor | Holdings section exists | P0 | Yes | Partial |
+| Changes | Confirmed | Changes table, fallback warning, section anchor | Changes section exists | P0 | Yes | Partial |
+| Big Changes | Confirmed | Big Changes table, date/participant/change metadata | Big Changes section exists | P0 | Yes | Matched |
+| Concentration | Confirmed | Concentration summary + table + warnings | Concentration section exists | P0 | Yes | Partial |
+| Price / Turnover History | Confirmed | KPI cards, chart, range controls, fullscreen / download affordances | Price history section exists | P1 | Yes | Partial |
+| HKEX announcements | Confirmed | Announcement list/table, date period input | Announcements section exists | P1 | Yes | Matched |
+| Raw Table Previews | Confirmed | Raw preview tables / expander views | Raw preview surface exists | P1 | No | Matched |
+| Fetch Summary | Confirmed | warnings / diagnostics / fallback notices | Fetch summary exists | P1 | No | Matched |
+| Copy for ChatGPT | Confirmed | copy-to-clipboard / report text | Copy / report surface exists | P1 | No | Matched |
+| Downloads / export | Confirmed | CSV / Excel / JSON / markdown buttons | Download section exists | P1 | No | Matched |
+| Corporate events | Confirmed | events section / empty-state / table surface | Corporate events section exists | P2 | Yes | Partial |
+| Share capital changes | Confirmed | capital table / warning | Capital section exists | P2 | Yes | Partial |
+| Officers / managers | Confirmed | officers table / warning | Officers section exists | P2 | Yes | Partial |
+| Company / orgdata | Confirmed | company metadata table | Company section exists | P2 | Yes | Partial |
+| Concentration history / rainbow | Confirmed | DT Rainbow control + chart generation surface | Rainbow surface exists or equivalent | P3 | Yes | Partial |
+| Sidebar / top controls | Confirmed | input mode, timeout, period, headless, fetch button | Comparable controls exist | P0 | No | Partial |
+| URL / route pattern | Confirmed | in-page anchors / section jumps | Analogous section anchors exist | P0 | No | Partial |
