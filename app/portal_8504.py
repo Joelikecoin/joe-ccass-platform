@@ -1298,7 +1298,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
       if (store && store.value) return store.value;
       const response = await fetch(markdownUrl(section, locale), {{ credentials: "same-origin" }});
       if (!response.ok) {{
-        throw new Error(`Markdown fetch failed: ${response.status}`);
+        throw new Error(`Markdown fetch failed: ${{response.status}}`);
       }}
       const text = await response.text();
       if (store) {{
