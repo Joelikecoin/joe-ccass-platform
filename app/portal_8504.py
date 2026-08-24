@@ -65,10 +65,10 @@ from app.streamlit_ui import (
 from ccass_core.collector import SnapshotStore
 
 
-APP_TITLE_EN = "Joe CCASS Visual Portal 8504"
-APP_TITLE_ZH = "Joe CCASS 視覺入口 8504"
-APP_SUBTITLE_EN = "Functional + data fidelity recovery for live CCASS, market context, and history."
-APP_SUBTITLE_ZH = "面向功能與資料真實度復原：即時 CCASS、市場脈絡與歷史資料。"
+APP_TITLE_EN = "Joe Visual Portal"
+APP_TITLE_ZH = "Joe Visual Portal"
+APP_SUBTITLE_EN = "Golden Joe reference portal for live market news and CCASS holdings."
+APP_SUBTITLE_ZH = "Golden Joe 參考入口：即時市場資訊與 CCASS 持股。"
 
 DEFAULT_PORTAL_CODE = "00700"
 PRICE_HISTORY_LOAD_TIMEOUT_SECONDS = 5.0
@@ -960,20 +960,64 @@ def _render_page(bundle: Portal8504Bundle) -> str:
       padding: 0.42rem 0.8rem; border-radius: 999px; background: rgba(29, 99, 168, 0.10);
       color: var(--brand); font-weight: 700; border: 1px solid rgba(29, 99, 168, 0.16);
     }}
-    .layout {{ width: min(1600px, 100%); margin: 0 auto; padding: 1.25rem 1.25rem 2rem; }}
-    .hero {{
-      display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
-      gap: 1rem; align-items: stretch; margin-bottom: 1rem;
+    .layout {{
+      width: min(1600px, 100%);
+      margin: 0 auto;
+      padding: 1.25rem;
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 1.25rem;
     }}
-    .hero-card, .panel, .subcard {{
+    .sidebar, .panel, .subcard, .hero, .metric-card {{
       background: var(--panel); border: 1px solid var(--line); border-radius: 22px;
       box-shadow: var(--shadow);
     }}
-    .hero-card {{ padding: 1.15rem 1.15rem 1rem; }}
-    .hero-title {{ display:flex; align-items:center; justify-content:space-between; gap:1rem; }}
-    .hero-title h1 {{ margin: 0; font-size: 1.75rem; line-height: 1.1; }}
-    .hero-title p {{ margin: 0.4rem 0 0; color: var(--muted); }}
-    .hero-meta {{ display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 0.9rem; }}
+    .sidebar {{
+      position: sticky;
+      top: 6rem;
+      align-self: start;
+      padding: 1rem;
+    }}
+    .sidebar h2 {{
+      margin: 0 0 0.5rem 0;
+      font-size: 1.1rem;
+    }}
+    .field {{
+      display: grid;
+      gap: 0.35rem;
+      margin-bottom: 0.8rem;
+    }}
+    .field label {{
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-weight: 700;
+    }}
+    .field input, .field select {{
+      width: 100%;
+      padding: 0.82rem 0.9rem;
+      border-radius: 0.85rem;
+      border: 1px solid var(--line);
+      background: white;
+      color: var(--ink);
+      outline: none;
+      font-size: 0.98rem;
+    }}
+    .field input:focus, .field select:focus {{
+      border-color: rgba(24, 160, 255, 0.7);
+      box-shadow: 0 0 0 4px rgba(24, 160, 255, 0.12);
+    }}
+    .main {{
+      min-width: 0;
+    }}
+    .hero {{
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }}
+    .hero-grid {{
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.85rem;
+    }}
     .pill {{
       display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .7rem;
       border-radius: 999px; font-size: .82rem; border: 1px solid transparent; font-weight: 700;
@@ -982,24 +1026,36 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     .pill-success {{ background: rgba(31, 143, 95, 0.10); color: var(--good); border-color: rgba(31, 143, 95, 0.18); }}
     .pill-accent {{ background: rgba(24, 160, 255, 0.10); color: #127fcb; border-color: rgba(24, 160, 255, 0.18); }}
     .pill-warn {{ background: rgba(196, 122, 18, 0.10); color: var(--warn); border-color: rgba(196, 122, 18, 0.18); }}
-    .search-card {{ padding: 1rem; display: flex; flex-direction: column; gap: .9rem; }}
-    .search-row {{ display: grid; grid-template-columns: 1.1fr .9fr .9fr 88px; gap: .55rem; }}
-    .search-row input, .search-row select, .search-row button, .search-form input, .search-form select, .search-form button {{
-      border-radius: 12px; border: 1px solid var(--line); background: white; color: var(--ink);
-      padding: .72rem .85rem; font-size: .95rem;
-    }}
-    .search-row button, .search-form button, .icon-btn, .primary-btn {{
+    .primary-btn, .download-btn, .lang-btn {{
       background: linear-gradient(135deg, var(--brand), var(--brand-2)); color: white; border: none; cursor: pointer; font-weight: 800;
     }}
-    .search-form {{ display:grid; grid-template-columns: 1.2fr .9fr .9fr .7fr .7fr auto; gap: .6rem; }}
-    .search-help {{ color: var(--muted); font-size: .88rem; line-height: 1.45; }}
-    .nav {{
-      display: flex; gap: .55rem; flex-wrap: wrap; margin: .8rem 0 1rem;
+    .lang-btn {{
+      background: #ebf3ff;
+      color: var(--brand);
+      border: 1px solid rgba(22, 57, 107, 0.1);
+      min-width: 4.2rem;
+    }}
+    .lang-btn.active {{
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: white;
+    }}
+    .primary-btn {{
+      width: 100%;
+      margin-top: 0.35rem;
+      box-shadow: 0 14px 28px rgba(29, 99, 168, 0.26);
+    }}
+    .hero-card {{ padding: 0; }}
+    .hero-title {{ display:flex; align-items:center; justify-content:space-between; gap:1rem; }}
+    .hero-title h1 {{ margin: 0; font-size: 1.75rem; line-height: 1.1; }}
+    .hero-title p {{ margin: 0.4rem 0 0; color: var(--muted); }}
+    .hero-meta {{ display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 0.9rem; }}
+    .section-nav {{
+      display: flex; flex-wrap: wrap; gap: .55rem; margin: 0 0 1rem;
       position: sticky; top: 74px; z-index: 18; padding: .55rem;
       background: rgba(238,242,247,0.82); backdrop-filter: blur(10px); border-radius: 16px;
       border: 1px solid rgba(18,31,54,.08);
     }}
-    .nav a {{
+    .section-nav a {{
       text-decoration: none; padding: .5rem .8rem; border-radius: 999px; font-weight: 700;
       color: var(--brand); background: rgba(29,99,168,.07);
     }}
@@ -1075,10 +1131,17 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     .legend-swatch {{ width:.7rem; height:.7rem; border-radius:999px; display:inline-block; }}
     .copy-row {{ display:grid; grid-template-columns:1fr 1fr; gap:.85rem; }}
     .copy-card {{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:.85rem; }}
-    .copy-card textarea, .copy-store {{
+    .copy-card textarea {{
       width:100%; min-height: 180px; resize: vertical; border: 1px solid var(--line); border-radius: 14px;
       padding: .8rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: .82rem; background: #fafcff;
+    }}
+    .copy-store {{
+      position: absolute;
+      left: -9999px;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
     }}
     .copy-actions {{ display:flex; justify-content:flex-end; margin-bottom:.6rem; }}
     .section-footer {{ display:flex; flex-wrap:wrap; gap:.55rem; }}
@@ -1095,77 +1158,98 @@ def _render_page(bundle: Portal8504Bundle) -> str:
   </style>
 </head>
 <body>
-  <div class="shell" data-locale="en">
+  <div class="shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-mark">JC</div>
+        <div class="brand-mark">J</div>
         <div>
           <div class="brand-title">{_escape(APP_TITLE_EN)}</div>
           <div class="brand-subtitle">{_escape(APP_SUBTITLE_EN)}</div>
         </div>
       </div>
       <div class="top-right">
-        <div class="status-pill">{_escape(status_text)}</div>
-        <div class="lang-switch">
-          <button class="chip-btn lang-btn active" type="button" data-locale-switch="en">EN</button>
-          <button class="chip-btn lang-btn" type="button" data-locale-switch="zh_HK">繁中</button>
+        <div class="status-pill">{_escape(live_status)}</div>
+        <div class="lang-toggle">
+          <button class="lang-btn active" type="button" data-locale-switch="en">EN</button>
+          <button class="lang-btn" type="button" data-locale-switch="zh_HK">繁中</button>
         </div>
       </div>
     </header>
-    <main class="layout">
-      <section class="hero">
-        <div class="hero-card">
-          <div class="hero-title">
-            <div>
-              <h1>{_i18n(APP_TITLE_EN, APP_TITLE_ZH, locale)}</h1>
-              <p>{_i18n(APP_SUBTITLE_EN, APP_SUBTITLE_ZH, locale)}</p>
-            </div>
-            <div>{_pill(live_status, "success" if live_status == "READY" else "warn")}</div>
-          </div>
-          <div class="hero-meta">
-            {_pill("CCASS + Live Market", "accent")}
-            {_pill("Bilingual", "neutral")}
-            {_pill("No redesign", "neutral")}
-            {_pill("Reference-guided", "success")}
-          </div>
-          <div class="nav">
-            <a href="#overview">Fetch Summary</a>
-            <a href="#live-market">Live Market</a>
-            <a href="#ccass-holdings">CCASS Holdings</a>
-            <a href="#changes">Changes</a>
-            <a href="#big-changes">Big Changes</a>
-            <a href="#concentration">Concentration</a>
-            <a href="#dt-rainbow">DT Rainbow</a>
-            <a href="#raw-previews">Raw Previews</a>
-            <a href="#downloads">Downloads</a>
-            <a href="#copy">Copy for ChatGPT</a>
-          </div>
-        </div>
-        <div class="hero-card search-card">
-          <form class="search-form" method="get" action="/">
-            <input name="code" value="{_escape(base.resolved_code or DEFAULT_PORTAL_CODE)}" placeholder="Stock code, e.g. 00700" />
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>{_i18n("Search / Fetch", "搜尋／擷取", locale)}</h2>
+        <form method="get" action="/">
+          <div class="field">
+            <label>{_i18n("Input type", "輸入類型", locale)}</label>
             <select name="input_type">
-              <option{" selected" if base.input_type == "Stock Code" else ""}>Stock Code</option>
-              <option{" selected" if base.input_type == "Webb-site Issue ID" else ""}>Webb-site Issue ID</option>
+              <option value="Stock Code"{" selected" if base.input_type == "Stock Code" else ""}>{_i18n("Stock Code", "股票代號", locale)}</option>
+              <option value="Webb-site Issue ID"{" selected" if base.input_type == "Webb-site Issue ID" else ""}>{_i18n("Webb-site Issue ID", "Webb-site Issue ID", locale)}</option>
             </select>
+          </div>
+          <div class="field">
+            <label>{_i18n("Stock code / issue ID", "股票代號／Issue ID", locale)}</label>
+            <input name="code" value="{_escape(base.requested_code or base.resolved_code or DEFAULT_PORTAL_CODE)}" placeholder="00700" />
+          </div>
+          <div class="field">
+            <label>{_i18n("Source mode", "來源模式", locale)}</label>
             <select name="source_mode">
-              <option{" selected" if base.source_mode == "auto" else ""}>auto</option>
-              <option{" selected" if base.source_mode == "webbsite" else ""}>webbsite</option>
-              <option{" selected" if base.source_mode == "google_drive_csv" else ""}>google_drive_csv</option>
+              <option value="auto"{" selected" if base.source_mode == "auto" else ""}>{_i18n("Auto", "自動", locale)}</option>
+              <option value="webbsite"{" selected" if base.source_mode == "webbsite" else ""}>{_i18n("Webb-site", "Webb-site", locale)}</option>
+              <option value="google_drive_csv"{" selected" if base.source_mode == "google_drive_csv" else ""}>{_i18n("Google Drive CSV", "Google Drive CSV", locale)}</option>
             </select>
-            <input name="top_n" type="number" min="5" max="100" value="{base.top_n}" />
-            <input name="big_change_threshold" type="number" min="0" value="{base.big_change_threshold}" />
-            <button type="submit">Fetch</button>
-          </form>
-          <div class="search-help">
-            {_i18n(
-                "Enter a stock code or Webb-site issue ID, then fetch live CCASS and market context.",
-                "輸入股票代號或 Webb-site issue ID，然後擷取即時 CCASS 與市場脈絡。",
-                locale,
-            )}
+          </div>
+          <button class="primary-btn" type="submit">{_i18n("Fetch", "擷取", locale)}</button>
+          <details class="advanced">
+            <summary>{_i18n("Advanced settings", "進階設定", locale)}</summary>
+            <div style="margin-top:0.75rem;">
+              <div class="field">
+                <label>{_i18n("Top N holdings", "顯示前 N 筆持股", locale)}</label>
+                <input name="top_n" type="number" min="5" max="100" step="5" value="{base.top_n}" />
+              </div>
+              <div class="field">
+                <label>{_i18n("Big change threshold", "大變動門檻", locale)}</label>
+                <input name="big_change_threshold" type="number" min="0" step="100000" value="{base.big_change_threshold}" />
+              </div>
+              <div class="field">
+                <label>
+                  <input type="checkbox" name="use_local_history" value="true"{" checked" if base.use_local_history else ""} />
+                  {_i18n("Use local history", "使用本機歷史", locale)}
+                </label>
+              </div>
+            </div>
+          </details>
+        </form>
+        <div style="margin-top:1rem;">
+          <div class="kicker">{_i18n("Current selection", "目前選項", locale)}</div>
+          <div style="display:flex; flex-wrap:wrap; gap:0.45rem;">
+            {_pill(base.resolved_code, "primary")}
+            {_pill(base.source_mode, "accent")}
+            {_pill(base.input_type, "neutral")}
           </div>
         </div>
-      </section>
+      </aside>
+      <main class="main">
+        <section class="hero">
+          <div class="hero-grid">
+            {_metric_card("Resolved code", "已解析代號", base.resolved_code, note="Input accepted and normalized.", tone="primary")}
+            {_metric_card("Live CCASS", "即時 CCASS", "YES" if base.live_product and base.prepared and base.prepared.response is not None else "NO", note="HKEX SDW browser acquisition enabled.", tone="success")}
+            {_metric_card("Chinese HKEX titles", "HKEX 中文標題", "YES" if base.live_product and base.live_product.announcements else "NO", note="Official title search language set to Chinese.", tone="accent")}
+            {_metric_card("Holdings rows", "持股列數", _format_int(len(base.prepared.response.holdings) if base.prepared and base.prepared.response else None), note="Top rows shown in the portal.", tone="muted")}
+            {_metric_card("Previous history", "歷史比較", "YES" if base.previous_available else "NO", note="Local snapshot comparison when available.", tone="secondary")}
+          </div>
+        </section>
+
+      <nav class="section-nav">
+        <a href="#overview">{_i18n("Fetch Summary", "擷取摘要", locale)}</a>
+        <a href="#live-market">Live Market &amp; News</a>
+        <a href="#ccass-holdings">{_i18n("CCASS Holdings", "CCASS 持股", locale)}</a>
+        <a href="#changes">{_i18n("Changes", "變動", locale)}</a>
+        <a href="#big-changes">{_i18n("Big Changes", "大變動", locale)}</a>
+        <a href="#concentration">{_i18n("Concentration", "集中度", locale)}</a>
+        <a href="#raw-previews">{_i18n("Raw Previews", "原始預覽", locale)}</a>
+        <a href="#downloads">{_i18n("Downloads", "下載", locale)}</a>
+        <a href="#copy">{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</a>
+      </nav>
 
       {_overview_block(base, price_rows, concentration_rows)}
 
