@@ -102,7 +102,7 @@ async def test_service_auto_routes_webbsite_failure_to_hkex_sdw_and_persists_sna
 
     repository = NormalizedSnapshotRepository(tmp_path / "ccass.db")
     service = CcassService(
-        settings=Settings(),
+        settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
         lkg_repository=repository,
     )
 
@@ -184,7 +184,7 @@ async def test_service_auto_uses_persistent_lkg_recovery_after_hkex_failure(
     monkeypatch.setattr("app.services.ccass.GoogleDriveCsvSource", FailingCSV)
 
     service = CcassService(
-        settings=Settings(),
+        settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
         lkg_repository=repository,
     )
 
