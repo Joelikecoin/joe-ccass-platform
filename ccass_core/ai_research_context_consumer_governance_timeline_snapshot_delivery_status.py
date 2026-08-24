@@ -364,19 +364,7 @@ def _summary_text(
         "AI research context consumer governance timeline snapshot delivery status: "
         f"state={status_state}; "
         f"visible={'yes' if status_visible else 'no'}; "
-        f"reference={status_reference}; "
-        f"delivery_summary={delivery_summary_reference}; "
-        f"delivery_summary_visible={'yes' if delivery_summary_visible else 'no'}; "
-        f"delivery_summary_validation={delivery_summary_validation_reference}; "
-        f"delivery_summary_validation_visible={'yes' if delivery_summary_validation_visible else 'no'}; "
-        f"delivery={delivery_reference}; "
-        f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"delivery_validation={delivery_validation_reference}; "
-        f"delivery_validation_visible={'yes' if delivery_validation_visible else 'no'}; "
-        f"summary={summary_reference}; "
-        f"summary_visible={'yes' if summary_visible else 'no'}; "
-        f"summary_validation={summary_validation_reference}; "
-        f"summary_validation_visible={'yes' if summary_validation_visible else 'no'}"
+        "scope=timeline_snapshot_delivery_status"
     )
 
 

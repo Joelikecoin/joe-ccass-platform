@@ -296,10 +296,7 @@ def _summary_reference_text(
     return (
         "AI research context consumer governance timeline snapshot delivery summary: "
         f"state={delivery_state}; "
-        f"delivery={delivery_reference}; "
-        f"delivery_validation={delivery_validation_reference}; "
-        f"summary={summary_reference}; "
-        f"summary_validation={summary_validation_reference}"
+        "scope=timeline_snapshot_delivery_summary"
     )
 
 
@@ -321,13 +318,5 @@ def _summary_text(
         "AI research context consumer governance timeline snapshot delivery summary: "
         f"state={delivery_state}; "
         f"visible={'yes' if delivery_summary_visible else 'no'}; "
-        f"reference={delivery_summary_reference}; "
-        f"delivery_reference={delivery_reference}; "
-        f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"delivery_validation_reference={delivery_validation_reference}; "
-        f"delivery_validation_visible={'yes' if delivery_validation_visible else 'no'}; "
-        f"summary_reference={summary_reference}; "
-        f"summary_visible={'yes' if summary_visible else 'no'}; "
-        f"summary_validation_reference={summary_validation_reference}; "
-        f"summary_validation_visible={'yes' if summary_validation_visible else 'no'}"
+        "scope=timeline_snapshot_delivery_summary"
     )

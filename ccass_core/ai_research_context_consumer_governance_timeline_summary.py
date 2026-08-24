@@ -216,10 +216,7 @@ def _summary_reference(
     return (
         "AI research context consumer governance timeline summary: "
         f"state={governance_timeline_summary_state}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"snapshot={governance_snapshot_reference}; "
-        f"status={governance_status_reference}"
+        "scope=timeline_summary"
     )
 
 
@@ -263,9 +260,5 @@ def _summary_text(
         "AI research context consumer governance timeline summary: "
         f"state={governance_timeline_summary_state}; "
         f"visible={'yes' if governance_timeline_summary_visible else 'no'}; "
-        f"reference={governance_timeline_summary_reference}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"snapshot={governance_snapshot_reference}; "
-        f"status={governance_status_reference}"
+        "scope=timeline_summary"
     )

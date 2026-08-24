@@ -528,17 +528,7 @@ def _validation_reference(
     return (
         "AI research context consumer governance timeline snapshot validation: "
         f"state={validation_state}; "
-        f"snapshot={governance_timeline_snapshot_reference}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot_reference={governance_snapshot_reference}; "
-        f"snapshot_validation={governance_snapshot_validation_reference}; "
-        f"timeline_snapshot_summary={governance_timeline_snapshot_summary_reference}; "
-        f"continuity={governance_continuity_reference}; "
-        f"readiness={readiness_reference}; "
-        f"health={health_reference}; "
-        f"missing={_join_list(tuple(missing_governance_timeline_snapshot_references))}"
+        "scope=timeline_snapshot_validation"
     )
 
 
@@ -555,12 +545,7 @@ def _snapshot_reference_text(
     return (
         "AI research context consumer governance timeline snapshot: "
         f"state={governance_timeline_snapshot_state}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot={governance_snapshot_reference}; "
-        f"snapshot_validation={governance_snapshot_validation_reference}; "
-        f"continuity={governance_continuity_reference}"
+        "scope=timeline_snapshot"
     )
 
 
@@ -580,13 +565,7 @@ def _snapshot_summary_text(
         "AI research context consumer governance timeline snapshot: "
         f"state={governance_timeline_snapshot_state}; "
         f"visible={'yes' if governance_timeline_snapshot_visible else 'no'}; "
-        f"reference={governance_timeline_snapshot_reference}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot={governance_snapshot_reference}; "
-        f"snapshot_validation={governance_snapshot_validation_reference}; "
-        f"continuity={governance_continuity_reference}"
+        "scope=timeline_snapshot"
     )
 
 

@@ -621,13 +621,15 @@ def _validation_reference(
         return "not available"
     return (
         f"state={validation_state}; "
-        f"summary={summary_reference}; "
-        f"status={status_reference}; "
-        f"status_validation={status_validation_reference}; "
-        f"delivery_summary={delivery_summary_reference}; "
-        f"delivery_summary_validation={delivery_summary_validation_reference}; "
-        f"delivery={delivery_reference}; "
-        f"snapshot={snapshot_reference}"
+        "governance_timeline=present; "
+        "governance_summary=present; "
+        "governance_status=present; "
+        "governance_status_validation=present; "
+        "governance_delivery_summary=present; "
+        "governance_delivery_summary_validation=present; "
+        "governance_delivery=present; "
+        "governance_snapshot=present; "
+        f"surface={AI_RESEARCH_CONTEXT_CONSUMER_GOVERNANCE_TIMELINE_SNAPSHOT_DELIVERY_STATUS_SUMMARY_VALIDATION_SURFACE}"
     )
 
 
@@ -655,18 +657,9 @@ def _summary_text(
         f"state={validation_state}; "
         f"visible={'yes' if summary_visible else 'no'}; "
         f"reference={validation_reference}; "
-        f"summary={summary_reference}; "
-        f"status={status_reference}; "
         f"status_visible={'yes' if status_visible else 'no'}; "
-        f"status_validation={status_validation_reference}; "
-        f"status_validation_visible={'yes' if status_validation_visible else 'no'}; "
-        f"delivery_summary={delivery_summary_reference}; "
         f"delivery_summary_visible={'yes' if delivery_summary_visible else 'no'}; "
-        f"delivery_summary_validation={delivery_summary_validation_reference}; "
-        f"delivery_summary_validation_visible={'yes' if delivery_summary_validation_visible else 'no'}; "
-        f"delivery={delivery_reference}; "
         f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"snapshot={snapshot_reference}; "
         f"snapshot_visible={'yes' if snapshot_visible else 'no'}"
     )
 

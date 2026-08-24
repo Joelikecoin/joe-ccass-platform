@@ -265,12 +265,7 @@ def _snapshot_reference_text(
     return (
         "AI research context consumer governance timeline snapshot: "
         f"state={governance_timeline_snapshot_state}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot={governance_snapshot_reference}; "
-        f"snapshot_validation={governance_snapshot_validation_reference}; "
-        f"continuity={governance_continuity_reference}"
+        "scope=timeline_snapshot"
     )
 
 
@@ -332,11 +327,5 @@ def _summary_text(
         "AI research context consumer governance timeline snapshot: "
         f"state={governance_timeline_snapshot_state}; "
         f"visible={'yes' if governance_timeline_snapshot_visible else 'no'}; "
-        f"reference={governance_timeline_snapshot_reference}; "
-        f"timeline={governance_timeline_reference}; "
-        f"timeline_validation={governance_timeline_validation_reference}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot={governance_snapshot_reference}; "
-        f"snapshot_validation={governance_snapshot_validation_reference}; "
-        f"continuity={governance_continuity_reference}"
+        "scope=timeline_snapshot"
     )

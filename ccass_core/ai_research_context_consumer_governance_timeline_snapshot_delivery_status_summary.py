@@ -42,7 +42,7 @@ class AIResearchContextConsumerGovernanceTimelineSnapshotDeliveryStatusSummary(B
 
     available: bool = False
     governance_timeline_snapshot_delivery_status_summary_state: Literal[
-        "consistent",
+        "complete",
         "partial",
         "inconsistent",
         "unknown",
@@ -50,6 +50,7 @@ class AIResearchContextConsumerGovernanceTimelineSnapshotDeliveryStatusSummary(B
     ] = "unknown"
     governance_timeline_snapshot_delivery_status_summary_visible: bool = False
     governance_timeline_snapshot_delivery_status_summary_reference: str = "not available"
+    validation_reference: str = "not available"
     governance_timeline_snapshot_delivery_status_reference: str = "not available"
     governance_timeline_snapshot_delivery_status_visible: bool = False
     governance_timeline_snapshot_delivery_status_validation_reference: str = "not available"
@@ -162,6 +163,7 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
             governance_timeline_snapshot_delivery_status_summary_state="unavailable",
             governance_timeline_snapshot_delivery_status_summary_visible=False,
             governance_timeline_snapshot_delivery_status_summary_reference="not available",
+            validation_reference="not available",
             governance_timeline_snapshot_delivery_status_reference=status_reference,
             governance_timeline_snapshot_delivery_status_visible=status_visible,
             governance_timeline_snapshot_delivery_status_validation_reference=status_validation_reference,
@@ -192,8 +194,39 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         if governance_timeline_snapshot_delivery_status is not None
         else "unknown"
     )
+    summary_available = bool(available)
+    if not summary_available:
+        summary_state = "unavailable"
+    elif all(
+        [
+            status_visible,
+            status_validation_visible,
+            delivery_summary_visible,
+            delivery_summary_validation_visible,
+            delivery_visible,
+            delivery_validation_visible,
+            summary_visible,
+            summary_validation_visible,
+        ]
+    ):
+        summary_state = "complete"
+    elif any(
+        [
+            status_visible,
+            status_validation_visible,
+            delivery_summary_visible,
+            delivery_summary_validation_visible,
+            delivery_visible,
+            delivery_validation_visible,
+            summary_visible,
+            summary_validation_visible,
+        ]
+    ):
+        summary_state = "partial"
+    else:
+        summary_state = "unknown"
     summary_reference_text = _summary_reference_text(
-        status_state=status_state,
+        status_state=summary_state,
         status_reference=status_reference,
         status_validation_reference=status_validation_reference,
         delivery_summary_reference=delivery_summary_reference,
@@ -201,8 +234,12 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
         delivery_reference=delivery_reference,
         summary_reference=summary_reference,
     )
+    validation_reference = (
+        f"state={summary_state}; "
+        f"surface={surface}"
+    )
     summary = _summary_text(
-        status_state=status_state,
+        status_state=summary_state,
         status_visible=status_visible,
         status_reference=status_reference,
         status_validation_reference=status_validation_reference,
@@ -217,9 +254,10 @@ def build_ai_research_context_consumer_governance_timeline_snapshot_delivery_sta
     )
     return AIResearchContextConsumerGovernanceTimelineSnapshotDeliveryStatusSummary(
         available=True,
-        governance_timeline_snapshot_delivery_status_summary_state=status_state,
+        governance_timeline_snapshot_delivery_status_summary_state=summary_state,
         governance_timeline_snapshot_delivery_status_summary_visible=status_visible,
         governance_timeline_snapshot_delivery_status_summary_reference=summary_reference_text,
+        validation_reference=validation_reference,
         governance_timeline_snapshot_delivery_status_reference=status_reference,
         governance_timeline_snapshot_delivery_status_visible=status_visible,
         governance_timeline_snapshot_delivery_status_validation_reference=status_validation_reference,
@@ -383,15 +421,7 @@ def _summary_reference_text(
     delivery_reference: str,
     summary_reference: str,
 ) -> str:
-    return (
-        f"{status_state} / "
-        f"{status_reference} / "
-        f"{status_validation_reference} / "
-        f"{delivery_summary_reference} / "
-        f"{delivery_summary_validation_reference} / "
-        f"{delivery_reference} / "
-        f"{summary_reference}"
-    )
+    return f"state={status_state}; surface={AI_RESEARCH_CONTEXT_CONSUMER_GOVERNANCE_TIMELINE_SNAPSHOT_DELIVERY_STATUS_SUMMARY_SURFACE}"
 
 
 def _summary_text(
@@ -411,17 +441,11 @@ def _summary_text(
 ) -> str:
     return (
         "AI research context consumer governance timeline snapshot delivery status summary: "
-        f"status_state={status_state}; "
+        f"state={status_state}; "
+        f"visible={'yes' if status_visible else 'no'}; "
         f"status_visible={'yes' if status_visible else 'no'}; "
-        f"status_reference={status_reference}; "
-        f"status_validation_reference={status_validation_reference}; "
-        f"delivery_summary_reference={delivery_summary_reference}; "
         f"delivery_summary_visible={'yes' if delivery_summary_visible else 'no'}; "
-        f"delivery_summary_validation_reference={delivery_summary_validation_reference}; "
-        f"delivery_summary_validation_visible={'yes' if delivery_summary_validation_visible else 'no'}; "
-        f"delivery_reference={delivery_reference}; "
         f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"summary_reference={summary_reference}; "
         f"summary_visible={'yes' if summary_visible else 'no'}"
     )
 

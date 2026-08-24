@@ -438,11 +438,7 @@ def _validation_reference(
         return "not available"
     return (
         f"state={validation_state}; "
-        f"delivery_summary={delivery_summary_reference}; "
-        f"delivery={delivery_reference}; "
-        f"delivery_validation={delivery_validation_reference}; "
-        f"summary={summary_reference}; "
-        f"summary_validation={summary_validation_reference}"
+        "scope=timeline_snapshot_delivery_summary_validation"
     )
 
 
@@ -465,16 +461,7 @@ def _summary_text(
         "AI research context consumer governance timeline snapshot delivery summary validation: "
         f"state={validation_state}; "
         f"visible={'yes' if delivery_summary_visible else 'no'}; "
-        f"reference={validation_reference}; "
-        f"delivery_summary={delivery_summary_reference}; "
-        f"delivery={delivery_reference}; "
-        f"delivery_visible={'yes' if delivery_visible else 'no'}; "
-        f"delivery_validation={delivery_validation_reference}; "
-        f"delivery_validation_visible={'yes' if delivery_validation_visible else 'no'}; "
-        f"summary={summary_reference}; "
-        f"summary_visible={'yes' if summary_visible else 'no'}; "
-        f"summary_validation={summary_validation_reference}; "
-        f"summary_validation_visible={'yes' if summary_validation_visible else 'no'}"
+        "scope=timeline_snapshot_delivery_summary_validation"
     )
 
 

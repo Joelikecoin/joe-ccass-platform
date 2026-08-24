@@ -23,6 +23,13 @@ def make_client() -> WebbsiteClient:
 
 @respx.mock
 async def test_fetch_sends_browser_navigation_headers():
+    respx.get("https://primary.example/").mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>landing</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
     route = respx.get("https://primary.example/page").mock(
         return_value=httpx.Response(
             200,
@@ -68,6 +75,13 @@ async def test_fetch_classifies_http_failures(
     caplog, status_code, error_code, public_status, error_type
 ):
     for hostname in ("primary.example", "fallback.example"):
+        respx.get(f"https://{hostname}/").mock(
+            return_value=httpx.Response(
+                200,
+                text="<html><body>landing</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        )
         respx.get(f"https://{hostname}/page").mock(
             return_value=httpx.Response(status_code, text="upstream failure")
         )
@@ -77,16 +91,28 @@ async def test_fetch_classifies_http_failures(
 
     assert caught.value.code == error_code
     assert caught.value.status_code == public_status
-    assert caplog.text.count(f"status_code={status_code}") == 2
-    assert caplog.text.count(f"error_type={error_type}") == 2
+    expected_log_count = 1 if status_code == 403 else 2
+    assert caplog.text.count(f"status_code={status_code}") == expected_log_count
+    expected_error_type_count = 1 if status_code == 403 else 2
+    assert caplog.text.count(f"error_type={error_type}") == expected_error_type_count
     assert "hostname=primary.example" in caplog.text
-    assert "hostname=fallback.example" in caplog.text
+    if status_code == 403:
+        assert "hostname=fallback.example" not in caplog.text
+    else:
+        assert "hostname=fallback.example" in caplog.text
     assert "must-not-appear" not in caplog.text
 
 
 @respx.mock
 async def test_fetch_only_reports_timeout_for_true_timeouts(caplog):
     for hostname in ("primary.example", "fallback.example"):
+        respx.get(f"https://{hostname}/").mock(
+            return_value=httpx.Response(
+                200,
+                text="<html><body>landing</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        )
         respx.get(f"https://{hostname}/page").mock(side_effect=httpx.ReadTimeout("slow"))
 
     with caplog.at_level(logging.WARNING), pytest.raises(PlatformError) as caught:
@@ -99,6 +125,20 @@ async def test_fetch_only_reports_timeout_for_true_timeouts(caplog):
 
 @respx.mock
 async def test_mixed_timeout_and_server_error_is_not_reported_as_timeout():
+    respx.get("https://primary.example/").mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>landing</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    respx.get("https://fallback.example/").mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>landing</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
     respx.get("https://primary.example/page").mock(side_effect=httpx.ReadTimeout("slow"))
     respx.get("https://fallback.example/page").mock(
         return_value=httpx.Response(503, text="unavailable")

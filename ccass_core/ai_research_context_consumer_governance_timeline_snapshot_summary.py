@@ -305,14 +305,7 @@ def _summary_reference(
     return (
         "AI research context consumer governance timeline snapshot summary: "
         f"state={governance_timeline_snapshot_summary_state}; "
-        f"snapshot={governance_timeline_snapshot_reference}; "
-        f"snapshot_visible={'yes' if governance_timeline_snapshot_visible else 'no'}; "
-        f"snapshot_validation={governance_timeline_snapshot_validation_reference}; "
-        f"snapshot_validation_visible={'yes' if governance_timeline_snapshot_validation_visible else 'no'}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot_reference={governance_snapshot_reference}; "
-        f"snapshot_validation_reference={governance_snapshot_validation_reference}; "
-        f"continuity={governance_continuity_reference}"
+        "scope=timeline_snapshot_summary"
     )
 
 
@@ -334,15 +327,7 @@ def _summary_text(
         "AI research context consumer governance timeline snapshot summary: "
         f"state={governance_timeline_snapshot_summary_state}; "
         f"visible={'yes' if governance_timeline_snapshot_summary_visible else 'no'}; "
-        f"reference={governance_timeline_snapshot_summary_reference}; "
-        f"snapshot={governance_timeline_snapshot_reference}; "
-        f"snapshot_visible={'yes' if governance_timeline_snapshot_visible else 'no'}; "
-        f"snapshot_validation={governance_timeline_snapshot_validation_reference}; "
-        f"snapshot_validation_visible={'yes' if governance_timeline_snapshot_validation_visible else 'no'}; "
-        f"timeline_summary={governance_timeline_summary_reference}; "
-        f"snapshot_reference={governance_snapshot_reference}; "
-        f"snapshot_validation_reference={governance_snapshot_validation_reference}; "
-        f"continuity={governance_continuity_reference}"
+        "scope=timeline_snapshot_summary"
     )
 
 

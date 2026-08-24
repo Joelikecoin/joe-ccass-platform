@@ -239,11 +239,7 @@ def _delivery_reference(
 ) -> str:
     if delivery_state == "unavailable":
         return "not available"
-    return (
-        f"state={delivery_state}; "
-        f"summary={governance_timeline_snapshot_summary_reference}; "
-        f"validation={governance_timeline_snapshot_summary_validation_reference}"
-    )
+    return f"state={delivery_state}; scope=timeline_snapshot_delivery"
 
 
 def _summary_reference(
@@ -278,9 +274,5 @@ def _summary_text(
         "AI research context consumer governance timeline snapshot delivery: "
         f"state={delivery_state}; "
         f"visible={'yes' if delivery_visible else 'no'}; "
-        f"reference={delivery_reference}; "
-        f"summary_reference={governance_timeline_snapshot_summary_reference}; "
-        f"summary_visible={'yes' if governance_timeline_snapshot_summary_visible else 'no'}; "
-        f"validation_reference={governance_timeline_snapshot_summary_validation_reference}; "
-        f"validation_visible={'yes' if governance_timeline_snapshot_summary_validation_visible else 'no'}"
+        "scope=timeline_snapshot_delivery"
     )
