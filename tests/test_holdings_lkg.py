@@ -144,7 +144,7 @@ async def test_integrity_and_non_transient_errors_never_use_lkg(
     assert caught.value.message.startswith("UNAVAILABLE:")
 
 
-async def test_missing_expired_and_incompatible_lkg_fail_loudly(
+async def test_missing_and_incompatible_lkg_fail_loudly_while_expired_lkg_is_served(
     tmp_path, current_response
 ):
     settings = _settings(holdings_lkg_max_age_seconds=60)
@@ -170,14 +170,20 @@ async def test_missing_expired_and_incompatible_lkg_fail_loudly(
             parser_version=definition.parser_version,
         )
     )
-    with pytest.raises(PlatformError) as expired:
-        await _wrapper(
-            FixtureSource(timeout),
-            expired_repo,
-            settings,
-            fresh.metadata.fetched_at + timedelta(seconds=61),
-        ).get_holdings("01592")
-    assert expired.value.code == ErrorCode.DATA_STALE
+    stale = await _wrapper(
+        FixtureSource(timeout),
+        expired_repo,
+        settings,
+        fresh.metadata.fetched_at + timedelta(seconds=61),
+    ).get_holdings("01592")
+    assert freshness_status(stale) == FreshnessStatus.STALE_LKG
+    assert stale.metadata.cached is True
+    assert stale.metadata.holdings_date == fresh.metadata.holdings_date
+    assert stale.metadata.fetched_at == fresh.metadata.fetched_at
+    assert len(stale.holdings) == len(fresh.holdings)
+    rendered = "\n".join(stale.data_quality_warnings)
+    assert "FRESHNESS_STATUS: STALE_LKG" in rendered
+    assert "LKG_AGE_SECONDS: 61" in rendered
 
     incompatible_repo = NormalizedSnapshotRepository(tmp_path / "incompatible.db")
     incompatible_repo.save(

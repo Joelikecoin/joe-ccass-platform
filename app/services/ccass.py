@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from functools import lru_cache
+from datetime import UTC, datetime
 from typing import Protocol
 
 from app.config import Settings, get_settings
@@ -24,11 +25,15 @@ from app.services.changes import get_changes_service
 from app.services.big_changes import get_big_changes_service
 from app.services.holdings_lkg import (
     FreshnessStatus,
+    FRESHNESS_PREFIX,
     LKG_AGE_SECONDS_PREFIX,
+    LKG_RETRIEVED_AT_PREFIX,
     SOURCE_ERROR_CODE_PREFIX,
     SOURCE_ERROR_MESSAGE_PREFIX,
     SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX,
     SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX,
+    SERVED_AT_PREFIX,
+    build_stale_lkg_warnings,
 )
 from ccass_core.source_trace import (
     SourceTraceView,
@@ -90,7 +95,7 @@ class RepositorySnapshotBackend:
 
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
         snapshot = self._latest_snapshot(code)
-        if snapshot is None or not self._is_valid_snapshot(snapshot):
+        if snapshot is None or not self._is_recoverable_snapshot(snapshot):
             raise PlatformError(
                 ErrorCode.SOURCE_UNAVAILABLE,
                 "Persistent normalized snapshot recovery is unavailable.",
@@ -100,6 +105,17 @@ class RepositorySnapshotBackend:
             )
         response = snapshot.to_response()
         response.metadata.cached = True
+        response = response.model_copy(
+            update={
+                "data_quality_warnings": [
+                    *_without_freshness(response.data_quality_warnings),
+                    *build_stale_lkg_warnings(
+                        retrieved_at=snapshot.fetched_at,
+                        served_at=datetime.now(UTC),
+                    ),
+                ]
+            }
+        )
         return response
 
     def _latest_snapshot(self, code: str) -> HistoricalSnapshot | None:
@@ -134,6 +150,17 @@ class RepositorySnapshotBackend:
         age_seconds = int((requested_at - fetched_at).total_seconds())
         return 0 <= age_seconds <= self.max_age_seconds
 
+    def _is_recoverable_snapshot(self, snapshot: HistoricalSnapshot) -> bool:
+        if snapshot.stale:
+            return False
+        fetched_at = snapshot.fetched_at
+        if fetched_at.tzinfo is None or fetched_at.utcoffset() is None:
+            return False
+        now = datetime.now(UTC)
+        if now.tzinfo is None or now.utcoffset() is None:
+            return False
+        return int((now - fetched_at).total_seconds()) >= 0
+
 
 class _RecordingGatewayBackend:
     def __init__(self, backend: HoldingsSource) -> None:
@@ -146,6 +173,20 @@ class _RecordingGatewayBackend:
         except PlatformError as error:
             self.last_error = error
             raise
+
+
+def _without_freshness(warnings) -> list[str]:
+    prefixes = (
+        FRESHNESS_PREFIX,
+        SOURCE_ERROR_CODE_PREFIX,
+        SOURCE_ERROR_MESSAGE_PREFIX,
+        SOURCE_ERROR_RETRY_RECOMMENDED_PREFIX,
+        SOURCE_ERROR_RETRY_AFTER_SECONDS_PREFIX,
+        LKG_AGE_SECONDS_PREFIX,
+        LKG_RETRIEVED_AT_PREFIX,
+        SERVED_AT_PREFIX,
+    )
+    return [warning for warning in warnings if not warning.startswith(prefixes)]
 
 
 class MirrorWithCsvFallback:

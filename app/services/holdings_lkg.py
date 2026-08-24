@@ -208,63 +208,15 @@ class PersistentLatestHoldingsSource:
             or snapshot.source.source_id != definition.source_id
         ):
             raise _integrity_unavailable("stored LKG failed identity or schema validation")
-        if age_seconds > definition.policy.lkg_max_age_seconds:
-            raise PlatformError(
-                ErrorCode.DATA_STALE,
-                f"{FreshnessStatus.UNAVAILABLE.value}: stored LKG exceeds the configured "
-                "freshness limit.",
-                retry_recommended=error.retry_recommended,
-                retry_after_seconds=error.retry_after_seconds,
-                status_code=503,
-            ) from error
-
         result = snapshot.to_response()
         result.metadata.cached = True
         result.holdings = result.holdings[: max(1, limit)]
         result.data_quality_warnings = _without_freshness(result.data_quality_warnings)
         result.data_quality_warnings.extend(
-            (
-                structured_warning(
-                    "FRESHNESS_STATUS",
-                    FreshnessStatus.STALE_LKG.value,
-                    "The current result came from a cached or snapshot data source.",
-                ),
-                structured_warning(
-                    "SOURCE_ERROR_CODE",
-                    error.code.value,
-                    f"Source error code: {error.code.value}",
-                ),
-                structured_warning(
-                    "SOURCE_ERROR_MESSAGE",
-                    error.message,
-                    f"Source error message: {error.message}",
-                ),
-                structured_warning(
-                    "SOURCE_ERROR_RETRY_RECOMMENDED",
-                    str(error.retry_recommended).lower(),
-                    f"Source retry recommended: {str(error.retry_recommended).lower()}",
-                ),
-                structured_warning(
-                    "SOURCE_ERROR_RETRY_AFTER_SECONDS",
-                    error.retry_after_seconds if error.retry_after_seconds is not None else "none",
-                    "Source retry-after seconds: "
-                    f"{error.retry_after_seconds if error.retry_after_seconds is not None else 'none'}",
-                ),
-                structured_warning(
-                    "LKG_RETRIEVED_AT",
-                    retrieved_at.isoformat(),
-                    f"Last-known-good retrieved at: {retrieved_at.isoformat()}",
-                ),
-                structured_warning(
-                    "LKG_AGE_SECONDS",
-                    str(age_seconds),
-                    f"Last-known-good age seconds: {age_seconds}",
-                ),
-                structured_warning(
-                    "SERVED_AT",
-                    served_at.isoformat(),
-                    f"Served at: {served_at.isoformat()}",
-                ),
+            build_stale_lkg_warnings(
+                retrieved_at=retrieved_at,
+                served_at=served_at,
+                source_error=error,
             )
         )
         return result
@@ -328,3 +280,67 @@ def _without_freshness(warnings: Sequence[str]) -> list[str]:
         SERVED_AT_PREFIX,
     )
     return [warning for warning in warnings if not warning.startswith(prefixes)]
+
+
+def build_stale_lkg_warnings(
+    *,
+    retrieved_at: datetime,
+    served_at: datetime,
+    source_error: PlatformError | None = None,
+) -> tuple[str, ...]:
+    warnings = [
+        structured_warning(
+            "FRESHNESS_STATUS",
+            FreshnessStatus.STALE_LKG.value,
+            "The current result came from a cached or snapshot data source.",
+        ),
+    ]
+    if source_error is not None:
+        warnings.extend(
+            (
+                structured_warning(
+                    "SOURCE_ERROR_CODE",
+                    source_error.code.value,
+                    f"Source error code: {source_error.code.value}",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_MESSAGE",
+                    source_error.message,
+                    f"Source error message: {source_error.message}",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_RETRY_RECOMMENDED",
+                    str(source_error.retry_recommended).lower(),
+                    f"Source retry recommended: {str(source_error.retry_recommended).lower()}",
+                ),
+                structured_warning(
+                    "SOURCE_ERROR_RETRY_AFTER_SECONDS",
+                    source_error.retry_after_seconds
+                    if source_error.retry_after_seconds is not None
+                    else "none",
+                    "Source retry-after seconds: "
+                    f"{source_error.retry_after_seconds if source_error.retry_after_seconds is not None else 'none'}",
+                ),
+            )
+        )
+    age_seconds = int((served_at - retrieved_at).total_seconds())
+    warnings.extend(
+        (
+            structured_warning(
+                "LKG_RETRIEVED_AT",
+                retrieved_at.isoformat(),
+                f"Last-known-good retrieved at: {retrieved_at.isoformat()}",
+            ),
+            structured_warning(
+                "LKG_AGE_SECONDS",
+                str(age_seconds),
+                f"Last-known-good age seconds: {age_seconds}",
+            ),
+            structured_warning(
+                "SERVED_AT",
+                served_at.isoformat(),
+                f"Served at: {served_at.isoformat()}",
+            ),
+        )
+    )
+    return tuple(warnings)
