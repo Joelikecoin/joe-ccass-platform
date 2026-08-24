@@ -452,6 +452,22 @@ def _snapshot_top_ids(snapshot: HistoricalSnapshot, *, count: int = 8) -> list[s
     return [row.participant_id for row in snapshot.holdings[:count]]
 
 
+def _price_history_response(bundle: PortalBundle) -> object | None:
+    live_product = bundle.live_product
+    if live_product is not None:
+        response = getattr(live_product, "response", None)
+        price_history = getattr(response, "price_history", None)
+        if price_history is not None:
+            return price_history
+    prepared = bundle.prepared
+    if prepared is not None:
+        response = getattr(prepared, "response", None)
+        price_history = getattr(response, "price_history", None)
+        if price_history is not None:
+            return price_history
+    return None
+
+
 def _rainbow_history_payload(rows: list[dict[str, object]]) -> tuple[list[str], list[dict[str, object]]]:
     if not rows:
         return [], []
@@ -562,8 +578,9 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
     if bundle.live_product is None:
         return '<div class="empty-state">Price history unavailable.</div>'
     source_name = "—"
-    if bundle.live_product.price_history:
-        source_name = bundle.live_product.price_history.metadata.source_name
+    price_history_response = _price_history_response(bundle)
+    if price_history_response is not None:
+        source_name = price_history_response.metadata.source_name
     if not price_rows and bundle.live_product.price_history:
         price_rows = _normalize_price_rows(bundle.live_product.price_history)
     if not price_rows:
@@ -776,8 +793,9 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
     snapshot_count = len(concentration_rows)
     source_mode = bundle.source_mode
     price_source_name = "Unavailable"
-    if result and result.price_history is not None:
-        price_source_name = result.price_history.metadata.source_name
+    price_history_response = _price_history_response(bundle)
+    if price_history_response is not None:
+        price_source_name = price_history_response.metadata.source_name
     elif price_rows and price_rows[-1].get("source"):
         price_source_name = str(price_rows[-1].get("source"))
     cards = [
