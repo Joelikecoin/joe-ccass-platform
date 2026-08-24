@@ -4,7 +4,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 from bs4 import BeautifulSoup
@@ -173,6 +173,8 @@ class WebbsiteClient:
                             redirect_target=self._redirect_target(response, url),
                             failure_detail=self._status_failure_detail(response.status_code),
                         )
+                        if failure_type == "forbidden":
+                            raise self._platform_error_for(failures)
                         if self._should_try_browser_fallback(failure_type):
                             browser_page = await self._fetch_via_browser(
                                 base_url,
@@ -202,6 +204,8 @@ class WebbsiteClient:
                     redirect_target=guarded.redirect_target,
                     failure_detail=guarded.failure_detail,
                 )
+                if guarded.failure_type == "forbidden":
+                    raise self._platform_error_for(failures)
                 if self._should_try_browser_fallback(guarded.failure_type):
                     browser_page = await self._fetch_via_browser(
                         base_url,
@@ -332,7 +336,7 @@ class WebbsiteClient:
             )
 
     def _should_try_browser_fallback(self, failure_type: str | None) -> bool:
-        return failure_type in {"forbidden", "cloudflare_challenge", "login_page"}
+        return failure_type in {"cloudflare_challenge", "login_page"}
 
     async def _fetch_via_browser(
         self,
@@ -985,6 +989,10 @@ class WebbsiteClient:
                 failure_detail=failure_detail,
             )
         )
+        redacted_request_url = WebbsiteClient._redact_url(request_url)
+        redacted_redirect_target = (
+            WebbsiteClient._redact_url(redirect_target) if redirect_target else None
+        )
         logger.warning(
             (
                 "Webb-site mirror failed hostname=%s status_code=%s error_type=%s "
@@ -993,14 +1001,14 @@ class WebbsiteClient:
             hostname,
             status_code if status_code is not None else "none",
             error_type,
-            request_url,
+            redacted_request_url,
             content_type or "none",
-            redirect_target or "none",
+            redacted_redirect_target or "none",
             failure_detail or "none",
         )
 
-    @staticmethod
-    def _failure_summary(failures: list[MirrorFailure]) -> str:
+    @classmethod
+    def _failure_summary(cls, failures: list[MirrorFailure]) -> str:
         details: list[str] = []
         for failure in failures[:4]:
             parts = [f"{failure.hostname}:{failure.error_type}"]
@@ -1009,14 +1017,21 @@ class WebbsiteClient:
             if failure.content_type:
                 parts.append(f"content_type={failure.content_type}")
             if failure.redirect_target:
-                parts.append(f"redirect={failure.redirect_target}")
+                parts.append(f"redirect={cls._redact_url(failure.redirect_target)}")
             if failure.failure_detail:
                 parts.append(f"detail={failure.failure_detail}")
-            parts.append(f"url={failure.request_url}")
+            parts.append(f"url={cls._redact_url(failure.request_url)}")
             details.append("[" + ", ".join(parts) + "]")
         if len(failures) > 4:
             details.append(f"... +{len(failures) - 4} more")
         return "; ".join(details) if details else "no upstream failures captured"
+
+    @staticmethod
+    def _redact_url(url: str | None) -> str | None:
+        if not url:
+            return url
+        parsed = urlsplit(url)
+        return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
 
     @classmethod
     def _platform_error_for(cls, failures: list[MirrorFailure]) -> PlatformError:

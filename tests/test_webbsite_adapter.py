@@ -140,7 +140,7 @@ async def test_http_success_does_not_trigger_browser_fallback(monkeypatch):
 
 
 @respx.mock
-async def test_http_forbidden_triggers_browser_fallback(monkeypatch):
+async def test_http_forbidden_returns_failure_without_browser_fallback(monkeypatch):
     _mock_landing_pages()
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
@@ -162,18 +162,14 @@ async def test_http_forbidden_triggers_browser_fallback(monkeypatch):
 
     monkeypatch.setattr(client, "_fetch_via_browser", fake_browser)
 
-    response = await client.get_holdings("01592", limit=2)
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592", limit=2)
 
-    assert browser_calls == [
-        (
-            "https://primary.example",
-            "/ccass/choldings.asp",
-            {"sc": "1592"},
-        )
-    ]
-    assert response.metadata.source_url.startswith("https://browser.example/")
-    assert response.metadata.code == "01592"
-    assert response.metadata.issue_id == 15_920
+    assert browser_calls == []
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "Webb-site mirrors refused" in caught.value.message
+    assert "primary.example:forbidden" in caught.value.message
+    assert "status=403" in caught.value.message
 
 
 @respx.mock
@@ -245,17 +241,21 @@ async def test_rate_limited_status_does_not_trigger_browser_fallback(monkeypatch
 @respx.mock
 async def test_playwright_unavailable_preserves_diagnostics(monkeypatch):
     _mock_landing_pages()
+    challenge = (
+        "<html><head><title>Just a moment...</title></head>"
+        '<body><form id="cf-chl-test"></form></body></html>'
+    )
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
     respx.get("https://fallback.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
@@ -272,17 +272,21 @@ async def test_playwright_unavailable_preserves_diagnostics(monkeypatch):
 @respx.mock
 async def test_browser_failure_preserves_diagnostics(monkeypatch):
     _mock_landing_pages()
+    challenge = (
+        "<html><head><title>Just a moment...</title></head>"
+        '<body><form id="cf-chl-test"></form></body></html>'
+    )
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
     respx.get("https://fallback.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
@@ -344,17 +348,21 @@ async def test_browser_failure_preserves_diagnostics(monkeypatch):
 @respx.mock
 async def test_browser_launch_failure_reports_phase(monkeypatch):
     _mock_landing_pages()
+    challenge = (
+        "<html><head><title>Just a moment...</title></head>"
+        '<body><form id="cf-chl-test"></form></body></html>'
+    )
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
     respx.get("https://fallback.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
@@ -387,17 +395,21 @@ async def test_browser_launch_failure_reports_phase(monkeypatch):
 @respx.mock
 async def test_browser_cleanup_failure_does_not_mask_primary_failure(monkeypatch):
     _mock_landing_pages()
+    challenge = (
+        "<html><head><title>Just a moment...</title></head>"
+        '<body><form id="cf-chl-test"></form></body></html>'
+    )
     respx.get("https://primary.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
     respx.get("https://fallback.example/ccass/choldings.asp").mock(
         return_value=httpx.Response(
-            403,
-            text="forbidden",
+            200,
+            text=challenge,
             headers={"content-type": "text/html; charset=utf-8"},
         )
     )
