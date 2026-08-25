@@ -1692,7 +1692,15 @@ async def download(
                 f"{base.resolved_code}_live_markdown.md",
             )
     if section == "ccass":
-        if base.ccass_artifacts is None or base.prepared is None:
+        if base.prepared is None:
+            raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
+        if kind == "md":
+            return await _stream_bytes(
+                _bundle_markdown(base, "ccass", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                base.prepared.filename,
+            )
+        if base.ccass_artifacts is None:
             raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
         if kind == "csv":
             return await _stream_bytes(base.ccass_artifacts.combined_csv_bytes, "text/csv", base.ccass_artifacts.combined_csv_filename)

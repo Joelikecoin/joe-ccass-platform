@@ -361,6 +361,57 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):
     assert calls["ccass"] == ["zh_HK"]
 
 
+def test_portal_8504_download_route_allows_ccass_markdown_without_artifacts(monkeypatch):
+    calls = {"ccass": []}
+    fake_response = SimpleNamespace(metadata=SimpleNamespace(code="00700"))
+    fake_prepared = SimpleNamespace(
+        response=fake_response,
+        source_trace=[],
+        analysis=SimpleNamespace(changes=[], big_changes=[], concentration={}, previous_available=False),
+        fetch_error=None,
+        filename="00700.md",
+    )
+    fake_base = PortalBundle(
+        requested_code="00700",
+        resolved_code="00700",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        live_product=None,
+        prepared=fake_prepared,
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=None,
+        previous_available=False,
+    )
+    fake_bundle = Portal8504Bundle(base=fake_base, price_rows=[], concentration_rows=[])
+
+    async def fake_build_portal_8504_bundle(**kwargs):
+        return fake_bundle
+
+    def fake_render_prepared_report(prepared, *, locale="en"):
+        calls["ccass"].append(locale)
+        return ("CCASS MARKDOWN" if locale == "en" else "ZH CCASS MARKDOWN", {})
+
+    monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
+    monkeypatch.setattr("app.friend_clone_app.render_prepared_report", fake_render_prepared_report)
+
+    client = TestClient(portal_app)
+    response = client.get(
+        "/download/ccass/md",
+        params={"code": "00700", "locale": "en"},
+    )
+
+    assert response.status_code == 200
+    assert response.text == "CCASS MARKDOWN"
+    assert calls["ccass"] == ["en"]
+
+
 def test_portal_8504_render_uses_price_history_response_metadata(monkeypatch):
     fake_price_history_response = SimpleNamespace(
         metadata=SimpleNamespace(
