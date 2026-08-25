@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app.config import get_settings
 from app.domain.history import HistoricalSnapshot
@@ -1574,6 +1574,11 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 app = FastAPI(title=APP_TITLE_EN, version="8504")
 
 
+@app.exception_handler(PlatformError)
+async def platform_error_handler(_: Request, exc: PlatformError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content=exc.as_dict())
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": "joe-ccass-visual-portal-8504"}
@@ -1663,57 +1668,60 @@ async def download(
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> StreamingResponse:
-    bundle = await _build_portal_8504_bundle(
-        raw_code=code,
-        input_type=input_type,
-        source_mode=source_mode,
-        top_n=top_n,
-        big_change_threshold=big_change_threshold,
-        use_local_history=use_local_history,
-    )
-    base = bundle.base
-    if section == "live":
-        if base.live_artifacts is None:
-            raise PlatformError("NOT_FOUND", "Live product artifacts are unavailable.", status_code=404)
-        if kind == "csv":
-            return await _stream_bytes(base.live_artifacts.combined_csv_bytes, "text/csv", base.live_artifacts.combined_csv_filename)
-        if kind == "xlsx":
-            return await _stream_bytes(
-                base.live_artifacts.workbook_bytes,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                base.live_artifacts.workbook_filename,
-            )
-        if kind == "json":
-            return await _stream_bytes(base.live_artifacts.json_bytes, "application/json", base.live_artifacts.json_filename)
-        if kind == "md":
-            return await _stream_bytes(
-                _bundle_markdown(base, "live", locale).encode("utf-8"),
-                "text/markdown; charset=utf-8",
-                f"{base.resolved_code}_live_markdown.md",
-            )
-    if section == "ccass":
-        if base.prepared is None:
-            raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
-        if kind == "md":
-            return await _stream_bytes(
-                _bundle_markdown(base, "ccass", locale).encode("utf-8"),
-                "text/markdown; charset=utf-8",
-                base.prepared.filename,
-            )
-        if base.ccass_artifacts is None:
-            raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
-        if kind == "csv":
-            return await _stream_bytes(base.ccass_artifacts.combined_csv_bytes, "text/csv", base.ccass_artifacts.combined_csv_filename)
-        if kind == "xlsx":
-            return await _stream_bytes(
-                base.ccass_artifacts.workbook_bytes,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                base.ccass_artifacts.workbook_filename,
-            )
-        if kind == "md":
-            return await _stream_bytes(
-                _bundle_markdown(base, "ccass", locale).encode("utf-8"),
-                "text/markdown; charset=utf-8",
-                base.prepared.filename,
-            )
-    raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    try:
+        bundle = await _build_portal_8504_bundle(
+            raw_code=code,
+            input_type=input_type,
+            source_mode=source_mode,
+            top_n=top_n,
+            big_change_threshold=big_change_threshold,
+            use_local_history=use_local_history,
+        )
+        base = bundle.base
+        if section == "live":
+            if base.live_artifacts is None:
+                raise PlatformError("NOT_FOUND", "Live product artifacts are unavailable.", status_code=404)
+            if kind == "csv":
+                return await _stream_bytes(base.live_artifacts.combined_csv_bytes, "text/csv", base.live_artifacts.combined_csv_filename)
+            if kind == "xlsx":
+                return await _stream_bytes(
+                    base.live_artifacts.workbook_bytes,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    base.live_artifacts.workbook_filename,
+                )
+            if kind == "json":
+                return await _stream_bytes(base.live_artifacts.json_bytes, "application/json", base.live_artifacts.json_filename)
+            if kind == "md":
+                return await _stream_bytes(
+                    _bundle_markdown(base, "live", locale).encode("utf-8"),
+                    "text/markdown; charset=utf-8",
+                    f"{base.resolved_code}_live_markdown.md",
+                )
+        if section == "ccass":
+            if base.prepared is None:
+                raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
+            if kind == "md":
+                return await _stream_bytes(
+                    _bundle_markdown(base, "ccass", locale).encode("utf-8"),
+                    "text/markdown; charset=utf-8",
+                    base.prepared.filename,
+                )
+            if base.ccass_artifacts is None:
+                raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
+            if kind == "csv":
+                return await _stream_bytes(base.ccass_artifacts.combined_csv_bytes, "text/csv", base.ccass_artifacts.combined_csv_filename)
+            if kind == "xlsx":
+                return await _stream_bytes(
+                    base.ccass_artifacts.workbook_bytes,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    base.ccass_artifacts.workbook_filename,
+                )
+            if kind == "md":
+                return await _stream_bytes(
+                    _bundle_markdown(base, "ccass", locale).encode("utf-8"),
+                    "text/markdown; charset=utf-8",
+                    base.prepared.filename,
+                )
+        raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    except PlatformError as exc:
+        return JSONResponse(status_code=exc.status_code, content=exc.as_dict())

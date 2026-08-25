@@ -431,6 +431,43 @@ def test_portal_8504_download_route_allows_ccass_markdown_without_artifacts(monk
     assert calls["ccass"] == ["en"]
 
 
+def test_portal_8504_download_route_returns_not_found_for_missing_live_artifacts(monkeypatch):
+    fake_bundle = PortalBundle(
+        requested_code="00700",
+        resolved_code="00700",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        live_product=None,
+        prepared=None,
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=None,
+        previous_available=False,
+    )
+    fake_portal_bundle = Portal8504Bundle(base=fake_bundle, price_rows=[], concentration_rows=[])
+
+    async def fake_build_portal_8504_bundle(**kwargs):
+        return fake_portal_bundle
+
+    monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
+
+    client = TestClient(portal_app)
+    response = client.get(
+        "/download/live/md",
+        params={"code": "00700", "locale": "en"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == "NOT_FOUND"
+    assert "Live product artifacts are unavailable." in response.json()["message"]
+
+
 def test_portal_8504_render_uses_price_history_response_metadata(monkeypatch):
     fake_price_history_response = SimpleNamespace(
         metadata=SimpleNamespace(
