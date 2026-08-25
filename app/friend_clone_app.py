@@ -20,7 +20,7 @@ from app.errors import PlatformError
 from app.live_product import (
     build_live_download_artifacts,
     build_live_preview_tables,
-    build_live_product_from_response,
+    build_live_product_from_response_with_surfaces,
     render_live_markdown,
 )
 from app.services.ccass import get_ccass_service
@@ -234,10 +234,10 @@ async def _build_bundle(
         previous_loader=previous_loader,
     )
     prepared = await ccass_task
-    live_product = (
-        build_live_product_from_response(prepared.response, source_trace=prepared.source_trace)
-        if prepared.response is not None
-        else None
+    live_product = await build_live_product_from_response_with_surfaces(
+        prepared.response,
+        code=resolved_code,
+        source_trace=prepared.source_trace,
     )
 
     if previous_loader and prepared.response is not None:

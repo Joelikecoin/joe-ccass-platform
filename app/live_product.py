@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 
+from app.data_quality import structured_warning
 from app.models import CcassResponse
 from app.services.ccass import get_ccass_service
+from app.services.announcements import get_announcements_service
+from app.services.capital_information import get_capital_information_service
+from app.services.officers import get_officers_service
+from app.services.price_history import get_price_history_service
+from app.services.stock_events import get_stock_events_service
 from app.sources.price_history import YAHOO_CHART_BASE_URL
+from app.sources.webbsite import WebbsiteClient
 from app.streamlit_ui import (
     DEFAULT_LOCALE,
     DownloadArtifacts,
@@ -18,6 +26,7 @@ from app.streamlit_ui import (
 from ccass_core.normalize import normalize_stock_code
 from ccass_core.report import build_markdown_report, build_chatgpt_copy_payload
 from ccass_core.source_trace import SourceTraceView, build_source_trace_markdown, build_source_trace_view
+from app.models import HoldingsSummary, SourceMetadata
 
 YAHOO_CHART_API_URL = f"{YAHOO_CHART_BASE_URL}{{symbol}}"
 
@@ -99,6 +108,136 @@ def build_live_product_from_response(
         response=response,
         source_trace=source_trace,
     )
+
+
+async def build_live_product_from_response_with_surfaces(
+    response: CcassResponse | None,
+    *,
+    code: str | int,
+    source_trace: SourceTraceView | None = None,
+) -> LiveProduct | None:
+    normalized_code = normalize_stock_code(code)
+    working_response = response.model_copy(deep=True) if response is not None else None
+
+    issue_id = 0
+    company_name: str | None = None
+    source_url = ""
+    if working_response is None:
+        try:
+            issue_id, company_name = await WebbsiteClient().resolve_issue_id(normalized_code)
+            source_url = f"https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx?i={issue_id}"
+        except Exception:
+            issue_id = 0
+            company_name = None
+        working_response = CcassResponse(
+            metadata=SourceMetadata(
+                code=normalized_code,
+                name=company_name,
+                issue_id=issue_id,
+                holdings_date=None,
+                fetched_at=datetime.now(UTC),
+                source_url=source_url,
+                source_name="Joe auxiliary runtime surfaces",
+                cached=False,
+            ),
+            holdings_summary=HoldingsSummary(),
+            holdings=[],
+            data_quality_warnings=[],
+        )
+
+    need_price_history = working_response.price_history is None or not getattr(working_response.price_history, "prices", ())
+    need_announcements = working_response.announcements is None or not getattr(
+        working_response.announcements,
+        "announcements",
+        (),
+    )
+    need_stock_events = working_response.stock_events is None or not getattr(
+        working_response.stock_events,
+        "stock_events",
+        (),
+    )
+    need_capital_information = working_response.capital_information is None or not getattr(
+        working_response.capital_information,
+        "capital_information",
+        (),
+    )
+    need_officers = working_response.officers is None or not getattr(working_response.officers, "officers", ())
+
+    async def _load_auxiliary() -> tuple[Any, Any, Any, Any, Any]:
+        tasks: list[Any] = []
+        if need_price_history:
+            tasks.append(get_price_history_service().get_price_history(normalized_code))
+        if need_announcements:
+            tasks.append(get_announcements_service().get_announcements(normalized_code))
+        if need_stock_events:
+            tasks.append(get_stock_events_service().get_stock_events(normalized_code))
+        if need_capital_information:
+            tasks.append(get_capital_information_service().get_capital_information(normalized_code))
+        if need_officers:
+            tasks.append(get_officers_service().get_officers(normalized_code))
+        results = await asyncio.gather(*tasks, return_exceptions=True) if tasks else []
+        iterator = iter(results)
+        return (
+            next(iterator) if need_price_history else working_response.price_history,
+            next(iterator) if need_announcements else working_response.announcements,
+            next(iterator) if need_stock_events else working_response.stock_events,
+            next(iterator) if need_capital_information else working_response.capital_information,
+            next(iterator) if need_officers else working_response.officers,
+        )
+
+    price_history, announcements, stock_events, capital_information, officers = await _load_auxiliary()
+    warnings = list(working_response.data_quality_warnings)
+    has_auxiliary_data = False
+
+    def _merge_if_empty(current: Any | None, incoming: Any, *, label: str) -> Any | None:
+        nonlocal has_auxiliary_data
+        if isinstance(incoming, Exception):
+            warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    f"{label.upper()}_UNAVAILABLE",
+                    f"{label.replace('_', ' ').title()} are unavailable ({type(incoming).__name__}).",
+                )
+            )
+            return current
+        if current is not None:
+            if label == "price_history":
+                existing_prices = getattr(current, "prices", ())
+                if existing_prices:
+                    return current
+            else:
+                existing_rows = getattr(current, label, ())
+                if existing_rows:
+                    return current
+        candidate_rows = getattr(incoming, "prices", None)
+        if candidate_rows is None:
+            candidate_rows = getattr(incoming, label, ())
+        if candidate_rows:
+            has_auxiliary_data = True
+            warnings.extend(getattr(incoming, "data_quality_warnings", ()))
+            return incoming
+        warnings.extend(getattr(incoming, "data_quality_warnings", ()))
+        return current
+
+    working_response = working_response.model_copy(
+        update={
+            "price_history": _merge_if_empty(working_response.price_history, price_history, label="price_history"),
+            "announcements": _merge_if_empty(working_response.announcements, announcements, label="announcements"),
+            "stock_events": _merge_if_empty(working_response.stock_events, stock_events, label="stock_events"),
+            "capital_information": _merge_if_empty(
+                working_response.capital_information,
+                capital_information,
+                label="capital_information",
+            ),
+            "officers": _merge_if_empty(working_response.officers, officers, label="officers"),
+            "data_quality_warnings": list(dict.fromkeys(warnings)),
+        }
+    )
+
+    if response is None and not has_auxiliary_data:
+        return None
+
+    return build_live_product_from_response(working_response, source_trace=source_trace)
 
 
 def _dump_pydantic(value: Any) -> Any:

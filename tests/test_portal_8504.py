@@ -8,6 +8,24 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 from app.friend_clone_app import PortalBundle
+from app.models import (
+    AnnouncementRow,
+    AnnouncementsMetadata,
+    AnnouncementsResponse,
+    CapitalInformationMetadata,
+    CapitalInformationResponse,
+    CapitalInformationRow,
+    OfficerRow,
+    OfficersMetadata,
+    OfficersResponse,
+    PriceHistoryMetadata,
+    PriceHistoryResponse,
+    PriceHistoryRow,
+    StockEventRow,
+    StockEventsMetadata,
+    StockEventsResponse,
+)
+from app.streamlit_ui import PreparedReport
 from app.portal_8504 import (
     PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
     app as portal_app,
@@ -15,6 +33,7 @@ from app.portal_8504 import (
     _build_portal_8504_bundle,
     _overview_block,
     _price_panel,
+    _render_page,
 )
 
 
@@ -233,7 +252,7 @@ def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     async def fake_prepare_report(*args, **kwargs):
         return fake_prepared
 
-    def fake_build_live_product_from_response(response, *, source_trace):
+    async def fake_build_live_product_from_surfaces(response, *, code, source_trace):
         return fake_live_product
 
     def fake_render_live_markdown(live_product, *, locale="en"):
@@ -251,7 +270,7 @@ def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
         return fake_ccass_artifacts
 
     monkeypatch.setattr("app.friend_clone_app.prepare_report", fake_prepare_report)
-    monkeypatch.setattr("app.friend_clone_app.build_live_product_from_response", fake_build_live_product_from_response)
+    monkeypatch.setattr("app.friend_clone_app.build_live_product_from_response_with_surfaces", fake_build_live_product_from_surfaces)
     monkeypatch.setattr("app.friend_clone_app.render_live_markdown", fake_render_live_markdown)
     monkeypatch.setattr("app.friend_clone_app.render_prepared_report", fake_render_prepared_report)
     monkeypatch.setattr("app.friend_clone_app.build_live_download_artifacts", fake_build_live_download_artifacts)
@@ -527,3 +546,194 @@ def test_portal_8504_render_uses_price_history_response_metadata(monkeypatch):
     assert "Yahoo Finance" in overview_html
     assert "Yahoo Finance" in price_html
     assert "Stale LKG fallback used." in overview_html
+
+
+def test_portal_8504_bundle_recovers_auxiliary_surfaces_without_ccass(monkeypatch):
+    async def fake_prepare_report(*args, **kwargs):
+            return PreparedReport(
+                code="03321",
+                markdown="",
+                chatgpt_payload="",
+                filename="03321_report.md",
+                response=None,
+                previous_response=None,
+                source_trace=None,
+                analysis=None,
+                announcements=None,
+                stock_events=None,
+                capital_information=None,
+                officers=None,
+                price_history=None,
+                workflow=None,
+                research_context_entry=None,
+                fetch_error=None,
+            )
+
+    class _FakeClient:
+        async def resolve_issue_id(self, code):
+            return 27882, "Test Co"
+
+    class _PriceService:
+        async def get_price_history(self, code):
+            return PriceHistoryResponse(
+                metadata=PriceHistoryMetadata(
+                    code="03321",
+                    name="Test Co",
+                    ticker="03321.HK",
+                    price_date_from=date(2026, 8, 14),
+                    price_date_to=date(2026, 8, 14),
+                    source_name="Yahoo Finance",
+                    source_url="https://query1.finance.yahoo.com/v8/finance/chart/03321.HK",
+                    fetched_at=datetime(2026, 8, 14, 9, 0, tzinfo=UTC),
+                    currency="HKD",
+                ),
+                prices=[
+                    PriceHistoryRow(
+                        price_date=date(2026, 8, 14),
+                        open=1.0,
+                        high=1.1,
+                        low=0.9,
+                        close=1.05,
+                        vwap=1.02,
+                        adjusted_close=1.05,
+                        volume=1000,
+                        turnover=1050.0,
+                        price_source="Yahoo Finance",
+                    )
+                ],
+            )
+
+    class _AnnouncementsService:
+        async def get_announcements(self, code, start_date=None, end_date=None):
+            return AnnouncementsResponse(
+                metadata=AnnouncementsMetadata(
+                    code="03321",
+                    name="Test Co",
+                    source_name="HKEXnews",
+                    source_url="https://www1.hkexnews.hk",
+                    fetched_at=datetime(2026, 8, 14, 9, 5, tzinfo=UTC),
+                    earliest_announcement_date=date(2026, 8, 1),
+                    latest_announcement_date=date(2026, 8, 14),
+                    announcement_count=1,
+                ),
+                announcements=[
+                    AnnouncementRow(
+                        announcement_date=date(2026, 8, 14),
+                        title="Sample announcement",
+                        source="HKEXnews",
+                        link="https://www1.hkexnews.hk/listedco/listconews/sehk/20260814/03321_20260814.pdf",
+                    )
+                ],
+            )
+
+    class _StockEventsService:
+        async def get_stock_events(self, code):
+            return StockEventsResponse(
+                metadata=StockEventsMetadata(
+                    code="03321",
+                    name="Test Co",
+                    source_name="Webb-site Events",
+                    source_url="https://webbsite.0xmd.com/dbpub/events.asp",
+                    fetched_at=datetime(2026, 8, 14, 9, 10, tzinfo=UTC),
+                    data_as_of=date(2026, 8, 13),
+                    stock_events_count=1,
+                    source_status="ready",
+                ),
+                stock_events=[
+                    StockEventRow(
+                        event_date=date(2026, 8, 13),
+                        title="Dividend",
+                        event_type="dividend",
+                        source="Webb-site Events",
+                        link="https://webbsite.0xmd.com/dbpub/events.asp?i=27882",
+                        details="Cash dividend",
+                    )
+                ],
+            )
+
+    class _CapitalService:
+        async def get_capital_information(self, code):
+            return CapitalInformationResponse(
+                metadata=CapitalInformationMetadata(
+                    code="03321",
+                    name="Test Co",
+                    source_name="10jqka F10",
+                    source_url="https://stockpage.10jqka.com.cn/basicweb/176/HK03321/",
+                    fetched_at=datetime(2026, 8, 14, 9, 15, tzinfo=UTC),
+                    data_as_of=date(2026, 8, 14),
+                    capital_information_count=1,
+                    source_status="ready",
+                ),
+                capital_information=[
+                    CapitalInformationRow(
+                        label="Issued shares",
+                        value="1,000,000,000",
+                        unit="shares",
+                        as_of=date(2026, 8, 14),
+                        source="10jqka F10",
+                        note="Sample capital row",
+                        link="https://stockpage.10jqka.com.cn/basicweb/176/HK03321/",
+                    )
+                ],
+            )
+
+    class _OfficersService:
+        async def get_officers(self, code):
+            return OfficersResponse(
+                metadata=OfficersMetadata(
+                    code="03321",
+                    name="Test Co",
+                    source_name="同花順 F10 managers",
+                    source_url="https://stockpage.10jqka.com.cn/basicweb/176/HK03321/manager.html",
+                    fetched_at=datetime(2026, 8, 14, 9, 20, tzinfo=UTC),
+                    data_as_of=date(2026, 8, 14),
+                    officers_count=1,
+                    source_status="ready",
+                ),
+                officers=[
+                    OfficerRow(
+                        name="Sample Officer",
+                        positions=["Director"],
+                        tenure_from=date(2020, 1, 1),
+                        tenure_to=None,
+                        is_current=True,
+                        age=45,
+                        salary="—",
+                    )
+                ],
+            )
+
+    monkeypatch.setattr("app.friend_clone_app.prepare_report", fake_prepare_report)
+    monkeypatch.setattr("app.live_product.WebbsiteClient", lambda: _FakeClient())
+    monkeypatch.setattr("app.live_product.get_price_history_service", lambda: _PriceService())
+    monkeypatch.setattr("app.live_product.get_announcements_service", lambda: _AnnouncementsService())
+    monkeypatch.setattr("app.live_product.get_stock_events_service", lambda: _StockEventsService())
+    monkeypatch.setattr("app.live_product.get_capital_information_service", lambda: _CapitalService())
+    monkeypatch.setattr("app.live_product.get_officers_service", lambda: _OfficersService())
+    monkeypatch.setattr("app.portal_8504._concentration_history_rows", lambda bundle: [])
+
+    bundle = asyncio.run(
+        _build_portal_8504_bundle(
+            raw_code="03321",
+            input_type="Stock Code",
+            source_mode="auto",
+            top_n=20,
+            big_change_threshold=1_000_000,
+            use_local_history=True,
+        )
+    )
+
+    assert isinstance(bundle, Portal8504Bundle)
+    assert bundle.base.live_product is not None
+    assert bundle.base.live_product.price_history
+    assert bundle.base.live_product.announcements
+    assert bundle.base.live_product.corporate_events
+    assert bundle.base.live_product.share_capital_changes
+    assert bundle.base.live_product.officers
+    assert bundle.price_rows
+
+    html = _render_page(bundle)
+    assert "HKEX Announcements" in html
+    assert "Corporate Events" in html
+    assert "Share Capital Changes" in html
+    assert "Officers / Managers" in html
