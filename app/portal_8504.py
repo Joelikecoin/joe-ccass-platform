@@ -1470,6 +1470,10 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           return;
         }}
       }}
+      const preview = document.getElementById(previewId(section));
+      if (preview) {{
+        preview.value = target.value;
+      }}
       try {{
         await navigator.clipboard.writeText(target.value);
       }} catch (error) {{

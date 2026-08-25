@@ -247,8 +247,6 @@ async def _build_bundle(
             previous_snapshot = None
 
     live_markdown_en = render_live_markdown(live_product, locale="en") if live_product else ""
-    ccass_markdown_en, _ = render_prepared_report(prepared, locale="en")
-
     live_artifacts = build_live_download_artifacts(live_product) if live_product else None
     ccass_artifacts = build_download_artifacts(prepared.response) if prepared.response is not None else None
 
@@ -264,7 +262,7 @@ async def _build_bundle(
         prepared=prepared,
         live_markdown_en=live_markdown_en,
         live_markdown_zh="",
-        ccass_markdown_en=ccass_markdown_en,
+        ccass_markdown_en="",
         ccass_markdown_zh="",
         live_artifacts=live_artifacts,
         ccass_artifacts=ccass_artifacts,
@@ -278,12 +276,10 @@ def _bundle_markdown(bundle: PortalBundle, section: str, locale: str) -> str:
             return render_live_markdown(bundle.live_product, locale=locale) if bundle.live_product else ""
         return bundle.live_markdown_en
     if section == "ccass":
-        if locale == "zh_HK":
-            if bundle.prepared is None:
-                return ""
-            markdown, _ = render_prepared_report(bundle.prepared, locale=locale)
-            return markdown
-        return bundle.ccass_markdown_en
+        if bundle.prepared is None:
+            return ""
+        markdown, _ = render_prepared_report(bundle.prepared, locale=locale)
+        return markdown
     raise PlatformError("NOT_FOUND", f"Unsupported markdown section: {section}", status_code=404)
 
 

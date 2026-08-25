@@ -62,6 +62,7 @@ class ChangesService:
 
         snapshot_candidates: list[tuple[HistoricalSnapshot, SourceDefinition]] = []
         compare_candidates: list[tuple[HistoricalSnapshot, SourceDefinition]] = []
+        conflict_error: PlatformError | None = None
         for source in self.sources:
             snapshot = self.repository.snapshot_on(
                 normalized,
@@ -84,6 +85,12 @@ class ChangesService:
                     snapshot.source.source_id == compare.source.source_id
                     and snapshot.source.issue_id != compare.source.issue_id
                 ):
+                    if conflict_error is None:
+                        conflict_error = PlatformError(
+                            ErrorCode.INVALID_SCHEMA,
+                            "Changes identity validation failed: snapshot issue IDs do not match.",
+                            status_code=502,
+                        )
                     continue
                 return _build_changes(
                     snapshot,
@@ -94,6 +101,9 @@ class ChangesService:
                     snapshot_source=snapshot_source,
                     compare_source=compare_source,
                 )
+
+        if conflict_error is not None:
+            raise conflict_error
 
         raise PlatformError(
             ErrorCode.NOT_FOUND,

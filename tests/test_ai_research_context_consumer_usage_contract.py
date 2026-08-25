@@ -3,7 +3,7 @@ from pathlib import Path
 
 def test_ai_research_context_consumer_usage_contract_defines_approved_entry_point():
     contract = Path(
-        "codecopy/docs_reference_evidence/04_Evidence_Index/M027_AI_RESEARCH_CONTEXT_CONSUMER_USAGE_CONTRACT.md"
+        "docs_reference_evidence/04_Evidence_Index/M027_AI_RESEARCH_CONTEXT_CONSUMER_USAGE_CONTRACT.md"
     ).read_text(encoding="utf-8")
 
     assert "# M027-01 AI Research Context Consumer Usage Contract" in contract
@@ -17,7 +17,7 @@ def test_ai_research_context_consumer_usage_contract_defines_approved_entry_poin
 
 def test_ai_research_context_consumer_usage_contract_defines_allowed_and_prohibited_dependencies():
     contract = Path(
-        "codecopy/docs_reference_evidence/04_Evidence_Index/M027_AI_RESEARCH_CONTEXT_CONSUMER_USAGE_CONTRACT.md"
+        "docs_reference_evidence/04_Evidence_Index/M027_AI_RESEARCH_CONTEXT_CONSUMER_USAGE_CONTRACT.md"
     ).read_text(encoding="utf-8")
 
     assert "Allowed Consumer Dependencies" in contract

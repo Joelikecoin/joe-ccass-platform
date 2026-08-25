@@ -139,6 +139,62 @@ def test_portal_8504_bundle_prefers_live_product_price_rows(monkeypatch):
     assert bundle.price_rows[0]["vwap"] == 1.05
 
 
+def test_portal_8504_bundle_does_not_eagerly_generate_ccass_markdown(monkeypatch):
+    async def fake_build_bundle(**kwargs):
+        live_product = SimpleNamespace(
+            symbol="01592.HK",
+            price_history=[],
+            source_notes=[],
+        )
+        prepared = SimpleNamespace(
+            response=SimpleNamespace(
+                metadata=SimpleNamespace(code="01592", data_as_of=date(2026, 8, 14)),
+                data_quality_warnings=[],
+            ),
+            source_trace=None,
+        )
+        return PortalBundle(
+            requested_code="01592",
+            resolved_code="01592",
+            input_type="Stock Code",
+            source_mode="auto",
+            top_n=20,
+            big_change_threshold=1_000_000,
+            use_local_history=True,
+            live_product=live_product,
+            prepared=prepared,
+            live_markdown_en="",
+            live_markdown_zh="",
+            ccass_markdown_en="",
+            ccass_markdown_zh="",
+            live_artifacts=None,
+            ccass_artifacts=None,
+            previous_available=False,
+        )
+
+    def fail_render_prepared_report(*args, **kwargs):
+        raise AssertionError("CCASS markdown should be generated lazily")
+
+    monkeypatch.setattr("app.portal_8504._build_bundle", fake_build_bundle)
+    monkeypatch.setattr("app.friend_clone_app.render_prepared_report", fail_render_prepared_report)
+    monkeypatch.setattr("app.portal_8504._concentration_history_rows", lambda bundle: [])
+    monkeypatch.setattr("app.portal_8504._cached_price_history", lambda symbol: ())
+
+    bundle = asyncio.run(
+        _build_portal_8504_bundle(
+            raw_code="01592",
+            input_type="Stock Code",
+            source_mode="auto",
+            top_n=20,
+            big_change_threshold=1_000_000,
+            use_local_history=True,
+        )
+    )
+
+    assert isinstance(bundle, Portal8504Bundle)
+    assert bundle.base.ccass_markdown_en == ""
+
+
 def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     calls = {"live": [], "ccass": []}
 
@@ -217,7 +273,7 @@ def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     assert bundle.base.live_markdown_zh == ""
     assert bundle.base.ccass_markdown_zh == ""
     assert calls["live"] == ["en"]
-    assert calls["ccass"] == ["en"]
+    assert calls["ccass"] == []
 
 
 def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):

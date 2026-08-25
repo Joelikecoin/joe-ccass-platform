@@ -198,6 +198,7 @@ def _render_download_copy_controls(
                     data=download_artifacts.combined_csv_bytes,
                     file_name=download_artifacts.combined_csv_filename,
                     mime="text/csv",
+                    key="downloads_combined_csv",
                     use_container_width=True,
                 )
             with workbook_col:
@@ -207,6 +208,7 @@ def _render_download_copy_controls(
                     data=download_artifacts.workbook_bytes,
                     file_name=download_artifacts.workbook_filename,
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key="downloads_excel_workbook",
                     use_container_width=True,
                 )
             with report_download_col:
@@ -216,6 +218,7 @@ def _render_download_copy_controls(
                     data=localized_markdown,
                     file_name=getattr(prepared, "filename", "report.md"),
                     mime="text/markdown",
+                    key="downloads_report_markdown",
                     use_container_width=True,
                 )
 
@@ -232,6 +235,7 @@ def _render_download_copy_controls(
                         data=download_artifacts.raw_preview_summary_bytes,
                         file_name=download_artifacts.raw_preview_summary_filename,
                         mime="text/csv",
+                        key="downloads_raw_preview_summary_csv",
                         use_container_width=True,
                     )
                 with section_holdings_col:
@@ -241,6 +245,7 @@ def _render_download_copy_controls(
                         data=download_artifacts.raw_preview_holdings_bytes,
                         file_name=download_artifacts.raw_preview_holdings_filename,
                         mime="text/csv",
+                        key="downloads_raw_preview_holdings_csv",
                         use_container_width=True,
                     )
 
@@ -388,6 +393,7 @@ def _render_download_this_stock_section(
             data=download_artifacts.combined_csv_bytes,
             file_name=download_artifacts.combined_csv_filename,
             mime="text/csv",
+            key="downloads_all_ccass_csv",
             use_container_width=True,
         )
     with workbook_col:
@@ -397,6 +403,7 @@ def _render_download_this_stock_section(
             data=download_artifacts.workbook_bytes,
             file_name=download_artifacts.workbook_filename,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            key="downloads_excel",
             use_container_width=True,
         )
     with backup_col:
@@ -408,6 +415,7 @@ def _render_download_this_stock_section(
                 data=sqlite_path.read_bytes(),
                 file_name=sqlite_path.name,
                 mime="application/octet-stream",
+                key="downloads_snapshot_db_backup",
                 use_container_width=True,
             )
         else:
