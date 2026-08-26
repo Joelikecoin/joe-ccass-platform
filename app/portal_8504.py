@@ -1706,6 +1706,13 @@ async def download(
                     "text/markdown; charset=utf-8",
                     base.prepared.filename,
                 )
+            if kind == "json":
+                payload = base.prepared.response.model_dump_json(indent=2).encode("utf-8")
+                return await _stream_bytes(
+                    payload,
+                    "application/json",
+                    f"{base.prepared.response.metadata.code}_ccass.json",
+                )
             if base.ccass_artifacts is None:
                 raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
             if kind == "csv":
@@ -1721,6 +1728,15 @@ async def download(
                     _bundle_markdown(base, "ccass", locale).encode("utf-8"),
                     "text/markdown; charset=utf-8",
                     base.prepared.filename,
+                )
+        if section == "raw_previews":
+            if base.ccass_artifacts is None or base.prepared is None:
+                raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
+            if kind == "json":
+                return await _stream_bytes(
+                    base.ccass_artifacts.raw_preview_json_bytes,
+                    "application/json",
+                    base.ccass_artifacts.raw_preview_json_filename,
                 )
         raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     except PlatformError as exc:

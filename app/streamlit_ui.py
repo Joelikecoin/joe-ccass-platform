@@ -2,6 +2,7 @@ import asyncio
 import base64
 import csv
 import html
+import json
 import io
 import os
 import re
@@ -163,6 +164,8 @@ class DownloadArtifacts:
     raw_preview_summary_filename: str
     raw_preview_holdings_bytes: bytes
     raw_preview_holdings_filename: str
+    raw_preview_json_bytes: bytes
+    raw_preview_json_filename: str
 
 
 async def prepare_report(
@@ -654,6 +657,20 @@ def build_raw_preview_tables(
     )
 
 
+def _build_raw_preview_json_bytes(raw_preview_tables: Sequence[RawPreviewTable]) -> bytes:
+    payload = [
+        {
+            "table_index": table.table_index,
+            "title": table.title,
+            "shape": list(table.shape),
+            "columns": list(table.columns),
+            "sample_rows": [dict(sample_row) for sample_row in table.sample_rows],
+        }
+        for table in raw_preview_tables
+    ]
+    return json.dumps(payload, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+
+
 def build_download_artifacts(
     response: CcassResponse,
     *,
@@ -673,6 +690,8 @@ def build_download_artifacts(
         raw_preview_summary_filename=f"{response.metadata.code}_raw_preview_summary.csv",
         raw_preview_holdings_bytes=_table_to_csv_bytes(raw_preview_tables[1]),
         raw_preview_holdings_filename=f"{response.metadata.code}_raw_preview_holdings.csv",
+        raw_preview_json_bytes=_build_raw_preview_json_bytes(raw_preview_tables),
+        raw_preview_json_filename=f"{response.metadata.code}_raw_tables.json",
     )
 
 

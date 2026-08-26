@@ -579,7 +579,9 @@ def _download_links(bundle: PortalBundle) -> str:
         ("live", "md", "Download Live Markdown", "下載即時 Markdown"),
         ("ccass", "csv", "Download CCASS CSV", "下載 CCASS CSV"),
         ("ccass", "xlsx", "Download CCASS Excel", "下載 CCASS Excel"),
+        ("ccass", "json", "Download CCASS JSON", "下載 CCASS JSON"),
         ("ccass", "md", "Download CCASS Markdown", "下載 CCASS Markdown"),
+        ("raw_previews", "json", "Download Raw Tables JSON", "下載原始表格 JSON"),
     ]
     items = []
     for section, kind, en, zh in links:
@@ -1547,10 +1549,26 @@ async def download(
                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 bundle.ccass_artifacts.workbook_filename,
             )
+        if kind == "json":
+            payload = bundle.prepared.response.model_dump_json(indent=2).encode("utf-8")
+            return await _stream_bytes(
+                payload,
+                "application/json",
+                f"{bundle.prepared.response.metadata.code}_ccass.json",
+            )
         if kind == "md":
             return await _stream_bytes(
                 _bundle_markdown(bundle, "ccass", locale).encode("utf-8"),
                 "text/markdown; charset=utf-8",
                 bundle.prepared.filename,
+            )
+    if section == "raw_previews":
+        if bundle.ccass_artifacts is None or bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
+        if kind == "json":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.raw_preview_json_bytes,
+                "application/json",
+                bundle.ccass_artifacts.raw_preview_json_filename,
             )
     raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)

@@ -227,7 +227,7 @@ def _render_download_copy_controls(
                 st.code(download_artifacts.combined_csv_preview, language="csv")
 
             with st.expander(ui_text(locale, "downloads_section_specific"), expanded=False):
-                section_summary_col, section_holdings_col = st.columns(2)
+                section_summary_col, section_holdings_col, section_json_col = st.columns(3)
                 with section_summary_col:
                     st.markdown(f"**{ui_text(locale, 'downloads_raw_preview_summary_csv')}**")
                     st.download_button(
@@ -246,6 +246,16 @@ def _render_download_copy_controls(
                         file_name=download_artifacts.raw_preview_holdings_filename,
                         mime="text/csv",
                         key="downloads_raw_preview_holdings_csv",
+                        use_container_width=True,
+                    )
+                with section_json_col:
+                    st.markdown(f"**{ui_text(locale, 'downloads_raw_preview_json')}**")
+                    st.download_button(
+                        ui_text(locale, "downloads_download_raw_preview_json"),
+                        data=download_artifacts.raw_preview_json_bytes,
+                        file_name=download_artifacts.raw_preview_json_filename,
+                        mime="application/json",
+                        key="downloads_raw_preview_json",
                         use_container_width=True,
                     )
 

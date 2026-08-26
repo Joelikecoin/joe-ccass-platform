@@ -1,5 +1,6 @@
 ﻿import asyncio
 import base64
+import json
 import re
 import zipfile
 from datetime import UTC, date, datetime
@@ -1360,6 +1361,10 @@ def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_resp
     assert artifacts.workbook_filename == "01592_all_sections.xlsx"
     assert artifacts.raw_preview_summary_filename == "01592_raw_preview_summary.csv"
     assert artifacts.raw_preview_holdings_filename == "01592_raw_preview_holdings.csv"
+    assert artifacts.raw_preview_json_filename == "01592_raw_tables.json"
+    raw_preview_payload = json.loads(artifacts.raw_preview_json_bytes.decode("utf-8"))
+    assert raw_preview_payload[0]["table_index"] == 0
+    assert raw_preview_payload[1]["table_index"] == 1
     assert artifacts.combined_csv_preview.splitlines()[0].startswith("code,")
     assert artifacts.combined_csv_preview.splitlines()[1].split(",")[0] == "01592"
 
@@ -1521,10 +1526,12 @@ def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypat
     assert translate_text(APP_LOCALE, "ui.downloads_download_combined_csv") in download_labels
     assert translate_text(APP_LOCALE, "ui.downloads_download_excel_workbook") in download_labels
     assert translate_text(APP_LOCALE, "ui.downloads_download_markdown_report") in download_labels
+    assert translate_text(APP_LOCALE, "ui.downloads_download_raw_preview_json") in download_labels
     assert any(translate_text(APP_LOCALE, "ui.downloads_report_markdown") in block.value for block in download_expander.markdown)
     assert any("First 80 CSV lines" in block.value for block in download_expander.caption)
     assert any(translate_text(APP_LOCALE, "ui.downloads_section_specific") in block.label for block in app.expander)
     assert any(translate_text(APP_LOCALE, "ui.downloads_raw_preview_summary_csv") in block.value for block in download_expander.markdown)
+    assert any(translate_text(APP_LOCALE, "ui.downloads_raw_preview_json") in block.value for block in download_expander.markdown)
 
 
 def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_response):
