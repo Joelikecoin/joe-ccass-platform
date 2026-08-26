@@ -375,6 +375,61 @@ class CcassService:
         self,
         live_definition: SourceDefinition,
     ) -> tuple[GatewaySourceCandidate, ...]:
+        if self.settings.data_source == "auto":
+            candidates: list[GatewaySourceCandidate] = []
+            if any(source.source_id == HKEX_SDW_SOURCE_ID for source in self.available_sources):
+                candidates.append(
+                    GatewaySourceCandidate(
+                        source_id=HKEX_SDW_SOURCE_ID,
+                        source_name=self.source_definitions_by_id[HKEX_SDW_SOURCE_ID].display_name,
+                        priority=0,
+                        status="active",
+                        backend=_DeferredHoldingsSource(lambda: HKEXSdwClient(self.settings)),
+                        fallback_eligible=True,
+                    )
+                )
+            recovery_source_ids = tuple(
+                source.source_id
+                for source in self.available_sources
+                if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
+            )
+            recovery_backend = self._build_recovery_backend(recovery_source_ids)
+            if recovery_backend is not None:
+                candidates.append(
+                    GatewaySourceCandidate(
+                        source_id="persistent_lkg",
+                        source_name="Persistent LKG",
+                        priority=1,
+                        status="fallback",
+                        backend=recovery_backend,
+                        fallback_eligible=True,
+                    )
+                )
+            if any(source.source_id == WEBBSITE_SOURCE_ID for source in self.available_sources):
+                candidates.append(
+                    GatewaySourceCandidate(
+                        source_id=WEBBSITE_SOURCE_ID,
+                        source_name=self.source_definitions_by_id[WEBBSITE_SOURCE_ID].display_name,
+                        priority=2,
+                        status="fallback",
+                        backend=_DeferredHoldingsSource(lambda: WebbsiteClient(self.settings)),
+                        fallback_eligible=True,
+                    )
+                )
+            if any(source.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID for source in self.available_sources):
+                candidates.append(
+                    GatewaySourceCandidate(
+                        source_id=GOOGLE_DRIVE_CSV_SOURCE_ID,
+                        source_name=self.source_definitions_by_id[GOOGLE_DRIVE_CSV_SOURCE_ID].display_name,
+                        priority=3,
+                        status="fallback",
+                        backend=_DeferredHoldingsSource(
+                            lambda: GoogleDriveCsvSource(self.settings)
+                        ),
+                        fallback_eligible=True,
+                    )
+                )
+            return tuple(candidates)
         candidates: list[GatewaySourceCandidate] = [
             GatewaySourceCandidate(
                 source_id=live_definition.source_id,
