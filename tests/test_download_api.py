@@ -30,6 +30,10 @@ def _make_bundle() -> SimpleNamespace:
         combined_csv_filename="ccass.csv",
         workbook_bytes=b"ccass-xlsx",
         workbook_filename="ccass.xlsx",
+        raw_preview_summary_bytes=b"summary-csv",
+        raw_preview_summary_filename="summary.csv",
+        raw_preview_holdings_bytes=b"holdings-csv",
+        raw_preview_holdings_filename="holdings.csv",
         raw_preview_json_bytes=b'[{"kind":"raw"}]',
         raw_preview_json_filename="raw.json",
     )
@@ -42,20 +46,26 @@ def _make_bundle() -> SimpleNamespace:
     )
 
 
-def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch):
+def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tmp_path):
     bundle = _make_bundle()
+    sqlite_path = tmp_path / "sqlite-backup.db"
+    sqlite_path.write_bytes(b"sqlite-bytes")
 
     async def fake_build_bundle(**_: object) -> SimpleNamespace:
         return bundle
 
     monkeypatch.setattr("app.api._build_bundle", fake_build_bundle)
     monkeypatch.setattr("app.api._bundle_markdown", lambda bundle, section, locale: f"{section}:{locale}")
+    monkeypatch.setattr("app.api.get_settings", lambda: SimpleNamespace(ccass_sqlite_path=sqlite_path))
 
     client = TestClient(app)
 
     live_md = client.get("/api/v1/stocks/01592/download/live/md")
     ccass_json = client.get("/api/v1/stocks/01592/download/ccass/json")
     raw_json = client.get("/api/v1/stocks/01592/download/raw_previews/json")
+    raw_summary_csv = client.get("/api/v1/stocks/01592/download/raw_previews/summary_csv")
+    raw_holdings_csv = client.get("/api/v1/stocks/01592/download/raw_previews/holdings_csv")
+    ccass_sqlite = client.get("/api/v1/stocks/01592/download/ccass/sqlite")
     raw_previews = client.get("/api/v1/stocks/01592/raw-previews")
 
     assert live_md.status_code == 200
@@ -69,6 +79,18 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch):
     assert raw_json.status_code == 200
     assert raw_json.headers["content-disposition"] == 'attachment; filename="raw.json"'
     assert raw_json.text == '[{"kind":"raw"}]'
+
+    assert raw_summary_csv.status_code == 200
+    assert raw_summary_csv.headers["content-disposition"] == 'attachment; filename="summary.csv"'
+    assert raw_summary_csv.text == "summary-csv"
+
+    assert raw_holdings_csv.status_code == 200
+    assert raw_holdings_csv.headers["content-disposition"] == 'attachment; filename="holdings.csv"'
+    assert raw_holdings_csv.text == "holdings-csv"
+
+    assert ccass_sqlite.status_code == 200
+    assert ccass_sqlite.headers["content-disposition"] == 'attachment; filename="sqlite-backup.db"'
+    assert ccass_sqlite.content == b"sqlite-bytes"
 
     assert raw_previews.status_code == 200
     assert raw_previews.json() == {
@@ -91,20 +113,23 @@ def test_canonical_download_api_rejects_unknown_section(monkeypatch):
     assert response.status_code == 404
 
 
-def test_mcp_download_artifact_matches_canonical_api_shapes(monkeypatch):
+def test_mcp_download_artifact_matches_canonical_api_shapes(monkeypatch, tmp_path):
     bundle = _make_bundle()
+    sqlite_path = tmp_path / "sqlite-backup.db"
+    sqlite_path.write_bytes(b"sqlite-bytes")
 
     async def fake_build_bundle(**_: object) -> SimpleNamespace:
         return bundle
 
     monkeypatch.setattr("app.mcp_server._build_bundle", fake_build_bundle)
     monkeypatch.setattr("app.mcp_server._bundle_markdown", lambda bundle, section, locale: f"{section}:{locale}")
+    monkeypatch.setattr("app.mcp_server.get_settings", lambda: SimpleNamespace(ccass_sqlite_path=sqlite_path))
 
     result = asyncio.run(
         mcp_server.get_download_artifact.fn(
             "01592",
             section="raw_previews",
-            kind="json",
+            kind="summary_csv",
             locale="zh_HK",
             holdings_limit=25,
             big_change_threshold=500,
@@ -112,10 +137,42 @@ def test_mcp_download_artifact_matches_canonical_api_shapes(monkeypatch):
     )
 
     assert result["section"] == "raw_previews"
-    assert result["kind"] == "json"
-    assert result["filename"] == "raw.json"
-    assert result["media_type"] == "application/json"
-    assert b64decode(result["content_b64"]).decode("utf-8") == '[{"kind":"raw"}]'
+    assert result["kind"] == "summary_csv"
+    assert result["filename"] == "summary.csv"
+    assert result["media_type"] == "text/csv"
+    assert b64decode(result["content_b64"]).decode("utf-8") == "summary-csv"
+
+    holdings_result = asyncio.run(
+        mcp_server.get_download_artifact.fn(
+            "01592",
+            section="raw_previews",
+            kind="holdings_csv",
+            locale="zh_HK",
+            holdings_limit=25,
+            big_change_threshold=500,
+        )
+    )
+    assert holdings_result["section"] == "raw_previews"
+    assert holdings_result["kind"] == "holdings_csv"
+    assert holdings_result["filename"] == "holdings.csv"
+    assert holdings_result["media_type"] == "text/csv"
+    assert b64decode(holdings_result["content_b64"]).decode("utf-8") == "holdings-csv"
+
+    sqlite_result = asyncio.run(
+        mcp_server.get_download_artifact.fn(
+            "01592",
+            section="ccass",
+            kind="sqlite",
+            locale="zh_HK",
+            holdings_limit=25,
+            big_change_threshold=500,
+        )
+    )
+    assert sqlite_result["section"] == "ccass"
+    assert sqlite_result["kind"] == "sqlite"
+    assert sqlite_result["filename"] == "sqlite-backup.db"
+    assert sqlite_result["media_type"] == "application/x-sqlite3"
+    assert b64decode(sqlite_result["content_b64"]) == b"sqlite-bytes"
 
 
 def test_mcp_raw_previews_matches_canonical_api_shapes(monkeypatch):

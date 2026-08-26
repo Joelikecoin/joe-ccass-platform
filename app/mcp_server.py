@@ -18,6 +18,7 @@ except ModuleNotFoundError:  # pragma: no cover - test environment fallback
             raise RuntimeError("fastmcp is not installed")
 
 from app.api import _build_ccass_markdown_report
+from app.config import get_settings
 from app.friend_clone_app import _build_bundle, _bundle_markdown
 from app.errors import PlatformError
 from app.services.ai_read_model import get_ai_read_model_service
@@ -324,16 +325,32 @@ async def get_download_artifact(
             payload = _bundle_markdown(bundle, "ccass", locale).encode("utf-8")
             filename = bundle.prepared.filename
             media_type = "text/markdown; charset=utf-8"
+        elif kind == "sqlite":
+            sqlite_path = get_settings().ccass_sqlite_path
+            if not sqlite_path.is_file():
+                raise PlatformError("NOT_FOUND", "SQLite backup is unavailable.", status_code=404)
+            payload = sqlite_path.read_bytes()
+            filename = sqlite_path.name
+            media_type = "application/x-sqlite3"
         else:
             raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     elif section == "raw_previews":
         if bundle.ccass_artifacts is None or bundle.prepared is None:
             raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
-        if kind != "json":
+        if kind == "json":
+            payload = bundle.ccass_artifacts.raw_preview_json_bytes
+            filename = bundle.ccass_artifacts.raw_preview_json_filename
+            media_type = "application/json"
+        elif kind == "summary_csv":
+            payload = bundle.ccass_artifacts.raw_preview_summary_bytes
+            filename = bundle.ccass_artifacts.raw_preview_summary_filename
+            media_type = "text/csv"
+        elif kind == "holdings_csv":
+            payload = bundle.ccass_artifacts.raw_preview_holdings_bytes
+            filename = bundle.ccass_artifacts.raw_preview_holdings_filename
+            media_type = "text/csv"
+        else:
             raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
-        payload = bundle.ccass_artifacts.raw_preview_json_bytes
-        filename = bundle.ccass_artifacts.raw_preview_json_filename
-        media_type = "application/json"
     else:
         raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     return {

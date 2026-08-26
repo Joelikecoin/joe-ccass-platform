@@ -584,6 +584,16 @@ def _download_links(bundle: PortalBundle) -> str:
         ("ccass", "md", "Download CCASS Markdown", "下載 CCASS Markdown"),
         ("raw_previews", "json", "Download Raw Tables JSON", "下載原始表格 JSON"),
     ]
+    if bundle.ccass_artifacts is not None:
+        links.extend(
+            [
+                ("raw_previews", "summary_csv", "Download Raw Preview Summary CSV", "下載原始表格摘要 CSV"),
+                ("raw_previews", "holdings_csv", "Download Raw Preview Holdings CSV", "下載原始表格持倉 CSV"),
+            ]
+        )
+    sqlite_path = get_settings().ccass_sqlite_path
+    if sqlite_path.is_file():
+        links.append(("ccass", "sqlite", "Download SQLite Backup", "下載 SQLite 備份"))
     items = []
     for section, kind, en, zh in links:
         href = f"/download/{section}/{kind}?{base}"
@@ -1587,6 +1597,15 @@ async def download(
                 "application/json",
                 f"{bundle.prepared.response.metadata.code}_ccass.json",
             )
+        if kind == "sqlite":
+            sqlite_path = get_settings().ccass_sqlite_path
+            if not sqlite_path.is_file():
+                raise PlatformError("NOT_FOUND", "SQLite backup is unavailable.", status_code=404)
+            return await _stream_bytes(
+                sqlite_path.read_bytes(),
+                "application/x-sqlite3",
+                sqlite_path.name,
+            )
         if kind == "md":
             return await _stream_bytes(
                 _bundle_markdown(bundle, "ccass", locale).encode("utf-8"),
@@ -1601,5 +1620,17 @@ async def download(
                 bundle.ccass_artifacts.raw_preview_json_bytes,
                 "application/json",
                 bundle.ccass_artifacts.raw_preview_json_filename,
+            )
+        if kind == "summary_csv":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.raw_preview_summary_bytes,
+                "text/csv",
+                bundle.ccass_artifacts.raw_preview_summary_filename,
+            )
+        if kind == "holdings_csv":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.raw_preview_holdings_bytes,
+                "text/csv",
+                bundle.ccass_artifacts.raw_preview_holdings_filename,
             )
     raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)

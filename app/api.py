@@ -381,6 +381,15 @@ async def get_stock_download(
                 "text/markdown; charset=utf-8",
                 bundle.prepared.filename,
             )
+        if kind == "sqlite":
+            sqlite_path = get_settings().ccass_sqlite_path
+            if not sqlite_path.is_file():
+                raise PlatformError("NOT_FOUND", "SQLite backup is unavailable.", status_code=404)
+            return await _stream_bytes(
+                sqlite_path.read_bytes(),
+                "application/x-sqlite3",
+                sqlite_path.name,
+            )
     if section == "raw_previews":
         if bundle.ccass_artifacts is None or bundle.prepared is None:
             raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
@@ -389,6 +398,18 @@ async def get_stock_download(
                 bundle.ccass_artifacts.raw_preview_json_bytes,
                 "application/json",
                 bundle.ccass_artifacts.raw_preview_json_filename,
+            )
+        if kind == "summary_csv":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.raw_preview_summary_bytes,
+                "text/csv",
+                bundle.ccass_artifacts.raw_preview_summary_filename,
+            )
+        if kind == "holdings_csv":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.raw_preview_holdings_bytes,
+                "text/csv",
+                bundle.ccass_artifacts.raw_preview_holdings_filename,
             )
     raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
 

@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from app.config import Settings
 from app.friend_clone_app import PortalBundle
 from app.models import (
     AnnouncementRow,
@@ -229,10 +230,14 @@ def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     fake_live_product = SimpleNamespace(
         code="01592",
         symbol="01592.HK",
+        response=fake_response,
         company={},
         latest_price={},
         price_history=[],
         announcements=[],
+        corporate_events=[],
+        share_capital_changes=[],
+        officers=[],
         source_notes=[],
     )
     fake_live_artifacts = SimpleNamespace(
@@ -296,15 +301,36 @@ def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     assert calls["ccass"] == []
 
 
-def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):
+def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch, tmp_path):
     calls = {"live": [], "ccass": []}
 
     def fake_model_dump_json(indent=2):
         return json.dumps({"metadata": {"code": "01592"}}, indent=indent)
 
     fake_response = SimpleNamespace(
-        metadata=SimpleNamespace(code="01592"),
+        metadata=SimpleNamespace(
+            code="01592",
+            issue_id=1592,
+            name="01592 Corp",
+            holdings_date=date(2026, 8, 14),
+            fetched_at=datetime(2026, 8, 14, 9, 0, tzinfo=UTC),
+            source_name="HKEX SDW",
+            source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+            cached=True,
+            data_as_of=date(2026, 8, 14),
+        ),
         data_quality_warnings=[],
+        holdings=[],
+        holdings_date=date(2026, 8, 14),
+        holdings_summary=SimpleNamespace(
+            participant_count=0,
+            total_in_ccass_shares=0,
+            issued_shares=0,
+            top5_pct_of_issued=0.0,
+            top10_pct_of_issued=0.0,
+            top5_pct_of_ccass=0.0,
+            top10_pct_of_ccass=0.0,
+        ),
         model_dump_json=fake_model_dump_json,
     )
     fake_prepared = SimpleNamespace(
@@ -317,10 +343,14 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):
     fake_live_product = SimpleNamespace(
         code="01592",
         symbol="01592.HK",
+        response=fake_response,
         company={},
         latest_price={},
         price_history=[],
         announcements=[],
+        corporate_events=[],
+        share_capital_changes=[],
+        officers=[],
         source_notes=[],
     )
     fake_base = PortalBundle(
@@ -350,6 +380,10 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):
             combined_csv_filename="01592_ccass.csv",
             workbook_bytes=b"",
             workbook_filename="01592_ccass.xlsx",
+            raw_preview_summary_bytes=b"summary-csv",
+            raw_preview_summary_filename="summary.csv",
+            raw_preview_holdings_bytes=b"holdings-csv",
+            raw_preview_holdings_filename="holdings.csv",
             raw_preview_json_bytes=b'{"tables": []}',
             raw_preview_json_filename="01592_raw_tables.json",
         ),
@@ -371,6 +405,9 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):
     monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
     monkeypatch.setattr("app.friend_clone_app.render_live_markdown", fake_render_live_markdown)
     monkeypatch.setattr("app.friend_clone_app.render_prepared_report", fake_render_prepared_report)
+    sqlite_path = tmp_path / "sqlite-backup.db"
+    sqlite_path.write_bytes(b"sqlite-bytes")
+    monkeypatch.setattr("app.friend_clone_app.get_settings", lambda: Settings(ccass_sqlite_path=sqlite_path))
 
     client = TestClient(portal_app)
     live_response = client.get(
@@ -392,6 +429,9 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch):
     assert ccass_response.text == "ZH CCASS"
     assert raw_tables_response.status_code == 200
     assert raw_tables_response.json() == {"tables": []}
+    assert "Download SQLite Backup" in client.get("/", params={"code": "01592"}).text
+    assert "Download Raw Preview Summary CSV" in client.get("/", params={"code": "01592"}).text
+    assert "Download Raw Preview Holdings CSV" in client.get("/", params={"code": "01592"}).text
     assert calls["live"] == ["zh_HK"]
     assert calls["ccass"] == ["zh_HK"]
 
@@ -472,6 +512,12 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     assert "/download/ccass/json" in response.text
     assert "Download Raw Tables JSON" in response.text
     assert "/download/raw_previews/json" in response.text
+    assert "Download SQLite Backup" in response.text
+    assert "/download/ccass/sqlite" in response.text
+    assert "Download Raw Preview Summary CSV" in response.text
+    assert "/download/raw_previews/summary_csv" in response.text
+    assert "Download Raw Preview Holdings CSV" in response.text
+    assert "/download/raw_previews/holdings_csv" in response.text
     assert "Source diagnostics" in response.text
 
 
