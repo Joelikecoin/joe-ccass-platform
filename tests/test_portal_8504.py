@@ -472,6 +472,7 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     assert "/download/ccass/json" in response.text
     assert "Download Raw Tables JSON" in response.text
     assert "/download/raw_previews/json" in response.text
+    assert "Source diagnostics" in response.text
 
 
 def test_portal_8504_download_route_allows_ccass_markdown_without_artifacts(monkeypatch):

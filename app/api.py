@@ -1,13 +1,15 @@
+import json
 from datetime import date
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, Header, Query, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
 from app import __version__
 from app.data_quality import structured_warning
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
+from app.friend_clone_app import _build_bundle, _bundle_markdown
 from app.domain.history import HistoricalSnapshot
 from app.models import (
     AnnouncementsResponse,
@@ -68,6 +70,14 @@ def get_source_registry(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> SourceRegistry:
     return build_source_registry(settings)
+
+
+async def _stream_bytes(data: bytes, media_type: str, filename: str) -> StreamingResponse:
+    return StreamingResponse(
+        iter([data]),
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def get_snapshot_repository(
@@ -260,6 +270,159 @@ async def get_stock_prices(
         stock_code,
         start_date=start_date,
         end_date=end_date,
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/history",
+    dependencies=[Depends(verify_api_key)],
+    tags=["history"],
+)
+async def get_stock_history(
+    stock_code: str,
+    include_partial: bool = Query(default=False),
+    repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
+) -> dict[str, object]:
+    normalized = normalize_stock_code(stock_code)
+    dates = repository.available_dates(normalized, include_partial=include_partial)
+    bounds = repository.history_bounds(normalized)
+    return {
+        "stock_code": normalized,
+        "include_partial": include_partial,
+        "available": bool(dates),
+        "snapshot_count": len(dates),
+        "earliest_snapshot_date": dates[0].isoformat() if dates else None,
+        "latest_snapshot_date": dates[-1].isoformat() if dates else None,
+        "history_bounds": {
+            "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
+            "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
+            "snapshot_count": bounds.snapshot_count,
+            "date_count": bounds.date_count,
+        },
+        "dates": [item.isoformat() for item in dates],
+    }
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/download/{section}/{kind}",
+    dependencies=[Depends(verify_api_key)],
+    tags=["downloads"],
+)
+async def get_stock_download(
+    stock_code: str,
+    section: str,
+    kind: str,
+    locale: str = Query(default="en"),
+    holdings_limit: int = Query(default=20, ge=1, le=100),
+    big_change_threshold: int = Query(default=1_000_000, ge=0),
+    source_mode: str = Query(default="auto"),
+    use_local_history: bool = Query(default=True),
+) -> StreamingResponse:
+    bundle = await _build_bundle(
+        raw_code=stock_code,
+        input_type="Stock Code",
+        source_mode=source_mode,
+        top_n=holdings_limit,
+        big_change_threshold=big_change_threshold,
+        use_local_history=use_local_history,
+    )
+    if section == "live":
+        if bundle.live_artifacts is None:
+            raise PlatformError("NOT_FOUND", "Live product artifacts are unavailable.", status_code=404)
+        if kind == "csv":
+            return await _stream_bytes(
+                bundle.live_artifacts.combined_csv_bytes,
+                "text/csv",
+                bundle.live_artifacts.combined_csv_filename,
+            )
+        if kind == "xlsx":
+            return await _stream_bytes(
+                bundle.live_artifacts.workbook_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                bundle.live_artifacts.workbook_filename,
+            )
+        if kind == "json":
+            return await _stream_bytes(
+                bundle.live_artifacts.json_bytes,
+                "application/json",
+                bundle.live_artifacts.json_filename,
+            )
+        if kind == "md":
+            return await _stream_bytes(
+                _bundle_markdown(bundle, "live", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                f"{bundle.resolved_code}_live_markdown.md",
+            )
+    if section == "ccass":
+        if bundle.ccass_artifacts is None or bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
+        if kind == "csv":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.combined_csv_bytes,
+                "text/csv",
+                bundle.ccass_artifacts.combined_csv_filename,
+            )
+        if kind == "xlsx":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.workbook_bytes,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                bundle.ccass_artifacts.workbook_filename,
+            )
+        if kind == "json":
+            payload = bundle.prepared.response.model_dump_json(indent=2).encode("utf-8")
+            return await _stream_bytes(
+                payload,
+                "application/json",
+                f"{bundle.prepared.response.metadata.code}_ccass.json",
+            )
+        if kind == "md":
+            return await _stream_bytes(
+                _bundle_markdown(bundle, "ccass", locale).encode("utf-8"),
+                "text/markdown; charset=utf-8",
+                bundle.prepared.filename,
+            )
+    if section == "raw_previews":
+        if bundle.ccass_artifacts is None or bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
+        if kind == "json":
+            return await _stream_bytes(
+                bundle.ccass_artifacts.raw_preview_json_bytes,
+                "application/json",
+                bundle.ccass_artifacts.raw_preview_json_filename,
+            )
+    raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/raw-previews",
+    dependencies=[Depends(verify_api_key)],
+    tags=["downloads"],
+)
+async def get_stock_raw_previews(
+    stock_code: str,
+    locale: str = Query(default="en"),
+    holdings_limit: int = Query(default=20, ge=1, le=100),
+    big_change_threshold: int = Query(default=1_000_000, ge=0),
+    source_mode: str = Query(default="auto"),
+    use_local_history: bool = Query(default=True),
+) -> JSONResponse:
+    bundle = await _build_bundle(
+        raw_code=stock_code,
+        input_type="Stock Code",
+        source_mode=source_mode,
+        top_n=holdings_limit,
+        big_change_threshold=big_change_threshold,
+        use_local_history=use_local_history,
+    )
+    if bundle.ccass_artifacts is None or bundle.prepared is None:
+        raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
+    payload = json.loads(bundle.ccass_artifacts.raw_preview_json_bytes.decode("utf-8"))
+    return JSONResponse(
+        content={
+            "stock_code": bundle.resolved_code,
+            "locale": locale,
+            "tables": payload,
+        }
     )
 
 

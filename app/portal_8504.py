@@ -50,6 +50,7 @@ from app.friend_clone_app import (
     _raw_preview_block,
     _section_heading,
     _sparkline,
+    _source_diagnostics_block,
     _table,
 )
 from app.live_product import YAHOO_CHART_API_URL
@@ -1343,6 +1344,12 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         <div class="kicker">{_i18n("Export", "匯出", locale)}</div>
         <h2>{_i18n("Downloads", "下載", locale)}</h2>
         <div class="section-footer">{_download_links(base)}</div>
+      </section>
+
+      <section id="source-diagnostics" class="panel">
+        <div class="kicker">{_i18n("Registry", "註冊表", locale)}</div>
+        <h2>{_i18n("Source diagnostics", "來源診斷", locale)}</h2>
+        {_source_diagnostics_block(locale)}
       </section>
 
       <section id="copy" class="panel">

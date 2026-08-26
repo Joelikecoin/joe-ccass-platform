@@ -1,4 +1,6 @@
 from datetime import date
+from base64 import b64encode
+import json
 
 try:
     from fastmcp import FastMCP
@@ -16,10 +18,15 @@ except ModuleNotFoundError:  # pragma: no cover - test environment fallback
             raise RuntimeError("fastmcp is not installed")
 
 from app.api import _build_ccass_markdown_report
+from app.friend_clone_app import _build_bundle, _bundle_markdown
+from app.errors import PlatformError
 from app.services.ai_read_model import get_ai_read_model_service
 from app.services.announcements import get_announcements_service
+from app.services.big_changes import get_big_changes_service
 from app.services.ccass import get_ccass_service
 from app.services.capital_information import get_capital_information_service
+from app.services.changes import get_changes_service
+from app.services.concentration import get_concentration_service
 from app.services.officers import get_officers_service
 from app.services.price_history import get_price_history_service
 from app.services.stock_events import get_stock_events_service
@@ -50,6 +57,13 @@ async def get_stock_summary(code: str, holdings_limit: int = 15) -> dict:
 
 
 @mcp.tool
+async def get_holdings(code: str, holdings_limit: int = 15) -> dict:
+    """Return the canonical holdings payload for a Hong Kong stock code."""
+    result = await get_ccass_service().get_stock_data(code, holdings_limit=holdings_limit)
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
 async def get_price_history(
     code: str,
     start_date: date | None = None,
@@ -60,6 +74,77 @@ async def get_price_history(
         code,
         start_date=start_date,
         end_date=end_date,
+    )
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_snapshot_history(code: str, include_partial: bool = False) -> dict:
+    """Return the available persisted snapshot dates for a Hong Kong stock code."""
+    normalized = normalize_stock_code(code)
+    repository = NormalizedSnapshotRepository(get_ccass_service().settings.ccass_sqlite_path)
+    dates = repository.available_dates(normalized, include_partial=include_partial)
+    bounds = repository.history_bounds(normalized)
+    return {
+        "stock_code": normalized,
+        "include_partial": include_partial,
+        "available": bool(dates),
+        "snapshot_count": len(dates),
+        "earliest_snapshot_date": dates[0].isoformat() if dates else None,
+        "latest_snapshot_date": dates[-1].isoformat() if dates else None,
+        "history_bounds": {
+            "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
+            "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
+            "snapshot_count": bounds.snapshot_count,
+            "date_count": bounds.date_count,
+        },
+        "dates": [item.isoformat() for item in dates],
+    }
+
+
+@mcp.tool
+async def get_changes(
+    code: str,
+    snapshot_date: date,
+    compare_date: date,
+) -> dict:
+    """Return participant movement changes for a Hong Kong stock code."""
+    result = get_changes_service().get_changes(
+        code,
+        snapshot_date=snapshot_date,
+        compare_date=compare_date,
+    )
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_big_changes(
+    code: str,
+    snapshot_date: date,
+    compare_date: date,
+    threshold_shares: int | None = None,
+) -> dict:
+    """Return threshold-based big changes for a Hong Kong stock code."""
+    result = get_big_changes_service().get_big_changes(
+        code,
+        snapshot_date=snapshot_date,
+        compare_date=compare_date,
+        threshold_shares=threshold_shares,
+    )
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_concentration(
+    code: str,
+    snapshot_date: date,
+    top_holders_limit: int = 10,
+) -> dict:
+    """Return concentration metrics for a Hong Kong stock code."""
+    result = get_concentration_service().get_concentration(
+        code,
+        snapshot_date=snapshot_date,
+        top_holders_limit=top_holders_limit,
     )
     return result.model_dump(mode="json")
 
@@ -177,6 +262,116 @@ async def get_source_status() -> dict:
     registry = build_source_registry(get_ccass_service().settings)
     sources = list(registry.diagnostics())
     return {"status": "ok", "source_count": len(sources), "sources": sources}
+
+
+@mcp.tool
+async def get_download_artifact(
+    code: str,
+    section: str,
+    kind: str,
+    locale: str = "en",
+    holdings_limit: int = 20,
+    big_change_threshold: int = 1_000_000,
+    source_mode: str = "auto",
+    use_local_history: bool = True,
+) -> dict:
+    """Return a canonical downloadable artifact for a Hong Kong stock code."""
+    bundle = await _build_bundle(
+        raw_code=code,
+        input_type="Stock Code",
+        source_mode=source_mode,
+        top_n=holdings_limit,
+        big_change_threshold=big_change_threshold,
+        use_local_history=use_local_history,
+    )
+    if section == "live":
+        if bundle.live_artifacts is None:
+            raise PlatformError("NOT_FOUND", "Live product artifacts are unavailable.", status_code=404)
+        if kind == "csv":
+            payload = bundle.live_artifacts.combined_csv_bytes
+            filename = bundle.live_artifacts.combined_csv_filename
+            media_type = "text/csv"
+        elif kind == "xlsx":
+            payload = bundle.live_artifacts.workbook_bytes
+            filename = bundle.live_artifacts.workbook_filename
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif kind == "json":
+            payload = bundle.live_artifacts.json_bytes
+            filename = bundle.live_artifacts.json_filename
+            media_type = "application/json"
+        elif kind == "md":
+            payload = _bundle_markdown(bundle, "live", locale).encode("utf-8")
+            filename = f"{bundle.resolved_code}_live_markdown.md"
+            media_type = "text/markdown; charset=utf-8"
+        else:
+            raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    elif section == "ccass":
+        if bundle.ccass_artifacts is None or bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", "CCASS artifacts are unavailable.", status_code=404)
+        if kind == "csv":
+            payload = bundle.ccass_artifacts.combined_csv_bytes
+            filename = bundle.ccass_artifacts.combined_csv_filename
+            media_type = "text/csv"
+        elif kind == "xlsx":
+            payload = bundle.ccass_artifacts.workbook_bytes
+            filename = bundle.ccass_artifacts.workbook_filename
+            media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        elif kind == "json":
+            payload = bundle.prepared.response.model_dump_json(indent=2).encode("utf-8")
+            filename = f"{bundle.prepared.response.metadata.code}_ccass.json"
+            media_type = "application/json"
+        elif kind == "md":
+            payload = _bundle_markdown(bundle, "ccass", locale).encode("utf-8")
+            filename = bundle.prepared.filename
+            media_type = "text/markdown; charset=utf-8"
+        else:
+            raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    elif section == "raw_previews":
+        if bundle.ccass_artifacts is None or bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
+        if kind != "json":
+            raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+        payload = bundle.ccass_artifacts.raw_preview_json_bytes
+        filename = bundle.ccass_artifacts.raw_preview_json_filename
+        media_type = "application/json"
+    else:
+        raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    return {
+        "section": section,
+        "kind": kind,
+        "filename": filename,
+        "media_type": media_type,
+        "content_b64": b64encode(payload).decode("ascii"),
+        "content_length": len(payload),
+    }
+
+
+@mcp.tool
+async def get_raw_previews(
+    code: str,
+    locale: str = "en",
+    holdings_limit: int = 20,
+    big_change_threshold: int = 1_000_000,
+    source_mode: str = "auto",
+    use_local_history: bool = True,
+) -> dict:
+    """Return the canonical raw preview tables for a Hong Kong stock code."""
+    bundle = await _build_bundle(
+        raw_code=code,
+        input_type="Stock Code",
+        source_mode=source_mode,
+        top_n=holdings_limit,
+        big_change_threshold=big_change_threshold,
+        use_local_history=use_local_history,
+    )
+    if bundle.ccass_artifacts is None or bundle.prepared is None:
+        raise PlatformError("NOT_FOUND", "Raw preview artifacts are unavailable.", status_code=404)
+    payload = json.loads(bundle.ccass_artifacts.raw_preview_json_bytes.decode("utf-8"))
+    return {
+        "stock_code": bundle.resolved_code,
+        "locale": locale,
+        "tables": payload,
+    }
 
 
 @mcp.tool

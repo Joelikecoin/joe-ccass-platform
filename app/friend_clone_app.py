@@ -24,6 +24,7 @@ from app.live_product import (
     render_live_markdown,
 )
 from app.services.ccass import get_ccass_service
+from app.sources.registry import build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
     build_download_artifacts,
@@ -590,6 +591,30 @@ def _download_links(bundle: PortalBundle) -> str:
             f'<a class="download-btn" data-i18n-en="{_escape(en)}" data-i18n-zh="{_escape(zh)}" href="{_escape(href)}">{_escape(en)}</a>'
         )
     return "".join(items)
+
+
+def _source_diagnostics_block(locale: str = "en") -> str:
+    diagnostics = build_source_registry(get_settings()).diagnostics()
+    if not diagnostics:
+        return '<div class="empty-state">No source diagnostics available.</div>'
+    headers = ["Source", "Status", "Enabled", "Configured", "Priority", "Hostname"]
+    rows = [
+        [
+            _escape(item.get("display_name") or item.get("source_id") or "—"),
+            _escape(item.get("status") or "—"),
+            _escape("Yes" if item.get("enabled") else "No"),
+            _escape("Yes" if item.get("configured") else "No"),
+            _escape(item.get("priority") if item.get("priority") is not None else "—"),
+            _escape(item.get("safe_hostname") or "—"),
+        ]
+        for item in diagnostics
+    ]
+    return (
+        f'<div class="subcard">'
+        f'<h3>{_i18n("Source diagnostics", "來源診斷", locale)}</h3>'
+        f'{_table(headers, rows, class_name="compact-table")}'
+        f"</div>"
+    )
 
 
 def _copy_blocks(bundle: PortalBundle) -> str:
@@ -1268,6 +1293,12 @@ def _render_page(bundle: PortalBundle) -> str:
           <div class="kicker">{_i18n("Export", "匯出", "en")}</div>
           <h2>{_i18n("Downloads", "下載", "en")}</h2>
           <div class="section-footer">{_download_links(bundle)}</div>
+        </section>
+
+        <section id="source-diagnostics" class="panel">
+          <div class="kicker">{_i18n("Registry", "註冊表", "en")}</div>
+          <h2>{_i18n("Source diagnostics", "來源診斷", "en")}</h2>
+          {_source_diagnostics_block("en")}
         </section>
 
         <section id="copy" class="panel">
