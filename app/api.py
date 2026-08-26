@@ -263,6 +263,145 @@ async def get_stock_prices(
     )
 
 
+async def _build_ccass_markdown_report(
+    code: str,
+    *,
+    holdings_limit: int,
+    big_change_threshold: int,
+    announcements_service: AnnouncementsService,
+    stock_events_service: StockEventsService,
+    capital_information_service: CapitalInformationService,
+    officers_service: OfficersService,
+    service: CcassService,
+) -> str:
+    normalized = normalize_stock_code(code)
+    response = (await service.get_stock_data(normalized, holdings_limit=holdings_limit)).model_copy(
+        deep=True
+    )
+    previous = None
+    lkg_repository = getattr(service, "lkg_repository", None)
+    if lkg_repository is not None and response.metadata.data_as_of is not None:
+        previous_snapshot = lkg_repository.previous(
+            normalized,
+            before_date=response.metadata.data_as_of,
+            include_partial=False,
+        )
+        previous = previous_snapshot.to_response() if previous_snapshot is not None else None
+    analysis = compute_analysis(
+        response,
+        previous=previous,
+        big_change_threshold=big_change_threshold,
+    )
+    announcements = response.announcements
+    if announcements is None:
+        try:
+            announcements = await announcements_service.get_announcements(normalized)
+            response = response.model_copy(update={"announcements": announcements})
+            response.data_quality_warnings.extend(announcements.data_quality_warnings)
+        except PlatformError:
+            announcements = None
+
+    stock_events = response.stock_events
+    if stock_events is None:
+        try:
+            stock_events = await stock_events_service.get_stock_events(normalized)
+            response = response.model_copy(update={"stock_events": stock_events})
+        except PlatformError as exc:
+            stock_events = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({exc.code}: {exc.message}).",
+                )
+            )
+        except Exception as exc:
+            stock_events = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "STOCK_EVENTS_UNAVAILABLE",
+                    f"Stock events are unavailable ({type(exc).__name__}).",
+                )
+            )
+        else:
+            response.data_quality_warnings.extend(stock_events.data_quality_warnings)
+    capital_information = response.capital_information
+    if capital_information is None:
+        try:
+            capital_information = await capital_information_service.get_capital_information(normalized)
+            response = response.model_copy(update={"capital_information": capital_information})
+        except PlatformError as exc:
+            capital_information = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({exc.code}: {exc.message}).",
+                )
+            )
+        except Exception as exc:
+            capital_information = None
+            response.data_quality_warnings.append(
+                structured_warning(
+                    "DATA_LIMITATION",
+                    "CAPITAL_INFORMATION_UNAVAILABLE",
+                    f"Capital information is unavailable ({type(exc).__name__}).",
+                )
+            )
+        else:
+            response.data_quality_warnings.extend(capital_information.data_quality_warnings)
+    officers = response.officers
+    if officers is None:
+        try:
+            officers = await officers_service.get_officers(normalized)
+            response = response.model_copy(update={"officers": officers})
+        except PlatformError:
+            officers = None
+        else:
+            response.data_quality_warnings.extend(officers.data_quality_warnings)
+    return build_markdown_report(
+        response,
+        code=normalized,
+        analysis=analysis,
+        announcements=announcements,
+        stock_events=stock_events,
+        capital_information=capital_information,
+        officers=officers,
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/report",
+    response_class=PlainTextResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["stocks"],
+)
+async def get_stock_report(
+    stock_code: str,
+    holdings_limit: int = Query(default=20, ge=1, le=100),
+    big_change_threshold: int = Query(default=1_000_000, ge=0),
+    announcements_service: AnnouncementsService = Depends(get_announcements_service),
+    stock_events_service: StockEventsService = Depends(get_stock_events_service),
+    capital_information_service: CapitalInformationService = Depends(get_capital_information_service),
+    officers_service: OfficersService = Depends(get_officers_service),
+    service: CcassService = Depends(get_ccass_service),
+) -> PlainTextResponse:
+    return PlainTextResponse(
+        await _build_ccass_markdown_report(
+            stock_code,
+            holdings_limit=holdings_limit,
+            big_change_threshold=big_change_threshold,
+            announcements_service=announcements_service,
+            stock_events_service=stock_events_service,
+            capital_information_service=capital_information_service,
+            officers_service=officers_service,
+            service=service,
+        ),
+        media_type="text/markdown; charset=utf-8",
+    )
+
+
 @app.get(
     "/api/v1/sources/status",
     dependencies=[Depends(verify_api_key)],
@@ -465,97 +604,20 @@ async def get_ccass_stock_report(
     officers_service: OfficersService = Depends(get_officers_service),
     service: CcassService = Depends(get_ccass_service),
 ) -> PlainTextResponse:
-    normalized = normalize_stock_code(code)
-    response = await service.get_stock_data(normalized, holdings_limit=holdings_limit)
-    previous = None
-    lkg_repository = getattr(service, "lkg_repository", None)
-    if lkg_repository is not None and response.metadata.data_as_of is not None:
-        previous_snapshot = lkg_repository.previous(
-            normalized,
-            before_date=response.metadata.data_as_of,
-            include_partial=False,
-        )
-        previous = previous_snapshot.to_response() if previous_snapshot is not None else None
-    analysis = compute_analysis(
-        response,
-        previous=previous,
-        big_change_threshold=big_change_threshold,
-    )
-    announcements = response.announcements
-    if announcements is None:
-        try:
-            announcements = await announcements_service.get_announcements(normalized)
-            response = response.model_copy(update={"announcements": announcements})
-            response.data_quality_warnings.extend(announcements.data_quality_warnings)
-        except PlatformError:
-            announcements = None
-
-    stock_events = response.stock_events
-    if stock_events is None:
-        try:
-            stock_events = await stock_events_service.get_stock_events(normalized)
-            response = response.model_copy(update={"stock_events": stock_events})
-        except PlatformError as exc:
-            stock_events = None
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "STOCK_EVENTS_UNAVAILABLE",
-                    f"Stock events are unavailable ({exc.code}: {exc.message}).",
-                )
-            )
-        except Exception as exc:
-            stock_events = None
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "STOCK_EVENTS_UNAVAILABLE",
-                    f"Stock events are unavailable ({type(exc).__name__}).",
-                )
-            )
-        else:
-            response.data_quality_warnings.extend(stock_events.data_quality_warnings)
-    capital_information = response.capital_information
-    if capital_information is None:
-        try:
-            capital_information = await capital_information_service.get_capital_information(normalized)
-            response = response.model_copy(update={"capital_information": capital_information})
-        except PlatformError as exc:
-            capital_information = None
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "CAPITAL_INFORMATION_UNAVAILABLE",
-                    f"Capital information is unavailable ({exc.code}: {exc.message}).",
-                )
-            )
-        except Exception as exc:
-            capital_information = None
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "CAPITAL_INFORMATION_UNAVAILABLE",
-                    f"Capital information is unavailable ({type(exc).__name__}).",
-                )
-            )
-        else:
-            response.data_quality_warnings.extend(capital_information.data_quality_warnings)
-    officers = response.officers
-    if officers is None:
-        try:
-            officers = await officers_service.get_officers(normalized)
-            response = response.model_copy(update={"officers": officers})
-        except PlatformError:
-            officers = None
-        else:
-            response.data_quality_warnings.extend(officers.data_quality_warnings)
     report = build_markdown_report(
-        response,
-        code=normalized,
-        analysis=analysis,
-        announcements=announcements,
-        stock_events=stock_events,
-        capital_information=capital_information,
-        officers=officers,
+        (await get_ccass_service().get_stock_data(code, holdings_limit=holdings_limit)),
+        code=normalize_stock_code(code),
     )
-    return PlainTextResponse(report, media_type="text/markdown; charset=utf-8")
+    return PlainTextResponse(
+        await _build_ccass_markdown_report(
+            code,
+            holdings_limit=holdings_limit,
+            big_change_threshold=big_change_threshold,
+            announcements_service=announcements_service,
+            stock_events_service=stock_events_service,
+            capital_information_service=capital_information_service,
+            officers_service=officers_service,
+            service=service,
+        ),
+        media_type="text/markdown; charset=utf-8",
+    )

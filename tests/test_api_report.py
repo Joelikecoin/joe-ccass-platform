@@ -1,4 +1,5 @@
 import asyncio
+import re
 from datetime import UTC, date, datetime
 
 from fastapi.testclient import TestClient
@@ -128,6 +129,16 @@ def _enriched_response(base_response):
     )
 
 
+def _normalize_report_text(text: str) -> str:
+    text = re.sub(
+        r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:\+\d{2}:\d{2}|Z)?",
+        "<timestamp>",
+        text,
+    )
+    text = re.sub(r"\b\d{2}:\d{2}:\d{2}(?:\.\d+)?\b", "<time>", text)
+    return text
+
+
 def test_markdown_report_endpoint_reuses_core_without_breaking_json_api(current_response):
     service = FixtureService(current_response)
     announcements_service = FixtureAnnouncementsService(_announcements_response())
@@ -205,3 +216,77 @@ def test_api_and_mcp_return_the_same_enriched_stock_payload(current_response):
     assert api_response.json()["announcements"]["metadata"]["source_name"] == "HKEXnews"
     assert api_response.json()["officers"]["metadata"]["source_name"] == "同花順 F10 managers"
     assert api_response.json()["price_history"]["metadata"]["source_name"] == "Yahoo Finance"
+
+
+def test_mcp_stock_summary_alias_matches_ccass_stock_data(current_response):
+    enriched_response = _enriched_response(current_response)
+    service = FixtureService(enriched_response)
+    original_getter = mcp_server.get_ccass_service
+    mcp_server.get_ccass_service = lambda: service
+    try:
+        mcp_response = asyncio.run(mcp_server.get_stock_summary.fn("1592", holdings_limit=25))
+    finally:
+        mcp_server.get_ccass_service = original_getter
+
+    assert mcp_response == enriched_response.model_dump(mode="json")
+
+
+def test_api_and_mcp_return_the_same_full_report_markdown(current_response):
+    enriched_response = _enriched_response(current_response)
+    service = FixtureService(enriched_response)
+    announcements_service = FixtureAnnouncementsService(_announcements_response())
+    app.dependency_overrides[get_ccass_service] = lambda: service
+    app.dependency_overrides[get_announcements_service] = lambda: announcements_service
+    original_ccass = mcp_server.get_ccass_service
+    original_announcements = mcp_server.get_announcements_service
+    original_officers = mcp_server.get_officers_service
+    original_prices = mcp_server.get_price_history_service
+    original_stock_events = mcp_server.get_stock_events_service
+    original_capital_information = mcp_server.get_capital_information_service
+    mcp_server.get_ccass_service = lambda: service
+    mcp_server.get_announcements_service = lambda: announcements_service
+    try:
+        api_response = client = TestClient(app)
+        api_report = client.get(
+            "/api/v1/stocks/1592/report",
+            params={"holdings_limit": 25, "big_change_threshold": 500},
+        )
+        mcp_report = asyncio.run(
+            mcp_server.get_full_report.fn("1592", holdings_limit=25, big_change_threshold=500)
+        )
+    finally:
+        app.dependency_overrides.clear()
+        mcp_server.get_ccass_service = original_ccass
+        mcp_server.get_announcements_service = original_announcements
+        mcp_server.get_officers_service = original_officers
+        mcp_server.get_price_history_service = original_prices
+        mcp_server.get_stock_events_service = original_stock_events
+        mcp_server.get_capital_information_service = original_capital_information
+
+    assert api_report.status_code == 200
+    assert _normalize_report_text(mcp_report["markdown"]) == _normalize_report_text(api_report.text)
+
+
+def test_canonical_stock_report_route_matches_legacy_ccass_report(current_response):
+    service = FixtureService(_enriched_response(current_response))
+    announcements_service = FixtureAnnouncementsService(_announcements_response())
+    app.dependency_overrides[get_ccass_service] = lambda: service
+    app.dependency_overrides[get_announcements_service] = lambda: announcements_service
+    client = TestClient(app)
+    try:
+        canonical_response = client.get(
+            "/api/v1/stocks/1592/report",
+            params={"holdings_limit": 25, "big_change_threshold": 500},
+        )
+        legacy_response = client.get(
+            "/api/v1/ccass/1592/report",
+            params={"holdings_limit": 25, "big_change_threshold": 500},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert canonical_response.status_code == 200
+    assert legacy_response.status_code == 200
+    assert _normalize_report_text(canonical_response.text) == _normalize_report_text(
+        legacy_response.text
+    )
