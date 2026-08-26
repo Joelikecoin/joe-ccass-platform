@@ -8,6 +8,7 @@ from app import __version__
 from app.data_quality import structured_warning
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
+from app.domain.history import HistoricalSnapshot
 from app.models import (
     AnnouncementsResponse,
     BigChangesResponse,
@@ -29,6 +30,8 @@ from app.services.capital_information import CapitalInformationService, get_capi
 from app.services.officers import OfficersService, get_officers_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
 from app.services.stock_events import StockEventsService, get_stock_events_service
+from app.sources.registry import SourceRegistry, build_source_registry
+from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.ai_read_model import AIReadModelV0_1
 from ccass_core.changes_report import build_changes_markdown_report
@@ -61,6 +64,18 @@ def verify_api_key(
         )
 
 
+def get_source_registry(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> SourceRegistry:
+    return build_source_registry(settings)
+
+
+def get_snapshot_repository(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> NormalizedSnapshotRepository:
+    return NormalizedSnapshotRepository(settings.ccass_sqlite_path)
+
+
 @app.exception_handler(PlatformError)
 async def platform_error_handler(_: Request, exc: PlatformError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=exc.as_dict())
@@ -69,6 +84,20 @@ async def platform_error_handler(_: Request, exc: PlatformError) -> JSONResponse
 @app.get("/health", tags=["system"])
 async def health() -> dict:
     return {"status": "ok", "version": __version__}
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}",
+    response_model=CcassResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["stocks"],
+)
+async def get_stock_summary(
+    stock_code: str,
+    holdings_limit: int = Query(default=15, ge=1, le=100),
+    service: CcassService = Depends(get_ccass_service),
+) -> CcassResponse:
+    return await service.get_stock_data(stock_code, holdings_limit=holdings_limit)
 
 
 @app.get(
@@ -226,12 +255,113 @@ async def get_stock_prices(
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     service: PriceHistoryService = Depends(get_price_history_service),
-) -> PriceHistoryResponse:
+    ) -> PriceHistoryResponse:
     return await service.get_price_history(
         stock_code,
         start_date=start_date,
         end_date=end_date,
     )
+
+
+@app.get(
+    "/api/v1/sources/status",
+    dependencies=[Depends(verify_api_key)],
+    tags=["sources"],
+)
+async def get_source_status(
+    registry: SourceRegistry = Depends(get_source_registry),
+) -> dict[str, object]:
+    sources = list(registry.diagnostics())
+    return {
+        "status": "ok",
+        "source_count": len(sources),
+        "sources": sources,
+    }
+
+
+def _snapshot_top_ids(snapshot: HistoricalSnapshot, *, count: int = 8) -> list[str]:
+    return [row.participant_id for row in snapshot.holdings[:count]]
+
+
+def _rainbow_history_payload(
+    snapshots: list[HistoricalSnapshot],
+) -> tuple[list[str], list[dict[str, object]]]:
+    if not snapshots:
+        return [], []
+    latest_snapshot = snapshots[-1]
+    top_ids = _snapshot_top_ids(latest_snapshot)
+    payload: list[dict[str, object]] = []
+    for snapshot in snapshots:
+        total = snapshot.issued_shares or snapshot.total_in_ccass_shares or 0
+        participant_map = {holding.participant_id: holding for holding in snapshot.holdings}
+        stacks: list[dict[str, object]] = []
+        remainder = 0.0
+        for participant_id in top_ids:
+            holding = participant_map.get(participant_id)
+            shares = float(holding.shares if holding else 0)
+            pct = (shares / total * 100) if total else 0.0
+            stacks.append(
+                {
+                    "participant_id": participant_id,
+                    "participant": holding.participant_name if holding else participant_id,
+                    "pct": pct,
+                }
+            )
+        for holding in snapshot.holdings:
+            if holding.participant_id not in top_ids:
+                remainder += float(holding.shares)
+        remainder_pct = (remainder / total * 100) if total else 0.0
+        stacks.append({"participant_id": "others", "participant": "Others", "pct": remainder_pct})
+        payload.append(
+            {
+                "date": snapshot.snapshot_date.isoformat(),
+                "stacks": stacks,
+                "participant_count": snapshot.participant_count,
+                "source_name": snapshot.source.display_name,
+            }
+        )
+    return top_ids, payload
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/rainbow",
+    dependencies=[Depends(verify_api_key)],
+    tags=["rainbow"],
+)
+async def get_stock_rainbow(
+    stock_code: str,
+    repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
+) -> dict[str, object]:
+    normalized = normalize_stock_code(stock_code)
+    dates = repository.available_dates(normalized, include_partial=False)
+    if not dates:
+        return {
+            "status": "unavailable",
+            "stock_code": normalized,
+            "available": False,
+            "snapshot_count": 0,
+            "top_ids": [],
+            "snapshots": [],
+            "warnings": ["No historical snapshots are available for DT Rainbow yet."],
+        }
+    snapshots = repository.date_range(
+        normalized,
+        date_from=dates[0],
+        date_to=dates[-1],
+        include_partial=False,
+    )
+    top_ids, rainbow_snapshots = _rainbow_history_payload(snapshots)
+    return {
+        "status": "ok",
+        "stock_code": normalized,
+        "available": True,
+        "snapshot_count": len(snapshots),
+        "earliest_snapshot_date": dates[0].isoformat(),
+        "latest_snapshot_date": dates[-1].isoformat(),
+        "top_ids": top_ids,
+        "snapshots": rainbow_snapshots,
+        "warnings": [],
+    }
 
 
 @app.get(
