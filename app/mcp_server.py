@@ -408,7 +408,7 @@ async def get_raw_previews(
     return {
         "stock_code": bundle.resolved_code,
         "locale": locale,
-        "tables": payload,
+        **payload,
     }
 
 

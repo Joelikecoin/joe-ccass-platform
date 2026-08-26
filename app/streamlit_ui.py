@@ -657,7 +657,30 @@ def build_raw_preview_tables(
     )
 
 
-def _build_raw_preview_json_bytes(raw_preview_tables: Sequence[RawPreviewTable]) -> bytes:
+def _build_raw_preview_metadata(response: CcassResponse) -> dict[str, object]:
+    metadata = response.metadata
+    return {
+        "code": getattr(metadata, "code", None),
+        "name": getattr(metadata, "name", None),
+        "issue_id": getattr(metadata, "issue_id", None),
+        "holdings_date": getattr(metadata, "holdings_date", None).isoformat()
+        if getattr(metadata, "holdings_date", None)
+        else None,
+        "data_as_of": getattr(metadata, "data_as_of", None).isoformat()
+        if getattr(metadata, "data_as_of", None)
+        else None,
+        "fetched_at": getattr(metadata, "fetched_at", None).isoformat()
+        if getattr(metadata, "fetched_at", None)
+        else None,
+        "source_url": getattr(metadata, "source_url", None),
+        "source_name": getattr(metadata, "source_name", None),
+        "cached": getattr(metadata, "cached", False),
+        "settlement_note": getattr(metadata, "settlement_note", None),
+        "attribution": getattr(metadata, "attribution", None),
+    }
+
+
+def _build_raw_preview_json_bytes(response: CcassResponse, raw_preview_tables: Sequence[RawPreviewTable]) -> bytes:
     payload = [
         {
             "table_index": table.table_index,
@@ -668,7 +691,13 @@ def _build_raw_preview_json_bytes(raw_preview_tables: Sequence[RawPreviewTable])
         }
         for table in raw_preview_tables
     ]
-    return json.dumps(payload, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+    envelope = {
+        "stock_code": response.metadata.code,
+        "metadata": _build_raw_preview_metadata(response),
+        "warnings": list(response.data_quality_warnings),
+        "tables": payload,
+    }
+    return json.dumps(envelope, ensure_ascii=False, indent=2, default=str).encode("utf-8")
 
 
 def build_download_artifacts(
@@ -690,7 +719,7 @@ def build_download_artifacts(
         raw_preview_summary_filename=f"{response.metadata.code}_raw_preview_summary.csv",
         raw_preview_holdings_bytes=_table_to_csv_bytes(raw_preview_tables[1]),
         raw_preview_holdings_filename=f"{response.metadata.code}_raw_preview_holdings.csv",
-        raw_preview_json_bytes=_build_raw_preview_json_bytes(raw_preview_tables),
+        raw_preview_json_bytes=_build_raw_preview_json_bytes(response, raw_preview_tables),
         raw_preview_json_filename=f"{response.metadata.code}_raw_tables.json",
     )
 

@@ -127,7 +127,26 @@ def _make_bundle() -> SimpleNamespace:
         raw_preview_summary_filename="summary.csv",
         raw_preview_holdings_bytes=b"holdings-csv",
         raw_preview_holdings_filename="holdings.csv",
-        raw_preview_json_bytes=b'[{"kind":"raw"}]',
+        raw_preview_json_bytes=json.dumps(
+            {
+                "stock_code": "01592",
+                "metadata": {
+                    "code": "01592",
+                    "name": None,
+                    "issue_id": None,
+                    "holdings_date": None,
+                    "data_as_of": None,
+                    "fetched_at": None,
+                    "source_url": None,
+                    "source_name": None,
+                    "cached": False,
+                    "settlement_note": None,
+                    "attribution": None,
+                },
+                "warnings": [],
+                "tables": [{"kind": "raw"}],
+            }
+        ).encode("utf-8"),
         raw_preview_json_filename="raw.json",
     )
     return SimpleNamespace(
@@ -204,7 +223,24 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tm
 
     assert raw_json.status_code == 200
     assert raw_json.headers["content-disposition"] == 'attachment; filename="raw.json"'
-    assert raw_json.text == '[{"kind":"raw"}]'
+    assert raw_json.json() == {
+        "stock_code": "01592",
+        "metadata": {
+            "code": "01592",
+            "name": None,
+            "issue_id": None,
+            "holdings_date": None,
+            "data_as_of": None,
+            "fetched_at": None,
+            "source_url": None,
+            "source_name": None,
+            "cached": False,
+            "settlement_note": None,
+            "attribution": None,
+        },
+        "warnings": [],
+        "tables": [{"kind": "raw"}],
+    }
 
     assert raw_summary_csv.status_code == 200
     assert raw_summary_csv.headers["content-disposition"] == 'attachment; filename="summary.csv"'
@@ -254,6 +290,20 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tm
     assert raw_previews.json() == {
         "stock_code": "01592",
         "locale": "en",
+        "metadata": {
+            "code": "01592",
+            "name": None,
+            "issue_id": None,
+            "holdings_date": None,
+            "data_as_of": None,
+            "fetched_at": None,
+            "source_url": None,
+            "source_name": None,
+            "cached": False,
+            "settlement_note": None,
+            "attribution": None,
+        },
+        "warnings": [],
         "tables": [{"kind": "raw"}],
     }
 
@@ -458,6 +508,20 @@ def test_mcp_raw_previews_matches_canonical_api_shapes(monkeypatch):
     assert result == {
         "stock_code": "01592",
         "locale": "zh_HK",
+        "metadata": {
+            "code": "01592",
+            "name": None,
+            "issue_id": None,
+            "holdings_date": None,
+            "data_as_of": None,
+            "fetched_at": None,
+            "source_url": None,
+            "source_name": None,
+            "cached": False,
+            "settlement_note": None,
+            "attribution": None,
+        },
+        "warnings": [],
         "tables": [{"kind": "raw"}],
     }
 

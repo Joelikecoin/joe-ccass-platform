@@ -1363,8 +1363,11 @@ def test_build_download_artifacts_exposes_combined_csv_and_workbook(current_resp
     assert artifacts.raw_preview_holdings_filename == "01592_raw_preview_holdings.csv"
     assert artifacts.raw_preview_json_filename == "01592_raw_tables.json"
     raw_preview_payload = json.loads(artifacts.raw_preview_json_bytes.decode("utf-8"))
-    assert raw_preview_payload[0]["table_index"] == 0
-    assert raw_preview_payload[1]["table_index"] == 1
+    assert raw_preview_payload["stock_code"] == "01592"
+    assert raw_preview_payload["metadata"]["code"] == "01592"
+    assert raw_preview_payload["warnings"] == current_response.data_quality_warnings
+    assert raw_preview_payload["tables"][0]["table_index"] == 0
+    assert raw_preview_payload["tables"][1]["table_index"] == 1
     assert artifacts.combined_csv_preview.splitlines()[0].startswith("code,")
     assert artifacts.combined_csv_preview.splitlines()[1].split(",")[0] == "01592"
 
