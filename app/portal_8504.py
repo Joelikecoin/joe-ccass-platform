@@ -1342,7 +1342,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
       <section id="downloads" class="panel">
         <div class="kicker">{_i18n("Export", "匯出", locale)}</div>
-        <h2>{_i18n("Downloads", "下載", locale)}</h2>
+        <h2>{_i18n("Download This Stock", "下載此股票", locale)}</h2>
         <div class="section-footer">{_download_links(base)}</div>
       </section>
 

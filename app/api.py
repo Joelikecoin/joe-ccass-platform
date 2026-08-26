@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 from datetime import date
 from typing import Annotated
@@ -34,6 +36,7 @@ from app.services.price_history import PriceHistoryService, get_price_history_se
 from app.services.stock_events import StockEventsService, get_stock_events_service
 from app.sources.registry import SourceRegistry, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
+from app.streamlit_ui import build_section_csv_artifact
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.ai_read_model import AIReadModelV0_1
 from ccass_core.changes_report import build_changes_markdown_report
@@ -317,6 +320,7 @@ async def get_stock_download(
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     source_mode: str = Query(default="auto"),
     use_local_history: bool = Query(default=True),
+    repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
 ) -> StreamingResponse:
     bundle = await _build_bundle(
         raw_code=stock_code,
@@ -389,6 +393,31 @@ async def get_stock_download(
                 sqlite_path.read_bytes(),
                 "application/x-sqlite3",
                 sqlite_path.name,
+            )
+    if section in {"holdings", "changes", "big_changes", "concentration", "announcements", "price_history"}:
+        if bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", f"{section} artifacts are unavailable.", status_code=404)
+        if kind == "csv":
+            payload, filename = build_section_csv_artifact(bundle.prepared.response, section)
+            return await _stream_bytes(payload, "text/csv", filename)
+    if section == "rainbow":
+        rainbow_payload = await get_stock_rainbow(
+            stock_code,
+            repository=repository,
+        )
+        if kind == "json":
+            payload = json.dumps(rainbow_payload, ensure_ascii=False, indent=2).encode("utf-8")
+            return await _stream_bytes(
+                payload,
+                "application/json",
+                f"{normalize_stock_code(stock_code)}_rainbow.json",
+            )
+        if kind == "csv":
+            payload = _rainbow_csv_bytes(rainbow_payload)
+            return await _stream_bytes(
+                payload,
+                "text/csv",
+                f"{normalize_stock_code(stock_code)}_rainbow.csv",
             )
     if section == "raw_previews":
         if bundle.ccass_artifacts is None or bundle.prepared is None:
@@ -644,6 +673,33 @@ def _rainbow_history_payload(
             }
         )
     return top_ids, payload
+
+
+def _rainbow_csv_bytes(payload: dict[str, object]) -> bytes:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(
+        buffer,
+        fieldnames=("date", "participant_id", "participant", "pct", "participant_count", "source_name"),
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    for snapshot in payload.get("snapshots", []):
+        if not isinstance(snapshot, dict):
+            continue
+        for stack in snapshot.get("stacks", []):
+            if not isinstance(stack, dict):
+                continue
+            writer.writerow(
+                {
+                    "date": snapshot.get("date"),
+                    "participant_id": stack.get("participant_id"),
+                    "participant": stack.get("participant"),
+                    "pct": stack.get("pct"),
+                    "participant_count": snapshot.get("participant_count"),
+                    "source_name": snapshot.get("source_name"),
+                }
+            )
+    return buffer.getvalue().encode("utf-8-sig")
 
 
 @app.get(

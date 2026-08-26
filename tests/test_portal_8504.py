@@ -512,8 +512,31 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     assert "/download/ccass/json" in response.text
     assert "Download Raw Tables JSON" in response.text
     assert "/download/raw_previews/json" in response.text
+    assert "Download This Stock" in response.text
     assert "Download SQLite Backup" in response.text
     assert "/download/ccass/sqlite" in response.text
+    assert "Download All Data CSV" in response.text
+    assert "/download/ccass/csv" in response.text
+    assert "Download Excel" in response.text
+    assert "/download/ccass/xlsx" in response.text
+    assert "Download Markdown Report" in response.text
+    assert "/download/ccass/md" in response.text
+    assert "Download Holdings CSV" in response.text
+    assert "/download/holdings/csv" in response.text
+    assert "Download Changes CSV" in response.text
+    assert "/download/changes/csv" in response.text
+    assert "Download Big Changes CSV" in response.text
+    assert "/download/big_changes/csv" in response.text
+    assert "Download Concentration CSV" in response.text
+    assert "/download/concentration/csv" in response.text
+    assert "Download Announcements CSV" in response.text
+    assert "/download/announcements/csv" in response.text
+    assert "Download Price CSV" in response.text
+    assert "/download/price_history/csv" in response.text
+    assert "Download Rainbow CSV" in response.text
+    assert "/download/rainbow/csv" in response.text
+    assert "Download Rainbow JSON" in response.text
+    assert "/download/rainbow/json" in response.text
     assert "Download Raw Preview Summary CSV" in response.text
     assert "/download/raw_previews/summary_csv" in response.text
     assert "Download Raw Preview Holdings CSV" in response.text

@@ -1858,6 +1858,107 @@ def _table_to_csv_bytes(table: RawPreviewTable) -> bytes:
     return buffer.getvalue().encode("utf-8-sig")
 
 
+_SECTION_DOWNLOAD_HEADERS: dict[str, tuple[str, ...]] = {
+    "holdings": (
+        "rank",
+        "participant_id",
+        "participant",
+        "shares",
+        "last_change",
+        "pct_of_issued",
+        "pct_of_ccass",
+        "cumulative_pct_of_issued",
+        "participant_category",
+    ),
+    "changes": (
+        "participant_id",
+        "participant",
+        "shares_before",
+        "shares_after",
+        "shares_change",
+        "percent_before",
+        "percent_after",
+        "percent_change",
+        "relative_change_percent",
+        "new_participant",
+        "removed_participant",
+        "status",
+    ),
+    "big_changes": (
+        "participant_id",
+        "participant",
+        "shares_before",
+        "shares_after",
+        "shares_change",
+        "percent_before",
+        "percent_after",
+        "percent_change",
+        "relative_change_percent",
+        "new_participant",
+        "removed_participant",
+        "status",
+    ),
+    "concentration": (
+        "rank",
+        "participant_id",
+        "participant",
+        "shares",
+        "last_change",
+        "pct_of_issued",
+        "pct_of_ccass",
+        "cumulative_pct_of_issued",
+        "participant_category",
+    ),
+    "announcements": (
+        "announcement_date",
+        "title",
+        "source",
+        "link",
+    ),
+    "price_history": (
+        "price_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "vwap",
+        "adjusted_close",
+        "volume",
+        "turnover",
+        "price_source",
+        "turnover_est",
+        "vwap_est",
+    ),
+}
+
+
+def build_section_csv_artifact(response: CcassResponse, section: str) -> tuple[bytes, str]:
+    section_key = section.lower()
+    if section_key == "holdings":
+        rows = response.holdings
+    elif section_key == "changes":
+        rows = response.changes.changes if response.changes is not None else []
+    elif section_key == "big_changes":
+        rows = response.big_changes.big_changes if response.big_changes is not None else []
+    elif section_key == "concentration":
+        rows = response.concentration.participant_ranking if response.concentration is not None else []
+    elif section_key == "announcements":
+        rows = response.announcements.announcements if response.announcements is not None else []
+    elif section_key == "price_history":
+        rows = response.price_history.prices if response.price_history is not None else []
+    else:
+        raise PlatformError("NOT_FOUND", f"Unsupported section download: {section}")
+
+    detected_headers, normalized_rows = _rows_from_models(rows)
+    headers = detected_headers or _SECTION_DOWNLOAD_HEADERS[section_key]
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=headers, lineterminator="\n")
+    writer.writeheader()
+    for row in normalized_rows:
+        writer.writerow(row)
+    return buffer.getvalue().encode("utf-8-sig"), f"{response.metadata.code}_{section_key}.csv"
+
+
 def _summary_preview_rows(response: CcassResponse, locale: str) -> list[dict[str, object]]:
     summary = response.holdings_summary
     metadata = response.metadata

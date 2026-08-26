@@ -578,10 +578,10 @@ def _download_links(bundle: PortalBundle) -> str:
         ("live", "xlsx", "Download Live Excel", "下載即時 Excel"),
         ("live", "json", "Download Live JSON", "下載即時 JSON"),
         ("live", "md", "Download Live Markdown", "下載即時 Markdown"),
-        ("ccass", "csv", "Download CCASS CSV", "下載 CCASS CSV"),
-        ("ccass", "xlsx", "Download CCASS Excel", "下載 CCASS Excel"),
+        ("ccass", "csv", "Download All Data CSV", "下載所有數據 CSV"),
+        ("ccass", "xlsx", "Download Excel", "下載 Excel"),
         ("ccass", "json", "Download CCASS JSON", "下載 CCASS JSON"),
-        ("ccass", "md", "Download CCASS Markdown", "下載 CCASS Markdown"),
+        ("ccass", "md", "Download Markdown Report", "下載 Markdown 報告"),
         ("raw_previews", "json", "Download Raw Tables JSON", "下載原始表格 JSON"),
     ]
     if bundle.ccass_artifacts is not None:
@@ -589,6 +589,19 @@ def _download_links(bundle: PortalBundle) -> str:
             [
                 ("raw_previews", "summary_csv", "Download Raw Preview Summary CSV", "下載原始表格摘要 CSV"),
                 ("raw_previews", "holdings_csv", "Download Raw Preview Holdings CSV", "下載原始表格持倉 CSV"),
+            ]
+        )
+    if bundle.prepared is not None:
+        links.extend(
+            [
+                ("holdings", "csv", "Download Holdings CSV", "下載持股 CSV"),
+                ("changes", "csv", "Download Changes CSV", "下載變動 CSV"),
+                ("big_changes", "csv", "Download Big Changes CSV", "下載大變動 CSV"),
+                ("concentration", "csv", "Download Concentration CSV", "下載集中度 CSV"),
+                ("announcements", "csv", "Download Announcements CSV", "下載公告 CSV"),
+                ("price_history", "csv", "Download Price CSV", "下載價格 CSV"),
+                ("rainbow", "csv", "Download Rainbow CSV", "下載彩虹 CSV"),
+                ("rainbow", "json", "Download Rainbow JSON", "下載彩虹 JSON"),
             ]
         )
     sqlite_path = get_settings().ccass_sqlite_path
@@ -1301,7 +1314,7 @@ def _render_page(bundle: PortalBundle) -> str:
 
         <section id="downloads" class="panel">
           <div class="kicker">{_i18n("Export", "匯出", "en")}</div>
-          <h2>{_i18n("Downloads", "下載", "en")}</h2>
+          <h2>{_i18n("Download This Stock", "下載此股票", "en")}</h2>
           <div class="section-footer">{_download_links(bundle)}</div>
         </section>
 

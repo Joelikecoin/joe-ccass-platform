@@ -17,10 +17,11 @@ except ModuleNotFoundError:  # pragma: no cover - test environment fallback
         def run(self, *_args, **_kwargs) -> None:
             raise RuntimeError("fastmcp is not installed")
 
-from app.api import _build_ccass_markdown_report
+from app.api import _build_ccass_markdown_report, _rainbow_csv_bytes
 from app.config import get_settings
 from app.friend_clone_app import _build_bundle, _bundle_markdown
 from app.errors import PlatformError
+from app.streamlit_ui import build_section_csv_artifact
 from app.services.ai_read_model import get_ai_read_model_service
 from app.services.announcements import get_announcements_service
 from app.services.big_changes import get_big_changes_service
@@ -332,6 +333,26 @@ async def get_download_artifact(
             payload = sqlite_path.read_bytes()
             filename = sqlite_path.name
             media_type = "application/x-sqlite3"
+        else:
+            raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    elif section == "rainbow":
+        rainbow_payload = await get_rainbow_data(code)
+        if kind == "json":
+            payload = json.dumps(rainbow_payload, ensure_ascii=False, indent=2).encode("utf-8")
+            filename = f"{normalize_stock_code(code)}_rainbow.json"
+            media_type = "application/json"
+        elif kind == "csv":
+            payload = _rainbow_csv_bytes(rainbow_payload)
+            filename = f"{normalize_stock_code(code)}_rainbow.csv"
+            media_type = "text/csv"
+        else:
+            raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+    elif section in {"holdings", "changes", "big_changes", "concentration", "announcements", "price_history"}:
+        if bundle.prepared is None:
+            raise PlatformError("NOT_FOUND", f"{section} artifacts are unavailable.", status_code=404)
+        if kind == "csv":
+            payload, filename = build_section_csv_artifact(bundle.prepared.response, section)
+            media_type = "text/csv"
         else:
             raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     elif section == "raw_previews":
