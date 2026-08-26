@@ -287,23 +287,29 @@ async def get_stock_history(
     repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
 ) -> dict[str, object]:
     normalized = normalize_stock_code(stock_code)
-    dates = repository.available_dates(normalized, include_partial=include_partial)
-    bounds = repository.history_bounds(normalized)
-    return {
-        "stock_code": normalized,
-        "include_partial": include_partial,
-        "available": bool(dates),
-        "snapshot_count": len(dates),
-        "earliest_snapshot_date": dates[0].isoformat() if dates else None,
-        "latest_snapshot_date": dates[-1].isoformat() if dates else None,
-        "history_bounds": {
-            "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
-            "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
-            "snapshot_count": bounds.snapshot_count,
-            "date_count": bounds.date_count,
-        },
-        "dates": [item.isoformat() for item in dates],
-    }
+    return _history_summary_payload(
+        normalized,
+        repository,
+        include_partial=include_partial,
+    )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/history/snapshots",
+    dependencies=[Depends(verify_api_key)],
+    tags=["history"],
+)
+async def get_stock_history_snapshots(
+    stock_code: str,
+    include_partial: bool = Query(default=False),
+    repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
+) -> dict[str, object]:
+    normalized = normalize_stock_code(stock_code)
+    return _history_snapshot_payload(
+        normalized,
+        repository,
+        include_partial=include_partial,
+    )
 
 
 @app.get(
@@ -633,6 +639,84 @@ async def get_source_status(
 
 def _snapshot_top_ids(snapshot: HistoricalSnapshot, *, count: int = 8) -> list[str]:
     return [row.participant_id for row in snapshot.holdings[:count]]
+
+
+def _history_summary_payload(
+    normalized: str,
+    repository: NormalizedSnapshotRepository,
+    *,
+    include_partial: bool,
+) -> dict[str, object]:
+    dates = repository.available_dates(normalized, include_partial=include_partial)
+    bounds = repository.history_bounds(normalized)
+    return {
+        "stock_code": normalized,
+        "include_partial": include_partial,
+        "available": bool(dates),
+        "snapshot_count": len(dates),
+        "earliest_snapshot_date": dates[0].isoformat() if dates else None,
+        "latest_snapshot_date": dates[-1].isoformat() if dates else None,
+        "history_bounds": {
+            "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
+            "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
+            "snapshot_count": bounds.snapshot_count,
+            "date_count": bounds.date_count,
+        },
+        "dates": [item.isoformat() for item in dates],
+    }
+
+
+def _history_snapshot_payload(
+    normalized: str,
+    repository: NormalizedSnapshotRepository,
+    *,
+    include_partial: bool,
+) -> dict[str, object]:
+    dates = repository.available_dates(normalized, include_partial=include_partial)
+    bounds = repository.history_bounds(normalized)
+    if not dates:
+        return {
+            "status": "unavailable",
+            "stock_code": normalized,
+            "include_partial": include_partial,
+            "available": False,
+            "snapshot_count": 0,
+            "earliest_snapshot_date": None,
+            "latest_snapshot_date": None,
+            "history_bounds": {
+                "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
+                "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
+                "snapshot_count": bounds.snapshot_count,
+                "date_count": bounds.date_count,
+            },
+            "dates": [],
+            "snapshots": [],
+            "warnings": ["No historical snapshots are available yet."],
+        }
+    snapshots = repository.date_range(
+        normalized,
+        date_from=dates[0],
+        date_to=dates[-1],
+        include_partial=include_partial,
+    )
+    return {
+        "status": "ok",
+        "stock_code": normalized,
+        "include_partial": include_partial,
+        "available": True,
+        "snapshot_count": len(snapshots),
+        "earliest_snapshot_date": dates[0].isoformat(),
+        "latest_snapshot_date": dates[-1].isoformat(),
+        "history_bounds": {
+            "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
+            "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
+            "snapshot_count": bounds.snapshot_count,
+            "date_count": bounds.date_count,
+        },
+        "dates": [item.isoformat() for item in dates],
+        "snapshots": [snapshot.model_dump(mode="json") for snapshot in snapshots],
+        "warnings": [],
+    }
 
 
 def _rainbow_history_payload(

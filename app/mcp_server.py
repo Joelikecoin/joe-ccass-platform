@@ -17,7 +17,12 @@ except ModuleNotFoundError:  # pragma: no cover - test environment fallback
         def run(self, *_args, **_kwargs) -> None:
             raise RuntimeError("fastmcp is not installed")
 
-from app.api import _build_ccass_markdown_report, _rainbow_csv_bytes
+from app.api import (
+    _build_ccass_markdown_report,
+    _history_snapshot_payload,
+    _history_summary_payload,
+    _rainbow_csv_bytes,
+)
 from app.config import get_settings
 from app.friend_clone_app import _build_bundle, _bundle_markdown
 from app.errors import PlatformError
@@ -85,23 +90,23 @@ async def get_snapshot_history(code: str, include_partial: bool = False) -> dict
     """Return the available persisted snapshot dates for a Hong Kong stock code."""
     normalized = normalize_stock_code(code)
     repository = NormalizedSnapshotRepository(get_ccass_service().settings.ccass_sqlite_path)
-    dates = repository.available_dates(normalized, include_partial=include_partial)
-    bounds = repository.history_bounds(normalized)
-    return {
-        "stock_code": normalized,
-        "include_partial": include_partial,
-        "available": bool(dates),
-        "snapshot_count": len(dates),
-        "earliest_snapshot_date": dates[0].isoformat() if dates else None,
-        "latest_snapshot_date": dates[-1].isoformat() if dates else None,
-        "history_bounds": {
-            "earliest": bounds.earliest_snapshot_date.isoformat() if bounds.earliest_snapshot_date else None,
-            "latest": bounds.latest_snapshot_date.isoformat() if bounds.latest_snapshot_date else None,
-            "snapshot_count": bounds.snapshot_count,
-            "date_count": bounds.date_count,
-        },
-        "dates": [item.isoformat() for item in dates],
-    }
+    return _history_summary_payload(
+        normalized,
+        repository,
+        include_partial=include_partial,
+    )
+
+
+@mcp.tool
+async def get_snapshot_history_snapshots(code: str, include_partial: bool = False) -> dict:
+    """Return the persisted snapshot payloads for a Hong Kong stock code."""
+    normalized = normalize_stock_code(code)
+    repository = NormalizedSnapshotRepository(get_ccass_service().settings.ccass_sqlite_path)
+    return _history_snapshot_payload(
+        normalized,
+        repository,
+        include_partial=include_partial,
+    )
 
 
 @mcp.tool

@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 from app.api import app
+from app.domain.history import HistoricalSnapshot
 from app import mcp_server
 
 
@@ -655,4 +656,66 @@ def test_history_api_and_mcp_expose_snapshot_dates(monkeypatch):
 
     mcp_result = asyncio.run(mcp_server.get_snapshot_history.fn("01592", include_partial=False))
     assert mcp_result == response.json()
+    client.app.dependency_overrides.clear()
+
+
+def test_history_snapshots_api_and_mcp_expose_persisted_snapshot_payloads(monkeypatch, current_response, previous_response):
+    snapshots = [
+        HistoricalSnapshot.from_response(previous_response, source_id="webbsite"),
+        HistoricalSnapshot.from_response(current_response, source_id="webbsite"),
+    ]
+
+    class _FixtureRepository:
+        def available_dates(self, code: str, *, include_partial: bool = False):
+            assert code == "01592"
+            assert include_partial is False
+            return [snapshot.snapshot_date for snapshot in snapshots]
+
+        def history_bounds(self, code: str):
+            assert code == "01592"
+            return SimpleNamespace(
+                earliest_snapshot_date=snapshots[0].snapshot_date,
+                latest_snapshot_date=snapshots[-1].snapshot_date,
+                snapshot_count=2,
+                date_count=2,
+            )
+
+        def date_range(
+            self,
+            code: str,
+            *,
+            date_from,
+            date_to,
+            source_id: str | None = None,
+            include_partial: bool = True,
+        ):
+            assert code == "01592"
+            assert date_from == snapshots[0].snapshot_date
+            assert date_to == snapshots[-1].snapshot_date
+            assert source_id is None
+            assert include_partial is False
+            return snapshots
+
+    monkeypatch.setattr("app.mcp_server.NormalizedSnapshotRepository", lambda *_args, **_kwargs: _FixtureRepository())
+    client = TestClient(app)
+    from app.api import get_snapshot_repository
+
+    client.app.dependency_overrides[get_snapshot_repository] = lambda: _FixtureRepository()
+    response = client.get("/api/v1/stocks/01592/history/snapshots", params={"include_partial": "false"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["stock_code"] == "01592"
+    assert body["available"] is True
+    assert body["snapshot_count"] == 2
+    assert body["earliest_snapshot_date"] == snapshots[0].snapshot_date.isoformat()
+    assert body["latest_snapshot_date"] == snapshots[-1].snapshot_date.isoformat()
+    assert body["dates"] == [snapshot.snapshot_date.isoformat() for snapshot in snapshots]
+    assert len(body["snapshots"]) == 2
+    assert body["snapshots"][0]["stock"]["code"] == "01592"
+    assert body["snapshots"][0]["source"]["source_id"] == "webbsite"
+    assert body["snapshots"][1]["participant_count"] == snapshots[1].participant_count
+
+    mcp_result = asyncio.run(mcp_server.get_snapshot_history_snapshots.fn("01592", include_partial=False))
+    assert mcp_result == body
     client.app.dependency_overrides.clear()
