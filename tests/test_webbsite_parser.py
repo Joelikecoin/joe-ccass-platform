@@ -40,6 +40,17 @@ def test_parser_returns_sorted_normalized_holdings_and_snapshot_metadata():
     assert parsed.holdings_summary.top5_pct_of_ccass == 100.0
 
 
+def test_parser_accepts_big_changes_style_short_year_dates():
+    html = fixture("holdings_normal.html").replace("2026-07-19", "26-07-19")
+
+    parsed = parse_webbsite_holdings(
+        html,
+        requested_code="01592",
+    )
+
+    assert next(row for row in parsed.holdings if row.rank == 2).last_change == date(2026, 7, 19)
+
+
 @pytest.mark.parametrize(
     ("filename", "code", "error_code"),
     [

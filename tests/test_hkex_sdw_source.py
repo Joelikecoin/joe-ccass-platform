@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 from app.config import Settings
@@ -36,7 +37,7 @@ def test_hkex_sdw_parser_accepts_existing_holdings_shape_and_txt_stock_code_fall
           </tr>
           <tr>
             <td>1</td><td>A00001</td><td>Broker Alpha</td><td>60</td>
-            <td>2026-07-19</td><td>48.0</td><td>48.0</td>
+            <td>26-07-19</td><td>48.0</td><td>48.0</td>
           </tr>
           <tr>
             <td>2</td><td>B00002</td><td>Investor Beta</td><td>40</td>
@@ -53,6 +54,7 @@ def test_hkex_sdw_parser_accepts_existing_holdings_shape_and_txt_stock_code_fall
     assert parsed.issue_id == 1_592
     assert parsed.name == "FICTITIOUS LIMITED"
     assert parsed.holdings_date.isoformat() == "2026-07-20"
+    assert parsed.holdings[0].last_change == date(2026, 7, 19)
     assert [row.rank for row in parsed.holdings] == [1, 2]
     assert parsed.holdings_summary.participant_count == 2
     assert parsed.holdings_summary.top5_pct_of_issued == 80.0

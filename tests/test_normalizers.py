@@ -1,6 +1,8 @@
+from datetime import date
+
 import pytest
 
-from app.core.normalizers import normalize_stock_code
+from app.core.normalizers import normalize_stock_code, parse_iso_date
 from app.errors import ErrorCode, PlatformError
 
 
@@ -16,3 +18,15 @@ def test_invalid_stock_code():
     with pytest.raises(PlatformError) as caught:
         normalize_stock_code("ABC")
     assert caught.value.code == ErrorCode.INVALID_CODE
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("2026-07-29", date(2026, 7, 29)),
+        ("26-07-29", date(2026, 7, 29)),
+        ("26/07/29", date(2026, 7, 29)),
+    ],
+)
+def test_parse_iso_date_accepts_big_changes_style_short_year_dates(raw, expected):
+    assert parse_iso_date(raw) == expected

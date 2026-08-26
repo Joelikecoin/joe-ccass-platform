@@ -27,8 +27,28 @@ def parse_float(value: str) -> float:
 
 
 def parse_iso_date(value: str) -> date | None:
-    match = re.search(r"\d{4}-\d{2}-\d{2}", value or "")
-    return date.fromisoformat(match.group(0)) if match else None
+    text = (value or "").strip()
+    if not text:
+        return None
+
+    normalized = text.replace("/", "-")
+
+    match = re.search(r"\d{4}-\d{2}-\d{2}", normalized)
+    if match:
+        try:
+            return date.fromisoformat(match.group(0))
+        except ValueError:
+            return None
+
+    match = re.search(r"\b(\d{2})-(\d{2})-(\d{2})\b", normalized)
+    if match:
+        year, month, day = map(int, match.groups())
+        try:
+            return date(2000 + year, month, day)
+        except ValueError:
+            return None
+
+    return None
 
 
 def classify_participant(participant_id: str, name: str) -> str:
