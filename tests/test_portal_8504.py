@@ -28,6 +28,7 @@ from app.models import (
     StockEventsResponse,
 )
 from app.streamlit_ui import PreparedReport
+from app.streamlit_ui import build_download_artifacts
 from app.portal_8504 import (
     PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
     app as portal_app,
@@ -593,6 +594,100 @@ def test_portal_8504_download_route_allows_ccass_markdown_without_artifacts(monk
     assert response.status_code == 200
     assert response.text == "CCASS MARKDOWN"
     assert calls["ccass"] == ["en"]
+
+
+def test_portal_8504_download_route_supports_section_specific_artifacts(monkeypatch, current_response):
+    download_artifacts = build_download_artifacts(current_response)
+    fake_response = SimpleNamespace(metadata=current_response.metadata, model_dump_json=current_response.model_dump_json)
+    fake_prepared = SimpleNamespace(
+        response=current_response,
+        source_trace=[],
+        analysis=SimpleNamespace(changes=[], big_changes=[], concentration={}, previous_available=False),
+        fetch_error=None,
+        filename="01592.md",
+    )
+    fake_base = PortalBundle(
+        requested_code="01592",
+        resolved_code="01592",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        live_product=SimpleNamespace(response=fake_response, source_notes=[], price_history=[]),
+        prepared=fake_prepared,
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=download_artifacts,
+        previous_available=True,
+    )
+    fake_bundle = Portal8504Bundle(base=fake_base, price_rows=[], concentration_rows=[])
+
+    async def fake_build_portal_8504_bundle(**kwargs):
+        return fake_bundle
+
+    monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
+    monkeypatch.setattr(
+        "app.portal_8504._rainbow_download_payload",
+        lambda code: {
+            "status": "ok",
+            "stock_code": code,
+            "available": True,
+            "snapshot_count": 1,
+            "earliest_snapshot_date": "2026-08-14",
+            "latest_snapshot_date": "2026-08-14",
+            "top_ids": ["B00001"],
+            "snapshots": [
+                {
+                    "date": "2026-08-14",
+                    "stacks": [
+                        {"participant_id": "B00001", "participant": "TEST FIXTURE BROKER ONE", "pct": 60.08},
+                        {"participant_id": "others", "participant": "Others", "pct": 39.92},
+                    ],
+                    "participant_count": 3,
+                    "source_name": "HKEX SDW",
+                }
+            ],
+            "warnings": [],
+        },
+    )
+
+    client = TestClient(portal_app)
+
+    holdings_csv = client.get("/download/holdings/csv", params={"code": "01592", "locale": "en"})
+    changes_csv = client.get("/download/changes/csv", params={"code": "01592", "locale": "en"})
+    big_changes_csv = client.get("/download/big_changes/csv", params={"code": "01592", "locale": "en"})
+    concentration_csv = client.get("/download/concentration/csv", params={"code": "01592", "locale": "en"})
+    announcements_csv = client.get("/download/announcements/csv", params={"code": "01592", "locale": "en"})
+    price_history_csv = client.get("/download/price_history/csv", params={"code": "01592", "locale": "en"})
+    raw_summary_csv = client.get("/download/raw_previews/summary_csv", params={"code": "01592", "locale": "en"})
+    raw_holdings_csv = client.get("/download/raw_previews/holdings_csv", params={"code": "01592", "locale": "en"})
+    rainbow_json = client.get("/download/rainbow/json", params={"code": "01592", "locale": "en"})
+    rainbow_csv = client.get("/download/rainbow/csv", params={"code": "01592", "locale": "en"})
+
+    assert holdings_csv.status_code == 200
+    assert "TEST FIXTURE BROKER ONE" in holdings_csv.text
+    assert changes_csv.status_code == 200
+    assert "participant_id" in changes_csv.text.lower()
+    assert big_changes_csv.status_code == 200
+    assert "participant_id" in big_changes_csv.text.lower()
+    assert concentration_csv.status_code == 200
+    assert "participant_id" in concentration_csv.text.lower()
+    assert announcements_csv.status_code == 200
+    assert "announcement" in announcements_csv.text.lower()
+    assert price_history_csv.status_code == 200
+    assert "date" in price_history_csv.text.lower()
+    assert raw_summary_csv.status_code == 200
+    assert "stock name" in raw_summary_csv.text.lower()
+    assert raw_holdings_csv.status_code == 200
+    assert "participant" in raw_holdings_csv.text.lower()
+    assert rainbow_json.status_code == 200
+    assert rainbow_json.json()["available"] is True
+    assert rainbow_csv.status_code == 200
+    assert "TEST FIXTURE BROKER ONE" in rainbow_csv.text
 
 
 def test_portal_8504_download_route_returns_not_found_for_missing_live_artifacts(monkeypatch):

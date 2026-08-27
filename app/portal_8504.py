@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import csv
 import html
+import io
 import json
 import math
 import os
@@ -58,6 +60,7 @@ from app.services.ccass import get_ccass_service
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
     build_download_artifacts,
+    build_section_csv_artifact,
     build_raw_preview_tables,
     prepare_report,
     render_prepared_report,
@@ -513,6 +516,86 @@ def _rainbow_history_payload(rows: list[dict[str, object]]) -> tuple[list[str], 
             }
         )
     return top_ids, snapshots
+
+
+def _rainbow_csv_bytes(payload: dict[str, object]) -> bytes:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(
+        buffer,
+        fieldnames=("date", "participant_id", "participant", "pct", "participant_count", "source_name"),
+        lineterminator="\n",
+    )
+    writer.writeheader()
+    for snapshot in payload.get("snapshots", []):
+        if not isinstance(snapshot, dict):
+            continue
+        for stack in snapshot.get("stacks", []):
+            if not isinstance(stack, dict):
+                continue
+            writer.writerow(
+                {
+                    "date": snapshot.get("date"),
+                    "participant_id": stack.get("participant_id"),
+                    "participant": stack.get("participant"),
+                    "pct": stack.get("pct"),
+                    "participant_count": snapshot.get("participant_count"),
+                    "source_name": snapshot.get("source_name"),
+                }
+            )
+    return buffer.getvalue().encode("utf-8-sig")
+
+
+def _rainbow_download_payload(code: str) -> dict[str, object]:
+    repo = _snapshot_repo()
+    dates = repo.available_dates(code, include_partial=False)
+    if not dates:
+        return {
+            "status": "unavailable",
+            "stock_code": code,
+            "available": False,
+            "snapshot_count": 0,
+            "top_ids": [],
+            "snapshots": [],
+            "warnings": ["No historical snapshots are available for DT Rainbow yet."],
+        }
+    snapshots = repo.date_range(
+        code,
+        date_from=dates[0],
+        date_to=dates[-1],
+        include_partial=False,
+    )
+    history_rows: list[dict[str, object]] = []
+    for snapshot in snapshots:
+        history_rows.append(
+            {
+                "snapshot_date": snapshot.snapshot_date.isoformat(),
+                "fetched_at": snapshot.fetched_at.isoformat(sep=" ", timespec="seconds"),
+                "participant_count": snapshot.participant_count,
+                "top5_pct_of_issued": snapshot.top5_pct_of_issued,
+                "top10_pct_of_issued": snapshot.top10_pct_of_issued,
+                "top5_pct_of_ccass": snapshot.top5_pct_of_ccass,
+                "top10_pct_of_ccass": snapshot.top10_pct_of_ccass,
+                "source_name": snapshot.source.display_name,
+                "source_id": snapshot.source.source_id,
+                "partial": snapshot.partial,
+                "cached": snapshot.cached,
+                "holdings": snapshot.holdings,
+                "issued_shares": snapshot.issued_shares,
+                "snapshot": snapshot,
+            }
+        )
+    top_ids, rainbow_snapshots = _rainbow_history_payload(history_rows)
+    return {
+        "status": "ok",
+        "stock_code": code,
+        "available": True,
+        "snapshot_count": len(snapshots),
+        "earliest_snapshot_date": dates[0].isoformat(),
+        "latest_snapshot_date": dates[-1].isoformat(),
+        "top_ids": top_ids,
+        "snapshots": rainbow_snapshots,
+        "warnings": [],
+    }
 
 
 def _rainbow_svg(rows: list[dict[str, object]], *, width: int = 940, height: int = 300) -> str:
@@ -1744,6 +1827,40 @@ async def download(
                     base.ccass_artifacts.raw_preview_json_bytes,
                     "application/json",
                     base.ccass_artifacts.raw_preview_json_filename,
+                )
+            if kind == "summary_csv":
+                return await _stream_bytes(
+                    base.ccass_artifacts.raw_preview_summary_bytes,
+                    "text/csv",
+                    base.ccass_artifacts.raw_preview_summary_filename,
+                )
+            if kind == "holdings_csv":
+                return await _stream_bytes(
+                    base.ccass_artifacts.raw_preview_holdings_bytes,
+                    "text/csv",
+                    base.ccass_artifacts.raw_preview_holdings_filename,
+                )
+        if section in {"holdings", "changes", "big_changes", "concentration", "announcements", "price_history"}:
+            if base.prepared is None or base.prepared.response is None:
+                raise PlatformError("NOT_FOUND", f"{section} artifacts are unavailable.", status_code=404)
+            if kind == "csv":
+                payload, filename = build_section_csv_artifact(base.prepared.response, section)
+                return await _stream_bytes(payload, "text/csv", filename)
+        if section == "rainbow":
+            rainbow_payload = _rainbow_download_payload(base.resolved_code)
+            if kind == "json":
+                payload = json.dumps(rainbow_payload, ensure_ascii=False, indent=2).encode("utf-8")
+                return await _stream_bytes(
+                    payload,
+                    "application/json",
+                    f"{base.resolved_code}_rainbow.json",
+                )
+            if kind == "csv":
+                payload = _rainbow_csv_bytes(rainbow_payload)
+                return await _stream_bytes(
+                    payload,
+                    "text/csv",
+                    f"{base.resolved_code}_rainbow.csv",
                 )
         raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     except PlatformError as exc:
