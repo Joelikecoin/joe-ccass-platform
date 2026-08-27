@@ -13,6 +13,7 @@ from xml.etree import ElementTree as ET
 from streamlit.testing.v1 import AppTest
 
 from app.errors import ErrorCode, PlatformError
+from app.config import get_settings
 from app.models import (
     AnnouncementRow,
     AnnouncementsMetadata,
@@ -436,6 +437,22 @@ def test_prepare_report_uses_local_history_when_previous_loader_is_not_provided(
     assert translate_text(DEFAULT_LOCALE, "report.section.changes") in prepared.markdown
     assert translate_text(DEFAULT_LOCALE, "report.section.big_changes") in prepared.markdown
     assert translate_text(DEFAULT_LOCALE, "report.comparison.available") in prepared.markdown
+
+
+def test_get_settings_anchors_ccass_sqlite_path_to_repo_root_when_cwd_changes(
+    monkeypatch,
+):
+    monkeypatch.chdir(Path.cwd() / "work")
+    monkeypatch.delenv("CCASS_SQLITE_PATH", raising=False)
+    get_settings.cache_clear()
+
+    settings = get_settings()
+    expected_path = STREAMLIT_APP_PATH.parent / "data" / "ccass_snapshots.db"
+
+    assert settings.ccass_sqlite_path == expected_path
+    assert settings.ccass_sqlite_path.exists()
+    repository = NormalizedSnapshotRepository(settings.ccass_sqlite_path)
+    assert repository.available_dates("01592", include_partial=True)
 
 
 def test_copy_button_contains_exact_utf8_payload_and_chatgpt_header():

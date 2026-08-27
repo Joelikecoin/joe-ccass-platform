@@ -18,6 +18,7 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
+from app.config import get_settings
 from app.data_quality import structured_warning, warning_code
 from app.models import (
     AnnouncementsResponse,
@@ -466,7 +467,8 @@ def _load_previous_snapshot_from_local_history(response: CcassResponse) -> Ccass
     attribution = str(response.metadata.attribution or "")
     if "TEST FIXTURE" in attribution.upper():
         return None
-    sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
+    get_settings.cache_clear()
+    sqlite_path = get_settings().ccass_sqlite_path
     if not sqlite_path.is_file():
         return None
     store = SnapshotStore(sqlite_path)

@@ -418,7 +418,8 @@ def _render_download_this_stock_section(
         )
     with backup_col:
         st.markdown("**Download Snapshot DB Backup**")
-        sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
+        get_settings.cache_clear()
+        sqlite_path = get_settings().ccass_sqlite_path
         if sqlite_path.is_file():
             st.download_button(
                 "Download Snapshot DB Backup",
@@ -596,8 +597,9 @@ if submitted:
         os.environ["DATA_SOURCE"] = source_mode
         os.environ["REQUEST_TIMEOUT_SECONDS"] = str(float(timeout_seconds))
         get_settings.cache_clear()
+        settings = get_settings()
 
-        sqlite_path = Path(os.getenv("CCASS_SQLITE_PATH", "data/ccass_snapshots.db"))
+        sqlite_path = settings.ccass_sqlite_path
         resolved_code = raw_code
         if input_type == "Webb-site Issue ID":
             if not sqlite_path.is_file():

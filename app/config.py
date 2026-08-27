@@ -62,9 +62,15 @@ class Settings(BaseSettings):
             or self.backfill_request_sleep_seconds < 0
         ):
             raise ValueError("cache TTL and request intervals cannot be negative")
+        if not self.ccass_sqlite_path.is_absolute():
+            self.ccass_sqlite_path = _repo_root() / self.ccass_sqlite_path
         return self
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
