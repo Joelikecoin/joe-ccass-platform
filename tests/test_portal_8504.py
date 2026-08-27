@@ -548,6 +548,82 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     assert "Source diagnostics" in response.text
 
 
+def test_portal_8504_does_not_render_dt_rainbow_section(monkeypatch):
+    fake_response = SimpleNamespace(
+        metadata=SimpleNamespace(
+            code="01592",
+            issue_id=1592,
+            name="01592 Corp",
+            holdings_date=date(2026, 8, 14),
+            fetched_at=datetime(2026, 8, 14, 9, 0, tzinfo=UTC),
+            source_name="HKEX SDW",
+            source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+            cached=True,
+            data_as_of=date(2026, 8, 14),
+        ),
+        data_quality_warnings=[],
+        holdings=[],
+        holdings_summary=SimpleNamespace(
+            participant_count=0,
+            total_in_ccass_shares=0,
+            issued_shares=0,
+            top5_pct_of_issued=0.0,
+            top10_pct_of_issued=0.0,
+            top5_pct_of_ccass=0.0,
+            top10_pct_of_ccass=0.0,
+        ),
+        announcements=[],
+        stock_events=[],
+        capital_information=[],
+        officers=[],
+        price_history=SimpleNamespace(metadata=SimpleNamespace(source_name="HKEX SDW", source_url="")),
+        model_dump_json=lambda indent=2: json.dumps({"metadata": {"code": "01592"}}, indent=indent),
+    )
+    fake_prepared = SimpleNamespace(
+        response=fake_response,
+        source_trace=[],
+        analysis=SimpleNamespace(changes=[], big_changes=[], concentration={}, previous_available=False),
+        fetch_error=None,
+        filename="01592.md",
+    )
+    fake_base = PortalBundle(
+        requested_code="01592",
+        resolved_code="01592",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        live_product=None,
+        prepared=fake_prepared,
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=SimpleNamespace(
+            combined_csv_bytes=b"",
+            combined_csv_filename="01592_ccass.csv",
+            workbook_bytes=b"",
+            workbook_filename="01592_ccass.xlsx",
+        ),
+        previous_available=False,
+    )
+    fake_bundle = Portal8504Bundle(base=fake_base, price_rows=[], concentration_rows=[])
+
+    async def fake_build_portal_8504_bundle(**kwargs):
+        return fake_bundle
+
+    monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
+
+    client = TestClient(portal_app)
+    response = client.get("/", params={"code": "01592"})
+
+    assert response.status_code == 200
+    assert 'id="dt-rainbow"' not in response.text
+    assert "DT Rainbow" not in response.text
+
+
 def test_portal_8504_download_route_allows_ccass_markdown_without_artifacts(monkeypatch):
     calls = {"ccass": []}
     fake_response = SimpleNamespace(metadata=SimpleNamespace(code="00700"))

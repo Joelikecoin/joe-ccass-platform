@@ -1411,12 +1411,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         {_concentration_panel(base, concentration_rows)}
       </section>
 
-      <section id="dt-rainbow" class="panel">
-        <div class="kicker">{_i18n("Historical view", "歷史視圖", locale)}</div>
-        <h2>{_i18n("DT Rainbow", "DT Rainbow", locale)}</h2>
-        {_dt_rainbow_panel(base, concentration_rows)}
-      </section>
-
       <section id="raw-previews" class="panel">
         <div class="kicker">{_i18n("Structured source audit", "結構化來源檢視", locale)}</div>
         <h2>{_i18n("Raw Previews", "原始預覽", locale)}</h2>
