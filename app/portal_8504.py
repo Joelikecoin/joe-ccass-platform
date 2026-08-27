@@ -1457,9 +1457,14 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <a href="#copy">{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</a>
           <a href="#downloads">{_i18n("Downloads", "下載", locale)}</a>
         </nav>
-        {ccass_warning_html}
-        {ccass_error_html}
-        {live_error_html}
+
+        <section id="price-turnover" class="panel">
+          <div class="kicker">{_i18n("Market pricing", "市場價格", locale)}</div>
+          <h2>{_i18n("Price & Turnover", "價格與成交額", locale)}</h2>
+          {_price_panel(base, price_rows)}
+        </section>
+
+        {(f'''<details class="event-lines diagnostics-panel"><summary>{_i18n("Diagnostics / Status", "診斷／狀態", locale)}</summary><div class="event-lines-body diagnostics-body">{ccass_warning_html}{ccass_error_html}{live_error_html}</div></details>''' if (ccass_warning_html or ccass_error_html or live_error_html) else '')}
 
         {_all_tables_block(base, price_rows, concentration_rows)}
 
@@ -1493,12 +1498,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
                 ] for row in (base.live_product.officers[:12] if base.live_product else [])
             ], class_name="compact-table")}
           </div>
-        </section>
-
-        <section id="price-turnover" class="panel">
-          <div class="kicker">{_i18n("Market pricing", "市場價格", locale)}</div>
-          <h2>{_i18n("Price & Turnover", "價格與成交額", locale)}</h2>
-          {_price_panel(base, price_rows)}
         </section>
 
         <section id="company" class="panel">
