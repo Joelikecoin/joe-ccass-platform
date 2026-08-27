@@ -52,7 +52,6 @@ from app.friend_clone_app import (
     _raw_preview_block,
     _section_heading,
     _sparkline,
-    _source_diagnostics_block,
     _table,
 )
 from app.live_product import YAHOO_CHART_API_URL
@@ -892,20 +891,11 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
         _metric_card("Last Price Date", "最近價格日期", _svg_escape(price_date or "—"), tone="secondary"),
         _metric_card("Source Mode", "來源模式", source_mode, tone="secondary"),
     ]
-    notes: list[str] = []
-    if result and result.source_notes:
-        notes.extend(result.source_notes)
-    if prepared and prepared.response and prepared.response.data_quality_warnings:
-        notes.extend(prepared.response.data_quality_warnings)
-    notes_html = ""
-    if notes:
-        notes_html = "<div class='warning-box'>" + _escape("\n".join(dict.fromkeys(notes))) + "</div>"
     return f"""
     <section id="overview" class="panel">
       <div class="kicker">AI-ready overview</div>
       <h2>Fetch summary</h2>
       <div class="metric-grid">{''.join(cards)}</div>
-      {notes_html}
     </section>
     """
 
@@ -991,13 +981,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         ccass_warning_html = (
             "<div class='warning-box'>"
             + _escape("\n".join(base.prepared.response.data_quality_warnings))
-            + "</div>"
-        )
-    live_notes_html = ""
-    if base.live_product and base.live_product.source_notes:
-        live_notes_html = (
-            "<div class='warning-box'>"
-            + _escape("\n".join(base.live_product.source_notes))
             + "</div>"
         )
     ccass_error_html = ""
@@ -1383,7 +1366,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           </div>
         </div>
         {live_error_html}
-        {live_notes_html}
       </section>
 
       <section id="ccass-holdings" class="panel">
@@ -1421,12 +1403,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         <div class="kicker">{_i18n("Export", "匯出", locale)}</div>
         <h2>{_i18n("Download This Stock", "下載此股票", locale)}</h2>
         <div class="section-footer">{_download_links(base)}</div>
-      </section>
-
-      <section id="source-diagnostics" class="panel">
-        <div class="kicker">{_i18n("Registry", "註冊表", locale)}</div>
-        <h2>{_i18n("Source diagnostics", "來源診斷", locale)}</h2>
-        {_source_diagnostics_block(locale)}
       </section>
 
       <section id="copy" class="panel">

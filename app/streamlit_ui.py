@@ -2124,6 +2124,4 @@ def render_prepared_report(prepared: PreparedReport, *, locale: str = DEFAULT_LO
             research_context_entry=research_context_entry,
             locale=locale,
         )
-    if prepared.source_trace is not None:
-        markdown = "\n\n".join((markdown.rstrip(), build_source_trace_markdown(prepared.source_trace)))
     return markdown, build_chatgpt_copy_payload(markdown)

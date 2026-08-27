@@ -165,7 +165,7 @@ async def test_ccass_service_regression_exposes_trace_without_changing_response_
     assert source.calls == [("01592", 10_000), ("01592", 10_000), ("01592", 10_000)]
 
 
-def test_render_prepared_report_appends_source_trace_to_markdown_and_payload(current_response):
+def test_render_prepared_report_omits_source_trace_from_markdown_and_payload(current_response):
     source_trace = SourceTraceView(
         request_id="trace-001",
         request_surface="service",
@@ -203,6 +203,6 @@ def test_render_prepared_report_appends_source_trace_to_markdown_and_payload(cur
 
     markdown, payload = render_prepared_report(prepared, locale=DEFAULT_LOCALE)
 
-    assert "### Source Trace" in markdown
-    assert "### Source Trace" in payload
-    assert "trace_ready" in markdown
+    assert "### Source Trace" not in markdown
+    assert "### Source Trace" not in payload
+    assert "trace_ready" not in markdown

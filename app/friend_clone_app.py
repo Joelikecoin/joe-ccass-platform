@@ -612,8 +612,6 @@ def _download_links(bundle: PortalBundle) -> str:
                 ("concentration", "csv", "Download Concentration CSV", "下載集中度 CSV"),
                 ("announcements", "csv", "Download Announcements CSV", "下載公告 CSV"),
                 ("price_history", "csv", "Download Price CSV", "下載價格 CSV"),
-                ("rainbow", "csv", "Download Rainbow CSV", "下載彩虹 CSV"),
-                ("rainbow", "json", "Download Rainbow JSON", "下載彩虹 JSON"),
             ]
         )
     sqlite_path = get_settings().ccass_sqlite_path
@@ -626,30 +624,6 @@ def _download_links(bundle: PortalBundle) -> str:
             f'<a class="download-btn" data-i18n-en="{_escape(en)}" data-i18n-zh="{_escape(zh)}" href="{_escape(href)}">{_escape(en)}</a>'
         )
     return "".join(items)
-
-
-def _source_diagnostics_block(locale: str = "en") -> str:
-    diagnostics = build_source_registry(get_settings()).diagnostics()
-    if not diagnostics:
-        return '<div class="empty-state">No source diagnostics available.</div>'
-    headers = ["Source", "Status", "Enabled", "Configured", "Priority", "Hostname"]
-    rows = [
-        [
-            _escape(item.get("display_name") or item.get("source_id") or "—"),
-            _escape(item.get("status") or "—"),
-            _escape("Yes" if item.get("enabled") else "No"),
-            _escape("Yes" if item.get("configured") else "No"),
-            _escape(item.get("priority") if item.get("priority") is not None else "—"),
-            _escape(item.get("safe_hostname") or "—"),
-        ]
-        for item in diagnostics
-    ]
-    return (
-        f'<div class="subcard">'
-        f'<h3>{_i18n("Source diagnostics", "來源診斷", locale)}</h3>'
-        f'{_table(headers, rows, class_name="compact-table")}'
-        f"</div>"
-    )
 
 
 def _copy_blocks(bundle: PortalBundle) -> str:
@@ -678,20 +652,6 @@ def _render_page(bundle: PortalBundle) -> str:
     else:
         live_status = "PARTIAL"
 
-    ccass_warning_html = ""
-    if bundle.prepared and bundle.prepared.response and bundle.prepared.response.data_quality_warnings:
-        ccass_warning_html = (
-            "<div class='warning-box'>"
-            + _escape("\n".join(bundle.prepared.response.data_quality_warnings))
-            + "</div>"
-        )
-    live_notes_html = ""
-    if bundle.live_product and bundle.live_product.source_notes:
-        live_notes_html = (
-            "<div class='warning-box'>"
-            + _escape("\n".join(bundle.live_product.source_notes))
-            + "</div>"
-        )
     ccass_error_html = ""
     if bundle.prepared and bundle.prepared.fetch_error:
         ccass_error_html = f"<div class='error-box'>{_escape(bundle.prepared.fetch_error)}</div>"
@@ -1250,8 +1210,6 @@ def _render_page(bundle: PortalBundle) -> str:
           </div>
           {live_error_html}
           {ccass_error_html}
-          {ccass_warning_html}
-          {live_notes_html}
         </section>
 
         <section id="live-market" class="panel">
@@ -1328,12 +1286,6 @@ def _render_page(bundle: PortalBundle) -> str:
           <div class="kicker">{_i18n("Export", "匯出", "en")}</div>
           <h2>{_i18n("Download This Stock", "下載此股票", "en")}</h2>
           <div class="section-footer">{_download_links(bundle)}</div>
-        </section>
-
-        <section id="source-diagnostics" class="panel">
-          <div class="kicker">{_i18n("Registry", "註冊表", "en")}</div>
-          <h2>{_i18n("Source diagnostics", "來源診斷", "en")}</h2>
-          {_source_diagnostics_block("en")}
         </section>
 
         <section id="copy" class="panel">

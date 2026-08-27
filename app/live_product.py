@@ -539,18 +539,7 @@ def render_live_markdown(live_product: LiveProduct | None, *, locale: str = DEFA
         f"- Fetched at: {_format_datetime(live_product.fetched_at)}",
         f"- Data as of: {live_product.company.get('data_as_of') or '—'}",
     ]
-    if live_product.source_notes:
-        live_summary.extend(["", "### Source Notes", ""])
-        live_summary.extend(f"- {note}" for note in live_product.source_notes)
-    if live_product.diagnostics:
-        live_summary.extend(["", "### Diagnostics", ""])
-        live_summary.extend(
-            f"- {item.status}{': ' + item.message if item.message else ''}"
-            for item in live_product.diagnostics
-        )
     markdown = "\n".join(live_summary) + "\n\n" + markdown
-    if live_product.source_trace is not None:
-        markdown += "\n\n" + build_source_trace_markdown(live_product.source_trace)
     return markdown.rstrip() + "\n"
 
 

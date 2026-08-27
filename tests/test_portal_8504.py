@@ -537,15 +537,16 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     assert "/download/announcements/csv" in response.text
     assert "Download Price CSV" in response.text
     assert "/download/price_history/csv" in response.text
-    assert "Download Rainbow CSV" in response.text
-    assert "/download/rainbow/csv" in response.text
-    assert "Download Rainbow JSON" in response.text
-    assert "/download/rainbow/json" in response.text
+    assert "Download Rainbow CSV" not in response.text
+    assert "/download/rainbow/csv" not in response.text
+    assert "Download Rainbow JSON" not in response.text
+    assert "/download/rainbow/json" not in response.text
     assert "Download Raw Preview Summary CSV" in response.text
     assert "/download/raw_previews/summary_csv" in response.text
     assert "Download Raw Preview Holdings CSV" in response.text
     assert "/download/raw_previews/holdings_csv" in response.text
-    assert "Source diagnostics" in response.text
+    assert "Source diagnostics" not in response.text
+    assert "Source Trace" not in response.text
 
 
 def test_portal_8504_does_not_render_dt_rainbow_section(monkeypatch):
@@ -920,7 +921,8 @@ def test_portal_8504_render_uses_price_history_response_metadata(monkeypatch):
     assert "list.metadata" not in price_html
     assert "Yahoo Finance" in overview_html
     assert "Yahoo Finance" in price_html
-    assert "Stale LKG fallback used." in overview_html
+    assert "Source diagnostics" not in overview_html
+    assert "Source Trace" not in overview_html
 
 
 def test_portal_8504_bundle_recovers_auxiliary_surfaces_without_ccass(monkeypatch):
