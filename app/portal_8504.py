@@ -881,7 +881,7 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
         price_source_name = price_history_response.metadata.source_name
     elif price_rows and price_rows[-1].get("source"):
         price_source_name = str(price_rows[-1].get("source"))
-    cards = [
+    summary_cards = [
         _metric_card("Portal", "入口", APP_TITLE_EN, tone="primary"),
         _metric_card("CCASS Source", "CCASS 來源", "HKEX SDW" if prepared and prepared.response else "Unavailable", tone="success"),
         _metric_card("Price Source", "價格來源", price_source_name, tone="accent"),
@@ -891,11 +891,18 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
         _metric_card("Last Price Date", "最近價格日期", _svg_escape(price_date or "—"), tone="secondary"),
         _metric_card("Source Mode", "來源模式", source_mode, tone="secondary"),
     ]
+    top_cards = [
+        _metric_card("Resolved code", "已解析代號", bundle.resolved_code, note="Input accepted and normalized.", tone="primary"),
+        _metric_card("Live CCASS", "即時 CCASS", "YES" if bundle.live_product and bundle.prepared and bundle.prepared.response is not None else "NO", note="HKEX SDW browser acquisition enabled.", tone="success"),
+        _metric_card("Chinese HKEX titles", "HKEX 中文標題", "YES" if bundle.live_product and bundle.live_product.announcements else "NO", note="Official title search language set to Chinese.", tone="accent"),
+        _metric_card("Previous history", "歷史比較", "YES" if bundle.previous_available else "NO", note="Local snapshot comparison when available.", tone="secondary"),
+    ]
     return f"""
     <section id="overview" class="panel">
       <div class="kicker">AI-ready overview</div>
       <h2>Fetch summary</h2>
-      <div class="metric-grid">{''.join(cards)}</div>
+      <div class="metric-grid">{''.join(summary_cards)}</div>
+      <div style="margin-top: .85rem;" class="hero-grid">{''.join(top_cards)}</div>
     </section>
     """
 
@@ -1432,16 +1439,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         </div>
       </aside>
       <main class="main">
-        <section class="hero">
-          <div class="hero-grid">
-            {_metric_card("Resolved code", "已解析代號", base.resolved_code, note="Input accepted and normalized.", tone="primary")}
-            {_metric_card("Live CCASS", "即時 CCASS", "YES" if base.live_product and base.prepared and base.prepared.response is not None else "NO", note="HKEX SDW browser acquisition enabled.", tone="success")}
-            {_metric_card("Chinese HKEX titles", "HKEX 中文標題", "YES" if base.live_product and base.live_product.announcements else "NO", note="Official title search language set to Chinese.", tone="accent")}
-            {_metric_card("Holdings rows", "持股列數", _format_int(len(base.prepared.response.holdings) if base.prepared and base.prepared.response else None), note="Top rows shown in the portal.", tone="muted")}
-            {_metric_card("Previous history", "歷史比較", "YES" if base.previous_available else "NO", note="Local snapshot comparison when available.", tone="secondary")}
-          </div>
-        </section>
-
+        {_overview_block(base, price_rows, concentration_rows)}
         <nav class="section-nav">
           <a href="#overview">{_i18n("Fetch Summary", "擷取摘要", locale)}</a>
           <a href="#all-tables">{_i18n("All Tables", "所有表格", locale)}</a>
@@ -1459,8 +1457,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <a href="#copy">{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</a>
           <a href="#downloads">{_i18n("Downloads", "下載", locale)}</a>
         </nav>
-
-        {_overview_block(base, price_rows, concentration_rows)}
         {ccass_warning_html}
         {ccass_error_html}
         {live_error_html}
