@@ -1155,14 +1155,7 @@ def _render_page(bundle: PortalBundle) -> str:
             <label>{_i18n("Stock code / issue ID", "股票代號／Issue ID", "en")}</label>
             <input name="code" value="{_escape(bundle.requested_code)}" placeholder="00700" />
           </div>
-          <div class="field">
-            <label>{_i18n("Source mode", "來源模式", "en")}</label>
-            <select name="source_mode">
-              <option value="auto"{" selected" if bundle.source_mode == "auto" else ""}>{_i18n("Auto", "自動", "en")}</option>
-              <option value="webbsite"{" selected" if bundle.source_mode == "webbsite" else ""}>{_i18n("Webb-site", "Webb-site", "en")}</option>
-              <option value="google_drive_csv"{" selected" if bundle.source_mode == "google_drive_csv" else ""}>{_i18n("Google Drive CSV", "Google Drive CSV", "en")}</option>
-            </select>
-          </div>
+          <input type="hidden" name="source_mode" value="auto" />
           <button class="primary-btn" type="submit">{_i18n("Fetch", "擷取", "en")}</button>
           <details class="advanced">
             <summary>{_i18n("Advanced settings", "進階設定", "en")}</summary>
@@ -1188,7 +1181,6 @@ def _render_page(bundle: PortalBundle) -> str:
           <div class="kicker">{_i18n("Current selection", "目前選項", "en")}</div>
           <div style="display:flex; flex-wrap:wrap; gap:0.45rem;">
             {_pill(bundle.resolved_code, "primary")}
-            {_pill(bundle.source_mode, "accent")}
             {_pill(bundle.input_type, "neutral")}
           </div>
         </div>

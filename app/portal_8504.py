@@ -1386,14 +1386,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
               <option value="90 days"{" selected" if base.announcement_period == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
             </select>
           </div>
-          <div class="field">
-            <label>{_i18n("Source mode", "來源模式", locale)}</label>
-            <select name="source_mode">
-              <option value="auto"{" selected" if base.source_mode == "auto" else ""}>{_i18n("Auto", "自動", locale)}</option>
-              <option value="webbsite"{" selected" if base.source_mode == "webbsite" else ""}>{_i18n("Webb-site", "Webb-site", locale)}</option>
-              <option value="google_drive_csv"{" selected" if base.source_mode == "google_drive_csv" else ""}>{_i18n("Google Drive CSV", "Google Drive CSV", locale)}</option>
-            </select>
-          </div>
+          <input type="hidden" name="source_mode" value="auto" />
           <div class="field">
             <label>{_i18n("Data date", "資料日期", locale)}</label>
             <input name="data_date" type="date" value="{_escape(base.data_date.isoformat())}" />
@@ -1427,7 +1420,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <div class="kicker">{_i18n("Current selection", "目前選項", locale)}</div>
           <div style="display:flex; flex-wrap:wrap; gap:0.45rem;">
             {_pill(base.resolved_code, "primary")}
-            {_pill(base.source_mode, "accent")}
             {_pill(base.input_type, "neutral")}
             {_pill(str(base.timeout_seconds), "secondary")}
             {_pill(base.announcement_period, "secondary")}
