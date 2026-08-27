@@ -888,21 +888,20 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
         _metric_card("Announcement Source", "公告來源", "HKEX News", tone="muted"),
         _metric_card("Snapshot History", "快照歷史", _format_int(snapshot_count), tone="secondary"),
         _metric_card("Last CCASS Date", "最近 CCASS 日期", _format_date(ccass_date), tone="secondary"),
-        _metric_card("Last Price Date", "最近價格日期", _svg_escape(price_date or "—"), tone="secondary"),
-        _metric_card("Source Mode", "來源模式", source_mode, tone="secondary"),
     ]
     top_cards = [
         _metric_card("Resolved code", "已解析代號", bundle.resolved_code, note="Input accepted and normalized.", tone="primary"),
         _metric_card("Live CCASS", "即時 CCASS", "YES" if bundle.live_product and bundle.prepared and bundle.prepared.response is not None else "NO", note="HKEX SDW browser acquisition enabled.", tone="success"),
         _metric_card("Chinese HKEX titles", "HKEX 中文標題", "YES" if bundle.live_product and bundle.live_product.announcements else "NO", note="Official title search language set to Chinese.", tone="accent"),
         _metric_card("Previous history", "歷史比較", "YES" if bundle.previous_available else "NO", note="Local snapshot comparison when available.", tone="secondary"),
+        _metric_card("Last Price Date", "最近價格日期", _svg_escape(price_date or "—"), tone="secondary"),
+        _metric_card("Source Mode", "來源模式", source_mode, tone="secondary"),
     ]
     return f"""
     <section id="overview" class="panel">
       <div class="kicker">AI-ready overview</div>
       <h2>Fetch summary</h2>
-      <div class="metric-grid">{''.join(summary_cards)}</div>
-      <div style="margin-top: .85rem;" class="hero-grid">{''.join(top_cards)}</div>
+      <div class="metric-grid overview-grid">{''.join(summary_cards + top_cards)}</div>
     </section>
     """
 
@@ -1246,6 +1245,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     .panel h2 {{ margin: .2rem 0 .75rem; font-size: 1.3rem; }}
     .kicker {{ color: var(--brand-2); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; font-size: .78rem; }}
     .metric-grid {{ display:grid; grid-template-columns: repeat( auto-fit, minmax(170px, 1fr) ); gap: .72rem; }}
+    .overview-grid {{ grid-template-columns: repeat(6, minmax(0, 1fr)); }}
     .metric-card {{
       background: linear-gradient(180deg, #fff, #f7f9fc); border: 1px solid var(--line); border-radius: 18px;
       padding: .85rem .9rem;
