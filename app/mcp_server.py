@@ -457,5 +457,29 @@ async def get_ai_read_model(code: str) -> dict:
     return result.model_dump(mode="json")
 
 
+for _tool in (
+    get_ccass_stock_data,
+    get_stock_summary,
+    get_holdings,
+    get_price_history,
+    get_snapshot_history,
+    get_snapshot_history_snapshots,
+    get_changes,
+    get_big_changes,
+    get_concentration,
+    get_rainbow_data,
+    get_announcements,
+    get_full_report,
+    get_source_status,
+    get_download_artifact,
+    get_raw_previews,
+    get_officers,
+    get_stock_events,
+    get_capital_information,
+    get_ai_read_model,
+):
+    setattr(_tool, "fn", _tool)
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="0.0.0.0", port=8001, path="/mcp")

@@ -900,12 +900,93 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
     """
 
 
+def _all_tables_block(bundle: PortalBundle, price_rows: list[dict[str, object]], concentration_rows: list[dict[str, object]]) -> str:
+    live_product = bundle.live_product
+    prepared = bundle.prepared
+    if live_product is None and prepared is None:
+        return '<section id="all-tables" class="panel"><div class="empty-state">All tables unavailable.</div></section>'
+
+    summary_rows: list[list[str]] = []
+    latest_date = None
+    if prepared and prepared.response is not None:
+        latest_date = prepared.response.metadata.data_as_of
+    elif price_rows:
+        latest_date = price_rows[-1].get("date")
+
+    def add_row(label: str, count: object, date_value: object | None = latest_date) -> None:
+        summary_rows.append([
+            _svg_escape(label),
+            _svg_escape(count),
+            _svg_escape(date_value or "—"),
+        ])
+
+    if live_product is not None:
+        add_row("Company", 1 if live_product.company else 0)
+        add_row("HKEX Announcements", len(live_product.announcements))
+        add_row("Corporate Events", len(live_product.corporate_events))
+        add_row("Share Capital Changes", len(live_product.share_capital_changes))
+        add_row("Officers / Managers", len(live_product.officers))
+    if prepared and prepared.response is not None:
+        add_row("Holdings", len(prepared.response.holdings))
+        add_row("Changes", len(prepared.analysis.changes))
+        add_row("Big Changes", len(prepared.analysis.big_changes))
+        add_row("Concentration", len(concentration_rows))
+    add_row("Price History", len(price_rows), price_rows[-1].get("date") if price_rows else latest_date)
+    return f"""
+    <section id="all-tables" class="panel">
+      <div class="kicker">Parsed tables at a glance</div>
+      <h2>All Tables</h2>
+      <div class="subcard">
+        {_table(["Section", "Rows", "Latest / Data Date"], summary_rows, class_name="compact-table")}
+      </div>
+    </section>
+    """
+
+
+def _price_history_block(price_rows: list[dict[str, object]]) -> str:
+    if not price_rows:
+        return '<div class="empty-state">Price history unavailable.</div>'
+    rows = [
+        [
+            _svg_escape(row.get("date") or "—"),
+            _svg_escape(_format_decimal(row.get("open"), 3)),
+            _svg_escape(_format_decimal(row.get("high"), 3)),
+            _svg_escape(_format_decimal(row.get("low"), 3)),
+            _svg_escape(_format_decimal(row.get("close"), 3)),
+            _svg_escape(_int_text(row.get("volume"))),
+            _svg_escape(_format_decimal(row.get("turnover"), 2)),
+            _svg_escape(_format_decimal(row.get("vwap") if row.get("vwap") is not None else row.get("vwap_est"), 4)),
+        ]
+        for row in price_rows[-24:]
+    ]
+    latest = price_rows[-1]
+    source_name = str(latest.get("source") or "—")
+    return f"""
+    <div class="subcard">
+      <div class="chart-header">
+        <div>
+          <h3>Price History</h3>
+          <div class="source-note">Source: {_svg_escape(source_name)} | data_as_of: {_svg_escape(latest.get("date") or "—")}</div>
+        </div>
+      </div>
+      <div class="chart-table-wrap">
+        {_table(["Date", "Open", "High", "Low", "Close", "Volume", "Turnover", "VWAP"], rows, class_name="compact-table")}
+      </div>
+    </div>
+    """
+
+
 def _build_query_payload(bundle: PortalBundle) -> dict[str, object]:
     return {
         "code": bundle.resolved_code,
         "input_type": bundle.input_type,
         "source_mode": bundle.source_mode,
+        "timeout_seconds": bundle.timeout_seconds,
+        "announcement_period": bundle.announcement_period,
+        "data_date": bundle.data_date.isoformat(),
+        "history_range": bundle.history_range,
         "top_n": bundle.top_n,
+        "percentage_basis": bundle.percentage_basis,
         "big_change_threshold": bundle.big_change_threshold,
         "use_local_history": "true" if bundle.use_local_history else "false",
     }
@@ -923,7 +1004,12 @@ async def _build_portal_8504_bundle(
     raw_code: str,
     input_type: str,
     source_mode: str,
+    timeout_seconds: float = 12.0,
+    announcement_period: str = "All",
+    data_date: date = date.today(),
+    history_range: str = "Latest",
     top_n: int,
+    percentage_basis: str = "CCASS",
     big_change_threshold: int,
     use_local_history: bool,
 ) -> Portal8504Bundle:
@@ -931,7 +1017,12 @@ async def _build_portal_8504_bundle(
         raw_code=raw_code,
         input_type=input_type,
         source_mode=source_mode,
+        timeout_seconds=timeout_seconds,
+        announcement_period=announcement_period,
+        data_date=data_date,
+        history_range=history_range,
         top_n=top_n,
+        percentage_basis=percentage_basis,
         big_change_threshold=big_change_threshold,
         use_local_history=use_local_history,
     )
@@ -1262,7 +1353,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     </header>
     <div class="layout">
       <aside class="sidebar">
-        <h2>{_i18n("Search / Fetch", "搜尋／擷取", locale)}</h2>
+        <h2>{_i18n("Input", "輸入", locale)}</h2>
         <form method="get" action="/">
           <div class="field">
             <label>{_i18n("Input type", "輸入類型", locale)}</label>
@@ -1276,6 +1367,19 @@ def _render_page(bundle: Portal8504Bundle) -> str:
             <input name="code" value="{_escape(base.requested_code or base.resolved_code or DEFAULT_PORTAL_CODE)}" placeholder="00700" />
           </div>
           <div class="field">
+            <label>{_i18n("Timeout", "逾時", locale)}</label>
+            <input name="timeout_seconds" type="number" min="1" step="1" value="{_escape(base.timeout_seconds)}" />
+          </div>
+          <div class="field">
+            <label>{_i18n("Announcement period", "公告期間", locale)}</label>
+            <select name="announcement_period">
+              <option value="All"{" selected" if base.announcement_period == "All" else ""}>{_i18n("All", "全部", locale)}</option>
+              <option value="7 days"{" selected" if base.announcement_period == "7 days" else ""}>{_i18n("7 days", "7 日", locale)}</option>
+              <option value="30 days"{" selected" if base.announcement_period == "30 days" else ""}>{_i18n("30 days", "30 日", locale)}</option>
+              <option value="90 days"{" selected" if base.announcement_period == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
+            </select>
+          </div>
+          <div class="field">
             <label>{_i18n("Source mode", "來源模式", locale)}</label>
             <select name="source_mode">
               <option value="auto"{" selected" if base.source_mode == "auto" else ""}>{_i18n("Auto", "自動", locale)}</option>
@@ -1283,26 +1387,34 @@ def _render_page(bundle: Portal8504Bundle) -> str:
               <option value="google_drive_csv"{" selected" if base.source_mode == "google_drive_csv" else ""}>{_i18n("Google Drive CSV", "Google Drive CSV", locale)}</option>
             </select>
           </div>
-          <button class="primary-btn" type="submit">{_i18n("Fetch", "擷取", locale)}</button>
-          <details class="advanced">
-            <summary>{_i18n("Advanced settings", "進階設定", locale)}</summary>
-            <div style="margin-top:0.75rem;">
-              <div class="field">
-                <label>{_i18n("Top N holdings", "顯示前 N 筆持股", locale)}</label>
-                <input name="top_n" type="number" min="5" max="100" step="5" value="{base.top_n}" />
-              </div>
-              <div class="field">
-                <label>{_i18n("Big change threshold", "大變動門檻", locale)}</label>
-                <input name="big_change_threshold" type="number" min="0" step="100000" value="{base.big_change_threshold}" />
-              </div>
-              <div class="field">
-                <label>
-                  <input type="checkbox" name="use_local_history" value="true"{" checked" if base.use_local_history else ""} />
-                  {_i18n("Use local history", "使用本機歷史", locale)}
-                </label>
-              </div>
-            </div>
-          </details>
+          <div class="field">
+            <label>{_i18n("Data date", "資料日期", locale)}</label>
+            <input name="data_date" type="date" value="{_escape(base.data_date.isoformat())}" />
+          </div>
+          <div class="field">
+            <label>{_i18n("History range", "歷史範圍", locale)}</label>
+            <select name="history_range">
+              <option value="Latest"{" selected" if base.history_range == "Latest" else ""}>{_i18n("Latest", "最新", locale)}</option>
+              <option value="7 days"{" selected" if base.history_range == "7 days" else ""}>{_i18n("7 days", "7 日", locale)}</option>
+              <option value="30 days"{" selected" if base.history_range == "30 days" else ""}>{_i18n("30 days", "30 日", locale)}</option>
+              <option value="90 days"{" selected" if base.history_range == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
+              <option value="Custom"{" selected" if base.history_range == "Custom" else ""}>{_i18n("Custom", "自訂", locale)}</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>{_i18n("Top N", "前 N 名", locale)}</label>
+            <input name="top_n" type="number" min="5" max="100" step="5" value="{base.top_n}" />
+          </div>
+          <div class="field">
+            <label>{_i18n("Percentage basis", "百分比基準", locale)}</label>
+            <select name="percentage_basis">
+              <option value="CCASS"{" selected" if base.percentage_basis == "CCASS" else ""}>{_i18n("CCASS", "CCASS", locale)}</option>
+              <option value="Issued Shares"{" selected" if base.percentage_basis == "Issued Shares" else ""}>{_i18n("Issued Shares", "已發行股份", locale)}</option>
+            </select>
+          </div>
+          <input type="hidden" name="big_change_threshold" value="{base.big_change_threshold}" />
+          <input type="hidden" name="use_local_history" value="{'true' if base.use_local_history else 'false'}" />
+          <button class="primary-btn" type="submit">{_i18n("Fetch Webb-site Data", "擷取 Webb-site 資料", locale)}</button>
         </form>
         <div style="margin-top:1rem;">
           <div class="kicker">{_i18n("Current selection", "目前選項", locale)}</div>
@@ -1310,6 +1422,12 @@ def _render_page(bundle: Portal8504Bundle) -> str:
             {_pill(base.resolved_code, "primary")}
             {_pill(base.source_mode, "accent")}
             {_pill(base.input_type, "neutral")}
+            {_pill(str(base.timeout_seconds), "secondary")}
+            {_pill(base.announcement_period, "secondary")}
+            {_pill(base.data_date.isoformat(), "secondary")}
+            {_pill(base.history_range, "secondary")}
+            {_pill(str(base.top_n), "secondary")}
+            {_pill(base.percentage_basis, "secondary")}
           </div>
         </div>
       </aside>
@@ -1324,31 +1442,46 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           </div>
         </section>
 
-      <nav class="section-nav">
-        <a href="#overview">{_i18n("Fetch Summary", "擷取摘要", locale)}</a>
-        <a href="#live-market">Live Market &amp; News</a>
-        <a href="#ccass-holdings">{_i18n("CCASS Holdings", "CCASS 持股", locale)}</a>
-        <a href="#changes">{_i18n("Changes", "變動", locale)}</a>
-        <a href="#big-changes">{_i18n("Big Changes", "大變動", locale)}</a>
-        <a href="#concentration">{_i18n("Concentration", "集中度", locale)}</a>
-        <a href="#raw-previews">{_i18n("Raw Previews", "原始預覽", locale)}</a>
-        <a href="#downloads">{_i18n("Downloads", "下載", locale)}</a>
-        <a href="#copy">{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</a>
-      </nav>
+        <nav class="section-nav">
+          <a href="#overview">{_i18n("Fetch Summary", "擷取摘要", locale)}</a>
+          <a href="#all-tables">{_i18n("All Tables", "所有表格", locale)}</a>
+          <a href="#announcements">{_i18n("HKEX Announcements", "HKEX 公告", locale)}</a>
+          <a href="#events">{_i18n("Corporate Events", "公司事件", locale)}</a>
+          <a href="#officers">{_i18n("Officers / Managers", "董事高管", locale)}</a>
+          <a href="#price-turnover">{_i18n("Price & Turnover", "價格與成交額", locale)}</a>
+          <a href="#company">{_i18n("Company", "公司", locale)}</a>
+          <a href="#ccass-holdings">{_i18n("CCASS Holdings", "CCASS 持股", locale)}</a>
+          <a href="#changes">{_i18n("Changes", "變動", locale)}</a>
+          <a href="#big-changes">{_i18n("Big Changes", "大變動", locale)}</a>
+          <a href="#concentration">{_i18n("Concentration", "集中度", locale)}</a>
+          <a href="#price-history">{_i18n("Price History", "價格歷史", locale)}</a>
+          <a href="#raw-previews">{_i18n("Raw Previews", "原始預覽", locale)}</a>
+          <a href="#copy">{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</a>
+          <a href="#downloads">{_i18n("Downloads", "下載", locale)}</a>
+        </nav>
 
-      {_overview_block(base, price_rows, concentration_rows)}
+        {_overview_block(base, price_rows, concentration_rows)}
+        {ccass_warning_html}
+        {ccass_error_html}
+        {live_error_html}
 
-      <section id="live-market" class="panel">
-        <div class="kicker">{_i18n("Live market data", "即時市場資料", locale)}</div>
-        <h2>{_i18n("Live Market & News", "即時市場與公告", locale)}</h2>
-        {_company_block(base)}
-        {_price_panel(base, price_rows)}
-        <div class="two-col">
+        {_all_tables_block(base, price_rows, concentration_rows)}
+
+        <section id="announcements" class="panel">
+          <div class="kicker">{_i18n("Company announcements", "公司公告", locale)}</div>
+          <h2>{_i18n("HKEX Announcements", "HKEX 公告", locale)}</h2>
           {_announcement_block("HKEX Announcements", "HKEX 公告", base.live_product.announcements if base.live_product else [], locale, empty_text="No announcement rows available.")}
+        </section>
+
+        <section id="events" class="panel">
+          <div class="kicker">{_i18n("Corporate actions", "公司動作", locale)}</div>
+          <h2>{_i18n("Corporate Events", "公司事件", locale)}</h2>
           {_announcement_block("Corporate Events", "公司事件", base.live_product.corporate_events if base.live_product else [], locale, empty_text="No corporate event rows available.")}
-        </div>
-        <div class="two-col">
-          {_announcement_block("Share Capital Changes", "股本變動", base.live_product.share_capital_changes if base.live_product else [], locale, empty_text="No share capital change rows available.")}
+        </section>
+
+        <section id="officers" class="panel">
+          <div class="kicker">{_i18n("Management", "管理層", locale)}</div>
+          <h2>{_i18n("Officers / Managers", "董事高管", locale)}</h2>
           <div class="subcard">
             <h3>Officers / Managers</h3>
             {_table(["Name", "Title", "Age", "Fiscal Year", "Total Pay", "Exercised Value", "Unexercised Value", "Source"], [
@@ -1364,66 +1497,82 @@ def _render_page(bundle: Portal8504Bundle) -> str:
                 ] for row in (base.live_product.officers[:12] if base.live_product else [])
             ], class_name="compact-table")}
           </div>
-        </div>
-        {live_error_html}
-      </section>
+        </section>
 
-      <section id="ccass-holdings" class="panel">
-        <div class="kicker">{_i18n("CCASS / holdings", "CCASS／持股", locale)}</div>
-        <h2>{_i18n("CCASS Holdings", "CCASS 持股", locale)}</h2>
-        {_ccass_summary(base, locale)}
-        <div style="margin-top:.85rem;">{_holdings_table(base)}</div>
-      </section>
+        <section id="price-turnover" class="panel">
+          <div class="kicker">{_i18n("Market pricing", "市場價格", locale)}</div>
+          <h2>{_i18n("Price & Turnover", "價格與成交額", locale)}</h2>
+          {_price_panel(base, price_rows)}
+        </section>
 
-      <section id="changes" class="panel">
-        <div class="kicker">{_i18n("Historical comparison", "歷史比較", locale)}</div>
-        <h2>{_i18n("Changes", "變動", locale)}</h2>
-        {_changes_block(base, locale)}
-      </section>
+        <section id="company" class="panel">
+          <div class="kicker">{_i18n("Identity", "身份", locale)}</div>
+          <h2>{_i18n("Company", "公司", locale)}</h2>
+          {_company_block(base)}
+        </section>
 
-      <section id="big-changes" class="panel">
-        <div class="kicker">{_i18n("Threshold filtered", "門檻過濾", locale)}</div>
-        <h2>{_i18n("Big Changes", "大變動", locale)}</h2>
-        {_big_changes_block(base)}
-      </section>
+        <section id="ccass-holdings" class="panel">
+          <div class="kicker">{_i18n("CCASS / holdings", "CCASS／持股", locale)}</div>
+          <h2>{_i18n("CCASS Holdings", "CCASS 持股", locale)}</h2>
+          {_ccass_summary(base, locale)}
+          <div style="margin-top:.85rem;">{_holdings_table(base)}</div>
+        </section>
 
-      <section id="concentration" class="panel">
-        <div class="kicker">{_i18n("Distribution view", "分布視圖", locale)}</div>
-        <h2>{_i18n("Concentration", "集中度", locale)}</h2>
-        {_concentration_panel(base, concentration_rows)}
-      </section>
+        <section id="changes" class="panel">
+          <div class="kicker">{_i18n("Historical comparison", "歷史比較", locale)}</div>
+          <h2>{_i18n("Changes", "變動", locale)}</h2>
+          {_changes_block(base, locale)}
+        </section>
 
-      <section id="raw-previews" class="panel">
-        <div class="kicker">{_i18n("Structured source audit", "結構化來源檢視", locale)}</div>
-        <h2>{_i18n("Raw Previews", "原始預覽", locale)}</h2>
-        {_raw_preview_block(base, locale)}
-      </section>
+        <section id="big-changes" class="panel">
+          <div class="kicker">{_i18n("Threshold filtered", "門檻過濾", locale)}</div>
+          <h2>{_i18n("Big Changes", "大變動", locale)}</h2>
+          {_big_changes_block(base)}
+        </section>
 
-      <section id="downloads" class="panel">
-        <div class="kicker">{_i18n("Export", "匯出", locale)}</div>
-        <h2>{_i18n("Download This Stock", "下載此股票", locale)}</h2>
-        <div class="section-footer">{_download_links(base)}</div>
-      </section>
+        <section id="concentration" class="panel">
+          <div class="kicker">{_i18n("Distribution view", "分布視圖", locale)}</div>
+          <h2>{_i18n("Concentration", "集中度", locale)}</h2>
+          {_concentration_panel(base, concentration_rows)}
+        </section>
 
-      <section id="copy" class="panel">
-        <div class="kicker">{_i18n("Clipboard", "剪貼簿", locale)}</div>
-        <h2>{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</h2>
-        <div class="copy-row">
-          <div class="copy-card">
-            <div class="copy-actions">
-              <button class="primary-btn" type="button" data-copy-section="live" data-copy-en="copy-live-en" data-copy-zh="copy-live-zh">{_i18n("Copy live markdown", "複製即時 Markdown", locale)}</button>
+        <section id="price-history" class="panel">
+          <div class="kicker">{_i18n("Historical market data", "歷史市場資料", locale)}</div>
+          <h2>{_i18n("Price History", "價格歷史", locale)}</h2>
+          {_price_history_block(price_rows)}
+        </section>
+
+        <section id="raw-previews" class="panel">
+          <div class="kicker">{_i18n("Structured source audit", "結構化來源檢視", locale)}</div>
+          <h2>{_i18n("Raw Previews", "原始預覽", locale)}</h2>
+          {_raw_preview_block(base, locale)}
+        </section>
+
+        <section id="copy" class="panel">
+          <div class="kicker">{_i18n("Clipboard", "剪貼簿", locale)}</div>
+          <h2>{_i18n("Copy for ChatGPT / Report", "複製給 ChatGPT／報告", locale)}</h2>
+          <div class="copy-row">
+            <div class="copy-card">
+              <div class="copy-actions">
+                <button class="primary-btn" type="button" data-copy-section="live" data-copy-en="copy-live-en" data-copy-zh="copy-live-zh">{_i18n("Copy live markdown", "複製即時 Markdown", locale)}</button>
+              </div>
+              <textarea id="copy-live-preview" readonly>{_escape(base.live_markdown_en)}</textarea>
             </div>
-            <textarea id="copy-live-preview" readonly>{_escape(base.live_markdown_en)}</textarea>
-          </div>
-          <div class="copy-card">
-            <div class="copy-actions">
-              <button class="primary-btn" type="button" data-copy-section="ccass" data-copy-en="copy-ccass-en" data-copy-zh="copy-ccass-zh">{_i18n("Copy CCASS markdown", "複製 CCASS Markdown", locale)}</button>
+            <div class="copy-card">
+              <div class="copy-actions">
+                <button class="primary-btn" type="button" data-copy-section="ccass" data-copy-en="copy-ccass-en" data-copy-zh="copy-ccass-zh">{_i18n("Copy CCASS markdown", "複製 CCASS Markdown", locale)}</button>
+              </div>
+              <textarea id="copy-ccass-preview" readonly>{_escape(base.ccass_markdown_en)}</textarea>
             </div>
-            <textarea id="copy-ccass-preview" readonly>{_escape(base.ccass_markdown_en)}</textarea>
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <section id="downloads" class="panel">
+          <div class="kicker">{_i18n("Export", "匯出", locale)}</div>
+          <h2>{_i18n("Download This Stock", "下載此股票", locale)}</h2>
+          <div class="section-footer">{_download_links(base)}</div>
+        </section>
+      </main>
     <footer class="layout-footer">
       {APP_TITLE_EN} · {status_text} · current query: {_escape(current_query)}
     </footer>
@@ -1649,7 +1798,12 @@ async def portal(
     code: str = Query(default=""),
     input_type: str = Query(default="Stock Code"),
     source_mode: str = Query(default="auto"),
+    timeout_seconds: float = Query(default=12.0, ge=1.0),
+    announcement_period: str = Query(default="All"),
+    data_date: date = Query(default_factory=date.today),
+    history_range: str = Query(default="Latest"),
     top_n: int = Query(default=20, ge=5, le=100),
+    percentage_basis: str = Query(default="CCASS"),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> HTMLResponse:
@@ -1659,7 +1813,12 @@ async def portal(
                 raw_code=code,
                 input_type=input_type,
                 source_mode=source_mode,
+                timeout_seconds=timeout_seconds,
+                announcement_period=announcement_period,
+                data_date=data_date,
+                history_range=history_range,
                 top_n=top_n,
+                percentage_basis=percentage_basis,
                 big_change_threshold=big_change_threshold,
                 use_local_history=use_local_history,
             )
@@ -1669,7 +1828,12 @@ async def portal(
                 resolved_code=code,
                 input_type=input_type,
                 source_mode=source_mode,
+                timeout_seconds=timeout_seconds,
+                announcement_period=announcement_period,
+                data_date=data_date,
+                history_range=history_range,
                 top_n=top_n,
+                percentage_basis=percentage_basis,
                 big_change_threshold=big_change_threshold,
                 use_local_history=use_local_history,
                 live_product=None,
@@ -1690,7 +1854,12 @@ async def portal(
             resolved_code="",
             input_type=input_type,
             source_mode=source_mode,
+            timeout_seconds=timeout_seconds,
+            announcement_period=announcement_period,
+            data_date=data_date,
+            history_range=history_range,
             top_n=top_n,
+            percentage_basis=percentage_basis,
             big_change_threshold=big_change_threshold,
             use_local_history=use_local_history,
             live_product=None,
@@ -1724,7 +1893,12 @@ async def download(
     code: str = Query(default=DEFAULT_CODE),
     input_type: str = Query(default="Stock Code"),
     source_mode: str = Query(default="auto"),
+    timeout_seconds: float = Query(default=12.0, ge=1.0),
+    announcement_period: str = Query(default="All"),
+    data_date: date = Query(default_factory=date.today),
+    history_range: str = Query(default="Latest"),
     top_n: int = Query(default=20, ge=5, le=100),
+    percentage_basis: str = Query(default="CCASS"),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> StreamingResponse:
@@ -1733,7 +1907,12 @@ async def download(
             raw_code=code,
             input_type=input_type,
             source_mode=source_mode,
+            timeout_seconds=timeout_seconds,
+            announcement_period=announcement_period,
+            data_date=data_date,
+            history_range=history_range,
             top_n=top_n,
+            percentage_basis=percentage_basis,
             big_change_threshold=big_change_threshold,
             use_local_history=use_local_history,
         )

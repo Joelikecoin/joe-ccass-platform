@@ -4,7 +4,7 @@ import asyncio
 import html
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import lru_cache
 from math import ceil
@@ -171,6 +171,11 @@ class PortalBundle:
     ccass_artifacts: Any | None
     previous_available: bool
     error_message: str | None = None
+    timeout_seconds: float = 12.0
+    announcement_period: str = "All"
+    data_date: date = field(default_factory=date.today)
+    history_range: str = "Latest"
+    percentage_basis: str = "CCASS"
 
 
 def _ensure_portal_defaults() -> None:
@@ -207,9 +212,15 @@ async def _build_bundle(
     top_n: int,
     big_change_threshold: int,
     use_local_history: bool,
+    timeout_seconds: float = 12.0,
+    announcement_period: str = "All",
+    data_date: date | None = None,
+    history_range: str = "Latest",
+    percentage_basis: str = "CCASS",
 ) -> PortalBundle:
     _ensure_portal_defaults()
     os.environ["DATA_SOURCE"] = source_mode
+    os.environ["REQUEST_TIMEOUT_SECONDS"] = str(timeout_seconds)
     get_settings.cache_clear()
     get_ccass_service.cache_clear()
 
@@ -268,6 +279,11 @@ async def _build_bundle(
         live_artifacts=live_artifacts,
         ccass_artifacts=ccass_artifacts,
         previous_available=previous_snapshot is not None,
+        timeout_seconds=timeout_seconds,
+        announcement_period=announcement_period,
+        data_date=data_date or date.today(),
+        history_range=history_range,
+        percentage_basis=percentage_basis,
     )
 
 
@@ -580,7 +596,12 @@ def _download_links(bundle: PortalBundle) -> str:
         "code": bundle.resolved_code,
         "input_type": bundle.input_type,
         "source_mode": bundle.source_mode,
+        "timeout_seconds": bundle.timeout_seconds,
+        "announcement_period": bundle.announcement_period,
+        "data_date": bundle.data_date.isoformat(),
+        "history_range": bundle.history_range,
         "top_n": bundle.top_n,
+        "percentage_basis": bundle.percentage_basis,
         "big_change_threshold": bundle.big_change_threshold,
         "use_local_history": "true" if bundle.use_local_history else "false",
     }
@@ -1452,7 +1473,12 @@ async def portal(
     code: str = Query(default=""),
     input_type: str = Query(default="Stock Code"),
     source_mode: str = Query(default="auto"),
+    timeout_seconds: float = Query(default=12.0, ge=1.0),
+    announcement_period: str = Query(default="All"),
+    data_date: date = Query(default=date.today()),
+    history_range: str = Query(default="Latest"),
     top_n: int = Query(default=20, ge=5, le=100),
+    percentage_basis: str = Query(default="CCASS"),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> HTMLResponse:
@@ -1462,7 +1488,12 @@ async def portal(
                 raw_code=code,
                 input_type=input_type,
                 source_mode=source_mode,
+                timeout_seconds=timeout_seconds,
+                announcement_period=announcement_period,
+                data_date=data_date,
+                history_range=history_range,
                 top_n=top_n,
+                percentage_basis=percentage_basis,
                 big_change_threshold=big_change_threshold,
                 use_local_history=use_local_history,
             )
@@ -1472,7 +1503,12 @@ async def portal(
                 resolved_code=code,
                 input_type=input_type,
                 source_mode=source_mode,
+                timeout_seconds=timeout_seconds,
+                announcement_period=announcement_period,
+                data_date=data_date,
+                history_range=history_range,
                 top_n=top_n,
+                percentage_basis=percentage_basis,
                 big_change_threshold=big_change_threshold,
                 use_local_history=use_local_history,
                 live_product=None,
@@ -1492,7 +1528,12 @@ async def portal(
             resolved_code="",
             input_type=input_type,
             source_mode=source_mode,
+            timeout_seconds=timeout_seconds,
+            announcement_period=announcement_period,
+            data_date=data_date,
+            history_range=history_range,
             top_n=top_n,
+            percentage_basis=percentage_basis,
             big_change_threshold=big_change_threshold,
             use_local_history=use_local_history,
             live_product=None,
@@ -1525,7 +1566,12 @@ async def download(
     code: str = Query(default=DEFAULT_CODE),
     input_type: str = Query(default="Stock Code"),
     source_mode: str = Query(default="auto"),
+    timeout_seconds: float = Query(default=12.0, ge=1.0),
+    announcement_period: str = Query(default="All"),
+    data_date: date = Query(default=date.today()),
+    history_range: str = Query(default="Latest"),
     top_n: int = Query(default=20, ge=5, le=100),
+    percentage_basis: str = Query(default="CCASS"),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> StreamingResponse:
@@ -1533,7 +1579,12 @@ async def download(
         raw_code=code,
         input_type=input_type,
         source_mode=source_mode,
+        timeout_seconds=timeout_seconds,
+        announcement_period=announcement_period,
+        data_date=data_date,
+        history_range=history_range,
         top_n=top_n,
+        percentage_basis=percentage_basis,
         big_change_threshold=big_change_threshold,
         use_local_history=use_local_history,
     )

@@ -1110,10 +1110,22 @@ def test_portal_8504_bundle_recovers_auxiliary_surfaces_without_ccass(monkeypatc
     assert bundle.price_rows
 
     html = _render_page(bundle)
+    assert "Input" in html
+    assert "Timeout" in html
+    assert "Announcement period" in html
+    assert "Data date" in html
+    assert "History range" in html
+    assert "Percentage basis" in html
+    assert "All Tables" in html
     assert "HKEX Announcements" in html
     assert "Corporate Events" in html
     assert "Share Capital Changes" in html
     assert "Officers / Managers" in html
+    assert "price-turnover" in html
+    assert ("Price & Turnover" in html) or ("Price &amp; Turnover" in html)
+    assert "Company" in html
+    assert "Price History" in html
+    assert "Live Market & News" not in html
 
 
 def test_portal_8504_big_changes_block_uses_response_big_changes():
