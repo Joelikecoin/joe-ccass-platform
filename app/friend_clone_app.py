@@ -442,6 +442,10 @@ def _changes_block(bundle: PortalBundle, locale: str) -> str:
     prepared = bundle.prepared
     if prepared is None or prepared.analysis is None or prepared.response is None:
         return '<div class="empty-state">Changes unavailable.</div>'
+    response_big_changes_obj = getattr(prepared.response, "big_changes", None)
+    response_big_changes = getattr(response_big_changes_obj, "big_changes", []) or []
+    analysis_big_changes = getattr(prepared.analysis, "big_changes", []) if prepared.analysis is not None else []
+    big_changes_count = len(response_big_changes or analysis_big_changes)
     rows: list[list[str]] = []
     for change in prepared.analysis.changes[: bundle.top_n]:
         rows.append(
@@ -459,7 +463,7 @@ def _changes_block(bundle: PortalBundle, locale: str) -> str:
         )
     metrics = [
         _metric_card("Changed rows", "變動列數", _format_int(len(prepared.analysis.changes)), tone="primary"),
-        _metric_card("Big changes", "大變動", _format_int(len(prepared.analysis.big_changes)), tone="accent"),
+        _metric_card("Big changes", "大變動", _format_int(big_changes_count), tone="accent"),
         _metric_card("Previous snapshot", "上一份快照", "YES" if prepared.analysis.previous_available else "NO", tone="muted"),
     ]
     return (
@@ -470,23 +474,31 @@ def _changes_block(bundle: PortalBundle, locale: str) -> str:
 
 def _big_changes_block(bundle: PortalBundle) -> str:
     prepared = bundle.prepared
-    if prepared is None or prepared.analysis is None:
+    if prepared is None or prepared.response is None:
         return '<div class="empty-state">Big changes unavailable.</div>'
+    response_big_changes_obj = getattr(prepared.response, "big_changes", None)
+    response_big_changes = getattr(response_big_changes_obj, "big_changes", []) or []
+    analysis_big_changes = getattr(prepared.analysis, "big_changes", []) if prepared.analysis is not None else []
+    rows_source = response_big_changes or analysis_big_changes
     rows: list[list[str]] = []
-    for change in prepared.analysis.big_changes[: bundle.top_n]:
+    for change in rows_source[: bundle.top_n]:
         rows.append(
             [
                 _escape(change.participant_id),
                 _escape(change.participant),
-                _escape(f"{change.previous_shares:,}"),
-                _escape(f"{change.current_shares:,}"),
-                _escape(f"{change.share_change:+,}"),
+                _escape(f"{change.shares_before:,}"),
+                _escape(f"{change.shares_after:,}"),
+                _escape(f"{change.shares_change:+,}"),
                 _escape(change.status),
             ]
         )
     if not rows:
         return '<div class="empty-state">No big changes at the current threshold.</div>'
-    return _table(["Participant ID", "Participant", "Previous Shares", "Current Shares", "Change", "Status"], rows, class_name="big-changes-table")
+    return _table(
+        ["Participant ID", "Participant", "Previous Shares", "Current Shares", "Change", "Status"],
+        rows,
+        class_name="big-changes-table",
+    )
 
 
 def _concentration_block(bundle: PortalBundle) -> str:

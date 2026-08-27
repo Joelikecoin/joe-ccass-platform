@@ -8,8 +8,11 @@ from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 
+from ccass_core.compute import AnalysisResult
 from app.config import Settings
 from app.friend_clone_app import PortalBundle
+from app.friend_clone_app import _big_changes_block
+from app.friend_clone_app import _changes_block
 from app.models import (
     AnnouncementRow,
     AnnouncementsMetadata,
@@ -1033,3 +1036,106 @@ def test_portal_8504_bundle_recovers_auxiliary_surfaces_without_ccass(monkeypatc
     assert "Corporate Events" in html
     assert "Share Capital Changes" in html
     assert "Officers / Managers" in html
+
+
+def test_portal_8504_big_changes_block_uses_response_big_changes():
+    fake_response = SimpleNamespace(
+        big_changes=SimpleNamespace(
+            big_changes=[
+                SimpleNamespace(
+                    participant_id="B01922",
+                    participant="TEST FIXTURE BROKER ONE",
+                    shares_before=0,
+                    shares_after=554387582,
+                    shares_change=554387582,
+                    status="new",
+                )
+            ]
+        )
+    )
+    bundle = SimpleNamespace(
+        top_n=20,
+        prepared=SimpleNamespace(
+            response=fake_response,
+            analysis=AnalysisResult(big_changes=[]),
+        ),
+    )
+
+    html = _big_changes_block(bundle)
+
+    assert "No big changes at the current threshold." not in html
+    assert "B01922" in html
+    assert "TEST FIXTURE BROKER ONE" in html
+    assert "554,387,582" in html
+
+
+def test_portal_8504_changes_block_big_changes_metric_uses_response_big_changes():
+    fake_response = SimpleNamespace(
+        big_changes=SimpleNamespace(
+            big_changes=[
+                SimpleNamespace(
+                    participant_id="B01922",
+                    participant="TEST FIXTURE BROKER ONE",
+                    shares_before=0,
+                    shares_after=554387582,
+                    shares_change=554387582,
+                    status="new",
+                ),
+                SimpleNamespace(
+                    participant_id="B01565",
+                    participant="TEST FIXTURE BROKER TWO",
+                    shares_before=0,
+                    shares_after=114366170,
+                    shares_change=114366170,
+                    status="new",
+                ),
+                SimpleNamespace(
+                    participant_id="B01955",
+                    participant="TEST FIXTURE BROKER THREE",
+                    shares_before=0,
+                    shares_after=79561930,
+                    shares_change=79561930,
+                    status="new",
+                ),
+            ]
+        )
+    )
+    fake_analysis = AnalysisResult(
+        changes=[
+            SimpleNamespace(
+                participant_id="B01922",
+                participant="TEST FIXTURE BROKER ONE",
+                previous_shares=0,
+                current_shares=554387582,
+                share_change=554387582,
+                previous_pct_of_issued=0.0,
+                current_pct_of_issued=38.2923,
+                pct_point_change=38.2923,
+                status="new",
+            ),
+            SimpleNamespace(
+                participant_id="B01565",
+                participant="TEST FIXTURE BROKER TWO",
+                previous_shares=0,
+                current_shares=114366170,
+                share_change=114366170,
+                previous_pct_of_issued=0.0,
+                current_pct_of_issued=7.8994,
+                pct_point_change=7.8994,
+                status="new",
+            ),
+        ],
+        big_changes=[],
+        previous_available=True,
+    )
+    bundle = SimpleNamespace(
+        top_n=20,
+        prepared=SimpleNamespace(
+            response=fake_response,
+            analysis=fake_analysis,
+        ),
+    )
+
+    html = _changes_block(bundle, "en")
+
+    assert 'data-i18n-en="Big changes" data-i18n-zh="大變動">Big changes</span></div><div class="metric-value">3</div>' in html
