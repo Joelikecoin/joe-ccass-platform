@@ -243,6 +243,7 @@ async def _build_bundle(
         big_change_threshold=big_change_threshold,
         service=get_ccass_service(),
         locale="en",
+        requested_date=data_date,
         previous_loader=previous_loader,
     )
     prepared = await ccass_task

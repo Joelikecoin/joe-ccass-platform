@@ -4,6 +4,8 @@ from pathlib import Path
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
 from app.services.ccass import CcassService
+from app.services.request_context import REQUESTED_CCASS_SNAPSHOT_DATE
+from app.sources.hkex_sdw import FetchedPage, HKEXSdwClient
 from app.sources.hkex_sdw_parser import parse_hkex_sdw_holdings
 from app.sources.registry import HKEX_SDW_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
@@ -58,6 +60,102 @@ def test_hkex_sdw_parser_accepts_existing_holdings_shape_and_txt_stock_code_fall
     assert [row.rank for row in parsed.holdings] == [1, 2]
     assert parsed.holdings_summary.participant_count == 2
     assert parsed.holdings_summary.top5_pct_of_issued == 80.0
+
+
+async def test_hkex_sdw_fetch_uses_landing_page_latest_available_date(monkeypatch):
+    client = HKEXSdwClient(Settings())
+    landing_html = """
+    <html>
+      <body>
+        <input name="txtShareholdingDate" id="txtShareholdingDate" data-reset="2026/08/27" />
+        <script>var options = { MAX: new Date('2026/08/27') };</script>
+      </body>
+    </html>
+    """
+    post_dates: list[str] = []
+
+    async def fake_get_session_client():
+        return object()
+
+    async def fake_request_html(
+        client,
+        method: str,
+        url: str,
+        *,
+        data=None,
+        headers=None,
+        phase: str,
+    ):
+        if phase == "landing":
+            return FetchedPage(
+                html=landing_html,
+                source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+                cached=False,
+            )
+        post_dates.append(str((data or {}).get("txtShareholdingDate")))
+        return FetchedPage(
+            html="<html><body><table><tr><th>ok</th></tr><tr><td>1</td></tr></table></body></html>",
+            source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+            cached=False,
+        )
+
+    monkeypatch.setattr(client, "_get_session_client", fake_get_session_client)
+    monkeypatch.setattr(client, "_request_html", fake_request_html)
+
+    page = await client._fetch_holdings_page("01682")
+
+    assert post_dates == ["2026/08/27"]
+    assert page.html.startswith("<html>")
+
+
+async def test_hkex_sdw_fetch_uses_requested_historical_date_when_provided(monkeypatch):
+    client = HKEXSdwClient(Settings())
+    landing_html = """
+    <html>
+      <body>
+        <input name="txtShareholdingDate" id="txtShareholdingDate" data-reset="2026/08/27" />
+        <script>var options = { MAX: new Date('2026/08/27') };</script>
+      </body>
+    </html>
+    """
+    post_dates: list[str] = []
+
+    async def fake_get_session_client():
+        return object()
+
+    async def fake_request_html(
+        client,
+        method: str,
+        url: str,
+        *,
+        data=None,
+        headers=None,
+        phase: str,
+    ):
+        if phase == "landing":
+            return FetchedPage(
+                html=landing_html,
+                source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+                cached=False,
+            )
+        post_dates.append(str((data or {}).get("txtShareholdingDate")))
+        return FetchedPage(
+            html="<html><body><table><tr><th>ok</th></tr><tr><td>1</td></tr></table></body></html>",
+            source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+            cached=False,
+        )
+
+    monkeypatch.setattr(client, "_get_session_client", fake_get_session_client)
+    monkeypatch.setattr(client, "_request_html", fake_request_html)
+
+    token = REQUESTED_CCASS_SNAPSHOT_DATE.set(date(2026, 8, 26))
+    try:
+        page = await client._fetch_holdings_page("01682")
+    finally:
+        REQUESTED_CCASS_SNAPSHOT_DATE.reset(token)
+
+    assert post_dates == ["2026/08/26"]
+    assert page.html.startswith("<html>")
 
 
 async def test_service_auto_routes_webbsite_failure_to_hkex_sdw_and_persists_snapshot(

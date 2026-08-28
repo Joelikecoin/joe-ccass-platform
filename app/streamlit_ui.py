@@ -121,7 +121,11 @@ HOLDINGS_PREVIEW_COLUMNS = (
 
 class StockDataService(Protocol):
     async def get_stock_data(
-        self, code: str | int, holdings_limit: int = 15
+        self,
+        code: str | int,
+        holdings_limit: int = 15,
+        *,
+        requested_date: date | None = None,
     ) -> CcassResponse: ...
 
 
@@ -176,6 +180,7 @@ async def prepare_report(
     big_change_threshold: int,
     service: StockDataService,
     locale: str = DEFAULT_LOCALE,
+    requested_date: date | None = None,
     history_snapshots: Sequence[CcassResponse] | None = None,
     previous_loader: Callable[[CcassResponse], CcassResponse | None] | None = None,
     announcements_enabled: bool = False,
@@ -199,11 +204,29 @@ async def prepare_report(
         _progress(progress, 30, ui_text(locale, "progress_fetching_source"))
         gateway_getter = getattr(service, "get_stock_gateway_response", None)
         if callable(gateway_getter):
-            gateway_response = await gateway_getter(code, holdings_limit=holdings_limit)
+            try:
+                gateway_response = await gateway_getter(
+                    code,
+                    holdings_limit=holdings_limit,
+                    requested_date=requested_date,
+                )
+            except TypeError as exc:
+                if "requested_date" not in str(exc):
+                    raise
+                gateway_response = await gateway_getter(code, holdings_limit=holdings_limit)
             response = gateway_response.normalized_response
             source_trace = build_source_trace_view(gateway_response)
         else:
-            response = await service.get_stock_data(code, holdings_limit=holdings_limit)
+            try:
+                response = await service.get_stock_data(
+                    code,
+                    holdings_limit=holdings_limit,
+                    requested_date=requested_date,
+                )
+            except TypeError as exc:
+                if "requested_date" not in str(exc):
+                    raise
+                response = await service.get_stock_data(code, holdings_limit=holdings_limit)
     except PlatformError as exc:
         error = f"{exc.code}: {exc.message}"
         _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))

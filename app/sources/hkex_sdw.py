@@ -6,6 +6,7 @@ import asyncio
 import time
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+import re
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -15,6 +16,7 @@ from bs4 import BeautifulSoup
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse, SourceMetadata
+from app.services.request_context import REQUESTED_CCASS_SNAPSHOT_DATE
 from app.sources.hkex_sdw_parser import ParsedHKEXSdwHoldings, parse_hkex_sdw_holdings
 from app.sources.registry import (
     HKEX_SDW_SOURCE_ID,
@@ -89,6 +91,11 @@ class HKEXSdwClient:
                     headers=landing_headers,
                     phase="landing",
                 )
+                requested_date = REQUESTED_CCASS_SNAPSHOT_DATE.get()
+                if requested_date is not None and requested_date < self._current_hong_kong_date():
+                    search_date = requested_date.strftime("%Y/%m/%d")
+                else:
+                    search_date = self._latest_available_search_date(landing_response.html)
                 search_payload = self._build_search_payload(
                     landing_response.html, code, search_date
                 )
@@ -496,6 +503,27 @@ class HKEXSdwClient:
             "Priority": "u=0, i",
             "Upgrade-Insecure-Requests": "1",
         }
+
+    @staticmethod
+    def _latest_available_search_date(landing_html: str) -> str:
+        """Use HKEX's own visible landing-page limit for the first search date.
+
+        The SDW landing page exposes the latest allowed date via both the
+        shareholding input's `data-reset` attribute and an inline `MAX` value.
+        Using that value keeps the request aligned with the current official
+        form contract instead of assuming "today" is still queryable.
+        """
+
+        soup = BeautifulSoup(landing_html or "", "html.parser")
+        date_input = soup.find(id="txtShareholdingDate")
+        if date_input is not None:
+            data_reset = str(date_input.get("data-reset") or "").strip()
+            if re.fullmatch(r"\d{4}/\d{2}/\d{2}", data_reset):
+                return data_reset
+        match = re.search(r"MAX:\s*new Date\(['\"](\d{4}/\d{2}/\d{2})['\"]\)", landing_html or "")
+        if match:
+            return match.group(1)
+        return HKEXSdwClient._current_hong_kong_date().strftime("%Y/%m/%d")
 
     @staticmethod
     def _current_hong_kong_date() -> date:

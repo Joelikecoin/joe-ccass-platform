@@ -1,6 +1,5 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
-from datetime import UTC, datetime
 from typing import Protocol
 
 from app.config import Settings, get_settings
@@ -35,6 +34,7 @@ from app.services.holdings_lkg import (
     SERVED_AT_PREFIX,
     build_stale_lkg_warnings,
 )
+from app.services.request_context import REQUESTED_CCASS_SNAPSHOT_DATE
 from ccass_core.source_trace import (
     SourceTraceView,
     build_source_trace_view,
@@ -86,7 +86,7 @@ class RepositorySnapshotBackend:
         self.source_ids = source_ids
 
     async def get(self, request: GatewayRequestContext) -> CcassResponse | None:
-        snapshot = self._latest_snapshot(request.normalized_stock_code)
+        snapshot = self._latest_snapshot(request.normalized_stock_code, requested_date=request.requested_date)
         if snapshot is None or not self._is_valid_snapshot(snapshot, request.requested_at):
             return None
         response = snapshot.to_response()
@@ -94,7 +94,10 @@ class RepositorySnapshotBackend:
         return response
 
     async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
-        snapshot = self._latest_snapshot(code)
+        snapshot = self._latest_snapshot(
+            code,
+            requested_date=REQUESTED_CCASS_SNAPSHOT_DATE.get(),
+        )
         if snapshot is None or not self._is_recoverable_snapshot(snapshot):
             raise PlatformError(
                 ErrorCode.SOURCE_UNAVAILABLE,
@@ -118,7 +121,36 @@ class RepositorySnapshotBackend:
         )
         return response
 
-    def _latest_snapshot(self, code: str) -> HistoricalSnapshot | None:
+    def _latest_snapshot(
+        self,
+        code: str,
+        *,
+        requested_date: date | None = None,
+    ) -> HistoricalSnapshot | None:
+        if requested_date is not None:
+            if self.source_ids:
+                candidates = [
+                    snapshot
+                    for source_id in self.source_ids
+                    if (snapshot := self.repository.snapshot_on(
+                        code,
+                        requested_date,
+                        source_id=source_id,
+                    ))
+                    is not None
+                ]
+                if not candidates:
+                    return None
+                return max(candidates, key=lambda snapshot: snapshot.fetched_at)
+            snapshots = self.repository.date_range(
+                code,
+                date_from=requested_date,
+                date_to=requested_date,
+                include_partial=True,
+            )
+            if not snapshots:
+                return None
+            return max(snapshots, key=lambda snapshot: snapshot.fetched_at)
         if self.source_ids:
             candidates = [
                 snapshot
@@ -493,11 +525,13 @@ class CcassService:
         holdings_limit: int = 15,
         *,
         cache_first: bool = True,
+        requested_date: date | None = None,
     ) -> CcassResponse:
         gateway_response = await self.get_stock_gateway_response(
             code,
             holdings_limit=holdings_limit,
             cache_first=cache_first,
+            requested_date=requested_date,
         )
         return gateway_response.normalized_response
 
@@ -507,6 +541,7 @@ class CcassService:
         holdings_limit: int = 15,
         *,
         cache_first: bool = True,
+        requested_date: date | None = None,
     ) -> "GatewayResponse":
         if holdings_limit < 1:
             raise PlatformError(
@@ -519,8 +554,13 @@ class CcassService:
             holdings_limit=holdings_limit,
             request_surface="service",
             cache_first=cache_first,
+            requested_date=requested_date,
         )
-        gateway_response = await self.gateway.get_holdings(request)
+        token = REQUESTED_CCASS_SNAPSHOT_DATE.set(requested_date)
+        try:
+            gateway_response = await self.gateway.get_holdings(request)
+        finally:
+            REQUESTED_CCASS_SNAPSHOT_DATE.reset(token)
         persistence_warning = self._persist_gateway_response(gateway_response)
         if persistence_warning is not None:
             gateway_response = gateway_response.model_copy(

@@ -35,6 +35,7 @@ class GatewayRequest(BaseModel):
     selection_rule: GatewaySelectionRule = "priority_then_availability"
     request_id: str = Field(default_factory=lambda: uuid4().hex)
     requested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    requested_date: date | None = None
 
     @computed_field
     @property
@@ -55,11 +56,15 @@ class GatewayRequestContext(BaseModel):
     cache_first: bool
     selection_rule: GatewaySelectionRule = "priority_then_availability"
     source_hint: str | None = None
+    requested_date: date | None = None
 
     @computed_field
     @property
     def cache_key(self) -> str:
-        return f"{self.request_surface}:{self.normalized_stock_code}:{self.holdings_limit}"
+        base_key = f"{self.request_surface}:{self.normalized_stock_code}:{self.holdings_limit}"
+        if self.requested_date is None:
+            return base_key
+        return f"{base_key}:{self.requested_date.isoformat()}"
 
 
 class GatewaySourceCandidate(BaseModel):
@@ -240,6 +245,7 @@ class CacheFirstSourceRouter:
             source_limit=SOURCE_FETCH_LIMIT,
             cache_first=request.cache_first,
             selection_rule=request.selection_rule,
+            requested_date=request.requested_date,
         )
 
         if request.cache_first and self.cache_backend is not None:
