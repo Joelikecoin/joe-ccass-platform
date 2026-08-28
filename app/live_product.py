@@ -29,6 +29,7 @@ from ccass_core.source_trace import SourceTraceView, build_source_trace_markdown
 from app.models import HoldingsSummary, SourceMetadata
 
 YAHOO_CHART_API_URL = f"{YAHOO_CHART_BASE_URL}{{symbol}}"
+ANNOUNCEMENTS_LOAD_TIMEOUT_SECONDS = 5.0
 
 
 @dataclass(slots=True)
@@ -168,7 +169,12 @@ async def build_live_product_from_response_with_surfaces(
         if need_price_history:
             tasks.append(get_price_history_service().get_price_history(normalized_code))
         if need_announcements:
-            tasks.append(get_announcements_service().get_announcements(normalized_code))
+            tasks.append(
+                asyncio.wait_for(
+                    get_announcements_service().get_announcements(normalized_code),
+                    timeout=ANNOUNCEMENTS_LOAD_TIMEOUT_SECONDS,
+                )
+            )
         if need_stock_events:
             tasks.append(get_stock_events_service().get_stock_events(normalized_code))
         if need_capital_information:

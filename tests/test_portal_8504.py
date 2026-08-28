@@ -14,22 +14,26 @@ from app.friend_clone_app import PortalBundle
 from app.friend_clone_app import _big_changes_block
 from app.friend_clone_app import _changes_block
 from app.models import (
+    CcassResponse,
     AnnouncementRow,
     AnnouncementsMetadata,
     AnnouncementsResponse,
     CapitalInformationMetadata,
     CapitalInformationResponse,
     CapitalInformationRow,
+    HoldingsSummary,
     OfficerRow,
     OfficersMetadata,
     OfficersResponse,
     PriceHistoryMetadata,
     PriceHistoryResponse,
     PriceHistoryRow,
+    SourceMetadata,
     StockEventRow,
     StockEventsMetadata,
     StockEventsResponse,
 )
+from app.live_product import build_live_product_from_response_with_surfaces
 from app.streamlit_ui import PreparedReport
 from app.streamlit_ui import build_download_artifacts
 from app.portal_8504 import (
@@ -1126,6 +1130,162 @@ def test_portal_8504_bundle_recovers_auxiliary_surfaces_without_ccass(monkeypatc
     assert "Company" in html
     assert "Price History" in html
     assert "Live Market & News" not in html
+
+
+def test_live_product_announcements_timeout_does_not_block_render(monkeypatch):
+    price_history = PriceHistoryResponse(
+        metadata=PriceHistoryMetadata(
+            code="01592",
+            ticker="01592.HK",
+            price_date_from=date(2026, 8, 27),
+            price_date_to=date(2026, 8, 27),
+            source_name="Yahoo Finance",
+            source_url="https://finance.yahoo.com/quote/01592.HK/history",
+            fetched_at=datetime(2026, 8, 28, 8, 0, tzinfo=UTC),
+            currency="HKD",
+        ),
+        prices=[
+            PriceHistoryRow(
+                price_date=date(2026, 8, 27),
+                open=1.0,
+                high=1.1,
+                low=0.9,
+                close=1.05,
+                volume=1000,
+                turnover=1050.0,
+            )
+        ],
+    )
+    stock_events = StockEventsResponse(
+        metadata=StockEventsMetadata(
+            code="01592",
+            source_name="HKEX News",
+            source_url="https://www.hkexnews.hk/",
+            fetched_at=datetime(2026, 8, 28, 8, 0, tzinfo=UTC),
+            data_as_of=date(2026, 8, 27),
+            stock_events_count=1,
+            source_status="ready",
+        ),
+        stock_events=[
+            StockEventRow(
+                event_date=date(2026, 8, 27),
+                title="Sample event",
+                event_type="AGM",
+                source="HKEX News",
+                link="https://www.hkexnews.hk/",
+            )
+        ],
+    )
+    capital_information = CapitalInformationResponse(
+        metadata=CapitalInformationMetadata(
+            code="01592",
+            source_name="HKEX",
+            source_url="https://www.hkex.com.hk/",
+            fetched_at=datetime(2026, 8, 28, 8, 0, tzinfo=UTC),
+            data_as_of=date(2026, 8, 27),
+            capital_information_count=1,
+            source_status="ready",
+        ),
+        capital_information=[
+            CapitalInformationRow(
+                label="Issued shares",
+                value="1,000,000,000",
+                unit="shares",
+                as_of=date(2026, 8, 27),
+                source="HKEX",
+            )
+        ],
+    )
+    officers = OfficersResponse(
+        metadata=OfficersMetadata(
+            code="01592",
+            source_name="HKEX",
+            source_url="https://www.hkex.com.hk/",
+            fetched_at=datetime(2026, 8, 28, 8, 0, tzinfo=UTC),
+            data_as_of=date(2026, 8, 27),
+            officers_count=1,
+            source_status="ready",
+        ),
+        officers=[
+            OfficerRow(
+                name="Sample Officer",
+                positions=["Director"],
+                tenure_from=date(2020, 1, 1),
+                tenure_to=None,
+                is_current=True,
+                age=45,
+                salary="—",
+            )
+        ],
+    )
+    response = CcassResponse(
+        metadata=SourceMetadata(
+            code="01592",
+            issue_id=1592,
+            holdings_date=date(2026, 8, 27),
+            fetched_at=datetime(2026, 8, 28, 8, 0, tzinfo=UTC),
+            source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx?i=1592",
+            source_name="HKEX SDW",
+            cached=False,
+            name="Sample Co",
+        ),
+        holdings_summary=HoldingsSummary(
+            total_in_ccass_shares=1000,
+            total_in_ccass_pct_of_issued=1.0,
+            issued_shares=1000,
+            issued_shares_as_of=date(2026, 8, 27),
+            participant_count=1,
+            top5_pct_of_issued=1.0,
+            top10_pct_of_issued=1.0,
+            top5_pct_of_ccass=1.0,
+            top10_pct_of_ccass=1.0,
+        ),
+        holdings=[],
+        price_history=price_history,
+        stock_events=stock_events,
+        capital_information=capital_information,
+        officers=officers,
+    )
+
+    class _SlowAnnouncementsService:
+        async def get_announcements(self, code, start_date=None, end_date=None):
+            await asyncio.sleep(0.05)
+            return AnnouncementsResponse(
+                metadata=AnnouncementsMetadata(
+                    code="01592",
+                    source_name="HKEX News",
+                    source_url="https://www.hkexnews.hk/",
+                    fetched_at=datetime(2026, 8, 28, 8, 0, tzinfo=UTC),
+                    latest_announcement_date=date(2026, 8, 27),
+                    announcement_count=1,
+                ),
+                announcements=[
+                    AnnouncementRow(
+                        announcement_date=date(2026, 8, 27),
+                        title="Sample announcement",
+                        source="HKEX News",
+                        link="https://www.hkexnews.hk/",
+                    )
+                ],
+            )
+
+    monkeypatch.setattr("app.live_product.get_announcements_service", lambda: _SlowAnnouncementsService())
+    monkeypatch.setattr("app.live_product.ANNOUNCEMENTS_LOAD_TIMEOUT_SECONDS", 0.01)
+
+    started = time.time()
+    live_product = asyncio.run(
+        build_live_product_from_response_with_surfaces(
+            response,
+            code="01592",
+            source_trace=None,
+        )
+    )
+    elapsed = time.time() - started
+
+    assert live_product is not None
+    assert elapsed < 0.5
+    assert live_product.response.announcements is None or not live_product.response.announcements.announcements
+    assert any("announcement" in warning.lower() for warning in live_product.response.data_quality_warnings)
 
 
 def test_portal_8504_big_changes_block_uses_response_big_changes():
