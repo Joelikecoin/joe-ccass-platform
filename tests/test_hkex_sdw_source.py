@@ -1,13 +1,16 @@
 from datetime import date
 from pathlib import Path
 
+import pytest
+
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
+from app.domain.history import HistoricalSnapshot
 from app.services.ccass import CcassService
 from app.services.request_context import REQUESTED_CCASS_SNAPSHOT_DATE
 from app.sources.hkex_sdw import FetchedPage, HKEXSdwClient
 from app.sources.hkex_sdw_parser import parse_hkex_sdw_holdings
-from app.sources.registry import HKEX_SDW_SOURCE_ID
+from app.sources.registry import WEBBSITE_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import PreparedReport, build_research_dashboard_markdown
 
@@ -158,17 +161,17 @@ async def test_hkex_sdw_fetch_uses_requested_historical_date_when_provided(monke
     assert page.html.startswith("<html>")
 
 
-async def test_service_auto_routes_webbsite_failure_to_hkex_sdw_and_persists_snapshot(
+async def test_service_auto_routes_webbsite_failure_to_persistent_lkg_and_persists_snapshot(
     tmp_path,
     monkeypatch,
     current_response,
 ):
-    hkex_response = current_response.model_copy(
+    webbsite_response = current_response.model_copy(
         update={
             "metadata": current_response.metadata.model_copy(
                 update={
-                    "source_name": "HKEX SDW",
-                    "source_url": "https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+                    "source_name": "Webb-site mirror",
+                    "source_url": "https://webb-database.com/ccass/choldings.asp",
                 }
             )
         }
@@ -177,30 +180,34 @@ async def test_service_auto_routes_webbsite_failure_to_hkex_sdw_and_persists_sna
 
     class FailingWebbsite:
         def __init__(self, settings):
-            calls.append("webbsite")
+            self.settings = settings
 
         async def get_holdings(self, code, limit=15):
+            calls.append("webbsite")
             raise PlatformError(
                 ErrorCode.SOURCE_FORBIDDEN,
                 "Webb-site mirror blocked in test fixture.",
                 status_code=403,
             )
 
-    class FixtureHKEX:
+    class ForbiddenHKEX:
         def __init__(self, settings):
-            calls.append("hkex")
+            raise AssertionError("HKEX SDW must not be constructed for auto routing")
 
         async def get_holdings(self, code, limit=15):
-            return hkex_response.model_copy(deep=True)
-
-    def fail_csv(*args, **kwargs):  # pragma: no cover - defensive
-        raise AssertionError("CSV fallback must not be selected when HKEX succeeds")
+            raise AssertionError("HKEX SDW must not be used for auto routing")
 
     monkeypatch.setattr("app.services.ccass.WebbsiteClient", FailingWebbsite)
-    monkeypatch.setattr("app.services.ccass.HKEXSdwClient", FixtureHKEX)
-    monkeypatch.setattr("app.services.ccass.GoogleDriveCsvSource", fail_csv)
+    monkeypatch.setattr("app.services.ccass.HKEXSdwClient", ForbiddenHKEX)
 
     repository = NormalizedSnapshotRepository(tmp_path / "ccass.db")
+    repository.save(
+        HistoricalSnapshot.from_response(
+            webbsite_response,
+            source_id=WEBBSITE_SOURCE_ID,
+            parser_version="fixture-parser",
+        )
+    )
     service = CcassService(
         settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
         lkg_repository=repository,
@@ -218,86 +225,56 @@ async def test_service_auto_routes_webbsite_failure_to_hkex_sdw_and_persists_sna
         )
     )
 
-    assert calls == ["webbsite", "hkex"]
-    assert gateway_response.routing.selected_source_id == HKEX_SDW_SOURCE_ID
-    assert gateway_response.source_trace.source_name == "HKEX SDW"
-    assert response.metadata.source_name == "HKEX SDW"
+    assert calls == ["webbsite"]
+    assert gateway_response.routing.selected_source_id == "persistent_lkg"
+    assert gateway_response.source_trace.selected_source_name == "Persistent LKG"
+    assert gateway_response.source_trace.source_name == "Webb-site mirror"
+    assert response.metadata.source_name == "Webb-site mirror"
     assert response.metadata.code == "01592"
-    assert response.metadata.source_url.startswith("https://www3.hkexnews.hk/")
+    assert response.metadata.source_url.startswith("https://webb-database.com/")
     assert repository.count_snapshots("01592") == 1
-    assert repository.latest("01592", source_id=HKEX_SDW_SOURCE_ID) is not None
+    assert repository.latest("01592", source_id=WEBBSITE_SOURCE_ID) is not None
     assert dashboard.startswith("###")
     assert "01592" in dashboard
 
 
-async def test_service_auto_uses_persistent_lkg_recovery_after_hkex_failure(
+async def test_service_auto_fails_loudly_without_local_snapshot(
     tmp_path,
     monkeypatch,
     current_response,
 ):
     repository = NormalizedSnapshotRepository(tmp_path / "lkg.db")
-    real_repository = NormalizedSnapshotRepository(Path("data/ccass_snapshots.db"))
-    real_snapshot = real_repository.latest("01592", source_id=HKEX_SDW_SOURCE_ID)
-    assert real_snapshot is not None
-    recovered_snapshots = [
-        snapshot
-        for source_id in ("webbsite", HKEX_SDW_SOURCE_ID)
-        if (snapshot := real_repository.latest("01592", source_id=source_id)) is not None
-    ]
-    for snapshot in recovered_snapshots:
-        repository.save(snapshot)
-
     calls: list[str] = []
 
     class FailingWebbsite:
         def __init__(self, settings):
-            calls.append("webbsite")
+            self.settings = settings
 
         async def get_holdings(self, code, limit=15):
+            calls.append("webbsite")
             raise PlatformError(
                 ErrorCode.SOURCE_FORBIDDEN,
                 "Webb-site mirror blocked in test fixture.",
                 status_code=403,
             )
 
-    class FailingHKEX:
+    class ForbiddenHKEX:
         def __init__(self, settings):
-            calls.append("hkex")
+            raise AssertionError("HKEX SDW must not be constructed for auto routing")
 
         async def get_holdings(self, code, limit=15):
-            raise PlatformError(
-                ErrorCode.SOURCE_UNAVAILABLE,
-                "HKEX SDW blocked in test fixture.",
-                retry_recommended=True,
-                status_code=503,
-            )
-
-    class FailingCSV:
-        def __init__(self, settings):
-            calls.append("csv")
-
-        async def get_holdings(self, code, limit=15):  # pragma: no cover - defensive
-            raise AssertionError("CSV fallback must not be selected when LKG succeeds")
+            raise AssertionError("HKEX SDW must not be used for auto routing")
 
     monkeypatch.setattr("app.services.ccass.WebbsiteClient", FailingWebbsite)
-    monkeypatch.setattr("app.services.ccass.HKEXSdwClient", FailingHKEX)
-    monkeypatch.setattr("app.services.ccass.GoogleDriveCsvSource", FailingCSV)
+    monkeypatch.setattr("app.services.ccass.HKEXSdwClient", ForbiddenHKEX)
 
     service = CcassService(
         settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
         lkg_repository=repository,
     )
 
-    gateway_response = await service.get_stock_gateway_response("1592", holdings_limit=2)
-    response = gateway_response.normalized_response
+    with pytest.raises(PlatformError) as caught:
+        await service.get_stock_gateway_response("1592", holdings_limit=2)
 
-    assert calls == ["webbsite", "hkex"]
-    assert gateway_response.routing.selected_source_id == "persistent_lkg"
-    assert gateway_response.routing.selected_source_status == "fallback"
-    assert response.metadata.source_name == "HKEX SDW"
-    assert response.metadata.source_url.startswith("https://www3.hkexnews.hk/")
-    assert response.metadata.data_as_of == real_snapshot.snapshot_date
-    assert len(response.holdings) == 2
-    assert response.changes is not None
-    assert response.big_changes is not None
-    assert response.concentration is not None
+    assert calls == ["webbsite"]
+    assert caught.value.code in {ErrorCode.SOURCE_FORBIDDEN, ErrorCode.SOURCE_UNAVAILABLE}

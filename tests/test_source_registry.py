@@ -218,18 +218,17 @@ async def test_service_auto_isolates_disabled_webbsite(monkeypatch, current_resp
 
     monkeypatch.setattr(service_module, "GoogleDriveCsvSource", FixtureCsvSource)
     monkeypatch.setattr(service_module, "WebbsiteClient", fail_webbsite)
-    service = CcassService(
-        settings=Settings(
-            data_source="auto",
-            webbsite_enabled=False,
-            ccass_csv_url=GOOGLE_URL,
+    with pytest.raises(PlatformError) as caught:
+        CcassService(
+            settings=Settings(
+                data_source="auto",
+                webbsite_enabled=False,
+                ccass_csv_url=GOOGLE_URL,
+            )
         )
-    )
 
-    response = await service.get_stock_data("1592", holdings_limit=2)
-
-    assert response.metadata.code == "01592"
-    assert constructed == ["csv"]
+    assert caught.value.code == ErrorCode.SOURCE_DISABLED
+    assert constructed == []
 
 
 async def test_backfill_uses_registry_for_exact_date_and_disabled_state(

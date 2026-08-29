@@ -928,10 +928,6 @@ async def get_ccass_stock_report(
     officers_service: OfficersService = Depends(get_officers_service),
     service: CcassService = Depends(get_ccass_service),
 ) -> PlainTextResponse:
-    report = build_markdown_report(
-        (await get_ccass_service().get_stock_data(code, holdings_limit=holdings_limit)),
-        code=normalize_stock_code(code),
-    )
     return PlainTextResponse(
         await _build_ccass_markdown_report(
             code,

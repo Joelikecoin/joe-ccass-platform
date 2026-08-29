@@ -86,7 +86,7 @@ def _ready_stock_events_response() -> StockEventsResponse:
             code="01592",
             name="TEST FIXTURE ??GOLDEN STOCK",
             source_name=STOCK_EVENTS_SOURCE_NAME,
-            source_url="https://webbsite.0xmd.com/dbpub/events.asp?i=25297",
+            source_url="https://webb-database.com/dbpub/events.asp?i=25297",
             fetched_at=datetime(2026, 7, 21, 9, 15, tzinfo=UTC),
             data_as_of=date(2024, 3, 22),
             stock_events_count=2,
@@ -136,7 +136,7 @@ def test_webbsite_stock_events_source_parses_ready_page(monkeypatch):
         assert issue_id == 25297
         return FetchedPage(
             html=STOCK_EVENTS_SAMPLE_HTML,
-            source_url="https://webbsite.0xmd.com/dbpub/events.asp?i=25297",
+            source_url="https://webb-database.com/dbpub/events.asp?i=25297",
             cached=False,
         )
 
@@ -157,9 +157,9 @@ def test_webbsite_stock_events_source_parses_ready_page(monkeypatch):
         "Int (Semi-annual) dividend",
     ]
     assert response.stock_events[0].event_type == "Dividend"
-    assert response.stock_events[0].link == "https://webbsite.0xmd.com/dbpub/eventdets.asp?e=12345"
+    assert response.stock_events[0].link == "https://webb-database.com/dbpub/eventdets.asp?e=12345"
     assert response.stock_events[0].event_id == "12345"
-    assert response.stock_events[0].event_details_url == "https://webbsite.0xmd.com/dbpub/eventdets.asp?e=12345"
+    assert response.stock_events[0].event_details_url == "https://webb-database.com/dbpub/eventdets.asp?e=12345"
     assert "Year-end 2023-12-31" in (response.stock_events[0].details or "")
 
 
@@ -185,7 +185,7 @@ def test_webbsite_stock_events_source_returns_unavailable_payload(monkeypatch):
 
     assert response.metadata.source_name == STOCK_EVENTS_SOURCE_NAME
     assert response.metadata.source_status == "unavailable"
-    assert response.metadata.source_url == "https://webbsite.0xmd.com/dbpub/events.asp?i=25297"
+    assert response.metadata.source_url == "https://webb-database.com/dbpub/events.asp?i=25297"
     assert response.stock_events == []
     assert any("STOCK_EVENTS_SOURCE_UNAVAILABLE" in warning for warning in response.data_quality_warnings)
 
@@ -257,7 +257,7 @@ def test_stock_events_service_normalizes_pending_metadata():
     response = asyncio.run(service.get_stock_events("1592"))
 
     assert response.metadata.source_name == STOCK_EVENTS_SOURCE_NAME
-    assert response.metadata.source_url == "https://webbsite.0xmd.com/dbpub/events.asp"
+    assert response.metadata.source_url == "https://webb-database.com/dbpub/events.asp"
     assert response.metadata.source_status == "pending"
     assert response.metadata.data_as_of is None
     assert response.metadata.fetched_at.tzinfo is not None
@@ -275,7 +275,7 @@ def test_webbsite_stock_events_source_skips_broken_row_and_returns_partial_rows(
         assert issue_id == 25297
         return FetchedPage(
             html=STOCK_EVENTS_SAMPLE_HTML,
-            source_url="https://webbsite.0xmd.com/dbpub/events.asp?i=25297",
+            source_url="https://webb-database.com/dbpub/events.asp?i=25297",
             cached=False,
         )
 

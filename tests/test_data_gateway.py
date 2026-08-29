@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 from app.errors import ErrorCode, PlatformError
@@ -9,7 +10,11 @@ from app.services.data_gateway import (
     GatewaySourceCandidate,
 )
 from app.domain.history import HistoricalSnapshot
-from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID, WEBBSITE_SOURCE_ID
+from app.sources.registry import (
+    GOOGLE_DRIVE_CSV_SOURCE_ID,
+    HKEX_SDW_SOURCE_ID,
+    WEBBSITE_SOURCE_ID,
+)
 from app.storage.history import NormalizedSnapshotRepository
 
 
@@ -388,6 +393,59 @@ async def test_ccass_service_persists_live_success_into_local_snapshot_cache(
     assert stored is not None
     assert stored.snapshot_date == current_response.metadata.holdings_date
     assert stored.fetched_at == current_response.metadata.fetched_at
+
+
+async def test_ccass_service_loads_optional_surfaces_concurrently(current_response, monkeypatch):
+    started: list[str] = []
+    release = asyncio.Event()
+
+    class _ConcurrentSurface:
+        def __init__(self, label: str, response):
+            self.label = label
+            self.response = response
+
+        async def _wait(self):
+            started.append(self.label)
+            if len(started) >= 5:
+                release.set()
+            await asyncio.wait_for(release.wait(), timeout=1.0)
+            return self.response.model_copy(deep=True)
+
+        async def get_announcements(self, code, start_date=None, end_date=None):
+            return await self._wait()
+
+        async def get_stock_events(self, code):
+            return await self._wait()
+
+        async def get_capital_information(self, code):
+            return await self._wait()
+
+        async def get_officers(self, code):
+            return await self._wait()
+
+        async def get_price_history(self, code, start_date=None, end_date=None):
+            return await self._wait()
+
+    monkeypatch.setattr("app.services.ccass.get_announcements_service", lambda: _ConcurrentSurface("announcements", current_response))
+    monkeypatch.setattr("app.services.ccass.get_stock_events_service", lambda: _ConcurrentSurface("stock_events", current_response))
+    monkeypatch.setattr("app.services.ccass.get_capital_information_service", lambda: _ConcurrentSurface("capital_information", current_response))
+    monkeypatch.setattr("app.services.ccass.get_officers_service", lambda: _ConcurrentSurface("officers", current_response))
+    monkeypatch.setattr("app.services.ccass.get_price_history_service", lambda: _ConcurrentSurface("price_history", current_response))
+
+    source = FixtureSource(current_response)
+    service = CcassService(client=source)
+
+    result = await asyncio.wait_for(service.get_stock_gateway_response("1592", holdings_limit=2), timeout=2.0)
+
+    assert source.calls == [("01592", 10000)]
+    assert set(started) == {
+        "announcements",
+        "stock_events",
+        "capital_information",
+        "officers",
+        "price_history",
+    }
+    assert result.normalized_response.metadata.code == "01592"
 
 
 async def test_ccass_service_regression_preserves_latest_holdings_contract(current_response):

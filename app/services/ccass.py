@@ -1,6 +1,7 @@
+import asyncio
 from datetime import UTC, date, datetime
 from functools import lru_cache
-from typing import Protocol
+from typing import Any, Protocol
 
 from app.config import Settings, get_settings
 from app.data_quality import structured_warning
@@ -354,7 +355,11 @@ class CcassService:
             self.gateway = CcassDataGateway(source_backend=self.source)
             return
 
-        live_definition = self.selection.primary
+        live_definition = (
+            self.source_definitions_by_id.get(WEBBSITE_SOURCE_ID)
+            if self.settings.data_source == "auto"
+            else self.selection.primary
+        )
         if live_definition is None:
             raise PlatformError(
                 ErrorCode.SOURCE_DISABLED,
@@ -409,21 +414,21 @@ class CcassService:
     ) -> tuple[GatewaySourceCandidate, ...]:
         if self.settings.data_source == "auto":
             candidates: list[GatewaySourceCandidate] = []
-            if any(source.source_id == HKEX_SDW_SOURCE_ID for source in self.available_sources):
+            if any(source.source_id == WEBBSITE_SOURCE_ID for source in self.available_sources):
                 candidates.append(
                     GatewaySourceCandidate(
-                        source_id=HKEX_SDW_SOURCE_ID,
-                        source_name=self.source_definitions_by_id[HKEX_SDW_SOURCE_ID].display_name,
+                        source_id=WEBBSITE_SOURCE_ID,
+                        source_name=self.source_definitions_by_id[WEBBSITE_SOURCE_ID].display_name,
                         priority=0,
                         status="active",
-                        backend=_DeferredHoldingsSource(lambda: HKEXSdwClient(self.settings)),
+                        backend=_DeferredHoldingsSource(lambda: WebbsiteClient(self.settings)),
                         fallback_eligible=True,
                     )
                 )
             recovery_source_ids = tuple(
                 source.source_id
                 for source in self.available_sources
-                if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
+                if source.source_id == WEBBSITE_SOURCE_ID
             )
             recovery_backend = self._build_recovery_backend(recovery_source_ids)
             if recovery_backend is not None:
@@ -434,30 +439,6 @@ class CcassService:
                         priority=1,
                         status="fallback",
                         backend=recovery_backend,
-                        fallback_eligible=True,
-                    )
-                )
-            if any(source.source_id == WEBBSITE_SOURCE_ID for source in self.available_sources):
-                candidates.append(
-                    GatewaySourceCandidate(
-                        source_id=WEBBSITE_SOURCE_ID,
-                        source_name=self.source_definitions_by_id[WEBBSITE_SOURCE_ID].display_name,
-                        priority=2,
-                        status="fallback",
-                        backend=_DeferredHoldingsSource(lambda: WebbsiteClient(self.settings)),
-                        fallback_eligible=True,
-                    )
-                )
-            if any(source.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID for source in self.available_sources):
-                candidates.append(
-                    GatewaySourceCandidate(
-                        source_id=GOOGLE_DRIVE_CSV_SOURCE_ID,
-                        source_name=self.source_definitions_by_id[GOOGLE_DRIVE_CSV_SOURCE_ID].display_name,
-                        priority=3,
-                        status="fallback",
-                        backend=_DeferredHoldingsSource(
-                            lambda: GoogleDriveCsvSource(self.settings)
-                        ),
                         fallback_eligible=True,
                     )
                 )
@@ -783,85 +764,57 @@ class CcassService:
                         f"Concentration is unavailable ({type(exc).__name__}).",
                     )
                 )
-        announcements = response.announcements
-        try:
-            announcements = await get_announcements_service().get_announcements(normalized_stock_code)
-            if announcements.data_quality_warnings:
-                warnings.extend(announcements.data_quality_warnings)
-        except Exception as exc:
-            errors.append(f"announcements: {type(exc).__name__}")
-            warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "ANNOUNCEMENTS_UNAVAILABLE",
-                    f"Announcements are unavailable ({type(exc).__name__}).",
-                )
-            )
-            announcements = None
+        fetch_jobs: list[tuple[str, Any]] = []
+        if response.announcements is None:
+            fetch_jobs.append(("announcements", get_announcements_service().get_announcements(normalized_stock_code)))
+        if response.stock_events is None:
+            fetch_jobs.append(("stock_events", get_stock_events_service().get_stock_events(normalized_stock_code)))
+        if response.capital_information is None:
+            fetch_jobs.append((
+                "capital_information",
+                get_capital_information_service().get_capital_information(normalized_stock_code),
+            ))
+        if response.officers is None:
+            fetch_jobs.append(("officers", get_officers_service().get_officers(normalized_stock_code)))
+        if response.price_history is None:
+            fetch_jobs.append(("price_history", get_price_history_service().get_price_history(normalized_stock_code)))
 
-        stock_events = response.stock_events
-        try:
-            stock_events = await get_stock_events_service().get_stock_events(normalized_stock_code)
-            if stock_events.data_quality_warnings:
-                warnings.extend(stock_events.data_quality_warnings)
-        except Exception as exc:
-            errors.append(f"stock_events: {type(exc).__name__}")
-            warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "STOCK_EVENTS_UNAVAILABLE",
-                    f"Stock events are unavailable ({type(exc).__name__}).",
-                )
-            )
-            stock_events = None
+        fetched: dict[str, Any] = {}
+        if fetch_jobs:
+            results = await asyncio.gather(*(job for _, job in fetch_jobs), return_exceptions=True)
+            fetched = {label: result for (label, _), result in zip(fetch_jobs, results)}
 
-        capital_information = response.capital_information
-        try:
-            capital_information = await get_capital_information_service().get_capital_information(normalized_stock_code)
-            if capital_information.data_quality_warnings:
-                warnings.extend(capital_information.data_quality_warnings)
-        except Exception as exc:
-            errors.append(f"capital_information: {type(exc).__name__}")
-            warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "CAPITAL_INFORMATION_UNAVAILABLE",
-                    f"Capital information is unavailable ({type(exc).__name__}).",
+        def _surface_or_current(label: str) -> Any | None:
+            current_value = getattr(response, label)
+            incoming = fetched.get(label, current_value)
+            if isinstance(incoming, Exception):
+                errors.append(f"{label}: {type(incoming).__name__}")
+                warnings.append(
+                    structured_warning(
+                        "DATA_LIMITATION",
+                        f"{label.upper()}_UNAVAILABLE",
+                        f"{label.replace('_', ' ').title()} are unavailable ({type(incoming).__name__}).",
+                    )
                 )
-            )
-            capital_information = None
+                return current_value
+            if incoming is current_value:
+                return current_value
+            if incoming is None:
+                return current_value
+            candidate_rows = getattr(incoming, "prices", None)
+            if candidate_rows is None:
+                candidate_rows = getattr(incoming, label, ())
+            if candidate_rows:
+                warnings.extend(getattr(incoming, "data_quality_warnings", ()))
+                return incoming
+            warnings.extend(getattr(incoming, "data_quality_warnings", ()))
+            return current_value
 
-        officers = response.officers
-        try:
-            officers = await get_officers_service().get_officers(normalized_stock_code)
-            if officers.data_quality_warnings:
-                warnings.extend(officers.data_quality_warnings)
-        except Exception as exc:
-            errors.append(f"officers: {type(exc).__name__}")
-            warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "OFFICERS_UNAVAILABLE",
-                    f"Officers are unavailable ({type(exc).__name__}).",
-                )
-            )
-            officers = None
-
-        price_history = response.price_history
-        try:
-            price_history = await get_price_history_service().get_price_history(normalized_stock_code)
-            if price_history.data_quality_warnings:
-                warnings.extend(price_history.data_quality_warnings)
-        except Exception as exc:
-            errors.append(f"price_history: {type(exc).__name__}")
-            warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "PRICE_HISTORY_UNAVAILABLE",
-                    f"Price history is unavailable ({type(exc).__name__}).",
-                )
-            )
-            price_history = None
+        announcements = _surface_or_current("announcements")
+        stock_events = _surface_or_current("stock_events")
+        capital_information = _surface_or_current("capital_information")
+        officers = _surface_or_current("officers")
+        price_history = _surface_or_current("price_history")
 
         fetch_summary = response.fetch_summary
         if source_trace_view is not None:

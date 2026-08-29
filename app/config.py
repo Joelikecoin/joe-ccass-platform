@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     google_drive_csv_enabled: bool = True
     google_drive_csv_audit_state: Literal["approved", "disabled", "unverified"] = "approved"
     google_drive_csv_audit_date: date | None = None
-    webbsite_base_url: str = "https://webbsite.0xmd.com"
-    webbsite_fallback_base_url: str = "https://webbsite.renavon.com"
+    webbsite_base_url: str = "https://webb-database.com"
+    webbsite_fallback_base_url: str = "https://webbsite.0xmd.com"
     webbsite_enabled: bool = True
     webbsite_audit_state: Literal["approved", "disabled", "unverified"] = "approved"
     webbsite_audit_date: date | None = None

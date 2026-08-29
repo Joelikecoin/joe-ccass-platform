@@ -16,7 +16,7 @@ from ccass_core.normalize import normalize_stock_code
 
 STOCK_EVENTS_SOURCE_NAME = "Webb-site Events"
 STOCK_EVENTS_SOURCE_PENDING_NAME = STOCK_EVENTS_SOURCE_NAME
-STOCK_EVENTS_SOURCE_PENDING_URL: str | None = "https://webbsite.0xmd.com/dbpub/events.asp"
+STOCK_EVENTS_SOURCE_PENDING_URL: str | None = "https://webb-database.com/dbpub/events.asp"
 
 
 class StockEventsSource(Protocol):
