@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from datetime import date
 from functools import lru_cache
 
+from pydantic import ValidationError
+
 from app.config import Settings, get_settings
 from app.domain.history import HistoricalSnapshot
 from app.errors import ErrorCode, PlatformError
@@ -22,7 +24,6 @@ from app.services.latest_holdings import (
 from app.sources.registry import SourceDefinition, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
-from pydantic import ValidationError
 
 CHANGES_VALIDATION_WARNING = "CHANGES_VALIDATION: COMPLETE"
 CHANGES_COMPLETENESS_WARNING = "SNAPSHOT_COMPLETENESS: compare=COMPLETE snapshot=COMPLETE"
