@@ -87,8 +87,17 @@ def _parse_identity(soup: BeautifulSoup, requested_code: str) -> tuple[int, str 
         string=lambda value: bool(value and value.strip() == requested_code)
     )
     issue_values = {
-        str(node.get("value", "")).strip()
-        for node in soup.select('input[name="i"][value]')
+        value
+        for value in (
+            *(str(node.get("value", "")).strip() for node in soup.select('input[name="i"]')),
+            *(
+                match.group(1)
+                for node in soup.select('a[href]')
+                for match in [re.search(r"(?:choldings|holdings)\.asp\?i=([1-9]\d*)", str(node.get("href", "")))]
+                if match is not None
+            ),
+        )
+        if value and re.fullmatch(r"[1-9]\d*", value)
     }
 
     if code_node is None or not issue_values:
@@ -220,7 +229,15 @@ def _parse_holdings_rows(soup: BeautifulSoup) -> list[HoldingRow]:
                 ErrorCode.PARSE_ERROR,
                 "A Webb-site Holdings row did not contain all required fields.",
             )
-        if not cells[0].isdigit() or not _PARTICIPANT_ID_PATTERN.fullmatch(cells[1]):
+        if cells[2].startswith(("Total ", "Unnamed Investor")):
+            break
+        participant_id = cells[1]
+        if not cells[0].isdigit():
+            raise PlatformError(
+                ErrorCode.PARSE_ERROR,
+                "A Webb-site Holdings row contained an invalid rank or participant ID.",
+            )
+        if participant_id and not _PARTICIPANT_ID_PATTERN.fullmatch(participant_id):
             raise PlatformError(
                 ErrorCode.PARSE_ERROR,
                 "A Webb-site Holdings row contained an invalid rank or participant ID.",
@@ -234,13 +251,13 @@ def _parse_holdings_rows(soup: BeautifulSoup) -> list[HoldingRow]:
             holdings.append(
                 HoldingRow(
                     rank=int(cells[0]),
-                    participant_id=cells[1],
+                    participant_id=participant_id,
                     participant=cells[2],
                     shares=parse_int(cells[3]),
                     last_change=parse_iso_date(cells[4]),
                     pct_of_issued=parse_float(cells[5]),
                     cumulative_pct_of_issued=parse_float(cells[6]),
-                    participant_category=classify_participant(cells[1], cells[2]),
+                    participant_category=classify_participant(participant_id or "", cells[2]),
                 )
             )
         except ValueError as exc:
@@ -257,8 +274,8 @@ def _parse_holdings_rows(soup: BeautifulSoup) -> list[HoldingRow]:
 
     holdings.sort(key=lambda item: item.rank)
     if len({item.rank for item in holdings}) != len(holdings) or len(
-        {item.participant_id for item in holdings}
-    ) != len(holdings):
+        {item.participant_id for item in holdings if item.participant_id}
+    ) != len([item for item in holdings if item.participant_id]):
         raise PlatformError(
             ErrorCode.PARSE_ERROR,
             "The Webb-site Holdings table contained duplicate ranks or participant IDs.",

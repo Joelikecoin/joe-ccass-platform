@@ -1,0 +1,11 @@
+{
+  "source_url": "https://webb-database.com/ccass/choldings.asp?i=60",
+  "captured_at_utc": "2026-08-29T05:25:26.986Z",
+  "title": "CCASS holdings:",
+  "issue_id": 60,
+  "stock_code": "00010",
+  "data_date": "2026-08-28",
+  "sha256": "ffeb58401a79ee2a95121a292077c768c3ca95081ebda67820cae0a9b396073d",
+  "html_path": "C:\\Users\\Joe Lau\\Documents\\Codex\\2026-08-03\\github-clone-joelikecoin-joe-ccass-platform\\codecopy\\tests\\fixtures\\golden\\webb_ccass_holdings_i60_00010_hang_lung_group_limited_2026-08-29.html",
+  "notes": "Captured from the live CCASS holdings endpoint via browser DOM outerHTML; browser overlay removed."
+}

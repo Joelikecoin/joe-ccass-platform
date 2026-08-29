@@ -1,0 +1,1663 @@
+{
+  "source_url": "https://webb-database.com/ccass/choldings.asp?i=60",
+  "captured_at_utc": "2026-08-29T05:25:26.986Z",
+  "title": "CCASS holdings:",
+  "company_name": "HANG LUNG GROUP LIMITED:  O HKD",
+  "issue_id": 60,
+  "stock_code": "00010",
+  "data_date": "2026-08-28",
+  "sha256": "ffeb58401a79ee2a95121a292077c768c3ca95081ebda67820cae0a9b396073d",
+  "summary": {
+    "total_in_ccass_shares": 895559549,
+    "total_in_ccass_pct_of_issued": 65.77,
+    "issued_shares": 1361618242,
+    "non_ccass_shares": 466058693,
+    "non_ccass_pct_of_issued": 34.23,
+    "participant_count": 182,
+    "top5_pct_of_issued": 51.74,
+    "top10_pct_of_issued": 59.38,
+    "top5_pct_of_ccass": 78.6643,
+    "top10_pct_of_ccass": 90.2831
+  },
+  "rows": [
+    {
+      "rank": 1,
+      "participant_id": "C00019",
+      "participant": "THE HONGKONG AND SHANGHAI BANKING",
+      "shares": 469007708,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 34.44,
+      "cumulative_pct_of_issued": 34.44
+    },
+    {
+      "rank": 2,
+      "participant_id": "C00015",
+      "participant": "DBS BANK (HONG KONG) LTD",
+      "shares": 65851825,
+      "last_change": "2026-08-20",
+      "pct_of_issued": 4.84,
+      "cumulative_pct_of_issued": 39.28
+    },
+    {
+      "rank": 3,
+      "participant_id": "C00010",
+      "participant": "CITIBANK N.A.",
+      "shares": 64700350,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 4.75,
+      "cumulative_pct_of_issued": 44.03
+    },
+    {
+      "rank": 4,
+      "participant_id": "B01161",
+      "participant": "UBS SECURITIES HONG KONG LTD",
+      "shares": 58411045,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 4.29,
+      "cumulative_pct_of_issued": 48.32
+    },
+    {
+      "rank": 5,
+      "participant_id": "C00093",
+      "participant": "BNP PARIBAS",
+      "shares": 46514774,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 3.42,
+      "cumulative_pct_of_issued": 51.74
+    },
+    {
+      "rank": 6,
+      "participant_id": "C00018",
+      "participant": "HANG SENG BANK LTD",
+      "shares": 36941004,
+      "last_change": "2026-07-22",
+      "pct_of_issued": 2.71,
+      "cumulative_pct_of_issued": 54.45
+    },
+    {
+      "rank": 7,
+      "participant_id": "C00004",
+      "participant": "MUFG BANK, LTD.",
+      "shares": 25000000,
+      "last_change": "2024-08-30",
+      "pct_of_issued": 1.84,
+      "cumulative_pct_of_issued": 56.29
+    },
+    {
+      "rank": 8,
+      "participant_id": "B01590",
+      "participant": "INTERACTIVE BROKERS HONG KONG LTD",
+      "shares": 15406925,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 1.13,
+      "cumulative_pct_of_issued": 57.42
+    },
+    {
+      "rank": 9,
+      "participant_id": "A00004",
+      "participant": "CHINA SECURITIES DEPOSITORY AND CLEARING",
+      "shares": 15313000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 1.12,
+      "cumulative_pct_of_issued": 58.54
+    },
+    {
+      "rank": 10,
+      "participant_id": "C00033",
+      "participant": "BANK OF CHINA (HONG KONG) LTD",
+      "shares": 11392471,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.84,
+      "cumulative_pct_of_issued": 59.38
+    },
+    {
+      "rank": 11,
+      "participant_id": "C00042",
+      "participant": "CMB WING LUNG BANK LTD",
+      "shares": 11291125,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.83,
+      "cumulative_pct_of_issued": 60.21
+    },
+    {
+      "rank": 12,
+      "participant_id": "B01451",
+      "participant": "GOLDMAN SACHS (ASIA) SECURITIES LTD",
+      "shares": 8517999,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.63,
+      "cumulative_pct_of_issued": 60.84
+    },
+    {
+      "rank": 13,
+      "participant_id": "C00039",
+      "participant": "STANDARD CHARTERED BANK (HONG KONG) LTD",
+      "shares": 7378265,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.54,
+      "cumulative_pct_of_issued": 61.38
+    },
+    {
+      "rank": 14,
+      "participant_id": "A00003",
+      "participant": "CHINA SECURITIES DEPOSITORY AND CLEARING",
+      "shares": 6464000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.47,
+      "cumulative_pct_of_issued": 61.85
+    },
+    {
+      "rank": 15,
+      "participant_id": "B01955",
+      "participant": "FUTU SECURITIES INTERNATIONAL",
+      "shares": 3427906,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.25,
+      "cumulative_pct_of_issued": 62.1
+    },
+    {
+      "rank": 16,
+      "participant_id": "B01130",
+      "participant": "BOCI SECURITIES LTD",
+      "shares": 3401000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.25,
+      "cumulative_pct_of_issued": 62.35
+    },
+    {
+      "rank": 17,
+      "participant_id": "B01727",
+      "participant": "ICBC (ASIA) SECURITIES LTD",
+      "shares": 3397800,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.25,
+      "cumulative_pct_of_issued": 62.6
+    },
+    {
+      "rank": 18,
+      "participant_id": "B01284",
+      "participant": "HANG SENG SECURITIES LTD",
+      "shares": 3179355,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.23,
+      "cumulative_pct_of_issued": 62.84
+    },
+    {
+      "rank": 19,
+      "participant_id": "B01345",
+      "participant": "PHILLIP SECURITIES (HONG KONG) LTD",
+      "shares": 2677410,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.2,
+      "cumulative_pct_of_issued": 63.03
+    },
+    {
+      "rank": 20,
+      "participant_id": "C00028",
+      "participant": "NANYANG COMMERCIAL BANK LTD",
+      "shares": 2053000,
+      "last_change": "2026-08-14",
+      "pct_of_issued": 0.15,
+      "cumulative_pct_of_issued": 63.18
+    },
+    {
+      "rank": 21,
+      "participant_id": "B01148",
+      "participant": "CHINA MERCHANTS SECURITIES (HK) CO LTD",
+      "shares": 1824000,
+      "last_change": "2026-08-20",
+      "pct_of_issued": 0.13,
+      "cumulative_pct_of_issued": 63.32
+    },
+    {
+      "rank": 22,
+      "participant_id": "C00003",
+      "participant": "THE BANK OF EAST ASIA LTD",
+      "shares": 1452388,
+      "last_change": "2026-08-27",
+      "pct_of_issued": 0.11,
+      "cumulative_pct_of_issued": 63.42
+    },
+    {
+      "rank": 23,
+      "participant_id": "C00058",
+      "participant": "CHINA CITIC BANK INTERNATIONAL LTD",
+      "shares": 1379399,
+      "last_change": "2026-08-27",
+      "pct_of_issued": 0.1,
+      "cumulative_pct_of_issued": 63.53
+    },
+    {
+      "rank": 24,
+      "participant_id": "B01353",
+      "participant": "UOB KAY HIAN (HONG KONG) LTD",
+      "shares": 1327157,
+      "last_change": "2026-08-17",
+      "pct_of_issued": 0.1,
+      "cumulative_pct_of_issued": 63.62
+    },
+    {
+      "rank": 25,
+      "participant_id": "B01623",
+      "participant": "TAI FUNG KUENTAI SECURITIES CO LTD",
+      "shares": 1235000,
+      "last_change": "2026-08-24",
+      "pct_of_issued": 0.09,
+      "cumulative_pct_of_issued": 63.71
+    },
+    {
+      "rank": 26,
+      "participant_id": "C00037",
+      "participant": "SHANGHAI COMMERCIAL BANK LTD",
+      "shares": 1219736,
+      "last_change": "2026-08-27",
+      "pct_of_issued": 0.09,
+      "cumulative_pct_of_issued": 63.8
+    },
+    {
+      "rank": 27,
+      "participant_id": "B01183",
+      "participant": "CHONG HING SECURITIES LTD",
+      "shares": 1193650,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.09,
+      "cumulative_pct_of_issued": 63.89
+    },
+    {
+      "rank": 28,
+      "participant_id": "C00041",
+      "participant": "OCBC BANK (HONG KONG) LTD",
+      "shares": 1176390,
+      "last_change": "2026-08-13",
+      "pct_of_issued": 0.09,
+      "cumulative_pct_of_issued": 63.98
+    },
+    {
+      "rank": 29,
+      "participant_id": "B01668",
+      "participant": "BRIGHT SMART SECURITIES INTERNATIONAL",
+      "shares": 1154962,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.08,
+      "cumulative_pct_of_issued": 64.06
+    },
+    {
+      "rank": 30,
+      "participant_id": "B01459",
+      "participant": "IFAST SECURITIES (HK) LTD",
+      "shares": 1061000,
+      "last_change": "2026-08-26",
+      "pct_of_issued": 0.08,
+      "cumulative_pct_of_issued": 64.14
+    },
+    {
+      "rank": 31,
+      "participant_id": "B01118",
+      "participant": "EAST ASIA SECURITIES CO LTD",
+      "shares": 1050500,
+      "last_change": "2026-08-27",
+      "pct_of_issued": 0.08,
+      "cumulative_pct_of_issued": 64.22
+    },
+    {
+      "rank": 32,
+      "participant_id": "C00036",
+      "participant": "CHINA CONSTRUCTION BANK (ASIA)",
+      "shares": 955350,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.07,
+      "cumulative_pct_of_issued": 64.29
+    },
+    {
+      "rank": 33,
+      "participant_id": "B01905",
+      "participant": "SDIC SECURITIES (HONG KONG) LTD",
+      "shares": 937000,
+      "last_change": "2026-08-14",
+      "pct_of_issued": 0.07,
+      "cumulative_pct_of_issued": 64.36
+    },
+    {
+      "rank": 34,
+      "participant_id": "B01695",
+      "participant": "DAH SING SECURITIES LTD",
+      "shares": 931575,
+      "last_change": "2026-08-20",
+      "pct_of_issued": 0.07,
+      "cumulative_pct_of_issued": 64.43
+    },
+    {
+      "rank": 35,
+      "participant_id": "C00002",
+      "participant": "BANK OF COMMUNICATIONS TRUSTEE LTD",
+      "shares": 903775,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.07,
+      "cumulative_pct_of_issued": 64.49
+    },
+    {
+      "rank": 36,
+      "participant_id": "B01858",
+      "participant": "YUANTA SECURITIES (HONG KONG) CO LTD",
+      "shares": 846000,
+      "last_change": "2026-08-04",
+      "pct_of_issued": 0.06,
+      "cumulative_pct_of_issued": 64.55
+    },
+    {
+      "rank": 37,
+      "participant_id": "B01129",
+      "participant": "WOCOM SECURITIES LTD",
+      "shares": 829000,
+      "last_change": "2026-03-02",
+      "pct_of_issued": 0.06,
+      "cumulative_pct_of_issued": 64.61
+    },
+    {
+      "rank": 38,
+      "participant_id": "B01347",
+      "participant": "CGS INTERNATIONAL SECURITIES HK LTD",
+      "shares": 811000,
+      "last_change": "2026-08-26",
+      "pct_of_issued": 0.06,
+      "cumulative_pct_of_issued": 64.67
+    },
+    {
+      "rank": 39,
+      "participant_id": "B01089",
+      "participant": "HSBC BROKING SECURITIES (ASIA) LTD",
+      "shares": 770750,
+      "last_change": "2026-08-04",
+      "pct_of_issued": 0.06,
+      "cumulative_pct_of_issued": 64.73
+    },
+    {
+      "rank": 40,
+      "participant_id": "C00016",
+      "participant": "DBS BANK LTD",
+      "shares": 701000,
+      "last_change": "2026-07-30",
+      "pct_of_issued": 0.05,
+      "cumulative_pct_of_issued": 64.78
+    },
+    {
+      "rank": 41,
+      "participant_id": "B01143",
+      "participant": "HAITONG INTERNATIONAL SECURITIES CO LTD",
+      "shares": 545000,
+      "last_change": "2026-08-18",
+      "pct_of_issued": 0.04,
+      "cumulative_pct_of_issued": 64.82
+    },
+    {
+      "rank": 42,
+      "participant_id": "C00040",
+      "participant": "INDUSTRIAL AND COMMERCIAL BANK OF CHINA",
+      "shares": 529100,
+      "last_change": "2026-04-21",
+      "pct_of_issued": 0.04,
+      "cumulative_pct_of_issued": 64.86
+    },
+    {
+      "rank": 43,
+      "participant_id": "B01826",
+      "participant": "GF SECURITIES (HONG KONG) BROKERAGE LTD",
+      "shares": 489000,
+      "last_change": "2026-08-03",
+      "pct_of_issued": 0.04,
+      "cumulative_pct_of_issued": 64.9
+    },
+    {
+      "rank": 44,
+      "participant_id": "B01264",
+      "participant": "MIB SECURITIES (HONG KONG) LTD",
+      "shares": 484500,
+      "last_change": "2026-08-18",
+      "pct_of_issued": 0.04,
+      "cumulative_pct_of_issued": 64.93
+    },
+    {
+      "rank": 45,
+      "participant_id": "B01584",
+      "participant": "CHIEF SECURITIES LTD",
+      "shares": 456242,
+      "last_change": "2026-08-24",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 64.97
+    },
+    {
+      "rank": 46,
+      "participant_id": "B01762",
+      "participant": "DBS VICKERS (HONG KONG) LTD",
+      "shares": 454000,
+      "last_change": "2026-06-23",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.0
+    },
+    {
+      "rank": 47,
+      "participant_id": "B01565",
+      "participant": "GUOTAI JUNAN SECURITIES (HONG KONG) LTD",
+      "shares": 448735,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.03
+    },
+    {
+      "rank": 48,
+      "participant_id": "B01228",
+      "participant": "CITIC SECURITIES BROKERAGE (HK) LTD",
+      "shares": 445000,
+      "last_change": "2026-08-14",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.07
+    },
+    {
+      "rank": 49,
+      "participant_id": "B01610",
+      "participant": "KGI ASIA LTD",
+      "shares": 433000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.1
+    },
+    {
+      "rank": 50,
+      "participant_id": "B02142",
+      "participant": "TIGER BROKERS (HK) GLOBAL LTD",
+      "shares": 428000,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.13
+    },
+    {
+      "rank": 51,
+      "participant_id": "C00088",
+      "participant": "CHINA MERCHANTS BANK CO LTD",
+      "shares": 427000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.16
+    },
+    {
+      "rank": 52,
+      "participant_id": "B01115",
+      "participant": "SHENWAN HONGYUAN SECURITIES (H.K.) LTD",
+      "shares": 350000,
+      "last_change": "2026-08-14",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.19
+    },
+    {
+      "rank": 53,
+      "participant_id": "B01086",
+      "participant": "EVERBRIGHT SECURITIES INVESTMENT",
+      "shares": 342167,
+      "last_change": "2026-08-21",
+      "pct_of_issued": 0.03,
+      "cumulative_pct_of_issued": 65.21
+    },
+    {
+      "rank": 54,
+      "participant_id": "C00048",
+      "participant": "CHIYU BANKING CORPORATION LTD",
+      "shares": 338375,
+      "last_change": "2026-08-24",
+      "pct_of_issued": 0.02,
+      "cumulative_pct_of_issued": 65.24
+    },
+    {
+      "rank": 55,
+      "participant_id": "B01356",
+      "participant": "DELTA ASIA SECURITIES LTD",
+      "shares": 202700,
+      "last_change": "2026-06-29",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.25
+    },
+    {
+      "rank": 56,
+      "participant_id": "C00074",
+      "participant": "DEUTSCHE BANK AG",
+      "shares": 188250,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.26
+    },
+    {
+      "rank": 57,
+      "participant_id": "B01848",
+      "participant": "CATHAY SECURITIES (HONG KONG) LTD",
+      "shares": 181000,
+      "last_change": "2026-07-02",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.28
+    },
+    {
+      "rank": 58,
+      "participant_id": "B01645",
+      "participant": "SELINA & CO LTD",
+      "shares": 180000,
+      "last_change": "2025-05-16",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.29
+    },
+    {
+      "rank": 59,
+      "participant_id": "B01947",
+      "participant": "FUBON SECURITIES (HONG KONG) LTD",
+      "shares": 178000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.3
+    },
+    {
+      "rank": 60,
+      "participant_id": "B01274",
+      "participant": "MORGAN STANLEY HONG KONG SECURITIES LTD",
+      "shares": 152396,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.31
+    },
+    {
+      "rank": 61,
+      "participant_id": "B01724",
+      "participant": "RAMON INVESTMENT CO LTD",
+      "shares": 150550,
+      "last_change": "2025-10-14",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.33
+    },
+    {
+      "rank": 62,
+      "participant_id": "B01673",
+      "participant": "FULBRIGHT SECURITIES LTD",
+      "shares": 149000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.34
+    },
+    {
+      "rank": 63,
+      "participant_id": "B01497",
+      "participant": "SINOPAC SECURITIES (ASIA) LTD",
+      "shares": 146000,
+      "last_change": "2026-05-15",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.35
+    },
+    {
+      "rank": 64,
+      "participant_id": "B01676",
+      "participant": "TAI SHING STOCK INVESTMENT CO LTD",
+      "shares": 128000,
+      "last_change": "2026-03-06",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.36
+    },
+    {
+      "rank": 65,
+      "participant_id": "B01885",
+      "participant": "HAFOO SECURITIES LTD",
+      "shares": 124000,
+      "last_change": "2025-11-17",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.37
+    },
+    {
+      "rank": 66,
+      "participant_id": "B01423",
+      "participant": "PRUDENTIAL BROKERAGE LTD",
+      "shares": 120661,
+      "last_change": "2026-06-15",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.37
+    },
+    {
+      "rank": 67,
+      "participant_id": "B01890",
+      "participant": "GUOSEN SECURITIES (HK) BROKERAGE CO LTD",
+      "shares": 110000,
+      "last_change": "2025-08-07",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.38
+    },
+    {
+      "rank": 68,
+      "participant_id": "B02195",
+      "participant": "LONG BRIDGE HK LTD",
+      "shares": 101000,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.39
+    },
+    {
+      "rank": 69,
+      "participant_id": "B01843",
+      "participant": "TELECOM KING SECURITIES LTD",
+      "shares": 94000,
+      "last_change": "2026-08-18",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.4
+    },
+    {
+      "rank": 70,
+      "participant_id": "B02175",
+      "participant": "WEBULL SECURITIES LTD",
+      "shares": 87000,
+      "last_change": "2026-08-27",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.4
+    },
+    {
+      "rank": 71,
+      "participant_id": "B01900",
+      "participant": "ORIENT SECURITIES (HONG KONG) LTD",
+      "shares": 84000,
+      "last_change": "2026-02-04",
+      "pct_of_issued": 0.01,
+      "cumulative_pct_of_issued": 65.41
+    },
+    {
+      "rank": 72,
+      "participant_id": "",
+      "participant": "YUNG KIT YI ALICE",
+      "shares": 65000,
+      "last_change": "2020-09-01",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.41
+    },
+    {
+      "rank": 73,
+      "participant_id": "B01494",
+      "participant": "AUDREY CHOW SECURITIES LTD",
+      "shares": 60300,
+      "last_change": "2024-12-30",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.42
+    },
+    {
+      "rank": 74,
+      "participant_id": "C00111",
+      "participant": "SOCIETE GENERALE",
+      "shares": 57568,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.42
+    },
+    {
+      "rank": 75,
+      "participant_id": "B01511",
+      "participant": "TAT LEE SECURITIES CO LTD",
+      "shares": 54000,
+      "last_change": "2026-06-30",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.43
+    },
+    {
+      "rank": 76,
+      "participant_id": "B01224",
+      "participant": "MERRILL LYNCH FAR EAST LTD",
+      "shares": 50883,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.43
+    },
+    {
+      "rank": 77,
+      "participant_id": "B01119",
+      "participant": "CELESTIAL SECURITIES LTD",
+      "shares": 49772,
+      "last_change": "2026-04-21",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.43
+    },
+    {
+      "rank": 78,
+      "participant_id": "B01929",
+      "participant": "CHINA GALAXY INTERNATIONAL SECURITIES",
+      "shares": 49000,
+      "last_change": "2025-07-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.44
+    },
+    {
+      "rank": 79,
+      "participant_id": "B01556",
+      "participant": "LUK FOOK SECURITIES (HK) LTD",
+      "shares": 44000,
+      "last_change": "2024-06-05",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.44
+    },
+    {
+      "rank": 80,
+      "participant_id": "",
+      "participant": "TONG WUN LING",
+      "shares": 40000,
+      "last_change": "2020-08-13",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.44
+    },
+    {
+      "rank": 81,
+      "participant_id": "B01425",
+      "participant": "WELLFULL SECURITIES CO LTD",
+      "shares": 40000,
+      "last_change": "2026-03-12",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.45
+    },
+    {
+      "rank": 82,
+      "participant_id": "B01298",
+      "participant": "GET NICE SECURITIES LTD",
+      "shares": 38300,
+      "last_change": "2026-07-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.45
+    },
+    {
+      "rank": 83,
+      "participant_id": "B01450",
+      "participant": "DL BROKERAGE LTD",
+      "shares": 37000,
+      "last_change": "2026-08-13",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.45
+    },
+    {
+      "rank": 84,
+      "participant_id": "B01904",
+      "participant": "VALUABLE CAPITAL LTD",
+      "shares": 35141,
+      "last_change": "2026-08-10",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.46
+    },
+    {
+      "rank": 85,
+      "participant_id": "B01181",
+      "participant": "FOSUN INTERNATIONAL SECURITIES LTD",
+      "shares": 35000,
+      "last_change": "2026-05-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.46
+    },
+    {
+      "rank": 86,
+      "participant_id": "B01481",
+      "participant": "NEW REGION SECURITIES CO LTD",
+      "shares": 35000,
+      "last_change": "2026-04-20",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.46
+    },
+    {
+      "rank": 87,
+      "participant_id": "B01829",
+      "participant": "HUATAI FINANCIAL HOLDINGS (HONG KONG)",
+      "shares": 34000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.46
+    },
+    {
+      "rank": 88,
+      "participant_id": "B02141",
+      "participant": "XIN YONGAN INTERNATIONAL SECURITIES",
+      "shares": 34000,
+      "last_change": "2024-02-26",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.47
+    },
+    {
+      "rank": 89,
+      "participant_id": "B01324",
+      "participant": "FUNDERSTONE SECURITIES LTD",
+      "shares": 33000,
+      "last_change": "2024-07-26",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.47
+    },
+    {
+      "rank": 90,
+      "participant_id": "B01272",
+      "participant": "FB SECURITIES (HONG KONG) LTD",
+      "shares": 31000,
+      "last_change": "2026-07-21",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.47
+    },
+    {
+      "rank": 91,
+      "participant_id": "B01267",
+      "participant": "WINFULL SECURITIES LTD",
+      "shares": 31000,
+      "last_change": "2026-04-16",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.47
+    },
+    {
+      "rank": 92,
+      "participant_id": "B01289",
+      "participant": "SOUTH CHINA SECURITIES LTD",
+      "shares": 30722,
+      "last_change": "2026-06-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.47
+    },
+    {
+      "rank": 93,
+      "participant_id": "C00113",
+      "participant": "ABN AMRO CLEARING BANK N.V.",
+      "shares": 30580,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.48
+    },
+    {
+      "rank": 94,
+      "participant_id": "B01275",
+      "participant": "SANFULL SECURITIES LTD",
+      "shares": 29000,
+      "last_change": "2026-07-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.48
+    },
+    {
+      "rank": 95,
+      "participant_id": "B01813",
+      "participant": "CCB INTERNATIONAL SECURITIES LTD",
+      "shares": 28000,
+      "last_change": "2025-11-25",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.48
+    },
+    {
+      "rank": 96,
+      "participant_id": "B01198",
+      "participant": "PO KAY SECURITIES & SHARES CO LTD",
+      "shares": 27200,
+      "last_change": "2026-03-05",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.48
+    },
+    {
+      "rank": 97,
+      "participant_id": "B02132",
+      "participant": "BOOM SECURITIES (H.K.) LTD",
+      "shares": 25000,
+      "last_change": "2026-08-20",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.49
+    },
+    {
+      "rank": 98,
+      "participant_id": "B01567",
+      "participant": "PRIME SECURITIES LTD",
+      "shares": 25000,
+      "last_change": "2026-04-01",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.49
+    },
+    {
+      "rank": 99,
+      "participant_id": "B02159",
+      "participant": "USMART SECURITIES LTD",
+      "shares": 25000,
+      "last_change": "2026-08-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.49
+    },
+    {
+      "rank": 100,
+      "participant_id": "B01445",
+      "participant": "VICTORY SECURITIES CO LTD",
+      "shares": 24200,
+      "last_change": "2026-05-08",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.49
+    },
+    {
+      "rank": 101,
+      "participant_id": "B01842",
+      "participant": "BOCOM INTERNATIONAL SECURITIES LTD",
+      "shares": 24000,
+      "last_change": "2026-05-08",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.49
+    },
+    {
+      "rank": 102,
+      "participant_id": "B01209",
+      "participant": "MASON SECURITIES LTD",
+      "shares": 23000,
+      "last_change": "2026-08-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.49
+    },
+    {
+      "rank": 103,
+      "participant_id": "B01849",
+      "participant": "CIS SECURITIES ASSET MANAGEMENT LTD",
+      "shares": 22000,
+      "last_change": "2019-06-26",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.5
+    },
+    {
+      "rank": 104,
+      "participant_id": "B01470",
+      "participant": "HUNG SING SECURITIES LTD",
+      "shares": 22000,
+      "last_change": "2026-03-09",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.5
+    },
+    {
+      "rank": 105,
+      "participant_id": "B01915",
+      "participant": "METAVERSE SECURITIES LTD",
+      "shares": 22000,
+      "last_change": "2026-07-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.5
+    },
+    {
+      "rank": 106,
+      "participant_id": "B01700",
+      "participant": "REALINK FINANCIAL TRADE LTD",
+      "shares": 22000,
+      "last_change": "2026-08-04",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.5
+    },
+    {
+      "rank": 107,
+      "participant_id": "B01252",
+      "participant": "CORPORATE BROKERS LTD",
+      "shares": 21000,
+      "last_change": "2026-08-05",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.5
+    },
+    {
+      "rank": 108,
+      "participant_id": "B01788",
+      "participant": "SUNRISE SECURITIES LTD",
+      "shares": 20500,
+      "last_change": "2026-08-10",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.5
+    },
+    {
+      "rank": 109,
+      "participant_id": "",
+      "participant": "CHAN TING CHEUNG GARY",
+      "shares": 20000,
+      "last_change": "2024-03-22",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 110,
+      "participant_id": "B01373",
+      "participant": "CHRISTFUND SECURITIES LTD",
+      "shares": 20000,
+      "last_change": "2026-08-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 111,
+      "participant_id": "B01519",
+      "participant": "GOOD HARVEST SECURITIES CO LTD",
+      "shares": 18000,
+      "last_change": "2025-12-17",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 112,
+      "participant_id": "B01169",
+      "participant": "PUBLIC FINANCIAL SECURITIES LTD",
+      "shares": 18000,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 113,
+      "participant_id": "B01940",
+      "participant": "SOFI SECURITIES (HONG KONG) LTD",
+      "shares": 17000,
+      "last_change": "2026-08-10",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 114,
+      "participant_id": "B01939",
+      "participant": "SOOCHOW SECURITIES INTERNATIONAL",
+      "shares": 16000,
+      "last_change": "2026-08-26",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 115,
+      "participant_id": "C00095",
+      "participant": "EFG BANK AG",
+      "shares": 15700,
+      "last_change": "2025-05-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 116,
+      "participant_id": "B01649",
+      "participant": "CINDA INTERNATIONAL SECURITIES LTD",
+      "shares": 15000,
+      "last_change": "2026-06-04",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 117,
+      "participant_id": "B01787",
+      "participant": "SOO PUI CHEN SECURITIES LTD",
+      "shares": 15000,
+      "last_change": "2025-12-22",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.51
+    },
+    {
+      "rank": 118,
+      "participant_id": "B01343",
+      "participant": "CELETIO INVESTMENTS LTD",
+      "shares": 14000,
+      "last_change": "2026-05-05",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 119,
+      "participant_id": "B01581",
+      "participant": "KINGSWAY FINANCIAL SERVICES GROUP LTD",
+      "shares": 13000,
+      "last_change": "2026-01-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 120,
+      "participant_id": "B01941",
+      "participant": "CENTALINE SECURITIES LTD",
+      "shares": 12000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 121,
+      "participant_id": "B01901",
+      "participant": "CMB INTERNATIONAL SECURITIES LTD",
+      "shares": 12000,
+      "last_change": "2026-06-03",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 122,
+      "participant_id": "B01158",
+      "participant": "SOLID KING SECURITIES LTD",
+      "shares": 12000,
+      "last_change": "2024-02-01",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 123,
+      "participant_id": "B01416",
+      "participant": "VC BROKERAGE LTD",
+      "shares": 12000,
+      "last_change": "2025-02-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 124,
+      "participant_id": "B01967",
+      "participant": "YUNFENG SECURITIES LTD",
+      "shares": 12000,
+      "last_change": "2024-08-21",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 125,
+      "participant_id": "B01230",
+      "participant": "GAOYU SECURITIES LIMITED",
+      "shares": 11250,
+      "last_change": "2025-10-30",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 126,
+      "participant_id": "B01540",
+      "participant": "UPBEST SECURITIES CO LTD",
+      "shares": 11250,
+      "last_change": "2024-05-03",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 127,
+      "participant_id": "B01483",
+      "participant": "BULLISH SECURITIES LTD",
+      "shares": 11000,
+      "last_change": "2026-04-15",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 128,
+      "participant_id": "B01948",
+      "participant": "CAITONG INTERNATIONAL SECURITIES CO LTD",
+      "shares": 10000,
+      "last_change": "2016-08-30",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.52
+    },
+    {
+      "rank": 129,
+      "participant_id": "B01654",
+      "participant": "CHINA INTERNATIONAL CAPITAL CORPORATION",
+      "shares": 10000,
+      "last_change": "2026-08-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 130,
+      "participant_id": "B01413",
+      "participant": "CORE PACIFIC - YAMAICHI INTERNATIONAL",
+      "shares": 10000,
+      "last_change": "2025-06-18",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 131,
+      "participant_id": "B01576",
+      "participant": "SIU ON SECURITIES LTD",
+      "shares": 10000,
+      "last_change": "2025-08-19",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 132,
+      "participant_id": "B01290",
+      "participant": "SPS SECURITIES LTD",
+      "shares": 9000,
+      "last_change": "2026-08-21",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 133,
+      "participant_id": "B01696",
+      "participant": "HANTEC SECURITIES CO LTD",
+      "shares": 8000,
+      "last_change": "2026-08-10",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 134,
+      "participant_id": "B01538",
+      "participant": "MORTON SECURITIES LTD",
+      "shares": 8000,
+      "last_change": "2024-09-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 135,
+      "participant_id": "B01875",
+      "participant": "GUODU SECURITIES (HONG KONG) LTD",
+      "shares": 7000,
+      "last_change": "2026-05-27",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 136,
+      "participant_id": "B01934",
+      "participant": "SELECT INVESTMENT SERVICES LTD",
+      "shares": 7000,
+      "last_change": "2026-07-17",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 137,
+      "participant_id": "B01454",
+      "participant": "HAO TIAN INTERNATIONAL SECURITIES LTD",
+      "shares": 6000,
+      "last_change": "2026-04-30",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 138,
+      "participant_id": "B02120",
+      "participant": "LIVERMORE HOLDINGS LTD",
+      "shares": 6000,
+      "last_change": "2025-08-06",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 139,
+      "participant_id": "B01936",
+      "participant": "MIGHTY BROKERAGE (ASIA) LTD",
+      "shares": 6000,
+      "last_change": "2025-05-07",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 140,
+      "participant_id": "B01710",
+      "participant": "SINO-RICH SECURITIES & FUTURES LTD",
+      "shares": 6000,
+      "last_change": "2026-08-19",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 141,
+      "participant_id": "B01351",
+      "participant": "WING FUNG SECURITIES LTD",
+      "shares": 6000,
+      "last_change": "2024-05-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 142,
+      "participant_id": "B01615",
+      "participant": "KAM FAI SECURITIES CO LTD",
+      "shares": 5200,
+      "last_change": "2024-03-22",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 143,
+      "participant_id": "B02221",
+      "participant": "AACAT FINTECH LTD",
+      "shares": 5000,
+      "last_change": "2026-08-12",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 144,
+      "participant_id": "B01564",
+      "participant": "ABCI SECURITIES CO LTD",
+      "shares": 5000,
+      "last_change": "2026-03-16",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 145,
+      "participant_id": "B01588",
+      "participant": "LEI SHING HONG SECURITIES LTD",
+      "shares": 5000,
+      "last_change": "2026-08-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 146,
+      "participant_id": "B01350",
+      "participant": "S. W. WOO & CO LTD",
+      "shares": 5000,
+      "last_change": "2021-11-01",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 147,
+      "participant_id": "B01439",
+      "participant": "TAI TAK SECURITIES (ASIA) LTD",
+      "shares": 5000,
+      "last_change": "2026-02-26",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 148,
+      "participant_id": "B02102",
+      "participant": "ZINVEST GLOBAL LTD",
+      "shares": 5000,
+      "last_change": "2026-06-02",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 149,
+      "participant_id": "B01231",
+      "participant": "GIGAMONEY LTD",
+      "shares": 4675,
+      "last_change": "2023-12-05",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 150,
+      "participant_id": "B01743",
+      "participant": "CEPA ALLIANCE SECURITIES LTD",
+      "shares": 4000,
+      "last_change": "2022-12-13",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.53
+    },
+    {
+      "rank": 151,
+      "participant_id": "B01809",
+      "participant": "CHINA SYSTEM SECURITIES LTD",
+      "shares": 4000,
+      "last_change": "2026-05-29",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 152,
+      "participant_id": "B01455",
+      "participant": "NATIONAL RESOURCES SECURITIES LTD",
+      "shares": 4000,
+      "last_change": "2025-08-29",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 153,
+      "participant_id": "B01256",
+      "participant": "SINOLINK SECURITIES (HONG KONG) CO LTD",
+      "shares": 4000,
+      "last_change": "2026-05-11",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 154,
+      "participant_id": "B01773",
+      "participant": "TOYO SECURITIES ASIA LTD",
+      "shares": 4000,
+      "last_change": "2017-09-22",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 155,
+      "participant_id": "B01661",
+      "participant": "BOSCO SECURITIES LTD",
+      "shares": 3000,
+      "last_change": "2015-05-29",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 156,
+      "participant_id": "B01833",
+      "participant": "CTBC ASIA LTD",
+      "shares": 3000,
+      "last_change": "2025-04-16",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 157,
+      "participant_id": "B01705",
+      "participant": "HENIK SECURITIES LTD",
+      "shares": 3000,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 158,
+      "participant_id": "B01433",
+      "participant": "HING WAI ALLIED SECURITIES LTD",
+      "shares": 3000,
+      "last_change": "2026-01-28",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 159,
+      "participant_id": "B02212",
+      "participant": "HUAAN SECURITIES (HONG KONG) BROKERAGE",
+      "shares": 3000,
+      "last_change": "2025-10-23",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 160,
+      "participant_id": "C00011",
+      "participant": "PUBLIC BANK (HONG KONG) LTD",
+      "shares": 3000,
+      "last_change": "2022-01-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 161,
+      "participant_id": "B01893",
+      "participant": "WINCO SECURITIES CO LTD",
+      "shares": 3000,
+      "last_change": "2019-09-16",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 162,
+      "participant_id": "B01340",
+      "participant": "LEHIN SECURITIES LTD",
+      "shares": 2780,
+      "last_change": "2026-06-24",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 163,
+      "participant_id": "B01601",
+      "participant": "CSC SECURITIES (HK) LTD",
+      "shares": 2000,
+      "last_change": "2025-08-01",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 164,
+      "participant_id": "B02047",
+      "participant": "EDDID SECURITIES AND FUTURES LTD",
+      "shares": 2000,
+      "last_change": "2025-03-10",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 165,
+      "participant_id": "B01783",
+      "participant": "FREDDY CO LTD",
+      "shares": 2000,
+      "last_change": "2024-09-30",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 166,
+      "participant_id": "B01271",
+      "participant": "HANG TAI SECURITIES LTD",
+      "shares": 2000,
+      "last_change": "2024-02-15",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 167,
+      "participant_id": "B01523",
+      "participant": "EVER-LONG SECURITIES CO LTD",
+      "shares": 1010,
+      "last_change": "2025-06-18",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 168,
+      "participant_id": "B01328",
+      "participant": "BAN HIN SECURITIES CO LTD",
+      "shares": 1000,
+      "last_change": "2026-08-12",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 169,
+      "participant_id": "B01777",
+      "participant": "DAIWA CAPITAL MARKETS HONG KONG LTD",
+      "shares": 1000,
+      "last_change": "2024-05-13",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 170,
+      "participant_id": "B01686",
+      "participant": "FIRST SHANGHAI SECURITIES LTD",
+      "shares": 1000,
+      "last_change": "2025-10-02",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 171,
+      "participant_id": "B01794",
+      "participant": "INTERCONTINENT SECURITIES CO LTD",
+      "shares": 1000,
+      "last_change": "2007-09-18",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 172,
+      "participant_id": "B01213",
+      "participant": "MONEYMORE SECURITIES LTD",
+      "shares": 1000,
+      "last_change": "2019-02-15",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 173,
+      "participant_id": "B01767",
+      "participant": "NEW GALA SECURITIES CO LTD",
+      "shares": 1000,
+      "last_change": "2021-12-22",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 174,
+      "participant_id": "B01265",
+      "participant": "OCBC SECURITIES BROKERAGE (HK) LTD",
+      "shares": 1000,
+      "last_change": "2026-08-25",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 175,
+      "participant_id": "",
+      "participant": "SEEN SIU LAM",
+      "shares": 1000,
+      "last_change": "2008-08-05",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 176,
+      "participant_id": "B02128",
+      "participant": "SILVERBRICKS SECURITIES CO LTD",
+      "shares": 1000,
+      "last_change": "2025-12-18",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 177,
+      "participant_id": "B01585",
+      "participant": "SINO GRADE SECURITIES LTD",
+      "shares": 1000,
+      "last_change": "2024-05-03",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 178,
+      "participant_id": "B01814",
+      "participant": "WELL LINK SECURITIES LTD",
+      "shares": 1000,
+      "last_change": "2026-03-02",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 179,
+      "participant_id": "B01769",
+      "participant": "ONE CHINA SECURITIES LTD",
+      "shares": 693,
+      "last_change": "2026-08-26",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 180,
+      "participant_id": "B01240",
+      "participant": "TSUN CHI YUEN SECURITIES CO LTD",
+      "shares": 399,
+      "last_change": "2026-04-10",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 181,
+      "participant_id": "B02093",
+      "participant": "UPMAX SECURITIES LTD",
+      "shares": 105,
+      "last_change": "2026-08-13",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    },
+    {
+      "rank": 182,
+      "participant_id": "B02214",
+      "participant": "WINBULL SECURITIES INTERNATIONAL (HONG",
+      "shares": 1,
+      "last_change": "2025-11-14",
+      "pct_of_issued": 0.0,
+      "cumulative_pct_of_issued": 65.54
+    }
+  ],
+  "warnings": []
+}
