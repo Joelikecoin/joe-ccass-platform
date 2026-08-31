@@ -56,6 +56,7 @@ from app.friend_clone_app import (
 )
 from app.live_product import YAHOO_CHART_API_URL
 from app.services.ccass import get_ccass_service
+from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
     build_download_artifacts,
@@ -396,6 +397,25 @@ def _concentration_history_rows(bundle: PortalBundle) -> list[dict[str, object]]
             }
         )
     return rows
+
+
+def _live_ccass_acquisition_state(bundle: PortalBundle) -> tuple[bool, str]:
+    if bundle.live_product is None or bundle.prepared is None or bundle.prepared.response is None:
+        return False, "CCASS acquisition unavailable."
+    source_trace = getattr(bundle.live_product, "source_trace", None)
+    if source_trace is None:
+        return True, "HKEX SDW browser acquisition enabled."
+    selection = getattr(source_trace, "selection", None)
+    selected_source_id = getattr(selection, "selected_source_id", None)
+    if selected_source_id in {None, "cache", "persistent_lkg", GOOGLE_DRIVE_CSV_SOURCE_ID}:
+        if selected_source_id == "persistent_lkg":
+            return False, "Persistent LKG fallback recovered."
+        if selected_source_id == "cache":
+            return False, "Cached CCASS result recovered."
+        if selected_source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
+            return False, "Google Drive CSV fallback recovered."
+        return False, "CCASS recovery used."
+    return True, "HKEX SDW browser acquisition enabled."
 
 
 def _concentration_line_svg(rows: list[dict[str, object]], *, width: int = 940, height: int = 280) -> str:
@@ -891,7 +911,7 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
     ]
     top_cards = [
         _metric_card("Resolved code", "已解析代號", bundle.resolved_code, note="Input accepted and normalized.", tone="primary"),
-        _metric_card("Live CCASS", "即時 CCASS", "YES" if bundle.live_product and bundle.prepared and bundle.prepared.response is not None else "NO", note="HKEX SDW browser acquisition enabled.", tone="success"),
+        _metric_card("Live CCASS", "即時 CCASS", "YES" if _live_ccass_acquisition_state(bundle)[0] else "NO", note=_live_ccass_acquisition_state(bundle)[1], tone="success"),
         _metric_card("Chinese HKEX titles", "HKEX 中文標題", "YES" if bundle.live_product and bundle.live_product.announcements else "NO", note="Official title search language set to Chinese.", tone="accent"),
         _metric_card("Previous history", "歷史比較", "YES" if bundle.previous_available else "NO", note="Local snapshot comparison when available.", tone="secondary"),
         _metric_card("Last Price Date", "最近價格日期", _svg_escape(price_date or "—"), tone="secondary"),
@@ -1071,7 +1091,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     status_text = "LIVE CCASS + bilingual portal"
     if base.error_message:
         status_text = base.error_message
-    live_status = "READY" if base.live_product and base.prepared and base.prepared.response is not None else "PARTIAL"
+    live_status = "READY" if _live_ccass_acquisition_state(base)[0] else "PARTIAL"
     current_query = json.dumps(_build_query_payload(base))
     ccass_warning_html = ""
     if base.prepared and base.prepared.response and base.prepared.response.data_quality_warnings:

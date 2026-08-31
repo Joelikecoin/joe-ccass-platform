@@ -946,6 +946,89 @@ def test_portal_8504_render_uses_price_history_response_metadata(monkeypatch):
     assert "Source Trace" not in overview_html
 
 
+def test_portal_8504_render_marks_persistent_lkg_as_partial_live_ccass():
+    fake_response = SimpleNamespace(
+        metadata=SimpleNamespace(
+            code="01682",
+            issue_id=1682,
+            name="01682 Corp",
+            holdings_date=date(2026, 8, 28),
+            fetched_at=datetime(2026, 8, 28, 9, 0, tzinfo=UTC),
+            source_name="HKEX SDW",
+            source_url="https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+            cached=True,
+            data_as_of=date(2026, 8, 28),
+        ),
+        holdings_summary=HoldingsSummary(
+            participant_count=113,
+            total_in_ccass_shares=1454800789,
+            total_in_ccass_pct_of_issued=92.5532,
+            issued_shares=1573931119,
+            issued_shares_as_of=date(2026, 8, 28),
+            non_ccass_shares=119130330,
+            non_ccass_pct_of_issued=7.4468,
+            top5_pct_of_issued=81.11,
+            top10_pct_of_issued=87.06,
+            top5_pct_of_ccass=87.66,
+            top10_pct_of_ccass=94.12,
+        ),
+        holdings=[],
+        announcements=[],
+        stock_events=[],
+        capital_information=[],
+        officers=[],
+        data_quality_warnings=[],
+        price_history=SimpleNamespace(metadata=SimpleNamespace(source_name="Yahoo Finance")),
+    )
+    fake_live_product = SimpleNamespace(
+        code="01682",
+        symbol="01682.HK",
+        company={},
+        latest_price={},
+        price_history=[],
+        announcements=[],
+        corporate_events=[],
+        share_capital_changes=[],
+        officers=[],
+        source_notes=[],
+        diagnostics=[],
+        fetched_at=datetime(2026, 8, 28, 9, 0, tzinfo=UTC),
+        response=fake_response,
+        source_trace=SimpleNamespace(
+            selection=SimpleNamespace(selected_source_id="persistent_lkg")
+        ),
+    )
+    fake_base = PortalBundle(
+        requested_code="01682",
+        resolved_code="01682",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        live_product=fake_live_product,
+        prepared=SimpleNamespace(
+            response=fake_response,
+            source_trace=[],
+            analysis=SimpleNamespace(changes=[], big_changes=[], concentration={}, previous_available=True),
+            fetch_error=None,
+            filename="01682_ccass_report.md",
+        ),
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=None,
+        previous_available=True,
+    )
+    html = _render_page(Portal8504Bundle(base=fake_base, price_rows=[], concentration_rows=[]))
+
+    assert 'class="status-pill">PARTIAL</div>' in html
+    assert "Persistent LKG fallback recovered." in html
+    assert "HKEX SDW browser acquisition enabled." not in html
+
+
 def test_portal_8504_bundle_recovers_auxiliary_surfaces_without_ccass(monkeypatch):
     async def fake_prepare_report(*args, **kwargs):
             return PreparedReport(
