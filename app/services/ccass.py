@@ -428,7 +428,7 @@ class CcassService:
             recovery_source_ids = tuple(
                 source.source_id
                 for source in self.available_sources
-                if source.source_id == WEBBSITE_SOURCE_ID
+                if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
             )
             recovery_backend = self._build_recovery_backend(recovery_source_ids)
             if recovery_backend is not None:

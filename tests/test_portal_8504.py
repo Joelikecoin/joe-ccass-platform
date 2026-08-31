@@ -47,6 +47,23 @@ from app.portal_8504 import (
 )
 
 
+def test_portal_8504_defaults_data_date_to_latest_available(monkeypatch):
+    captured = {}
+
+    async def fake_build_portal_8504_bundle(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace()
+
+    monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
+    monkeypatch.setattr("app.portal_8504._render_page", lambda bundle: "<html>ok</html>")
+
+    client = TestClient(portal_app)
+    response = client.get("/", params={"code": "01682"})
+
+    assert response.status_code == 200
+    assert captured["data_date"] is None
+
+
 def test_portal_8504_bundle_times_out_price_history_without_blocking(monkeypatch):
     async def fake_build_bundle(**kwargs):
         live_product = SimpleNamespace(

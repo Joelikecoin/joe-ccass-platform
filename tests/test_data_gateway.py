@@ -1,6 +1,7 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 
+from app.config import Settings
 from app.errors import ErrorCode, PlatformError
 from app.services.ccass import CcassService
 from app.services.data_gateway import (
@@ -314,6 +315,57 @@ async def test_live_failure_uses_lkg_recovery_before_csv_fallback(
     assert result.source_trace.selected_source_status == "fallback"
     assert result.normalized_response.metadata.cached is True
     assert result.normalized_response.metadata.data_as_of == current_response.metadata.data_as_of
+
+
+async def test_auto_recovery_includes_hkex_persistent_snapshots(
+    tmp_path,
+    monkeypatch,
+    current_response,
+):
+    repository = NormalizedSnapshotRepository(tmp_path / "hkex_lkg.db")
+    hkex_response = current_response.model_copy(
+        update={
+            "metadata": current_response.metadata.model_copy(
+                update={
+                    "code": "01682",
+                    "source_name": "HKEX SDW",
+                    "source_url": "https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx",
+                }
+            )
+        }
+    )
+    _persist_snapshot(repository, hkex_response, source_id=HKEX_SDW_SOURCE_ID)
+    calls: list[str] = []
+
+    class FailingWebbsite:
+        def __init__(self, settings):
+            self.settings = settings
+
+        async def get_holdings(self, code, limit=15):
+            calls.append("webbsite")
+            raise PlatformError(
+                ErrorCode.SOURCE_FORBIDDEN,
+                "Webb-site mirror blocked in test fixture.",
+                status_code=403,
+            )
+
+    monkeypatch.setattr("app.services.ccass.WebbsiteClient", FailingWebbsite)
+
+    service = CcassService(
+        settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
+        lkg_repository=repository,
+    )
+
+    gateway_response = await service.get_stock_gateway_response("01682", holdings_limit=2)
+    response = gateway_response.normalized_response
+
+    assert calls == ["webbsite"]
+    assert gateway_response.routing.selected_source_id == "persistent_lkg"
+    assert gateway_response.source_trace.selected_source_id == "persistent_lkg"
+    assert response.metadata.code == "01682"
+    assert response.metadata.source_name == "HKEX SDW"
+    assert response.metadata.cached is True
+    assert repository.count_snapshots("01682") == 1
 
 
 async def test_lkg_unavailable_falls_back_to_csv_last_resort(
