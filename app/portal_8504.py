@@ -1458,6 +1458,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <a href="#announcements">{_i18n("HKEX Announcements", "HKEX 公告", locale)}</a>
           <a href="#events">{_i18n("Corporate Events", "公司事件", locale)}</a>
           <a href="#officers">{_i18n("Officers / Managers", "董事高管", locale)}</a>
+          <a href="#share-capital">{_i18n("Share Capital", "股本變動", locale)}</a>
           <a href="#price-turnover">{_i18n("Price & Turnover", "價格與成交額", locale)}</a>
           <a href="#company">{_i18n("Company", "公司", locale)}</a>
           <a href="#ccass-holdings">{_i18n("CCASS Holdings", "CCASS 持股", locale)}</a>
@@ -1475,8 +1476,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <h2>{_i18n("Price & Turnover", "價格與成交額", locale)}</h2>
           {_price_panel(base, price_rows)}
         </section>
-
-        {(f'''<details class="event-lines diagnostics-panel"><summary>{_i18n("Diagnostics / Status", "診斷／狀態", locale)}</summary><div class="event-lines-body diagnostics-body">{ccass_warning_html}{ccass_error_html}{live_error_html}</div></details>''' if (ccass_warning_html or ccass_error_html or live_error_html) else '')}
 
         {_all_tables_block(base, price_rows, concentration_rows)}
 
@@ -1510,6 +1509,12 @@ def _render_page(bundle: Portal8504Bundle) -> str:
                 ] for row in (base.live_product.officers[:12] if base.live_product else [])
             ], class_name="compact-table")}
           </div>
+        </section>
+
+        <section id="share-capital" class="panel">
+          <div class="kicker">{_i18n("Capital structure", "股本結構", locale)}</div>
+          <h2>{_i18n("Share Capital", "股本變動", locale)}</h2>
+          {_announcement_block("Share Capital Changes", "股本變動", base.live_product.share_capital_changes if base.live_product else [], locale, empty_text="No share capital change rows available.")}
         </section>
 
         <section id="company" class="panel">
