@@ -1482,14 +1482,32 @@ def _changes_section(analysis: AnalysisResult, locale: str) -> list[str]:
 
 
 def _big_changes_section(analysis: AnalysisResult, locale: str) -> list[str]:
+    source_status = "LOCAL_DERIVED" if analysis.previous_available else "UNAVAILABLE"
+    authority_status = "LOCAL_HISTORY_LIMITED" if analysis.previous_available else "UNAVAILABLE"
+    status_lines = [
+        f"- Source status: {source_status}",
+        f"- Authority status: {authority_status}",
+    ]
     if not analysis.previous_available:
         return [
+            section_related_context_markdown(locale, "big_changes"),
+            "",
+            *status_lines,
+            "",
             f"{translate_text(locale, 'report.data_not_available')} ? {translate_text(locale, 'report.previous_snapshot_unavailable')}"
         ]
     if not analysis.big_changes:
-        return [translate_text(locale, "report.no_changes_met_threshold", threshold=analysis.big_change_threshold)]
+        return [
+            section_related_context_markdown(locale, "big_changes"),
+            "",
+            *status_lines,
+            "",
+            translate_text(locale, "report.no_changes_met_threshold", threshold=analysis.big_change_threshold),
+        ]
     return [
         section_related_context_markdown(locale, "big_changes"),
+        "",
+        *status_lines,
         "",
         *_change_table(analysis.big_changes, locale),
     ]

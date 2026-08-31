@@ -1391,6 +1391,8 @@ def test_live_product_announcements_timeout_does_not_block_render(monkeypatch):
 def test_portal_8504_big_changes_block_uses_response_big_changes():
     fake_response = SimpleNamespace(
         big_changes=SimpleNamespace(
+            source_status="local_derived",
+            authority_status="local_history_limited",
             big_changes=[
                 SimpleNamespace(
                     participant_id="B01922",
@@ -1414,9 +1416,28 @@ def test_portal_8504_big_changes_block_uses_response_big_changes():
     html = _big_changes_block(bundle)
 
     assert "No big changes at the current threshold." not in html
+    assert "LOCAL_DERIVED" in html
+    assert "LOCAL_HISTORY_LIMITED" in html
     assert "B01922" in html
     assert "TEST FIXTURE BROKER ONE" in html
     assert "554,387,582" in html
+
+
+def test_portal_8504_big_changes_block_marks_unavailable_without_previous_snapshot():
+    bundle = SimpleNamespace(
+        top_n=20,
+        prepared=SimpleNamespace(
+            response=SimpleNamespace(big_changes=None),
+            analysis=AnalysisResult(big_changes=[], previous_available=False),
+        ),
+    )
+
+    html = _big_changes_block(bundle)
+
+    assert "UNAVAILABLE" in html
+    assert "LOCAL_DERIVED" not in html
+    assert "LOCAL_HISTORY_LIMITED" not in html
+    assert "No big changes at the current threshold." in html
 
 
 def test_portal_8504_changes_block_big_changes_metric_uses_response_big_changes():

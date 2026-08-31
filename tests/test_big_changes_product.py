@@ -70,6 +70,8 @@ def test_big_changes_filters_p1_08_result_without_recomputing_comparison(
     assert result.metadata.code == "01592"
     assert result.metadata.compare_source.source_id == "webbsite"
     assert result.diagnostics.validation_status == "COMPLETE"
+    assert result.source_status == "local_derived"
+    assert result.authority_status == "local_history_limited"
     assert result.summary.model_dump() == {
         "threshold_shares": 400,
         "participants_compared": 4,
@@ -228,6 +230,8 @@ def test_big_changes_markdown_report_contains_threshold_metadata_and_rows(
     assert "- Compare date: 2026-07-19" in report
     assert "- Compare data as of: 2026-07-19" in report
     assert "- Snapshot data as of: 2026-07-20" in report
+    assert "- Source status: LOCAL_DERIVED" in report
+    assert "- Authority status: LOCAL_HISTORY_LIMITED" in report
     assert "| B00003 | TEST FIXTURE BROKER THREE | 500 | 0 | -500 |" in report
     assert "BIG_CHANGES_VALIDATION: COMPLETE" in report
 

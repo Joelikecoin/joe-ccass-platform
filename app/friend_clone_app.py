@@ -497,6 +497,18 @@ def _big_changes_block(bundle: PortalBundle) -> str:
     response_big_changes = getattr(response_big_changes_obj, "big_changes", []) or []
     analysis_big_changes = getattr(prepared.analysis, "big_changes", []) if prepared.analysis is not None else []
     rows_source = response_big_changes or analysis_big_changes
+    source_status = (
+        getattr(response_big_changes_obj, "source_status", None)
+        or ("local_derived" if getattr(prepared.analysis, "previous_available", False) else "unavailable")
+    )
+    authority_status = (
+        getattr(response_big_changes_obj, "authority_status", None)
+        or ("local_history_limited" if getattr(prepared.analysis, "previous_available", False) else "unavailable")
+    )
+    status_banner = (
+        f'<div class="warning-box"><strong>Authority status:</strong> {_escape(authority_status.upper())} '
+        f'· <strong>Source status:</strong> {_escape(source_status.upper())}</div>'
+    )
     rows: list[list[str]] = []
     for change in rows_source[: bundle.top_n]:
         rows.append(
@@ -510,11 +522,17 @@ def _big_changes_block(bundle: PortalBundle) -> str:
             ]
         )
     if not rows:
-        return '<div class="empty-state">No big changes at the current threshold.</div>'
-    return _table(
+        return (
+            status_banner
+            + '<div class="empty-state">No big changes at the current threshold.</div>'
+        )
+    return (
+        status_banner
+        + _table(
         ["Participant ID", "Participant", "Previous Shares", "Current Shares", "Change", "Status"],
         rows,
         class_name="big-changes-table",
+        )
     )
 
 

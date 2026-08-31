@@ -72,6 +72,8 @@ class BigChangesService:
             ),
             big_changes=rows,
             diagnostics=changes.diagnostics,
+            source_status="local_derived",
+            authority_status="local_history_limited",
             data_quality_warnings=list(dict.fromkeys(warnings)),
         )
 

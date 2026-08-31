@@ -36,6 +36,8 @@ class AnalysisResult:
     warnings: tuple[str, ...] = ()
     previous_available: bool = False
     big_change_threshold: int = 0
+    source_status: str = "unavailable"
+    authority_status: str = "unavailable"
     concentration: dict[str, float | int | None] = field(default_factory=dict)
 
 
@@ -84,6 +86,8 @@ def compute_analysis(
         return AnalysisResult(
             warnings=tuple(_deduplicate(warnings)),
             big_change_threshold=threshold,
+            source_status="unavailable",
+            authority_status="unavailable",
             concentration=concentration,
         )
 
@@ -110,6 +114,8 @@ def compute_analysis(
         warnings=tuple(_deduplicate(warnings)),
         previous_available=True,
         big_change_threshold=threshold,
+        source_status="local_derived",
+        authority_status="local_history_limited",
         concentration=concentration,
     )
 

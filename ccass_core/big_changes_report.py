@@ -26,6 +26,8 @@ def build_big_changes_markdown_report(response: BigChangesResponse) -> str:
         f"(as of {metadata.compare_source.issued_shares_as_of})",
         f"- Snapshot issued shares: {metadata.snapshot_source.issued_shares:,} "
         f"(as of {metadata.snapshot_source.issued_shares_as_of})",
+        f"- Source status: {response.source_status.upper()}",
+        f"- Authority status: {response.authority_status.upper()}",
         f"- Issue ID: {metadata.issue_id}",
         f"- Settlement note: {_escape(metadata.settlement_note)}",
         "",
