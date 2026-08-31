@@ -336,7 +336,7 @@ class WebbsiteClient:
             )
 
     def _should_try_browser_fallback(self, failure_type: str | None) -> bool:
-        return failure_type in {"cloudflare_challenge", "login_page"}
+        return failure_type in {"cloudflare_challenge", "login_page", "incomplete_body"}
 
     async def _fetch_via_browser(
         self,

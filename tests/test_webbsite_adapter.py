@@ -205,6 +205,40 @@ async def test_challenge_page_triggers_browser_fallback(monkeypatch):
 
 
 @respx.mock
+async def test_incomplete_body_triggers_browser_fallback(monkeypatch):
+    _mock_landing_pages()
+    incomplete = "<html><body>incomplete"
+    respx.get("https://primary.example/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            200,
+            text=incomplete,
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(settings())
+    browser_calls = []
+
+    async def fake_browser(base_url, *, path, params, failures):
+        browser_calls.append((base_url, path, params, tuple(f.error_type for f in failures)))
+        return FetchedPage(
+            fixture("holdings_normal.html"),
+            "https://browser.example/ccass/choldings.asp?sc=1592",
+            False,
+        )
+
+    monkeypatch.setattr(client, "_fetch_via_browser", fake_browser)
+
+    response = await client.get_holdings("01592", limit=2)
+
+    assert browser_calls
+    assert browser_calls[0][1] == "/ccass/choldings.asp"
+    assert "incomplete_body" in browser_calls[0][3]
+    assert response.metadata.source_url.startswith("https://browser.example/")
+    assert response.metadata.issue_id == 15_920
+    assert response.holdings_summary.participant_count == 4
+
+
+@respx.mock
 async def test_rate_limited_status_does_not_trigger_browser_fallback(monkeypatch):
     _mock_landing_pages()
     respx.get("https://primary.example/ccass/choldings.asp").mock(
