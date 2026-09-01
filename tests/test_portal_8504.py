@@ -40,6 +40,7 @@ from app.portal_8504 import (
     PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
     app as portal_app,
     Portal8504Bundle,
+    _build_query_payload,
     _build_portal_8504_bundle,
     _overview_block,
     _price_panel,
@@ -71,6 +72,31 @@ def test_portal_8504_initial_page_renders_without_data_date():
 
     assert response.status_code == 200
     assert 'name="data_date"' in response.text
+    assert 'dataDateInput.disabled = true;' in response.text
+
+
+def test_portal_8504_omits_unspecified_data_date_from_generated_query():
+    bundle = PortalBundle(
+        requested_code="01682",
+        resolved_code="01682",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        data_date=None,
+        live_product=None,
+        prepared=None,
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=None,
+        previous_available=False,
+    )
+
+    assert "data_date" not in _build_query_payload(bundle)
 
 
 def test_portal_8504_bundle_times_out_price_history_without_blocking(monkeypatch):

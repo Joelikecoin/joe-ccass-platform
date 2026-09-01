@@ -1003,19 +1003,21 @@ def _price_history_block(price_rows: list[dict[str, object]]) -> str:
 
 
 def _build_query_payload(bundle: PortalBundle) -> dict[str, object]:
-    return {
+    payload: dict[str, object] = {
         "code": bundle.resolved_code,
         "input_type": bundle.input_type,
         "source_mode": bundle.source_mode,
         "timeout_seconds": bundle.timeout_seconds,
         "announcement_period": bundle.announcement_period,
-        "data_date": bundle.data_date.isoformat() if bundle.data_date else "",
         "history_range": bundle.history_range,
         "top_n": bundle.top_n,
         "percentage_basis": bundle.percentage_basis,
         "big_change_threshold": bundle.big_change_threshold,
         "use_local_history": "true" if bundle.use_local_history else "false",
     }
+    if bundle.data_date:
+        payload["data_date"] = bundle.data_date.isoformat()
+    return payload
 
 
 @dataclass(slots=True)
@@ -1382,7 +1384,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     <div class="layout">
       <aside class="sidebar">
         <h2>{_i18n("Input", "輸入", locale)}</h2>
-        <form method="get" action="/">
+        <form id="portal-query-form" method="get" action="/">
           <div class="field">
             <label>{_i18n("Input type", "輸入類型", locale)}</label>
             <select name="input_type">
@@ -1600,6 +1602,13 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     function selectedLocale() {{
       return localStorage.getItem(LOCALE_KEY) || "en";
     }}
+
+    document.getElementById("portal-query-form")?.addEventListener("submit", () => {{
+      const dataDateInput = document.querySelector('#portal-query-form input[name="data_date"]');
+      if (dataDateInput && !dataDateInput.value) {{
+        dataDateInput.disabled = true;
+      }}
+    }});
 
     function markdownUrl(section, locale) {{
       const params = new URLSearchParams(currentQuery);
