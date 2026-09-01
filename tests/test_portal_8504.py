@@ -64,6 +64,15 @@ def test_portal_8504_defaults_data_date_to_latest_available(monkeypatch):
     assert captured["data_date"] is None
 
 
+def test_portal_8504_initial_page_renders_without_data_date():
+    client = TestClient(portal_app)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert 'name="data_date"' in response.text
+
+
 def test_portal_8504_bundle_times_out_price_history_without_blocking(monkeypatch):
     async def fake_build_bundle(**kwargs):
         live_product = SimpleNamespace(

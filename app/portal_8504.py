@@ -1009,7 +1009,7 @@ def _build_query_payload(bundle: PortalBundle) -> dict[str, object]:
         "source_mode": bundle.source_mode,
         "timeout_seconds": bundle.timeout_seconds,
         "announcement_period": bundle.announcement_period,
-        "data_date": bundle.data_date.isoformat(),
+        "data_date": bundle.data_date.isoformat() if bundle.data_date else "",
         "history_range": bundle.history_range,
         "top_n": bundle.top_n,
         "percentage_basis": bundle.percentage_basis,
@@ -1087,6 +1087,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     base = bundle.base
     price_rows = bundle.price_rows
     concentration_rows = bundle.concentration_rows
+    selected_data_date = base.data_date.isoformat() if base.data_date else ""
     locale = "en"
     status_text = "LIVE CCASS + bilingual portal"
     if base.error_message:
@@ -1409,7 +1410,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <input type="hidden" name="source_mode" value="auto" />
           <div class="field">
             <label>{_i18n("Data date", "資料日期", locale)}</label>
-            <input name="data_date" type="date" value="{_escape(base.data_date.isoformat())}" />
+            <input name="data_date" type="date" value="{_escape(selected_data_date)}" />
           </div>
           <div class="field">
             <label>{_i18n("History range", "歷史範圍", locale)}</label>
@@ -1443,7 +1444,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
             {_pill(base.input_type, "neutral")}
             {_pill(str(base.timeout_seconds), "secondary")}
             {_pill(base.announcement_period, "secondary")}
-            {_pill(base.data_date.isoformat(), "secondary")}
+            {_pill(selected_data_date, "secondary")}
             {_pill(base.history_range, "secondary")}
             {_pill(str(base.top_n), "secondary")}
             {_pill(base.percentage_basis, "secondary")}
