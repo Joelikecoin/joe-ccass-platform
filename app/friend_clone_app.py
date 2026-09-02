@@ -219,7 +219,10 @@ async def _build_bundle(
     percentage_basis: str = "CCASS",
 ) -> PortalBundle:
     _ensure_portal_defaults()
-    os.environ["DATA_SOURCE"] = source_mode
+    # ``local_db`` is a portal read preference, not a Settings.data_source
+    # value.  Keep the persisted-read intent at the service layer while
+    # routing configuration through the supported automatic path.
+    os.environ["DATA_SOURCE"] = "auto" if source_mode == "local_db" else source_mode
     os.environ["REQUEST_TIMEOUT_SECONDS"] = str(timeout_seconds)
     get_settings.cache_clear()
     get_ccass_service.cache_clear()
