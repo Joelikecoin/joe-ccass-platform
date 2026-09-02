@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 import re
 import time
@@ -11,7 +12,7 @@ from bs4 import BeautifulSoup
 
 from app.config import Settings, get_settings
 from app.errors import ErrorCode, PlatformError
-from app.models import CcassResponse, SourceMetadata
+from app.models import CcassResponse, HoldingRow, SourceMetadata
 from app.sources.registry import (
     WEBBSITE_SOURCE_ID,
     SourceCapability,
@@ -33,6 +34,13 @@ _SOURCE_CHANGED_FAILURES = frozenset(
     }
 )
 _PRICE_HISTORY_PATH = "/dbpub/hpu.asp"
+_WEBB_DATABASE_CHALLENGE_COOKIE_NAME = "ayuus"
+_WEBB_DATABASE_CHALLENGE_COOKIE_MAGIC = "94run17wglB8NygzhIu4D"
+_WEBB_DATABASE_CHALLENGE_RETRY_TIMEOUT_SECONDS = 30.0
+_MISSING_CCASS_ID_WARNING = (
+    "SOURCE_ROW_ID: Webb-site omitted CCASS participant IDs for one or more rows; "
+    "rank-based row identities were assigned for persistence."
+)
 
 
 @dataclass(slots=True)
@@ -67,6 +75,33 @@ class _GuardedHtml:
     failure_detail: str | None = None
     content_type: str | None = None
     redirect_target: str | None = None
+
+
+def _is_webb_database_url(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return host == "webb-database.com" or host.endswith(".webb-database.com")
+
+
+def _webb_database_cookie_value(user_agent: str, now_ms: int | None = None) -> str:
+    current_ms = int(time.time() * 1000) if now_ms is None else int(now_ms)
+    day_bucket = str(int(current_ms / 1000 / 86400))
+    inner = hashlib.md5(
+        (day_bucket + user_agent + _WEBB_DATABASE_CHALLENGE_COOKIE_MAGIC).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+    return hashlib.md5(
+        (day_bucket + _WEBB_DATABASE_CHALLENGE_COOKIE_MAGIC + inner).encode("utf-8")
+    ).hexdigest()
+
+
+def _looks_like_webb_database_js_cookie_challenge(html: str) -> bool:
+    text = (html or "").lower()
+    return bool(
+        ("setcookie()" in text and "location.reload" in text)
+        or ("document.cookie" in text and "location.reload" in text)
+        or ("please enable cookies" in text)
+    )
 
 
 class WebbsiteClient:
@@ -192,6 +227,18 @@ class WebbsiteClient:
                         return None
                     response.raise_for_status()
                     guarded = await self._read_guarded_html(response, request_url=url)
+                    if (
+                        guarded.failure_type == "webb_database_cookie_challenge"
+                        and _is_webb_database_url(str(response.url))
+                    ):
+                        retried = await self._retry_webb_database_cookie_challenge(
+                            client,
+                            base_url=base_url,
+                            url=url,
+                            params=params,
+                        )
+                        if retried is not None:
+                            response, guarded = retried
 
             if guarded.failure_type is not None:
                 self._record_failure(
@@ -334,6 +381,47 @@ class WebbsiteClient:
                 error_type=type(exc).__name__,
                 failure_detail=str(exc),
             )
+
+    async def _retry_webb_database_cookie_challenge(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        base_url: str,
+        url: str,
+        params: dict[str, str | int],
+    ) -> tuple[httpx.Response, _GuardedHtml] | None:
+        hostname = urlsplit(base_url).hostname or urlsplit(url).hostname
+        if not hostname:
+            return None
+        client.cookies.set(
+            _WEBB_DATABASE_CHALLENGE_COOKIE_NAME,
+            _webb_database_cookie_value(self.settings.user_agent),
+            domain=hostname,
+            path="/",
+        )
+        response = await client.get(
+            url,
+            params=params,
+            headers=self._browser_headers(base_url),
+            timeout=max(
+                self.settings.request_timeout_seconds,
+                _WEBB_DATABASE_CHALLENGE_RETRY_TIMEOUT_SECONDS,
+            ),
+        )
+        self._last_request_at = time.monotonic()
+        failure_type = self._status_failure_type(response.status_code)
+        if failure_type is not None:
+            return (
+                response,
+                _GuardedHtml(
+                    "",
+                    failure_type,
+                    failure_detail=self._status_failure_detail(response.status_code),
+                    content_type=response.headers.get("content-type"),
+                    redirect_target=self._redirect_target(response, url),
+                ),
+            )
+        return response, await self._read_guarded_html(response, request_url=url)
 
     def _should_try_browser_fallback(self, failure_type: str | None) -> bool:
         return failure_type in {"cloudflare_challenge", "login_page", "incomplete_body"}
@@ -876,6 +964,8 @@ class WebbsiteClient:
         lowered = html.lower()
         if not html.strip():
             return "empty_body"
+        if _looks_like_webb_database_js_cookie_challenge(html):
+            return "webb_database_cookie_challenge"
         if (
             "cf-chl-" in lowered
             or "just a moment..." in lowered
@@ -900,6 +990,8 @@ class WebbsiteClient:
         lowered = html.lower()
         if not html.strip():
             return "empty body"
+        if _looks_like_webb_database_js_cookie_challenge(html):
+            return "webb-database JavaScript cookie challenge detected"
         if (
             "cf-chl-" in lowered
             or "just a moment..." in lowered
@@ -1053,7 +1145,12 @@ class WebbsiteClient:
                 retry_after_seconds=60,
                 status_code=503,
             )
-        if error_types & {"forbidden", "cloudflare_challenge", "login_page"}:
+        if error_types & {
+            "forbidden",
+            "cloudflare_challenge",
+            "login_page",
+            "webb_database_cookie_challenge",
+        }:
             return PlatformError(
                 ErrorCode.SOURCE_FORBIDDEN,
                 f"Webb-site mirrors refused, challenged, or required login for the request. {summary}",
@@ -1149,6 +1246,9 @@ class WebbsiteClient:
         limit: int,
     ) -> CcassResponse:
         warnings = list(parsed.warnings)
+        holdings, missing_ids = self._assign_missing_participant_ids(parsed.holdings)
+        if missing_ids:
+            warnings.append(_MISSING_CCASS_ID_WARNING)
         warnings.extend(
             f"SOURCE_LIMITATION: {limitation}"
             for limitation in self.definition.audit.known_limitations
@@ -1166,9 +1266,23 @@ class WebbsiteClient:
                 attribution=self.definition.audit.attribution,
             ),
             holdings_summary=parsed.holdings_summary,
-            holdings=list(parsed.holdings[: max(1, limit)]),
+            holdings=list(holdings[: max(1, limit)]),
             data_quality_warnings=warnings,
         )
+
+    @staticmethod
+    def _assign_missing_participant_ids(
+        holdings: tuple[HoldingRow, ...],
+    ) -> tuple[tuple[HoldingRow, ...], bool]:
+        missing_ids = False
+        normalized: list[HoldingRow] = []
+        for row in holdings:
+            if row.participant_id:
+                normalized.append(row)
+                continue
+            missing_ids = True
+            normalized.append(row.model_copy(update={"participant_id": f"U{row.rank:05d}"}))
+        return tuple(normalized), missing_ids
 
     @staticmethod
     def _resolve_holdings_identity(html: str, code: str) -> tuple[int, str | None]:

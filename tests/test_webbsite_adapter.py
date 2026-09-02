@@ -9,7 +9,11 @@ import respx
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
 from app.sources.registry import SourceCapability
-from app.sources.webbsite import FetchedPage, WebbsiteClient
+from app.sources.webbsite import (
+    FetchedPage,
+    WebbsiteClient,
+    _webb_database_cookie_value,
+)
 from ccass_core.collector import CollectorConfig, collect_watchlist
 
 FIXTURES = Path(__file__).parent / "fixtures" / "webbsite"
@@ -76,6 +80,31 @@ async def test_adapter_uses_single_code_request_and_builds_complete_normalized_o
         "percentage values use the source page" in warning
         for warning in response.data_quality_warnings
     )
+
+
+async def test_adapter_assigns_persistence_identity_for_blank_source_ccass_ids(
+    monkeypatch,
+):
+    client = WebbsiteClient(settings())
+    html = fixture("holdings_normal.html")
+    html = html.replace("<td>B00001</td>", "<td></td>", 1)
+    html = html.replace("<td>B00002</td>", "<td></td>", 1)
+
+    async def fake_fetch(path, params):
+        return FetchedPage(
+            html,
+            "https://primary.example/ccass/choldings.asp?sc=1592",
+            False,
+        )
+
+    monkeypatch.setattr(client, "_fetch", fake_fetch)
+
+    response = await client.get_holdings("01592", limit=4)
+
+    assert [row.participant_id for row in response.holdings[:2]] == ["U00001", "U00002"]
+    assert response.holdings[0].participant_name == "TEST FIXTURE BROKER ONE"
+    assert response.holdings[1].participant_name == "TEST FIXTURE BROKER TWO"
+    assert any("SOURCE_ROW_ID" in warning for warning in response.data_quality_warnings)
 
 
 async def test_parser_error_propagates_without_empty_success(monkeypatch):
@@ -683,6 +712,105 @@ async def test_fetch_primes_session_before_holdings_request():
         "webbsite-session=prime123",
         "webbsite-session=prime123",
     ]
+
+
+def test_webb_database_cookie_value_matches_reference_algorithm():
+    assert (
+        _webb_database_cookie_value(settings().user_agent, now_ms=1_724_889_600_000)
+        == "841bade1889a828f51a83b0df6d00784"
+    )
+
+
+@respx.mock
+async def test_webb_database_cookie_challenge_retries_same_session(monkeypatch):
+    respx.get("https://webb-database.com/").mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>landing</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    request_cookies: list[str | None] = []
+
+    def holdings_callback(request: httpx.Request) -> httpx.Response:
+        request_cookies.append(request.headers.get("cookie"))
+        if len(request_cookies) == 1:
+            return httpx.Response(
+                200,
+                text="<script>function setCookie(){} location.reload();</script>",
+                headers={"content-type": "text/html; charset=utf-8"},
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            text=fixture("holdings_normal.html"),
+            headers={"content-type": "text/html; charset=utf-8"},
+            request=request,
+        )
+
+    route = respx.get("https://webb-database.com/ccass/choldings.asp").mock(
+        side_effect=holdings_callback
+    )
+    client = WebbsiteClient(
+        settings(
+            webbsite_base_url="https://webb-database.com",
+            webbsite_fallback_base_url="https://webb-database.com",
+            cache_ttl_seconds=0,
+        )
+    )
+
+    async def forbidden_browser(*args, **kwargs):  # pragma: no cover - defensive
+        raise AssertionError("browser fallback should not handle Webb database cookie challenge")
+
+    monkeypatch.setattr(client, "_fetch_via_browser", forbidden_browser)
+
+    response = await client.get_holdings("01592", limit=2)
+
+    assert route.call_count == 2
+    assert request_cookies[0] is None
+    assert request_cookies[1] is not None
+    assert "ayuus=" in request_cookies[1]
+    assert response.metadata.source_url.startswith("https://webb-database.com/")
+    assert response.metadata.issue_id == 15_920
+
+
+@respx.mock
+async def test_webb_database_cookie_challenge_fails_loud_when_retry_still_blocked(
+    monkeypatch,
+):
+    respx.get("https://webb-database.com/").mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>landing</body></html>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    route = respx.get("https://webb-database.com/ccass/choldings.asp").mock(
+        return_value=httpx.Response(
+            200,
+            text="<script>function setCookie(){} location.reload();</script>",
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    client = WebbsiteClient(
+        settings(
+            webbsite_base_url="https://webb-database.com",
+            webbsite_fallback_base_url="https://webb-database.com",
+            cache_ttl_seconds=0,
+        )
+    )
+
+    async def forbidden_browser(*args, **kwargs):  # pragma: no cover - defensive
+        raise AssertionError("browser fallback should not handle Webb database cookie challenge")
+
+    monkeypatch.setattr(client, "_fetch_via_browser", forbidden_browser)
+
+    with pytest.raises(PlatformError) as caught:
+        await client.get_holdings("01592")
+
+    assert route.call_count == 2
+    assert caught.value.code == ErrorCode.SOURCE_FORBIDDEN
+    assert "webb_database_cookie_challenge" in caught.value.message
 
 
 @respx.mock
