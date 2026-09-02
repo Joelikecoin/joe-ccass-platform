@@ -311,6 +311,8 @@ def _load_price_history(symbol: str) -> list[dict[str, object]]:
     dataframe = None
     for period in ("max", "1y", "6mo"):
         try:
+            if base.source_mode == "local_db":
+                raise RuntimeError("local_db mode does not acquire external price history")
             dataframe = ticker.history(
                 period=period,
                 interval="1d",

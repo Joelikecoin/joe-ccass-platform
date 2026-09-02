@@ -116,6 +116,8 @@ async def build_live_product_from_response_with_surfaces(
     *,
     code: str | int,
     source_trace: SourceTraceView | None = None,
+    allow_external: bool = True,
+    source_mode: str = "auto",
 ) -> LiveProduct | None:
     normalized_code = normalize_stock_code(code)
     working_response = response.model_copy(deep=True) if response is not None else None
@@ -123,7 +125,23 @@ async def build_live_product_from_response_with_surfaces(
     issue_id = 0
     company_name: str | None = None
     source_url = ""
-    if working_response is None:
+    if working_response is None and not allow_external:
+        working_response = CcassResponse(
+            metadata=SourceMetadata(
+                code=normalized_code,
+                name=None,
+                issue_id=0,
+                holdings_date=None,
+                fetched_at=datetime.now(UTC),
+                source_url="",
+                source_name="Local persisted snapshot",
+                cached=True,
+            ),
+            holdings_summary=HoldingsSummary(),
+            holdings=[],
+            data_quality_warnings=["DATA_LIMITATION: LOCAL auxiliary data unavailable."],
+        )
+    if working_response is None and allow_external:
         try:
             issue_id, company_name = await WebbsiteClient().resolve_issue_id(normalized_code)
             source_url = f"https://www3.hkexnews.hk/sdw/search/searchsdw_c.aspx?i={issue_id}"
@@ -146,23 +164,28 @@ async def build_live_product_from_response_with_surfaces(
             data_quality_warnings=[],
         )
 
-    need_price_history = working_response.price_history is None or not getattr(working_response.price_history, "prices", ())
-    need_announcements = working_response.announcements is None or not getattr(
+    if source_mode == "local_db":
+        allow_external = False
+    if not allow_external:
+        return build_live_product_from_response(working_response, source_trace=source_trace)
+
+    need_price_history = allow_external and (working_response.price_history is None or not getattr(working_response.price_history, "prices", ()))
+    need_announcements = allow_external and (working_response.announcements is None or not getattr(
         working_response.announcements,
         "announcements",
         (),
-    )
-    need_stock_events = working_response.stock_events is None or not getattr(
+    ))
+    need_stock_events = allow_external and (working_response.stock_events is None or not getattr(
         working_response.stock_events,
         "stock_events",
         (),
-    )
-    need_capital_information = working_response.capital_information is None or not getattr(
+    ))
+    need_capital_information = allow_external and (working_response.capital_information is None or not getattr(
         working_response.capital_information,
         "capital_information",
         (),
-    )
-    need_officers = working_response.officers is None or not getattr(working_response.officers, "officers", ())
+    ))
+    need_officers = allow_external and (working_response.officers is None or not getattr(working_response.officers, "officers", ()))
 
     async def _load_auxiliary() -> tuple[Any, Any, Any, Any, Any]:
         tasks: list[Any] = []
@@ -175,7 +198,7 @@ async def build_live_product_from_response_with_surfaces(
                     timeout=ANNOUNCEMENTS_LOAD_TIMEOUT_SECONDS,
                 )
             )
-        if need_stock_events:
+        if need_stock_events and allow_external:
             tasks.append(get_stock_events_service().get_stock_events(normalized_code))
         if need_capital_information:
             tasks.append(get_capital_information_service().get_capital_information(normalized_code))

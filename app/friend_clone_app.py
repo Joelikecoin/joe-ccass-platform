@@ -23,7 +23,7 @@ from app.live_product import (
     build_live_product_from_response_with_surfaces,
     render_live_markdown,
 )
-from app.services.ccass import get_ccass_service
+from app.services.ccass import RepositorySnapshotBackend, get_ccass_service
 from app.sources.registry import build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
@@ -36,6 +36,7 @@ from app.streamlit_ui import (
     ui_text,
 )
 from ccass_core.collector import SnapshotStore
+from ccass_core.normalize import normalize_stock_code
 
 
 APP_TITLE_EN = "Joe Visual Portal"
@@ -43,6 +44,16 @@ APP_TITLE_ZH = "Joe Visual Portal"
 APP_SUBTITLE_EN = "Golden Joe reference portal for live market news and CCASS holdings."
 APP_SUBTITLE_ZH = "Golden Joe 參考入口：即時市場資訊與 CCASS 持股。"
 DEFAULT_CODE = "00700"
+
+
+class _LocalSnapshotService:
+    """Service adapter for the portal's explicit persisted-read mode."""
+
+    def __init__(self, repository: NormalizedSnapshotRepository, max_age_seconds: int) -> None:
+        self._backend = RepositorySnapshotBackend(repository, max_age_seconds=max_age_seconds)
+
+    async def get_stock_data(self, code: str, holdings_limit: int = 15, requested_date=None):
+        return await self._backend.get_holdings(code, limit=holdings_limit)
 
 
 def _escape(value: object) -> str:
@@ -227,7 +238,11 @@ async def _build_bundle(
     get_settings.cache_clear()
     get_ccass_service.cache_clear()
 
-    resolved_code = _resolve_requested_code(raw_code, input_type)
+    resolved_code = (
+        normalize_stock_code(raw_code)
+        if source_mode == "local_db" and input_type == "Stock Code"
+        else _resolve_requested_code(raw_code, input_type)
+    )
 
     sqlite_path = _settings_sqlite_path()
     previous_loader = None
@@ -240,20 +255,28 @@ async def _build_bundle(
 
         previous_loader = _load_previous
 
+    report_service = get_ccass_service()
+    if source_mode == "local_db":
+        report_service = _LocalSnapshotService(
+            NormalizedSnapshotRepository(sqlite_path),
+            max_age_seconds=get_settings().holdings_lkg_max_age_seconds,
+        )
     ccass_task = prepare_report(
         resolved_code,
         holdings_limit=top_n,
         big_change_threshold=big_change_threshold,
-        service=get_ccass_service(),
+        service=report_service,
         locale="en",
         requested_date=data_date,
         previous_loader=previous_loader,
     )
     prepared = await ccass_task
+    product_kwargs = {"code": resolved_code, "source_trace": prepared.source_trace}
+    if source_mode == "local_db":
+        product_kwargs["allow_external"] = False
+        product_kwargs["source_mode"] = source_mode
     live_product = await build_live_product_from_response_with_surfaces(
-        prepared.response,
-        code=resolved_code,
-        source_trace=prepared.source_trace,
+        prepared.response, **product_kwargs
     )
 
     if previous_loader and prepared.response is not None:
