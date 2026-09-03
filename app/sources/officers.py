@@ -484,6 +484,32 @@ class ThsF10OfficersSource:
         return OFFICERS_SOURCE_URL_TEMPLATE.format(code=compact)
 
 
+class WebbsiteOfficersSource:
+    def __init__(self, settings: Settings | None = None, *, client=None) -> None:
+        from app.sources.webbsite import WebbsiteClient
+        self.client = client or WebbsiteClient(settings or get_settings())
+
+    async def get_officers(self, code: str | int) -> OfficersResponse:
+        normalized = normalize_stock_code(code)
+        org = await self.client._fetch("/dbpub/orgdata.asp", {"code": normalized.lstrip("0") or "0"})
+        match = re.search(r"setRating\s*\(\s*(\d+)", org.html, re.I)
+        if not match:
+            raise PlatformError(ErrorCode.NOT_FOUND, "Webb organisation person ID not found.")
+        person = int(match.group(1))
+        page = await self.client._fetch("/dbpub/officers.asp", {"p": person})
+        soup = BeautifulSoup(page.html, "html.parser")
+        rows = []
+        for table in soup.select("table"):
+            header = [c.get_text(" ", strip=True).lower() for c in table.select("tr:first-child th, tr:first-child td")]
+            if not ("name" in header and ("position" in header or "director" in header or "dir" in header)): continue
+            for tr in table.select("tr")[1:]:
+                cells = [c.get_text(" ", strip=True) for c in tr.select("th,td")]
+                if len(cells) >= 6 and cells[0]:
+                    rows.append(OfficerRow(name=cells[0], sex=cells[1] or None, age=int(cells[2]) if cells[2].isdigit() else None, positions=[cells[3]] if cells[3] else []))
+        if not rows: raise PlatformError(ErrorCode.PARSE_ERROR, "Webb officers table contained no rows.")
+        return OfficersResponse(metadata=OfficersMetadata(code=normalized, source_name="Webb-site officers", source_url=page.source_url, fetched_at=datetime.now(UTC), officers_count=len(rows), source_status="ready"), officers=rows)
+
+
 def _parse_date(value: str | None) -> date | None:
     if not value or value.strip() in {"--", "-"}:
         return None

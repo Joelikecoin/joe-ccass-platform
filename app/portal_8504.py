@@ -311,8 +311,6 @@ def _load_price_history(symbol: str) -> list[dict[str, object]]:
     dataframe = None
     for period in ("max", "1y", "6mo"):
         try:
-            if base.source_mode == "local_db":
-                raise RuntimeError("local_db mode does not acquire external price history")
             dataframe = ticker.history(
                 period=period,
                 interval="1d",
@@ -834,7 +832,7 @@ def _concentration_panel(bundle: PortalBundle, concentration_rows: list[dict[str
       <div class="chart-header">
         <div>
           <h3>Concentration History</h3>
-          <div class="source-note">Stored CCASS snapshots in SQLite | latest data_as_of: {_svg_escape(latest["snapshot_date"])}</div>
+          <div class="source-note">Stored CCASS snapshots in SQLite | latest data_as_of: {_svg_escape(latest["snapshot_date"])} | basis: issued_shares</div>
         </div>
       </div>
       <div class="metric-grid">{''.join(rows)}</div>
@@ -1511,7 +1509,8 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <h2>{_i18n("Officers / Managers", "董事高管", locale)}</h2>
           <div class="subcard">
             <h3>Officers / Managers</h3>
-            {_table(["Name", "Title", "Age", "Fiscal Year", "Total Pay", "Exercised Value", "Unexercised Value", "Source"], [
+            {(
+                _table(["Name", "Title", "Age", "Fiscal Year", "Total Pay", "Exercised Value", "Unexercised Value", "Source"], [
                 [
                     _escape(row.get("name") or "—"),
                     _escape(row.get("title") or "—"),
@@ -1522,7 +1521,10 @@ def _render_page(bundle: Portal8504Bundle) -> str:
                     _escape(row.get("unexercised_value") or "—"),
                     _escape(row.get("source") or "—"),
                 ] for row in (base.live_product.officers[:12] if base.live_product else [])
-            ], class_name="compact-table")}
+            ], class_name="compact-table")
+                if base.live_product and base.live_product.officers
+                else f'<div class="empty-state">Officers unavailable: {_escape(getattr(getattr(base.live_product, "response", None), "officers", None).metadata.source_status if getattr(getattr(base.live_product, "response", None), "officers", None) else "unavailable")} — source: {_escape(getattr(getattr(getattr(base.live_product, "response", None), "officers", None), "metadata", None).source_name if getattr(getattr(base.live_product, "response", None), "officers", None) else "—")}</div>'
+            )}
           </div>
         </section>
 

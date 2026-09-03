@@ -30,6 +30,7 @@ from app.models import HoldingsSummary, SourceMetadata
 
 YAHOO_CHART_API_URL = f"{YAHOO_CHART_BASE_URL}{{symbol}}"
 ANNOUNCEMENTS_LOAD_TIMEOUT_SECONDS = 5.0
+OFFICERS_LOAD_TIMEOUT_SECONDS = 8.0
 
 
 @dataclass(slots=True)
@@ -203,7 +204,7 @@ async def build_live_product_from_response_with_surfaces(
         if need_capital_information:
             tasks.append(get_capital_information_service().get_capital_information(normalized_code))
         if need_officers:
-            tasks.append(get_officers_service().get_officers(normalized_code))
+            tasks.append(asyncio.wait_for(get_officers_service().get_officers(normalized_code), timeout=OFFICERS_LOAD_TIMEOUT_SECONDS))
         results = await asyncio.gather(*tasks, return_exceptions=True) if tasks else []
         iterator = iter(results)
         return (

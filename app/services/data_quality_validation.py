@@ -23,7 +23,8 @@ _CAPITAL_EXPECTED_UNITS = {
 
 def normalize_officers_response(response: OfficersResponse) -> OfficersResponse:
     result = response.model_copy(deep=True)
-    result.metadata.source_name = OFFICERS_SOURCE_NAME
+    if result.metadata.source_status != "ready" or not result.metadata.source_name:
+        result.metadata.source_name = OFFICERS_SOURCE_NAME
     result.metadata.source_url = result.metadata.source_url or _build_officers_source_url(result.metadata.code)
     result.metadata.fetched_at = _ensure_utc(result.metadata.fetched_at)
     if result.metadata.source_status != "ready":
