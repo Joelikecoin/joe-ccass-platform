@@ -1199,6 +1199,21 @@ def _render_page(bundle: Portal8504Bundle) -> str:
       margin: 0 0 0.5rem 0;
       font-size: 1.1rem;
     }}
+    .advanced {{
+      margin-top: 0.8rem;
+      border-top: 1px solid var(--line);
+      padding-top: 0.7rem;
+    }}
+    .advanced summary {{
+      cursor: pointer;
+      color: var(--brand);
+      font-size: 0.86rem;
+      font-weight: 800;
+      list-style: none;
+    }}
+    .advanced summary::-webkit-details-marker {{ display: none; }}
+    .advanced summary::before {{ content: "▸"; display: inline-block; margin-right: 0.35rem; }}
+    .advanced[open] summary::before {{ content: "▾"; }}
     .field {{
       display: grid;
       gap: 0.35rem;
@@ -1395,7 +1410,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     </header>
     <div class="layout">
       <aside class="sidebar">
-        <h2>{_i18n("Input", "輸入", locale)}</h2>
+        <h2>{_i18n("Search / Fetch", "搜尋／擷取", locale)}</h2>
         <form id="portal-query-form" method="get" action="/">
           <div class="field">
             <label>{_i18n("Input type", "輸入類型", locale)}</label>
@@ -1408,60 +1423,59 @@ def _render_page(bundle: Portal8504Bundle) -> str:
             <label>{_i18n("Stock code / issue ID", "股票代號／Issue ID", locale)}</label>
             <input name="code" value="{_escape(base.requested_code or base.resolved_code or DEFAULT_PORTAL_CODE)}" placeholder="00700" />
           </div>
-          <div class="field">
-            <label>{_i18n("Timeout", "逾時", locale)}</label>
-            <input name="timeout_seconds" type="number" min="1" step="1" value="{_escape(base.timeout_seconds)}" />
-          </div>
-          <div class="field">
-            <label>{_i18n("Announcement period", "公告期間", locale)}</label>
-            <select name="announcement_period">
-              <option value="All"{" selected" if base.announcement_period == "All" else ""}>{_i18n("All", "全部", locale)}</option>
-              <option value="7 days"{" selected" if base.announcement_period == "7 days" else ""}>{_i18n("7 days", "7 日", locale)}</option>
-              <option value="30 days"{" selected" if base.announcement_period == "30 days" else ""}>{_i18n("30 days", "30 日", locale)}</option>
-              <option value="90 days"{" selected" if base.announcement_period == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
-            </select>
-          </div>
           <input type="hidden" name="source_mode" value="auto" />
-          <div class="field">
-            <label>{_i18n("Data date", "資料日期", locale)}</label>
-            <input name="data_date" type="date" value="{_escape(selected_data_date)}" />
-          </div>
-          <div class="field">
-            <label>{_i18n("History range", "歷史範圍", locale)}</label>
-            <select name="history_range">
-              <option value="Latest"{" selected" if base.history_range == "Latest" else ""}>{_i18n("Latest", "最新", locale)}</option>
-              <option value="7 days"{" selected" if base.history_range == "7 days" else ""}>{_i18n("7 days", "7 日", locale)}</option>
-              <option value="30 days"{" selected" if base.history_range == "30 days" else ""}>{_i18n("30 days", "30 日", locale)}</option>
-              <option value="90 days"{" selected" if base.history_range == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
-              <option value="Custom"{" selected" if base.history_range == "Custom" else ""}>{_i18n("Custom", "自訂", locale)}</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>{_i18n("Top N", "前 N 名", locale)}</label>
-            <input name="top_n" type="number" min="5" max="100" step="5" value="{base.top_n}" />
-          </div>
-          <div class="field">
-            <label>{_i18n("Percentage basis", "百分比基準", locale)}</label>
-            <select name="percentage_basis">
-              <option value="CCASS"{" selected" if base.percentage_basis == "CCASS" else ""}>{_i18n("CCASS", "CCASS", locale)}</option>
-              <option value="Issued Shares"{" selected" if base.percentage_basis == "Issued Shares" else ""}>{_i18n("Issued Shares", "已發行股份", locale)}</option>
-            </select>
-          </div>
-          <input type="hidden" name="big_change_threshold" value="{base.big_change_threshold}" />
-          <input type="hidden" name="use_local_history" value="{'true' if base.use_local_history else 'false'}" />
-          <button class="primary-btn" type="submit">{_i18n("Fetch Webb-site Data", "擷取 Webb-site 資料", locale)}</button>
+          <button class="primary-btn" type="submit">{_i18n("Fetch", "擷取", locale)}</button>
+          <details class="advanced">
+            <summary>{_i18n("Advanced settings", "進階設定", locale)}</summary>
+            <div style="margin-top:0.75rem;">
+              <div class="field">
+                <label>{_i18n("Timeout", "逾時", locale)}</label>
+                <input name="timeout_seconds" type="number" min="1" step="1" value="{_escape(base.timeout_seconds)}" />
+              </div>
+              <div class="field">
+                <label>{_i18n("Announcement period", "公告期間", locale)}</label>
+                <select name="announcement_period">
+                  <option value="All"{" selected" if base.announcement_period == "All" else ""}>{_i18n("All", "全部", locale)}</option>
+                  <option value="7 days"{" selected" if base.announcement_period == "7 days" else ""}>{_i18n("7 days", "7 日", locale)}</option>
+                  <option value="30 days"{" selected" if base.announcement_period == "30 days" else ""}>{_i18n("30 days", "30 日", locale)}</option>
+                  <option value="90 days"{" selected" if base.announcement_period == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>{_i18n("Data date", "資料日期", locale)}</label>
+                <input name="data_date" type="date" value="{_escape(selected_data_date)}" />
+              </div>
+              <div class="field">
+                <label>{_i18n("History range", "歷史範圍", locale)}</label>
+                <select name="history_range">
+                  <option value="Latest"{" selected" if base.history_range == "Latest" else ""}>{_i18n("Latest", "最新", locale)}</option>
+                  <option value="7 days"{" selected" if base.history_range == "7 days" else ""}>{_i18n("7 days", "7 日", locale)}</option>
+                  <option value="30 days"{" selected" if base.history_range == "30 days" else ""}>{_i18n("30 days", "30 日", locale)}</option>
+                  <option value="90 days"{" selected" if base.history_range == "90 days" else ""}>{_i18n("90 days", "90 日", locale)}</option>
+                  <option value="Custom"{" selected" if base.history_range == "Custom" else ""}>{_i18n("Custom", "自訂", locale)}</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>{_i18n("Top N", "前 N 名", locale)}</label>
+                <input name="top_n" type="number" min="5" max="100" step="5" value="{base.top_n}" />
+              </div>
+              <div class="field">
+                <label>{_i18n("Percentage basis", "百分比基準", locale)}</label>
+                <select name="percentage_basis">
+                  <option value="CCASS"{" selected" if base.percentage_basis == "CCASS" else ""}>{_i18n("CCASS", "CCASS", locale)}</option>
+                  <option value="Issued Shares"{" selected" if base.percentage_basis == "Issued Shares" else ""}>{_i18n("Issued Shares", "已發行股份", locale)}</option>
+                </select>
+              </div>
+              <input type="hidden" name="big_change_threshold" value="{base.big_change_threshold}" />
+              <input type="hidden" name="use_local_history" value="{'true' if base.use_local_history else 'false'}" />
+            </div>
+          </details>
         </form>
         <div style="margin-top:1rem;">
           <div class="kicker">{_i18n("Current selection", "目前選項", locale)}</div>
           <div style="display:flex; flex-wrap:wrap; gap:0.45rem;">
             {_pill(base.resolved_code, "primary")}
             {_pill(base.input_type, "neutral")}
-            {_pill(str(base.timeout_seconds), "secondary")}
-            {_pill(base.announcement_period, "secondary")}
-            {_pill(selected_data_date, "secondary")}
-            {_pill(base.history_range, "secondary")}
-            {_pill(str(base.top_n), "secondary")}
-            {_pill(base.percentage_basis, "secondary")}
           </div>
         </div>
       </aside>
