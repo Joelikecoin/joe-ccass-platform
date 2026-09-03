@@ -719,7 +719,7 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
             _svg_escape(_format_decimal(row.get("turnover"), 2)),
             _svg_escape(_format_decimal(row.get("vwap") if row.get("vwap") is not None else row.get("vwap_est"), 4)),
         ]
-        for row in windows[default_range][-12:]
+        for row in reversed(windows[default_range][-12:])
     ]
     metric_card_rows = [
         _metric_card("Latest Close", "最新收市", _format_decimal(float(latest_close), 3) if latest_close is not None else "—", tone="primary"),
@@ -755,7 +755,7 @@ def _price_panel(bundle: PortalBundle, price_rows: list[dict[str, object]]) -> s
                             _svg_escape(_format_decimal(row.get("turnover"), 2)),
                             _svg_escape(_format_decimal(row.get("vwap") if row.get("vwap") is not None else row.get("vwap_est"), 4)),
                         ]
-                        for row in pane_rows[-12:]
+                        for row in reversed(pane_rows[-12:])
                     ], class_name="compact-table")}
                   </div>
                 </div>
@@ -995,7 +995,7 @@ def _price_history_block(price_rows: list[dict[str, object]]) -> str:
             _svg_escape(_format_decimal(row.get("turnover"), 2)),
             _svg_escape(_format_decimal(row.get("vwap") if row.get("vwap") is not None else row.get("vwap_est"), 4)),
         ]
-        for row in price_rows[-24:]
+        for row in reversed(price_rows[-24:])
     ]
     latest = price_rows[-1]
     source_name = str(latest.get("source") or "—")
