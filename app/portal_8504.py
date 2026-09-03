@@ -905,7 +905,17 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
         price_source_name = str(price_rows[-1].get("source"))
     summary_cards = [
         _metric_card("Portal", "入口", APP_TITLE_EN, tone="primary"),
-        _metric_card("CCASS Source", "CCASS 來源", "HKEX SDW" if prepared and prepared.response else "Unavailable", tone="success"),
+        _metric_card(
+            "CCASS Source",
+            "CCASS 來源",
+            (
+                f"{prepared.response.metadata.source_name}"
+                + (" (cached)" if prepared.response.metadata.cached else "")
+                if prepared and prepared.response
+                else "Unavailable"
+            ),
+            tone="success",
+        ),
         _metric_card("Price Source", "價格來源", price_source_name, tone="accent"),
         _metric_card("Announcement Source", "公告來源", "HKEX News", tone="muted"),
         _metric_card("Snapshot History", "快照歷史", _format_int(snapshot_count), tone="secondary"),
