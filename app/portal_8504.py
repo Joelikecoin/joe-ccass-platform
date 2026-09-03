@@ -1321,6 +1321,13 @@ def _render_page(bundle: Portal8504Bundle) -> str:
       padding: 1rem; border-radius: 16px; background: rgba(24,160,255,.08); color: var(--brand);
       border: 1px dashed rgba(29,99,168,.22); font-weight: 700;
     }}
+    .loading-runner {{
+      display:inline-flex; align-items:center; justify-content:center; width:1.25rem; height:1.35rem;
+      color:#7b8794; font-size:1.15rem; line-height:1;
+    }}
+    .loading-runner span {{ display:inline-block; opacity:.7; filter:grayscale(1); }}
+    .loading-runner.active span {{ animation: runnerMove .72s ease-in-out infinite; }}
+    @keyframes runnerMove {{ 0%,100% {{ transform:translateX(-.12rem) translateY(0); }} 50% {{ transform:translateX(.12rem) translateY(-.12rem); }} }}
     .warning-box, .error-box {{
       margin-top: .85rem; padding: .85rem .95rem; border-radius: 16px; white-space: pre-wrap;
     }}
@@ -1401,6 +1408,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         </div>
       </div>
       <div class="top-right">
+        <div id="loading-runner" class="loading-runner" aria-hidden="true"><span>🏃</span></div>
         <div class="status-pill">{_escape(live_status)}</div>
         <div class="lang-toggle">
           <button class="lang-btn active" type="button" data-locale-switch="en">EN</button>
@@ -1632,6 +1640,8 @@ def _render_page(bundle: Portal8504Bundle) -> str:
     }}
 
     document.getElementById("portal-query-form")?.addEventListener("submit", () => {{
+      const runner = document.getElementById("loading-runner");
+      if (runner) runner.classList.add("active");
       const dataDateInput = document.querySelector('#portal-query-form input[name="data_date"]');
       if (dataDateInput && !dataDateInput.value) {{
         dataDateInput.disabled = true;
