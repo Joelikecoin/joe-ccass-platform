@@ -402,6 +402,8 @@ def _concentration_history_rows(bundle: PortalBundle) -> list[dict[str, object]]
 def _live_ccass_acquisition_state(bundle: PortalBundle) -> tuple[bool, str]:
     if bundle.live_product is None or bundle.prepared is None or bundle.prepared.response is None:
         return False, "CCASS acquisition unavailable."
+    if not bundle.prepared.response.metadata.cached:
+        return True, "Live CCASS result obtained from the selected source."
     source_trace = getattr(bundle.live_product, "source_trace", None)
     if source_trace is None:
         return True, "HKEX SDW browser acquisition enabled."
@@ -1025,7 +1027,7 @@ def _build_query_payload(bundle: PortalBundle) -> dict[str, object]:
         "big_change_threshold": bundle.big_change_threshold,
         "use_local_history": "true" if bundle.use_local_history else "false",
     }
-    if bundle.data_date:
+    if bundle.data_date and bundle.history_range == "Custom":
         payload["data_date"] = bundle.data_date.isoformat()
     return payload
 
@@ -1510,15 +1512,13 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <div class="subcard">
             <h3>Officers / Managers</h3>
             {(
-                _table(["Name", "Title", "Age", "Fiscal Year", "Total Pay", "Exercised Value", "Unexercised Value", "Source"], [
+                _table(["Name", "Title", "Age", "From", "Until", "Source"], [
                 [
                     _escape(row.get("name") or "—"),
                     _escape(row.get("title") or "—"),
                     _escape(row.get("age") or "—"),
-                    _escape(row.get("fiscal_year") or "—"),
-                    _escape(row.get("total_pay") or "—"),
-                    _escape(row.get("exercised_value") or "—"),
-                    _escape(row.get("unexercised_value") or "—"),
+                    _escape(row.get("from") or "—"),
+                    _escape(row.get("until") or "—"),
                     _escape(row.get("source") or "—"),
                 ] for row in (base.live_product.officers[:12] if base.live_product else [])
             ], class_name="compact-table")

@@ -208,6 +208,7 @@ async def prepare_report(
                 gateway_response = await gateway_getter(
                     code,
                     holdings_limit=holdings_limit,
+                    cache_first=False,
                     requested_date=requested_date,
                 )
             except TypeError as exc:
