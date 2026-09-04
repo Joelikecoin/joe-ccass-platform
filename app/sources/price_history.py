@@ -24,6 +24,13 @@ WEBBSITE_PRICE_SOURCE_NAME = "Webb-site"
 WEBBSITE_PRICE_PATH = "/dbpub/hpu.asp"
 
 
+def yahoo_hk_ticker(code: str | int) -> str:
+    """Convert Joe's canonical HKEX code to Yahoo's four-digit HK symbol."""
+    normalized = normalize_stock_code(code)
+    digits = normalized.lstrip("0") or "0"
+    return f"{digits.zfill(4)}.HK"
+
+
 @dataclass(frozen=True, slots=True)
 class PriceHistoryRequest:
     code: str
@@ -76,7 +83,7 @@ class YahooFinancePriceHistorySource:
         return PriceHistoryRequest(code=code, start_date=start, end_date=end)
 
     async def _fetch_payload(self, request: PriceHistoryRequest) -> dict[str, Any]:
-        ticker = f"{request.code}.HK"
+        ticker = yahoo_hk_ticker(request.code)
         url = f"{YAHOO_CHART_BASE_URL}{ticker}"
         params = {
             "period1": int(datetime.combine(request.start_date, datetime.min.time(), tzinfo=UTC).timestamp()),
@@ -252,7 +259,7 @@ class YahooFinancePriceHistorySource:
             )
 
         source_name = YAHOO_PRICE_SOURCE_NAME
-        source_ticker = str(meta.get("symbol") or f"{request.code}.HK")
+        source_ticker = str(meta.get("symbol") or yahoo_hk_ticker(request.code))
         adjustment_state = "adjusted" if adjclose_rows else "unadjusted"
         adjustment_note = (
             "Adjusted close values are available from Yahoo Finance."

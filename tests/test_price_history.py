@@ -13,6 +13,7 @@ from app.sources.price_history import (
     YAHOO_CHART_BASE_URL,
     PriceHistorySource,
     YahooFinancePriceHistorySource,
+    yahoo_hk_ticker,
 )
 from app.sources.webbsite import FetchedPage
 
@@ -71,7 +72,7 @@ async def test_yahoo_price_history_source_parses_adjusted_close_and_turnover():
     source = YahooFinancePriceHistorySource()
     start_date = date(2026, 7, 19)
     end_date = date(2026, 7, 20)
-    route = respx.get(f"{YAHOO_CHART_BASE_URL}01592.HK").mock(
+    route = respx.get(f"{YAHOO_CHART_BASE_URL}1592.HK").mock(
         return_value=httpx.Response(
             200,
             json={
@@ -79,7 +80,7 @@ async def test_yahoo_price_history_source_parses_adjusted_close_and_turnover():
                     "result": [
                         {
                             "meta": {
-                                "symbol": "01592.HK",
+                                "symbol": "1592.HK",
                                 "longName": "Sample Company",
                                 "currency": "HKD",
                             },
@@ -113,7 +114,7 @@ async def test_yahoo_price_history_source_parses_adjusted_close_and_turnover():
     assert route.calls[0].request.url.params["interval"] == "1d"
     assert route.calls[0].request.url.params["includeAdjustedClose"] == "true"
     assert response.metadata.code == "01592"
-    assert response.metadata.ticker == "01592.HK"
+    assert response.metadata.ticker == "1592.HK"
     assert response.metadata.source_name == "Yahoo Finance"
     assert response.metadata.adjustment_state == "adjusted"
     assert response.metadata.data_as_of == date(2026, 7, 20)
@@ -122,6 +123,12 @@ async def test_yahoo_price_history_source_parses_adjusted_close_and_turnover():
     assert response.prices[0].price_source == "yahoo"
     assert response.prices[1].adjusted_close == 1.21
     assert response.data_quality_warnings == []
+
+
+def test_yahoo_hk_ticker_normalizes_canonical_codes():
+    assert yahoo_hk_ticker("00001") == "0001.HK"
+    assert yahoo_hk_ticker("00700") == "0700.HK"
+    assert yahoo_hk_ticker("09988") == "9988.HK"
 
 
 @pytest.mark.asyncio
