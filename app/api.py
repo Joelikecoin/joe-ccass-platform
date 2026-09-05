@@ -34,6 +34,7 @@ from app.services.capital_information import CapitalInformationService, get_capi
 from app.services.officers import OfficersService, get_officers_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
 from app.services.stock_events import StockEventsService, get_stock_events_service
+from app.services.longbridge import LongbridgeHoldingsService, get_longbridge_holdings_service
 from app.sources.registry import SourceRegistry, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import build_section_csv_artifact
@@ -125,6 +126,20 @@ async def get_latest_holdings(
     service: CcassService = Depends(get_ccass_service),
 ) -> CcassResponse:
     return await service.get_stock_data(stock_code, holdings_limit=holdings_limit)
+
+
+@app.get(
+    "/api/v1/longbridge/{stock_code}/holdings",
+    response_model=CcassResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["longbridge"],
+)
+async def get_longbridge_holdings(
+    stock_code: str,
+    service: LongbridgeHoldingsService = Depends(get_longbridge_holdings_service),
+) -> CcassResponse:
+    """Fetch and persist a full Longbridge CCASS holdings snapshot."""
+    return await service.fetch_and_persist(stock_code)
 
 
 @app.get(
