@@ -1154,22 +1154,30 @@ async def _build_portal_8504_bundle(
         period_results = []
         for period in ("rct_1", "rct_5", "rct_20", "rct_60"):
             try:
-                period_results.append(await LongbridgeHoldingsService().get_changes(base.resolved_code, period))
+                period_results.append(
+                    await asyncio.to_thread(
+                        lambda p=period: asyncio.run(
+                            LongbridgeHoldingsService().get_changes(base.resolved_code, p)
+                        )
+                    )
+                )
             except Exception as exc:
                 period_results.append(exc)
         for period, result in zip(("rct_1", "rct_5", "rct_20", "rct_60"), period_results):
             if isinstance(result, dict):
                 longbridge_periods[period] = result
             elif isinstance(result, Exception):
-                longbridge_error = f"{type(result).__name__}"
+                longbridge_error = f"{type(result).__name__}: {result}"
         participant_id = "B01438"
         if base.prepared and base.prepared.response and base.prepared.response.holdings:
             participant_id = base.prepared.response.holdings[0].participant_id
-        daily_result = await longbridge_service.get_daily(base.resolved_code, participant_id)
+        daily_result = await asyncio.to_thread(
+            lambda: asyncio.run(longbridge_service.get_daily(base.resolved_code, participant_id))
+        )
         if isinstance(daily_result, dict):
             longbridge_daily = daily_result
     except Exception as exc:
-        longbridge_error = type(exc).__name__
+        longbridge_error = f"{type(exc).__name__}: {exc}"
     return Portal8504Bundle(
         base=base,
         price_rows=price_rows,
