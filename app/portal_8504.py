@@ -79,6 +79,8 @@ APP_SUBTITLE_ZH = "Golden Joe 參考入口：即時市場資訊與 CCASS 持股�
 
 DEFAULT_PORTAL_CODE = "00700"
 PRICE_HISTORY_LOAD_TIMEOUT_SECONDS = 5.0
+LONGBRIDGE_CALL_TIMEOUT_SECONDS = 8.0
+LONGBRIDGE_ENRICHMENT_BUDGET_SECONDS = 35.0
 PRICE_RANGE_WINDOWS: dict[str, int | None] = {
     "1M": 21,
     "3M": 63,
@@ -1163,14 +1165,21 @@ async def _build_portal_8504_bundle(
         if os.getenv("PYTEST_CURRENT_TEST"):
             raise RuntimeError("test runtime: Longbridge UI enrichment skipped")
         longbridge_service = LongbridgeHoldingsService()
+        enrichment_deadline = asyncio.get_running_loop().time() + LONGBRIDGE_ENRICHMENT_BUDGET_SECONDS
         period_results = []
         for period in ("rct_1", "rct_5", "rct_20", "rct_60"):
             try:
+                remaining = enrichment_deadline - asyncio.get_running_loop().time()
+                if remaining <= 0:
+                    raise TimeoutError("Longbridge enrichment budget exhausted")
                 period_results.append(
-                    await asyncio.to_thread(
-                        lambda p=period: asyncio.run(
-                            LongbridgeHoldingsService().get_changes(base.resolved_code, p)
-                        )
+                    await asyncio.wait_for(
+                        asyncio.to_thread(
+                            lambda p=period: asyncio.run(
+                                LongbridgeHoldingsService().get_changes(base.resolved_code, p)
+                            )
+                        ),
+                        timeout=min(LONGBRIDGE_CALL_TIMEOUT_SECONDS, remaining),
                     )
                 )
             except Exception as exc:
@@ -1183,8 +1192,14 @@ async def _build_portal_8504_bundle(
         participant_id = "B01438"
         if base.prepared and base.prepared.response and base.prepared.response.holdings:
             participant_id = base.prepared.response.holdings[0].participant_id
-        daily_result = await asyncio.to_thread(
-            lambda: asyncio.run(longbridge_service.get_daily(base.resolved_code, participant_id))
+        remaining = enrichment_deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            raise TimeoutError("Longbridge enrichment budget exhausted")
+        daily_result = await asyncio.wait_for(
+            asyncio.to_thread(
+                lambda: asyncio.run(longbridge_service.get_daily(base.resolved_code, participant_id))
+            ),
+            timeout=min(LONGBRIDGE_CALL_TIMEOUT_SECONDS, remaining),
         )
         if isinstance(daily_result, dict):
             longbridge_daily = daily_result
