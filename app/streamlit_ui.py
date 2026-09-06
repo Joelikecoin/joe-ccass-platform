@@ -106,6 +106,7 @@ STREAMLIT_SOURCE_MODES = ("auto", "webbsite", "google_drive_csv")
 STREAMLIT_ANNOUNCEMENT_PERIODS = ("All", "7 days", "30 days", "90 days")
 STREAMLIT_HISTORY_RANGES = ("Latest", "7 days", "30 days", "90 days", "Custom")
 STREAMLIT_PERCENTAGE_BASES = ("CCASS", "Issued Shares")
+WEBB_PRODUCT_FETCH_TIMEOUT_SECONDS = 15.0
 HOLDINGS_PREVIEW_COLUMNS = (
     "Rank",
     "CCASS ID",
@@ -205,11 +206,14 @@ async def prepare_report(
         gateway_getter = getattr(service, "get_stock_gateway_response", None)
         if callable(gateway_getter):
             try:
-                gateway_response = await gateway_getter(
-                    code,
-                    holdings_limit=holdings_limit,
-                    cache_first=False,
-                    requested_date=requested_date,
+                gateway_response = await asyncio.wait_for(
+                    gateway_getter(
+                        code,
+                        holdings_limit=holdings_limit,
+                        cache_first=False,
+                        requested_date=requested_date,
+                    ),
+                    timeout=WEBB_PRODUCT_FETCH_TIMEOUT_SECONDS,
                 )
             except TypeError as exc:
                 if "requested_date" not in str(exc):
@@ -219,15 +223,37 @@ async def prepare_report(
             source_trace = build_source_trace_view(gateway_response)
         else:
             try:
-                response = await service.get_stock_data(
-                    code,
-                    holdings_limit=holdings_limit,
-                    requested_date=requested_date,
+                response = await asyncio.wait_for(
+                    service.get_stock_data(
+                        code,
+                        holdings_limit=holdings_limit,
+                        requested_date=requested_date,
+                    ),
+                    timeout=WEBB_PRODUCT_FETCH_TIMEOUT_SECONDS,
                 )
             except TypeError as exc:
                 if "requested_date" not in str(exc):
                     raise
-                response = await service.get_stock_data(code, holdings_limit=holdings_limit)
+                response = await asyncio.wait_for(
+                    service.get_stock_data(code, holdings_limit=holdings_limit),
+                    timeout=WEBB_PRODUCT_FETCH_TIMEOUT_SECONDS,
+                )
+    except TimeoutError:
+        error = "SOURCE_TIMEOUT: Webb holdings request exceeded its independent deadline."
+        _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))
+        markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
+        _progress(progress, 100, ui_text(locale, "progress_ready_with_error_details"))
+        return PreparedReport(
+            code=code,
+            markdown=markdown,
+            chatgpt_payload=build_chatgpt_copy_payload(markdown),
+            filename=report_filename(code),
+            response=None,
+            previous_response=None,
+            source_trace=None,
+            workflow=workflow,
+            fetch_error=error,
+        )
     except PlatformError as exc:
         error = f"{exc.code}: {exc.message}"
         _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))
