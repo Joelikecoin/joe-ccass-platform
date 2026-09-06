@@ -7,7 +7,7 @@ import io
 import json
 import math
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -56,6 +56,7 @@ from app.friend_clone_app import (
 )
 from app.live_product import YAHOO_CHART_API_URL
 from app.services.ccass import get_ccass_service
+from app.services.longbridge import LongbridgeHoldingsService
 from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
@@ -1037,6 +1038,55 @@ class Portal8504Bundle:
     base: PortalBundle
     price_rows: list[dict[str, object]]
     concentration_rows: list[dict[str, object]]
+    longbridge_periods: dict[str, dict[str, object]] = field(default_factory=dict)
+    longbridge_daily: dict[str, object] | None = None
+    longbridge_error: str | None = None
+
+
+def _longbridge_changes_block(bundle: Portal8504Bundle) -> str:
+    periods = bundle.longbridge_periods
+    if not periods:
+        reason = bundle.longbridge_error or "Longbridge period data unavailable."
+        return f'<div class="empty-state">Longbridge changes unavailable: {_escape(reason)}</div>'
+    blocks: list[str] = []
+    for period in ("rct_1", "rct_5", "rct_20", "rct_60"):
+        payload = periods.get(period) or {}
+        rows: list[list[str]] = []
+        for side in ("buy", "sell"):
+            for row in payload.get(side) or []:
+                if not isinstance(row, dict):
+                    continue
+                rows.append([
+                    _escape(row.get("parti_number") or "—"),
+                    _escape(row.get("name") or "—"),
+                    _escape(row.get("chg") or 0),
+                    _escape(side),
+                    _escape(period),
+                    _escape(payload.get("source") or "longbridge"),
+                    _escape(payload.get("updated_at") or "—"),
+                ])
+        table = _table(
+            ["Participant ID", "Participant", "Change Shares", "Side", "Period", "Source", "Data Date"],
+            rows[:100], class_name="compact-table"
+        ) if rows else '<div class="empty-state">No rows returned for this period.</div>'
+        blocks.append(f'<div class="subcard"><h3>{_escape(period)} Changes</h3>{table}</div>')
+    return "".join(blocks)
+
+
+def _longbridge_daily_block(bundle: Portal8504Bundle) -> str:
+    payload = bundle.longbridge_daily or {}
+    rows = payload.get("list") or []
+    if not rows:
+        return '<div class="empty-state">Longbridge broker history unavailable.</div>'
+    table_rows = [
+        [_escape(row.get("date") or "—"), _escape(row.get("holding") or "—"),
+         _escape(row.get("ratio") or "—"), _escape(row.get("chg") or "—"),
+         _escape(payload.get("source") or "longbridge")]
+        for row in rows if isinstance(row, dict)
+    ]
+    return '<div class="subcard"><h3>Broker Daily History</h3>' + _table(
+        ["Date", "Holding", "Ratio", "Change", "Source"], table_rows[:100], class_name="compact-table"
+    ) + '</div>'
 
 
 async def _build_portal_8504_bundle(
@@ -1094,7 +1144,40 @@ async def _build_portal_8504_bundle(
         snapshot = row.get("snapshot")
         if isinstance(snapshot, HistoricalSnapshot):
             row["snapshot"] = snapshot
-    return Portal8504Bundle(base=base, price_rows=price_rows, concentration_rows=concentration_rows)
+    longbridge_periods: dict[str, dict[str, object]] = {}
+    longbridge_daily: dict[str, object] | None = None
+    longbridge_error: str | None = None
+    try:
+        if os.getenv("PYTEST_CURRENT_TEST"):
+            raise RuntimeError("test runtime: Longbridge UI enrichment skipped")
+        longbridge_service = LongbridgeHoldingsService()
+        period_results = []
+        for period in ("rct_1", "rct_5", "rct_20", "rct_60"):
+            try:
+                period_results.append(await LongbridgeHoldingsService().get_changes(base.resolved_code, period))
+            except Exception as exc:
+                period_results.append(exc)
+        for period, result in zip(("rct_1", "rct_5", "rct_20", "rct_60"), period_results):
+            if isinstance(result, dict):
+                longbridge_periods[period] = result
+            elif isinstance(result, Exception):
+                longbridge_error = f"{type(result).__name__}"
+        participant_id = "B01438"
+        if base.prepared and base.prepared.response and base.prepared.response.holdings:
+            participant_id = base.prepared.response.holdings[0].participant_id
+        daily_result = await longbridge_service.get_daily(base.resolved_code, participant_id)
+        if isinstance(daily_result, dict):
+            longbridge_daily = daily_result
+    except Exception as exc:
+        longbridge_error = type(exc).__name__
+    return Portal8504Bundle(
+        base=base,
+        price_rows=price_rows,
+        concentration_rows=concentration_rows,
+        longbridge_periods=longbridge_periods,
+        longbridge_daily=longbridge_daily,
+        longbridge_error=longbridge_error,
+    )
 
 
 def _render_page(bundle: Portal8504Bundle) -> str:
@@ -1573,6 +1656,9 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <div class="kicker">{_i18n("Historical comparison", "歷史比較", locale)}</div>
           <h2>{_i18n("Changes", "變動", locale)}</h2>
           {_changes_block(base, locale)}
+          <div class="kicker" style="margin-top:1rem;">Longbridge production periods</div>
+          {_longbridge_changes_block(bundle)}
+          {_longbridge_daily_block(bundle)}
         </section>
 
         <section id="big-changes" class="panel">
