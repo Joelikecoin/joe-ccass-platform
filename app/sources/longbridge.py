@@ -154,6 +154,30 @@ class LongbridgeMcpClient:
             raise RuntimeError("Longbridge MCP returned an invalid JSON payload")
         return result
 
+    async def call_enrichment(self, symbol: str, broker_id: str) -> dict[str, Any]:
+        """Fetch period changes and broker history over one shared MCP session."""
+        names = [
+            ("rct_1", "broker_holding", {"symbol": symbol, "period": "rct_1"}),
+            ("rct_5", "broker_holding", {"symbol": symbol, "period": "rct_5"}),
+            ("rct_20", "broker_holding", {"symbol": symbol, "period": "rct_20"}),
+            ("rct_60", "broker_holding", {"symbol": symbol, "period": "rct_60"}),
+            ("daily", "broker_holding_daily", {"symbol": symbol, "broker_id": broker_id}),
+        ]
+        output: dict[str, Any] = {}
+        async with streamablehttp_client(
+            self.endpoint, timeout=30, sse_read_timeout=300, auth=self._oauth
+        ) as (read_stream, write_stream, _):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                for key, name, arguments in names:
+                    result = await session.call_tool(name, arguments)
+                    if getattr(result, "is_error", False):
+                        raise RuntimeError(f"Longbridge {key} tool error")
+                    content = getattr(result, "content", None) or []
+                    text = next((item.text for item in content if getattr(item, "text", None)), None)
+                    output[key] = json.loads(text) if text else {}
+        return output
+
     async def broker_holding_detail(self, symbol: str) -> dict[str, Any]:
         return await self._call_tool(
             "broker_holding_detail", {"symbol": symbol}

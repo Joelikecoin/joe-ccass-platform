@@ -47,6 +47,23 @@ class LongbridgeHoldingsService:
         payload = await self.client.broker_holding(symbol, period)
         return _normalize_period_payload(payload, period=period)
 
+    async def get_enrichment(self, stock_code: str, broker_id: str) -> dict[str, Any]:
+        symbol = normalize_longbridge_symbol(stock_code)
+        payloads = await self.client.call_enrichment(symbol, broker_id)
+        periods = {
+            period: _normalize_period_payload(payloads.get(period) or {}, period=period)
+            for period in ("rct_1", "rct_5", "rct_20", "rct_60")
+        }
+        daily_payload = payloads.get("daily") or {}
+        rows = daily_payload.get("list") or []
+        daily = {
+            **daily_payload,
+            "list": [{**row, "date": _normalize_date(row.get("date"))} for row in rows if isinstance(row, dict)],
+            "symbol": symbol,
+            "source": "longbridge",
+        }
+        return {"periods": periods, "daily": daily}
+
     async def get_daily(self, stock_code: str, broker_id: str) -> dict[str, Any]:
         symbol = normalize_longbridge_symbol(stock_code)
         payload = await self.client.broker_holding_daily(symbol, broker_id)
