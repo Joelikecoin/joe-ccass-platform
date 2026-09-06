@@ -178,6 +178,31 @@ class LongbridgeMcpClient:
                     output[key] = json.loads(text) if text else {}
         return output
 
+    async def call_price(self, symbol: str, start_date: str, end_date: str) -> dict[str, Any]:
+        """Fetch quote and daily candles over one authenticated MCP session."""
+        output: dict[str, Any] = {}
+        calls = (
+            ("quote", "quote", {"symbols": [symbol]}),
+            (
+                "history",
+                "history_candlesticks_by_date",
+                {"symbol": symbol, "start_date": start_date, "end_date": end_date},
+            ),
+        )
+        async with streamablehttp_client(
+            self.endpoint, timeout=30, sse_read_timeout=300, auth=self._oauth
+        ) as (read_stream, write_stream, _):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                for key, name, arguments in calls:
+                    result = await session.call_tool(name, arguments)
+                    if getattr(result, "is_error", False):
+                        raise RuntimeError(f"Longbridge {key} tool error")
+                    content = getattr(result, "content", None) or []
+                    text = next((item.text for item in content if getattr(item, "text", None)), None)
+                    output[key] = json.loads(text) if text else {}
+        return output
+
     async def broker_holding_detail(self, symbol: str) -> dict[str, Any]:
         return await self._call_tool(
             "broker_holding_detail", {"symbol": symbol}
@@ -210,6 +235,19 @@ class LongbridgeMcpClient:
         if not isinstance(result, dict):
             raise RuntimeError("Longbridge static_info returned an invalid payload")
         return result
+
+    async def quote(self, symbol: str) -> dict[str, Any]:
+        """Return the authenticated Longbridge quote payload."""
+        return await self._call_tool("quote", {"symbols": [symbol]})
+
+    async def history_candlesticks_by_date(
+        self, symbol: str, start_date: str, end_date: str
+    ) -> dict[str, Any]:
+        """Return daily Longbridge candles for an inclusive date range."""
+        return await self._call_tool(
+            "history_candlesticks_by_date",
+            {"symbol": symbol, "start_date": start_date, "end_date": end_date},
+        )
 
 
 def normalize_longbridge_symbol(stock_code: str) -> str:

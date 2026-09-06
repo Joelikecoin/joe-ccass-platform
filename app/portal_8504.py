@@ -7,6 +7,7 @@ import io
 import json
 import math
 import os
+import sys
 import threading
 import traceback
 from dataclasses import dataclass, field, replace
@@ -57,6 +58,7 @@ from app.friend_clone_app import (
     _table,
 )
 from app.live_product import YAHOO_CHART_API_URL
+from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
 from app.services.longbridge import LongbridgeHoldingsService
 from ccass_core.compute import compute_analysis
@@ -1140,7 +1142,35 @@ async def _build_portal_8504_bundle(
         use_local_history=use_local_history,
     )
     price_rows: list[dict[str, object]] = []
+    longbridge_service = LongbridgeHoldingsService()
+    running_tests = bool(os.getenv("PYTEST_CURRENT_TEST")) or any(
+        name == "pytest" or name.startswith("_pytest") for name in sys.modules
+    )
     if base.live_product is not None:
+        if not running_tests:
+            try:
+                longbridge_price = await asyncio.wait_for(
+                    longbridge_service.get_price_history(base.resolved_code),
+                    timeout=LONGBRIDGE_CALL_TIMEOUT_SECONDS,
+                )
+                updated_response = base.live_product.response.model_copy(
+                    update={"price_history": longbridge_price}
+                )
+                base.live_product.response = updated_response
+                base.live_product.price_history = _build_price_history_rows(updated_response)
+                base.live_product.latest_price = _build_latest_price(updated_response)
+                if base.prepared is not None and base.prepared.response is not None:
+                    base.prepared = replace(
+                        base.prepared,
+                        response=base.prepared.response.model_copy(
+                            update={"price_history": longbridge_price}
+                        ),
+                    )
+            except Exception as exc:
+                # Keep the existing Yahoo result untouched as the explicit fallback.
+                base.live_product.source_notes.append(
+                    f"Longbridge price unavailable ({type(exc).__name__}); using Yahoo Finance fallback."
+                )
         if base.live_product.price_history:
             price_rows = _normalize_price_rows(base.live_product.price_history)
         try:
@@ -1173,7 +1203,6 @@ async def _build_portal_8504_bundle(
     try:
         if os.getenv("PYTEST_CURRENT_TEST"):
             raise RuntimeError("test runtime: Longbridge UI enrichment skipped")
-        longbridge_service = LongbridgeHoldingsService()
         prepared = base.prepared
         if prepared is None or prepared.response is None or not prepared.response.holdings:
             # Webb/local can be unavailable for a stock that Longbridge still

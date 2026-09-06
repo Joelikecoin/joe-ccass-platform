@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from app.config import Settings, get_settings
 from app.longbridge_persistence import build_response, persist_response
-from app.models import CcassResponse
+from app.models import CcassResponse, PriceHistoryMetadata, PriceHistoryResponse, PriceHistoryRow
 from app.sources.longbridge import LongbridgeMcpClient, normalize_longbridge_symbol
 
 
@@ -82,6 +82,40 @@ class LongbridgeHoldingsService:
         payload = await self.client.static_info([symbol])
         return {**payload, "symbol": symbol, "source": "longbridge"}
 
+    async def get_price_history(
+        self, stock_code: str, *, start_date: date | None = None, end_date: date | None = None
+    ) -> PriceHistoryResponse:
+        symbol = normalize_longbridge_symbol(stock_code)
+        end = end_date or date.today()
+        start = start_date or date(end.year - 1, end.month, end.day)
+        price_payload = await self.client.call_price(symbol, start.isoformat(), end.isoformat())
+        quote_payload = price_payload.get("quote") or {}
+        history_payload = price_payload.get("history") or {}
+        quote_item = _first_payload_item(quote_payload)
+        raw_rows = _payload_list(history_payload)
+        prices = [_price_row(item) for item in raw_rows if isinstance(item, dict)]
+        prices = [row for row in prices if row is not None]
+        if not prices and quote_item:
+            row = _price_row(quote_item)
+            if row is not None:
+                prices = [row]
+        if not prices:
+            raise RuntimeError("Longbridge returned no usable price data")
+        prices.sort(key=lambda row: row.price_date)
+        return PriceHistoryResponse(
+            metadata=PriceHistoryMetadata(
+                code=stock_code,
+                ticker=symbol,
+                price_date_from=prices[0].price_date,
+                price_date_to=prices[-1].price_date,
+                source_name="Longbridge",
+                source_url=f"longbridge://history_candlesticks_by_date/{symbol}",
+                fetched_at=datetime.now(UTC),
+                adjustment_state="unadjusted",
+                currency="HKD",
+            ),
+            prices=prices,
+        )
 
 def _normalize_date(value: object) -> str | None:
     if value is None or not str(value).strip():
@@ -105,6 +139,68 @@ def _normalize_period_payload(payload: dict[str, Any], *, period: str) -> dict[s
         }
     )
     return normalized
+
+
+def _payload_list(payload: Any) -> list[Any]:
+    if isinstance(payload, list):
+        return payload
+    if not isinstance(payload, dict):
+        return []
+    for key in ("list", "items", "data", "candlesticks", "bars"):
+        value = payload.get(key)
+        if isinstance(value, list):
+            return value
+    return []
+
+
+def _first_payload_item(payload: Any) -> dict[str, Any] | None:
+    if isinstance(payload, dict) and any(key in payload for key in ("last_done", "last", "close")):
+        return payload
+    rows = _payload_list(payload)
+    return rows[0] if rows and isinstance(rows[0], dict) else None
+
+
+def _price_row(item: dict[str, Any]) -> PriceHistoryRow | None:
+    def value(*keys: str):
+        for key in keys:
+            if key in item and item[key] is not None:
+                return item[key]
+        return None
+
+    raw_date = value("timestamp", "date", "time")
+    if raw_date is None:
+        return None
+    try:
+        text = str(raw_date).replace("Z", "+00:00")
+        if text.isdigit():
+            parsed_date = datetime.fromtimestamp(float(text), tz=UTC).date()
+        else:
+            parsed_date = datetime.fromisoformat(text).date()
+    except (TypeError, ValueError, OverflowError):
+        try:
+            parsed_date = date.fromisoformat(str(raw_date).replace(".", "-"))
+        except ValueError:
+            return None
+
+    def number(*keys: str):
+        raw = value(*keys)
+        try:
+            return float(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    close = number("close", "last_done", "price")
+    if close is None:
+        return None
+    volume = number("volume")
+    turnover = number("turnover")
+    return PriceHistoryRow(
+        price_date=parsed_date,
+        open=number("open"), high=number("high"), low=number("low"), close=close,
+        vwap=number("vwap"), volume=int(volume) if volume is not None else None,
+        turnover=turnover, price_source="Longbridge",
+        turnover_est=turnover, vwap_est=number("vwap"),
+    )
 
 
 def get_longbridge_holdings_service() -> LongbridgeHoldingsService:
