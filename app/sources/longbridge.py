@@ -129,7 +129,7 @@ class LongbridgeMcpClient:
                 callback_handler=callback,
             )
 
-    async def _call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    async def _call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         headers = {"Authorization": f"Bearer {self.access_token}"} if self.access_token else None
         async with streamablehttp_client(
             self.endpoint,
@@ -150,37 +150,42 @@ class LongbridgeMcpClient:
                 result = json.loads(text)
             except json.JSONDecodeError:
                 raise RuntimeError("Longbridge MCP returned non-JSON tool content") from None
-        if not isinstance(result, dict):
-            raise RuntimeError("Longbridge MCP returned an invalid holdings payload")
+        if not isinstance(result, (dict, list)):
+            raise RuntimeError("Longbridge MCP returned an invalid JSON payload")
         return result
 
     async def broker_holding_detail(self, symbol: str) -> dict[str, Any]:
         return await self._call_tool(
-            "longbridge_broker_holding_detail", {"symbol": symbol}
+            "broker_holding_detail", {"symbol": symbol}
         )
 
     async def broker_holding(self, symbol: str, period: str) -> dict[str, Any]:
         if period not in {"rct_1", "rct_5", "rct_20", "rct_60"}:
             raise ValueError(f"unsupported Longbridge holding period: {period}")
         return await self._call_tool(
-            "longbridge_broker_holding", {"symbol": symbol, "period": period}
+            "broker_holding", {"symbol": symbol, "period": period}
         )
 
     async def broker_holding_daily(self, symbol: str, broker_id: str) -> dict[str, Any]:
         if not broker_id.strip():
             raise ValueError("broker_id is required")
         return await self._call_tool(
-            "longbridge_broker_holding_daily",
+            "broker_holding_daily",
             {"symbol": symbol, "broker_id": broker_id.strip()},
         )
 
     async def participants(self, symbol: str) -> dict[str, Any]:
-        return await self._call_tool("longbridge_participants", {"symbol": symbol})
+        return await self._call_tool("participants", {"symbol": symbol})
 
     async def static_info(self, symbols: list[str]) -> dict[str, Any]:
         if not symbols:
             raise ValueError("at least one symbol is required")
-        return await self._call_tool("longbridge_static_info", {"symbols": symbols})
+        result = await self._call_tool("static_info", {"symbols": symbols})
+        if isinstance(result, list):
+            return {"list": result}
+        if not isinstance(result, dict):
+            raise RuntimeError("Longbridge static_info returned an invalid payload")
+        return result
 
 
 def normalize_longbridge_symbol(stock_code: str) -> str:

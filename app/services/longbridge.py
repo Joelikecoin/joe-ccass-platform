@@ -18,9 +18,29 @@ class LongbridgeHoldingsService:
     async def fetch_and_persist(self, stock_code: str) -> CcassResponse:
         symbol = normalize_longbridge_symbol(stock_code)
         payload = await self.client.broker_holding_detail(symbol)
-        response = build_response(payload, stock_code=stock_code, issue_id=0)
+        issued_shares = await self._issued_shares(symbol)
+        response = build_response(
+            payload,
+            stock_code=stock_code,
+            issue_id=0,
+            issued_shares=issued_shares,
+        )
         persist_response(response, db_path=Path(self.settings.ccass_sqlite_path))
         return response
+
+    async def _issued_shares(self, symbol: str) -> int | None:
+        payload = await self.client.static_info([symbol])
+        items = payload.get("list") or payload.get("items") or payload.get("data") or []
+        if isinstance(items, dict):
+            items = [items]
+        if not isinstance(items, list) or not items:
+            return None
+        value = items[0].get("total_shares") if isinstance(items[0], dict) else None
+        try:
+            parsed = int(float(value)) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+        return parsed if parsed and parsed > 0 else None
 
     async def get_changes(self, stock_code: str, period: str) -> dict[str, Any]:
         symbol = normalize_longbridge_symbol(stock_code)

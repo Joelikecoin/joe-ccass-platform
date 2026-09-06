@@ -36,6 +36,7 @@ def build_response(
     *,
     stock_code: str,
     issue_id: int,
+    issued_shares: int | None = None,
     fetched_at: datetime | None = None,
 ) -> CcassResponse:
     code = normalize_stock_code(stock_code)
@@ -82,6 +83,8 @@ def build_response(
         holdings_summary=HoldingsSummary(
             total_in_ccass_shares=total,
             total_in_ccass_pct_of_issued=issued_ratio,
+            issued_shares=issued_shares,
+            issued_shares_as_of=snapshot_date if issued_shares else None,
             participant_count=len(rows),
         ),
         holdings=rows,
