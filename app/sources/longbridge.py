@@ -57,9 +57,36 @@ async def _open_authorization(url: str) -> None:
 
 
 def _oauth_callback() -> tuple[callable, callable]:
-    """Return redirect/callback handlers backed by a temporary localhost listener."""
+    """Return handlers backed by a listener bound before browser authorization."""
+    import http.server
+    from urllib.parse import parse_qs, urlparse
+
     state: dict[str, str | None] = {"code": None, "state": None}
     ready = threading.Event()
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            query = parse_qs(urlparse(self.path).query)
+            state["code"] = query.get("code", [None])[0]
+            state["state"] = query.get("state", [None])[0]
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"Longbridge authorization complete. You may close this tab.")
+            ready.set()
+
+        def log_message(self, *_args):
+            return
+
+    # Bind before opening the browser so a host browser can reach the callback.
+    server = http.server.HTTPServer(("127.0.0.1", 8765), Handler)
+    server.timeout = 1
+
+    def serve() -> None:
+        while not ready.is_set():
+            server.handle_request()
+        server.server_close()
+
+    threading.Thread(target=serve, name="longbridge-oauth-callback", daemon=True).start()
 
     async def redirect(url: str) -> None:
         await _open_authorization(url)
@@ -68,27 +95,9 @@ def _oauth_callback() -> tuple[callable, callable]:
         loop = asyncio.get_running_loop()
 
         def wait_for_callback() -> tuple[str, str | None]:
-            import http.server
-            from urllib.parse import parse_qs, urlparse
-
-            class Handler(http.server.BaseHTTPRequestHandler):
-                def do_GET(self):  # noqa: N802
-                    query = parse_qs(urlparse(self.path).query)
-                    state["code"] = query.get("code", [None])[0]
-                    state["state"] = query.get("state", [None])[0]
-                    self.send_response(200)
-                    self.end_headers()
-                    self.wfile.write(b"Longbridge authorization complete. You may close this tab.")
-                    ready.set()
-
-                def log_message(self, *_args):
-                    return
-
-            server = http.server.HTTPServer(("127.0.0.1", 8765), Handler)
-            server.timeout = 300
-            while not ready.is_set():
-                server.handle_request()
-            server.server_close()
+            if not ready.wait(timeout=300):
+                server.server_close()
+                raise TimeoutError("Timed out waiting for Longbridge OAuth callback")
             return str(state["code"] or ""), state["state"]
 
         return await loop.run_in_executor(None, wait_for_callback)
