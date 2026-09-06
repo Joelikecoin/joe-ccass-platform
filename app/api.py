@@ -143,6 +143,45 @@ async def get_longbridge_holdings(
 
 
 @app.get(
+    "/api/v1/longbridge/{stock_code}/holding/{period}",
+    dependencies=[Depends(verify_api_key)],
+    tags=["longbridge"],
+)
+async def get_longbridge_holding_changes(
+    stock_code: str,
+    period: str,
+    service: LongbridgeHoldingsService = Depends(get_longbridge_holdings_service),
+) -> dict[str, object]:
+    """Return the verified Longbridge rct_1/rct_5/rct_20/rct_60 payload."""
+    return await service.get_changes(stock_code, period)
+
+
+@app.get(
+    "/api/v1/longbridge/{stock_code}/holding-daily/{broker_id}",
+    dependencies=[Depends(verify_api_key)],
+    tags=["longbridge"],
+)
+async def get_longbridge_holding_daily(
+    stock_code: str,
+    broker_id: str,
+    service: LongbridgeHoldingsService = Depends(get_longbridge_holdings_service),
+) -> dict[str, object]:
+    return await service.get_daily(stock_code, broker_id)
+
+
+@app.get(
+    "/api/v1/longbridge/{stock_code}/static-info",
+    dependencies=[Depends(verify_api_key)],
+    tags=["longbridge"],
+)
+async def get_longbridge_static_info(
+    stock_code: str,
+    service: LongbridgeHoldingsService = Depends(get_longbridge_holdings_service),
+) -> dict[str, object]:
+    return await service.get_static_info(stock_code)
+
+
+@app.get(
     "/api/v1/stocks/{stock_code}/changes",
     response_model=ChangesResponse,
     dependencies=[Depends(verify_api_key)],
