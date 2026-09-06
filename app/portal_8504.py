@@ -9,7 +9,7 @@ import math
 import os
 import threading
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -59,6 +59,7 @@ from app.friend_clone_app import (
 from app.live_product import YAHOO_CHART_API_URL
 from app.services.ccass import get_ccass_service
 from app.services.longbridge import LongbridgeHoldingsService
+from ccass_core.compute import compute_analysis
 from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
@@ -1103,6 +1104,14 @@ def _longbridge_daily_block(bundle: Portal8504Bundle) -> str:
     ) + '</div>'
 
 
+def _portal_big_changes_block(bundle: PortalBundle) -> str:
+    """Render an explicit first-snapshot state instead of an empty table."""
+    prepared = bundle.prepared
+    if prepared is not None and not getattr(prepared, "previous_response", None):
+        return '<div class="warning-box">Big Changes 需要兩個相鄰快照，目前只有 1 個。</div>'
+    return _big_changes_block(bundle)
+
+
 async def _build_portal_8504_bundle(
     *,
     raw_code: str,
@@ -1165,6 +1174,35 @@ async def _build_portal_8504_bundle(
         if os.getenv("PYTEST_CURRENT_TEST"):
             raise RuntimeError("test runtime: Longbridge UI enrichment skipped")
         longbridge_service = LongbridgeHoldingsService()
+        prepared = base.prepared
+        if prepared is None or prepared.response is None or not prepared.response.holdings:
+            # Webb/local can be unavailable for a stock that Longbridge still
+            # covers. Reuse the existing production service response as the
+            # portal's Holdings model; do not create a UI-specific parser.
+            fallback_response = await asyncio.wait_for(
+                longbridge_service.fetch_and_persist(base.resolved_code),
+                timeout=LONGBRIDGE_ENRICHMENT_BUDGET_SECONDS,
+            )
+            fallback_response = fallback_response.model_copy(
+                update={
+                    "data_quality_warnings": [
+                        "本工具冇呢隻股嘅本地快照；來源：Longbridge（Webb-site 本日不可用）"
+                    ]
+                }
+            )
+            fallback_analysis = compute_analysis(
+                fallback_response,
+                previous=None,
+                big_change_threshold=big_change_threshold,
+            )
+            base.prepared = replace(
+                prepared,
+                response=fallback_response,
+                analysis=fallback_analysis,
+                fetch_error="本工具冇呢隻股嘅本地快照；來源：Longbridge（Webb-site 本日不可用）",
+            ) if prepared is not None else prepared
+            if base.prepared is not None:
+                base.previous_available = False
         enrichment_deadline = asyncio.get_running_loop().time() + LONGBRIDGE_ENRICHMENT_BUDGET_SECONDS
         participant_id = "B01438"
         if base.prepared and base.prepared.response and base.prepared.response.holdings:
@@ -1674,7 +1712,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
         <section id="big-changes" class="panel">
           <div class="kicker">{_i18n("Threshold filtered", "門檻過濾", locale)}</div>
           <h2>{_i18n("Big Changes", "大變動", locale)}</h2>
-          {_big_changes_block(base)}
+          {_portal_big_changes_block(base)}
         </section>
 
         <section id="concentration" class="panel">
