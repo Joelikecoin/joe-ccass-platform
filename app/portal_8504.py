@@ -7,6 +7,8 @@ import io
 import json
 import math
 import os
+import threading
+import traceback
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
@@ -101,6 +103,16 @@ RAINBOW_COLOR_PALETTE = (
     "#cc0000",
     "#999999",
 )
+
+
+def _exception_details(error: BaseException) -> str:
+    """Flatten ExceptionGroup without hiding the first causal child."""
+    current = error
+    while isinstance(current, BaseExceptionGroup) and current.exceptions:
+        current = current.exceptions[0]
+    origin = traceback.extract_tb(current.__traceback__)[-1] if current.__traceback__ else None
+    location = f"{origin.filename}:{origin.lineno}:{origin.name}" if origin else "unknown"
+    return f"{type(current).__name__}: {current} @ {location} thread={threading.current_thread().name}"
 
 try:  # pragma: no cover - optional dependency guard
     import yfinance as yf
@@ -1167,7 +1179,7 @@ async def _build_portal_8504_bundle(
             if isinstance(result, dict):
                 longbridge_periods[period] = result
             elif isinstance(result, Exception):
-                longbridge_error = f"{type(result).__name__}: {result}"
+                longbridge_error = _exception_details(result)
         participant_id = "B01438"
         if base.prepared and base.prepared.response and base.prepared.response.holdings:
             participant_id = base.prepared.response.holdings[0].participant_id
@@ -1177,7 +1189,7 @@ async def _build_portal_8504_bundle(
         if isinstance(daily_result, dict):
             longbridge_daily = daily_result
     except Exception as exc:
-        longbridge_error = f"{type(exc).__name__}: {exc}"
+        longbridge_error = _exception_details(exc)
     return Portal8504Bundle(
         base=base,
         price_rows=price_rows,
