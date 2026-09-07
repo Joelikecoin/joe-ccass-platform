@@ -206,13 +206,19 @@ class LongbridgeMcpClient:
                     parsed: Any = {}
                     if text and not is_error:
                         parsed = json.loads(text)
-                    if str(symbol).strip().upper() == "6182.HK" and key in {"rct_20", "rct_60"}:
-                        buy = parsed.get("buy") if isinstance(parsed, dict) else []
-                        sell = parsed.get("sell") if isinstance(parsed, dict) else []
-                        count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
-                        print(f"TRACE_06182_SOURCE {key}_rows={count}", flush=True)
                     if is_error:
                         raise RuntimeError(f"Longbridge {key} tool error")
+                    if key in {"rct_1", "rct_5", "rct_20", "rct_60"}:
+                        buy = parsed.get("buy") if isinstance(parsed, dict) else []
+                        sell = parsed.get("sell") if isinstance(parsed, dict) else []
+                        row_count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
+                        if row_count == 0:
+                            retry_result = await session.call_tool(name, arguments)
+                            if getattr(retry_result, "is_error", False):
+                                raise RuntimeError(f"Longbridge {key} tool error")
+                            retry_content = getattr(retry_result, "content", None) or []
+                            retry_text = next((item.text for item in retry_content if getattr(item, "text", None)), None)
+                            parsed = json.loads(retry_text) if retry_text else {}
                     output[key] = parsed
         return output
 

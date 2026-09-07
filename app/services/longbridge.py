@@ -50,24 +50,10 @@ class LongbridgeHoldingsService:
     async def get_enrichment(self, stock_code: str, broker_id: str) -> dict[str, Any]:
         symbol = normalize_longbridge_symbol(stock_code)
         payloads = await self.client.call_enrichment(symbol, broker_id)
-        if symbol == "6182.HK":
-            for key in ("rct_20", "rct_60"):
-                payload = payloads.get(key) or {}
-                buy = payload.get("buy") if isinstance(payload, dict) else []
-                sell = payload.get("sell") if isinstance(payload, dict) else []
-                count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
-                print(f"TRACE_06182_SERVICE_BEFORE {key}_rows={count}", flush=True)
         periods = {
             period: _normalize_period_payload(payloads.get(period) or {}, period=period)
             for period in ("rct_1", "rct_5", "rct_20", "rct_60")
         }
-        if symbol == "6182.HK":
-            for key in ("rct_20", "rct_60"):
-                payload = periods.get(key) or {}
-                buy = payload.get("buy") if isinstance(payload, dict) else []
-                sell = payload.get("sell") if isinstance(payload, dict) else []
-                count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
-                print(f"TRACE_06182_SERVICE_AFTER {key}_rows={count}", flush=True)
         daily_payload = payloads.get("daily") or {}
         rows = daily_payload.get("list") or []
         daily = {
