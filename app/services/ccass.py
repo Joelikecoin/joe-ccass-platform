@@ -81,10 +81,12 @@ class RepositorySnapshotBackend:
         *,
         max_age_seconds: int,
         source_ids: tuple[str, ...] | None = None,
+        source_max_age_seconds: dict[str, int] | None = None,
     ) -> None:
         self.repository = repository
         self.max_age_seconds = max_age_seconds
         self.source_ids = source_ids
+        self.source_max_age_seconds = source_max_age_seconds or {}
 
     async def get(self, request: GatewayRequestContext) -> CcassResponse | None:
         snapshot = self._latest_snapshot(request.normalized_stock_code, requested_date=request.requested_date)
@@ -153,6 +155,17 @@ class RepositorySnapshotBackend:
                 return None
             return max(snapshots, key=lambda snapshot: snapshot.fetched_at)
         if self.source_ids:
+            # Longbridge snapshots are an explicitly trusted persisted core
+            # source. Prefer one when present instead of letting a newer
+            # secondary-source write mask the durable Longbridge snapshot.
+            if "longbridge" in self.source_ids:
+                longbridge_snapshot = self.repository.latest(
+                    code,
+                    source_id="longbridge",
+                    include_partial=True,
+                )
+                if longbridge_snapshot is not None:
+                    return longbridge_snapshot
             candidates = [
                 snapshot
                 for source_id in self.source_ids
@@ -181,7 +194,11 @@ class RepositorySnapshotBackend:
         if requested_at.tzinfo is None or requested_at.utcoffset() is None:
             return False
         age_seconds = int((requested_at - fetched_at).total_seconds())
-        return 0 <= age_seconds <= self.max_age_seconds
+        max_age_seconds = self.source_max_age_seconds.get(
+            snapshot.source.source_id,
+            self.max_age_seconds,
+        )
+        return 0 <= age_seconds <= max_age_seconds
 
     def _is_recoverable_snapshot(self, snapshot: HistoricalSnapshot) -> bool:
         if snapshot.stale:
@@ -391,7 +408,10 @@ class CcassService:
         return RepositorySnapshotBackend(
             self.lkg_repository,
             max_age_seconds=self.settings.cache_ttl_seconds,
-            source_ids=tuple(source.source_id for source in self.available_sources),
+            source_ids=tuple(dict.fromkeys([*(source.source_id for source in self.available_sources), "longbridge"])),
+            source_max_age_seconds={
+                "longbridge": self.settings.holdings_lkg_max_age_seconds,
+            },
         )
 
     def _build_recovery_backend(
@@ -425,11 +445,14 @@ class CcassService:
                         fallback_eligible=True,
                     )
                 )
-            recovery_source_ids = tuple(
-                source.source_id
-                for source in self.available_sources
-                if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
-            )
+            recovery_source_ids = tuple(dict.fromkeys([
+                *(
+                    source.source_id
+                    for source in self.available_sources
+                    if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
+                ),
+                "longbridge",
+            ]))
             recovery_backend = self._build_recovery_backend(recovery_source_ids)
             if recovery_backend is not None:
                 candidates.append(
@@ -468,11 +491,14 @@ class CcassService:
                     fallback_eligible=True,
                 )
             )
-        recovery_source_ids = tuple(
-            source.source_id
-            for source in self.available_sources
-            if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
-        )
+        recovery_source_ids = tuple(dict.fromkeys([
+            *(
+                source.source_id
+                for source in self.available_sources
+                if source.source_id != GOOGLE_DRIVE_CSV_SOURCE_ID
+            ),
+            "longbridge",
+        ]))
         recovery_backend = self._build_recovery_backend(recovery_source_ids)
         if recovery_backend is not None:
             candidates.append(
@@ -530,11 +556,15 @@ class CcassService:
                 "holdings_limit must be at least 1.",
                 status_code=400,
             )
+        effective_cache_first = cache_first or self._has_valid_longbridge_snapshot(
+            str(code),
+            requested_date=requested_date,
+        )
         request = GatewayRequest(
             stock_code=code,
             holdings_limit=holdings_limit,
             request_surface="service",
-            cache_first=cache_first,
+            cache_first=effective_cache_first,
             requested_date=requested_date,
         )
         token = REQUESTED_CCASS_SNAPSHOT_DATE.set(requested_date)
@@ -599,13 +629,71 @@ class CcassService:
         )
         gateway_response = gateway_response.model_copy(update={"normalized_response": normalized_response})
         normalized_response = self._apply_recovery_metadata(gateway_response)
-        normalized_response = await self._attach_related_surfaces(
-            normalized_response,
-            normalized_stock_code=normalized,
-            holdings_limit=holdings_limit,
-            source_trace_view=source_trace_view,
-        )
+        # A persisted Longbridge snapshot is already a complete trusted core.
+        # Bound optional enrichment so Webb/secondary outages cannot prevent
+        # the core holdings page from reaching a terminal state.
+        if (
+            gateway_response.routing.selected_source_id == "cache"
+            and normalized_response.metadata.source_name.lower() == "longbridge"
+        ):
+            try:
+                normalized_response = await asyncio.wait_for(
+                    self._attach_related_surfaces(
+                        normalized_response,
+                        normalized_stock_code=normalized,
+                        holdings_limit=holdings_limit,
+                        source_trace_view=source_trace_view,
+                    ),
+                    timeout=20.0,
+                )
+            except asyncio.TimeoutError:
+                normalized_response = normalized_response.model_copy(
+                    update={
+                        "data_quality_warnings": [
+                            *normalized_response.data_quality_warnings,
+                            structured_warning(
+                                "DATA_LIMITATION",
+                                "SECONDARY_SURFACES_TIMEOUT",
+                                "Optional enrichment timed out; persisted core holdings remain available.",
+                            ),
+                        ]
+                    }
+                )
+        else:
+            normalized_response = await self._attach_related_surfaces(
+                normalized_response,
+                normalized_stock_code=normalized,
+                holdings_limit=holdings_limit,
+                source_trace_view=source_trace_view,
+            )
         return gateway_response.model_copy(update={"normalized_response": normalized_response})
+
+    def _has_valid_longbridge_snapshot(
+        self,
+        code: str,
+        *,
+        requested_date: date | None,
+    ) -> bool:
+        if self.lkg_repository is None:
+            return False
+        normalized_code = str(code).strip().zfill(5)
+        snapshot = (
+            self.lkg_repository.snapshot_on(
+                normalized_code,
+                requested_date,
+                source_id="longbridge",
+            )
+            if requested_date is not None
+            else self.lkg_repository.latest(
+                normalized_code,
+                source_id="longbridge",
+                include_partial=True,
+            )
+        )
+        if snapshot is None:
+            return False
+        backend = self._build_cache_backend()
+        return backend is not None and backend._is_valid_snapshot(snapshot)
 
     def _persist_gateway_response(self, gateway_response: "GatewayResponse") -> str | None:
         if self.lkg_repository is None:

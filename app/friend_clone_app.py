@@ -272,6 +272,15 @@ async def _build_bundle(
     )
     prepared = await ccass_task
     product_kwargs = {"code": resolved_code, "source_trace": prepared.source_trace}
+    # The service has already attempted optional enrichment for a persisted
+    # Longbridge core response. Do not launch the same external surfaces a
+    # second time while rendering the portal.
+    if (
+        prepared.response is not None
+        and prepared.response.metadata.cached
+        and prepared.response.metadata.source_name.lower() == "longbridge"
+    ):
+        product_kwargs["allow_external"] = False
     if source_mode == "local_db":
         product_kwargs["allow_external"] = False
         product_kwargs["source_mode"] = source_mode
