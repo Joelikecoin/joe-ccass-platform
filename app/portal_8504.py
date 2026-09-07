@@ -5,6 +5,7 @@ import csv
 import html
 import io
 import json
+import logging
 import math
 import os
 import sys
@@ -79,6 +80,21 @@ APP_TITLE_EN = "Joe Visual Portal"
 APP_TITLE_ZH = "Joe Visual Portal"
 APP_SUBTITLE_EN = "Golden Joe reference portal for live market news and CCASS holdings."
 APP_SUBTITLE_ZH = "Golden Joe 參考入口：即時市場資訊與 CCASS 持股。"
+
+_logger = logging.getLogger(__name__)
+
+
+def _trace_rct20_bundle(stock_code: str, stage: str, periods: object) -> None:
+    if str(stock_code).strip().zfill(5) != "06182":
+        return
+    value = periods.get("rct_20") if isinstance(periods, dict) else None
+    rows = 0
+    if isinstance(value, dict):
+        rows = sum(len(value.get(side) or []) for side in ("buy", "sell") if isinstance(value.get(side) or [], list))
+    _logger.info(
+        "TRACE_RCT20 stock=%s stage=%s key_present=%s value_type=%s row_count=%s",
+        stock_code, stage, value is not None, type(value).__name__, rows,
+    )
 
 DEFAULT_PORTAL_CODE = "00700"
 PRICE_HISTORY_LOAD_TIMEOUT_SECONDS = 5.0
@@ -1083,6 +1099,7 @@ class Portal8504Bundle:
 
 def _longbridge_changes_block(bundle: Portal8504Bundle) -> str:
     periods = bundle.longbridge_periods
+    _trace_rct20_bundle(bundle.base.resolved_code, "render_input", periods)
     if not periods:
         reason = bundle.longbridge_error or "Longbridge period data unavailable."
         return f'<div class="empty-state">Longbridge changes unavailable: {_escape(reason)}</div>'
@@ -1264,7 +1281,9 @@ async def _build_portal_8504_bundle(
             longbridge_service.get_enrichment(base.resolved_code, participant_id),
             timeout=min(LONGBRIDGE_ENRICHMENT_BUDGET_SECONDS, remaining),
         )
+        _trace_rct20_bundle(base.resolved_code, "before_bundle", enrichment.get("periods", {}))
         longbridge_periods = enrichment.get("periods", {})
+        _trace_rct20_bundle(base.resolved_code, "after_bundle", longbridge_periods)
         longbridge_daily = enrichment.get("daily")
     except Exception as exc:
         longbridge_error = _exception_details(exc)
@@ -1280,6 +1299,7 @@ async def _build_portal_8504_bundle(
 
 def _render_page(bundle: Portal8504Bundle) -> str:
     base = bundle.base
+    _trace_rct20_bundle(base.resolved_code, "before_render", bundle.longbridge_periods)
     price_rows = bundle.price_rows
     concentration_rows = bundle.concentration_rows
     selected_data_date = base.data_date.isoformat() if base.data_date else ""
