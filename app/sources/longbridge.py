@@ -56,6 +56,14 @@ async def _open_authorization(url: str) -> None:
         raise RuntimeError(f"Open this Longbridge OAuth URL in a browser: {url}")
 
 
+async def _reject_interactive_oauth(_url: str) -> None:
+    raise RuntimeError("LONG_BRIDGE_AUTH_UNAVAILABLE: interactive OAuth is disabled for request runtime")
+
+
+async def _reject_interactive_callback() -> tuple[str, str | None]:
+    raise RuntimeError("LONG_BRIDGE_AUTH_UNAVAILABLE: interactive OAuth is disabled for request runtime")
+
+
 def _oauth_callback() -> tuple[callable, callable]:
     """Return handlers backed by a listener bound before browser authorization."""
     import http.server
@@ -108,14 +116,26 @@ def _oauth_callback() -> tuple[callable, callable]:
 class LongbridgeMcpClient:
     """Call the official Longbridge MCP tool without touching the Webb router."""
 
-    def __init__(self, *, endpoint: str | None = None, access_token: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        endpoint: str | None = None,
+        access_token: str | None = None,
+        interactive: bool = False,
+    ) -> None:
         self.endpoint = endpoint or os.getenv("LONGBRIDGE_MCP_URL", "https://mcp.longbridge.com")
         self.access_token = access_token or os.getenv("LONGBRIDGE_ACCESS_TOKEN")
         self._oauth = None
         if not self.endpoint:
             raise RuntimeError("Longbridge MCP endpoint is required")
         if not self.access_token:
-            redirect, callback = _oauth_callback()
+            # Request handlers may reuse cached OAuth tokens through the
+            # provider, but must never start a localhost callback listener.
+            # The explicit login script opts into the interactive bootstrap.
+            redirect, callback = _oauth_callback() if interactive else (
+                _reject_interactive_oauth,
+                _reject_interactive_callback,
+            )
             self._oauth = OAuthClientProvider(
                 self.endpoint,
                 OAuthClientMetadata(

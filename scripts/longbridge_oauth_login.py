@@ -9,7 +9,7 @@ from app.sources.longbridge import LongbridgeMcpClient, _oauth_cache_path
 
 async def main() -> None:
     cache = _oauth_cache_path()
-    client = LongbridgeMcpClient()
+    client = LongbridgeMcpClient(interactive=True)
     # Use the official MCP tool names for this verification helper. The app's
     # higher-level wrappers are intentionally not changed by the auth fix.
     detail = await client._call_tool("broker_holding_detail", {"symbol": "6182.HK"})
