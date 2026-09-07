@@ -200,11 +200,15 @@ class LongbridgeMcpClient:
                 await session.initialize()
                 for key, name, arguments in names:
                     result = await session.call_tool(name, arguments)
-                    if getattr(result, "is_error", False):
-                        raise RuntimeError(f"Longbridge {key} tool error")
+                    is_error = bool(getattr(result, "is_error", False))
                     content = getattr(result, "content", None) or []
                     text = next((item.text for item in content if getattr(item, "text", None)), None)
-                    output[key] = json.loads(text) if text else {}
+                    parsed: Any = {}
+                    if text and not is_error:
+                        parsed = json.loads(text)
+                    if is_error:
+                        raise RuntimeError(f"Longbridge {key} tool error")
+                    output[key] = parsed
         return output
 
     async def call_price(self, symbol: str, start_date: str, end_date: str) -> dict[str, Any]:

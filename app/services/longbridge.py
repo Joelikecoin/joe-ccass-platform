@@ -9,23 +9,6 @@ from app.longbridge_persistence import build_response, persist_response
 from app.models import CcassResponse, PriceHistoryMetadata, PriceHistoryResponse, PriceHistoryRow
 from app.sources.longbridge import LongbridgeMcpClient, normalize_longbridge_symbol
 
-def _trace_rct20(stock_code: str, stage: str, value: object) -> None:
-    if str(stock_code).strip().zfill(5) != "06182":
-        return
-    if isinstance(value, dict):
-        rows = sum(len(value.get(side) or []) for side in ("buy", "sell") if isinstance(value.get(side) or [], list))
-        print(
-            f"TRACE_RCT20 stock={stock_code} stage={stage} key_present=True "
-            f"value_type={type(value).__name__} row_count={rows}",
-            flush=True,
-        )
-    else:
-        print(
-            f"TRACE_RCT20 stock={stock_code} stage={stage} "
-            f"key_present={value is not None} value_type={type(value).__name__} row_count=0",
-            flush=True,
-        )
-
 
 class LongbridgeHoldingsService:
     def __init__(self, *, settings: Settings | None = None, client: LongbridgeMcpClient | None = None) -> None:
@@ -67,12 +50,10 @@ class LongbridgeHoldingsService:
     async def get_enrichment(self, stock_code: str, broker_id: str) -> dict[str, Any]:
         symbol = normalize_longbridge_symbol(stock_code)
         payloads = await self.client.call_enrichment(symbol, broker_id)
-        _trace_rct20(stock_code, "after_call_enrichment", payloads.get("rct_20"))
         periods = {
             period: _normalize_period_payload(payloads.get(period) or {}, period=period)
             for period in ("rct_1", "rct_5", "rct_20", "rct_60")
         }
-        _trace_rct20(stock_code, "after_normalization", periods.get("rct_20"))
         daily_payload = payloads.get("daily") or {}
         rows = daily_payload.get("list") or []
         daily = {
