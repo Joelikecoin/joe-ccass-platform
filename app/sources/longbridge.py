@@ -206,6 +206,11 @@ class LongbridgeMcpClient:
                     parsed: Any = {}
                     if text and not is_error:
                         parsed = json.loads(text)
+                    if str(symbol).strip().upper() == "6182.HK" and key in {"rct_20", "rct_60"}:
+                        buy = parsed.get("buy") if isinstance(parsed, dict) else []
+                        sell = parsed.get("sell") if isinstance(parsed, dict) else []
+                        count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
+                        print(f"TRACE_06182_SOURCE {key}_rows={count}", flush=True)
                     if is_error:
                         raise RuntimeError(f"Longbridge {key} tool error")
                     output[key] = parsed
