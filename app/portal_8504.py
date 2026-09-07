@@ -5,7 +5,6 @@ import csv
 import html
 import io
 import json
-import logging
 import math
 import os
 import sys
@@ -81,9 +80,6 @@ APP_TITLE_ZH = "Joe Visual Portal"
 APP_SUBTITLE_EN = "Golden Joe reference portal for live market news and CCASS holdings."
 APP_SUBTITLE_ZH = "Golden Joe 參考入口：即時市場資訊與 CCASS 持股。"
 
-_logger = logging.getLogger(__name__)
-
-
 def _trace_rct20_bundle(stock_code: str, stage: str, periods: object) -> None:
     if str(stock_code).strip().zfill(5) != "06182":
         return
@@ -91,9 +87,10 @@ def _trace_rct20_bundle(stock_code: str, stage: str, periods: object) -> None:
     rows = 0
     if isinstance(value, dict):
         rows = sum(len(value.get(side) or []) for side in ("buy", "sell") if isinstance(value.get(side) or [], list))
-    _logger.info(
-        "TRACE_RCT20 stock=%s stage=%s key_present=%s value_type=%s row_count=%s",
-        stock_code, stage, value is not None, type(value).__name__, rows,
+    print(
+        f"TRACE_RCT20 stock={stock_code} stage={stage} key_present={value is not None} "
+        f"value_type={type(value).__name__} row_count={rows}",
+        flush=True,
     )
 
 DEFAULT_PORTAL_CODE = "00700"

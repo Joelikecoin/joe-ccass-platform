@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 from datetime import UTC, date, datetime
 from typing import Any
@@ -10,22 +9,21 @@ from app.longbridge_persistence import build_response, persist_response
 from app.models import CcassResponse, PriceHistoryMetadata, PriceHistoryResponse, PriceHistoryRow
 from app.sources.longbridge import LongbridgeMcpClient, normalize_longbridge_symbol
 
-_logger = logging.getLogger(__name__)
-
-
 def _trace_rct20(stock_code: str, stage: str, value: object) -> None:
     if str(stock_code).strip().zfill(5) != "06182":
         return
     if isinstance(value, dict):
         rows = sum(len(value.get(side) or []) for side in ("buy", "sell") if isinstance(value.get(side) or [], list))
-        _logger.info(
-            "TRACE_RCT20 stock=%s stage=%s key_present=%s value_type=%s row_count=%s",
-            stock_code, stage, True, type(value).__name__, rows,
+        print(
+            f"TRACE_RCT20 stock={stock_code} stage={stage} key_present=True "
+            f"value_type={type(value).__name__} row_count={rows}",
+            flush=True,
         )
     else:
-        _logger.info(
-            "TRACE_RCT20 stock=%s stage=%s key_present=%s value_type=%s row_count=%s",
-            stock_code, stage, value is not None, type(value).__name__, 0,
+        print(
+            f"TRACE_RCT20 stock={stock_code} stage={stage} "
+            f"key_present={value is not None} value_type={type(value).__name__} row_count=0",
+            flush=True,
         )
 
 
