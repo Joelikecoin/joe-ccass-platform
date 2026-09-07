@@ -556,10 +556,12 @@ class CcassService:
                 "holdings_limit must be at least 1.",
                 status_code=400,
             )
-        effective_cache_first = cache_first or self._has_valid_longbridge_snapshot(
-            str(code),
-            requested_date=requested_date,
-        )
+        # ``cache_first`` is an explicit caller policy.  In auto/current mode
+        # the portal passes False so every request gets a live attempt; the
+        # persisted Longbridge snapshot remains a fallback if that attempt
+        # fails.  Do not silently turn a later request into cache-first merely
+        # because a prior live request populated the LKG store.
+        effective_cache_first = cache_first
         request = GatewayRequest(
             stock_code=code,
             holdings_limit=holdings_limit,
