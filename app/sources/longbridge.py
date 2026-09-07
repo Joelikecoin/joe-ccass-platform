@@ -6,6 +6,7 @@ import json
 import os
 import asyncio
 import threading
+import time
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -199,12 +200,33 @@ class LongbridgeMcpClient:
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 for key, name, arguments in names:
+                    started = time.perf_counter()
                     result = await session.call_tool(name, arguments)
-                    if getattr(result, "is_error", False):
-                        raise RuntimeError(f"Longbridge {key} tool error")
+                    is_error = bool(getattr(result, "is_error", False))
                     content = getattr(result, "content", None) or []
                     text = next((item.text for item in content if getattr(item, "text", None)), None)
-                    output[key] = json.loads(text) if text else {}
+                    parsed: Any = {}
+                    if text and not is_error:
+                        parsed = json.loads(text)
+                    if str(symbol).strip().upper() == "6182.HK" and key in {
+                        "rct_1", "rct_5", "rct_20", "rct_60"
+                    }:
+                        buy = parsed.get("buy") if isinstance(parsed, dict) else []
+                        sell = parsed.get("sell") if isinstance(parsed, dict) else []
+                        buy_rows = len(buy) if isinstance(buy, list) else 0
+                        sell_rows = len(sell) if isinstance(sell, list) else 0
+                        print(
+                            "TRACE_LB_ENRICH "
+                            f"stock={symbol} key={key} tool={name} "
+                            f"is_error={is_error} text_present={bool(text)} "
+                            f"json_type={type(parsed).__name__ if not is_error else 'error'} buy_rows={buy_rows} "
+                            f"sell_rows={sell_rows} total_rows={buy_rows + sell_rows} "
+                            f"elapsed_ms={(time.perf_counter() - started) * 1000:.1f}",
+                            flush=True,
+                        )
+                    if is_error:
+                        raise RuntimeError(f"Longbridge {key} tool error")
+                    output[key] = parsed
         return output
 
     async def call_price(self, symbol: str, start_date: str, end_date: str) -> dict[str, Any]:
