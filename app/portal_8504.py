@@ -956,6 +956,27 @@ def _overview_block(bundle: PortalBundle, price_rows: list[dict[str, object]], c
     """
 
 
+def _longbridge_source_status_block(bundle: Portal8504Bundle | PortalBundle) -> str:
+    """Render explicit provenance for Longbridge-backed portal data."""
+    prepared = bundle.prepared
+    if prepared is None or prepared.response is None:
+        return '<div class="empty-state">Data source status unavailable.</div>'
+    metadata = prepared.response.metadata
+    source = str(getattr(metadata, "source_name", "") or "Unknown")
+    asof = getattr(metadata, "data_as_of", None) or getattr(metadata, "holdings_date", None)
+    row_count = len(prepared.response.holdings)
+    status = getattr(metadata, "source_status", None) or ("cached" if metadata.cached else "ready")
+    return (
+        '<div class="subcard"><h3>Data Source Status</h3>'
+        + _table(
+            ["Source", "As-of Date", "Rows", "Status"],
+            [[_escape(source), _escape(_format_date(asof)), _escape(_format_int(row_count)), _escape(status)]],
+            class_name="compact-table",
+        )
+        + '</div>'
+    )
+
+
 def _all_tables_block(bundle: PortalBundle, price_rows: list[dict[str, object]], concentration_rows: list[dict[str, object]]) -> str:
     live_product = bundle.live_product
     prepared = bundle.prepared
@@ -1727,12 +1748,13 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <h2>{_i18n("CCASS Holdings", "CCASS 持股", locale)}</h2>
           {_ccass_summary(base, locale)}
           <div style="margin-top:.85rem;">{_holdings_table(base)}</div>
+          {_longbridge_source_status_block(base)}
         </section>
 
         <section id="changes" class="panel">
           <div class="kicker">{_i18n("Historical comparison", "歷史比較", locale)}</div>
           <h2>{_i18n("Changes", "變動", locale)}</h2>
-          {_changes_block(base, locale)}
+          {('<div class="warning-box">Snapshot Changes: WAITING_SECOND_SNAPSHOT</div>' if not base.previous_available else _changes_block(base, locale))}
           <div class="kicker" style="margin-top:1rem;">Longbridge production periods</div>
           {_longbridge_changes_block(bundle)}
           {_longbridge_daily_block(bundle)}
@@ -1748,6 +1770,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
           <div class="kicker">{_i18n("Distribution view", "分布視圖", locale)}</div>
           <h2>{_i18n("Concentration", "集中度", locale)}</h2>
           {_concentration_panel(base, concentration_rows)}
+          {('<div class="warning-box">Concentration History: WAITING_SECOND_SNAPSHOT</div>' if len(concentration_rows) < 2 else '')}
         </section>
 
         <section id="price-history" class="panel">
