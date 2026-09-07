@@ -473,7 +473,12 @@ def _holdings_table(bundle: PortalBundle) -> str:
     if prepared is None or prepared.response is None:
         return '<div class="empty-state">Holdings unavailable.</div>'
     rows: list[list[str]] = []
-    for row in prepared.response.holdings[: bundle.top_n]:
+    source_name = str(getattr(prepared.response.metadata, "source_name", "") or "")
+    # Longbridge is the complete fallback holdings source; expose its full
+    # persisted snapshot in the dedicated 8504 surface.  Keep the normal
+    # top-N presentation for the Webb/local product path.
+    holdings = prepared.response.holdings if "longbridge" in source_name.lower() else prepared.response.holdings[: bundle.top_n]
+    for row in holdings:
         rows.append(
             [
                 _escape(row.rank),
