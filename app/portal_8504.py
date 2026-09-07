@@ -1107,8 +1107,6 @@ def _longbridge_changes_block(bundle: Portal8504Bundle) -> str:
             ["Participant ID", "Participant", "Change Shares", "Side", "Period", "Source", "Data Date"],
             rows[:100], class_name="compact-table"
         ) if rows else '<div class="empty-state">No rows returned for this period.</div>'
-        if bundle.base.resolved_code == "06182" and period in {"rct_20", "rct_60"}:
-            print(f"TRACE_06182_RENDER {period}_rows={len(rows)}", flush=True)
         blocks.append(f'<div class="subcard"><h3>{_escape(period)} Changes</h3>{table}</div>')
     return "".join(blocks)
 
@@ -1268,13 +1266,6 @@ async def _build_portal_8504_bundle(
         )
         longbridge_periods = enrichment.get("periods", {})
         longbridge_daily = enrichment.get("daily")
-        if base.resolved_code == "06182":
-            for key in ("rct_20", "rct_60"):
-                payload = longbridge_periods.get(key) or {}
-                buy = payload.get("buy") if isinstance(payload, dict) else []
-                sell = payload.get("sell") if isinstance(payload, dict) else []
-                count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
-                print(f"TRACE_06182_BUNDLE {key}_rows={count}", flush=True)
     except Exception as exc:
         longbridge_error = _exception_details(exc)
     return Portal8504Bundle(
