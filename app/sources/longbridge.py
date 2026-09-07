@@ -150,10 +150,9 @@ class LongbridgeMcpClient:
             )
 
     async def _call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
-        headers = {"Authorization": f"Bearer {self.access_token}"} if self.access_token else None
         async with streamablehttp_client(
             self.endpoint,
-            headers=headers,
+            headers=self._auth_headers(),
             timeout=30,
             sse_read_timeout=300,
             auth=self._oauth,
@@ -174,6 +173,12 @@ class LongbridgeMcpClient:
             raise RuntimeError("Longbridge MCP returned an invalid JSON payload")
         return result
 
+    def _auth_headers(self) -> dict[str, str] | None:
+        """Return the explicit bearer credential for every MCP transport session."""
+        if not self.access_token:
+            return None
+        return {"Authorization": f"Bearer {self.access_token}"}
+
     async def call_enrichment(self, symbol: str, broker_id: str) -> dict[str, Any]:
         """Fetch period changes and broker history over one shared MCP session."""
         names = [
@@ -185,7 +190,11 @@ class LongbridgeMcpClient:
         ]
         output: dict[str, Any] = {}
         async with streamablehttp_client(
-            self.endpoint, timeout=30, sse_read_timeout=300, auth=self._oauth
+            self.endpoint,
+            headers=self._auth_headers(),
+            timeout=30,
+            sse_read_timeout=300,
+            auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
@@ -210,7 +219,11 @@ class LongbridgeMcpClient:
             ),
         )
         async with streamablehttp_client(
-            self.endpoint, timeout=30, sse_read_timeout=300, auth=self._oauth
+            self.endpoint,
+            headers=self._auth_headers(),
+            timeout=30,
+            sse_read_timeout=300,
+            auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
