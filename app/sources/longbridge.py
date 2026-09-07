@@ -213,12 +213,15 @@ class LongbridgeMcpClient:
                         sell = parsed.get("sell") if isinstance(parsed, dict) else []
                         row_count = (len(buy) if isinstance(buy, list) else 0) + (len(sell) if isinstance(sell, list) else 0)
                         if row_count == 0:
-                            retry_result = await session.call_tool(name, arguments)
-                            if getattr(retry_result, "is_error", False):
-                                raise RuntimeError(f"Longbridge {key} tool error")
-                            retry_content = getattr(retry_result, "content", None) or []
-                            retry_text = next((item.text for item in retry_content if getattr(item, "text", None)), None)
-                            parsed = json.loads(retry_text) if retry_text else {}
+                            # Retry only this empty period through a fresh
+                            # authenticated transport/session.  A transient
+                            # empty result must never be accepted as success.
+                            parsed = await self._call_tool(name, arguments)
+                            retry_buy = parsed.get("buy") if isinstance(parsed, dict) else []
+                            retry_sell = parsed.get("sell") if isinstance(parsed, dict) else []
+                            retry_count = (len(retry_buy) if isinstance(retry_buy, list) else 0) + (len(retry_sell) if isinstance(retry_sell, list) else 0)
+                            if retry_count == 0:
+                                raise RuntimeError(f"Longbridge {key} returned no rows after retry")
                     output[key] = parsed
         return output
 
