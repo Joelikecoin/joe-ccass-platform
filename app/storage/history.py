@@ -1,4 +1,5 @@
 ﻿import json
+import os
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, date, datetime
@@ -32,7 +33,18 @@ class NormalizedSnapshotRepository:
         self._migrate_legacy_snapshots()
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, isolation_level=None)
+        turso_url = os.getenv("TURSO_DATABASE_URL")
+        turso_token = os.getenv("TURSO_AUTH_TOKEN")
+        if turso_url and turso_token:
+            try:
+                import libsql
+            except ImportError as exc:
+                raise RuntimeError(
+                    "TURSO_DATABASE_URL/TURSO_AUTH_TOKEN are set but libsql is not installed"
+                ) from exc
+            connection = libsql.connect(database=turso_url, auth_token=turso_token)
+        else:
+            connection = sqlite3.connect(self.path, isolation_level=None)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
