@@ -1,5 +1,6 @@
 ﻿import json
 import os
+import re
 import sqlite3
 from collections.abc import Callable
 from datetime import UTC, date, datetime
@@ -71,6 +72,15 @@ class _LibsqlConnection:
         self._connection = connection
 
     def execute(self, *args, **kwargs):
+        # libsql accepts positional sequences only, while the repository uses
+        # sqlite's named-parameter mapping for the snapshot upsert. Translate
+        # named placeholders without changing the local sqlite path.
+        if len(args) >= 2 and isinstance(args[1], dict):
+            statement = str(args[0])
+            parameters = args[1]
+            names = re.findall(r":([A-Za-z_][A-Za-z0-9_]*)", statement)
+            statement = re.sub(r":([A-Za-z_][A-Za-z0-9_]*)", "?", statement)
+            args = (statement, tuple(parameters[name] for name in names), *args[2:])
         return _LibsqlCursor(self._connection.execute(*args, **kwargs))
 
     def executemany(self, *args, **kwargs):
