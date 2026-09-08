@@ -14,7 +14,6 @@ from typing import Any, Mapping
 from app.domain.history import HistoricalSnapshot
 from app.models import CcassResponse, HoldingRow, HoldingsSummary, SourceMetadata
 from app.storage.history import NormalizedSnapshotRepository
-from app.storage.longbridge_store import LongbridgeSnapshotStore
 
 
 def normalize_stock_code(code: str) -> str:
@@ -97,8 +96,6 @@ def persist_response(
     db_path: Path,
     source_id: str = "longbridge",
 ) -> int:
-    if __import__("os").getenv("DATABASE_URL"):
-        return LongbridgeSnapshotStore(sqlite_path=db_path).upsert_response(response)
     repository = NormalizedSnapshotRepository(db_path)
     return repository.save_response(response, source_id=source_id)
 
