@@ -22,6 +22,79 @@ from app.models import CcassResponse
 from app.storage.migrations import apply_migrations
 
 
+class _LibsqlRow:
+    """Small sqlite3.Row-compatible view for libsql's tuple-only cursors."""
+
+    def __init__(self, values: tuple[object, ...], columns: tuple[str, ...]) -> None:
+        self._values = values
+        self._columns = columns
+
+    def __getitem__(self, key: int | str) -> object:
+        if isinstance(key, str):
+            return self._values[self._columns.index(key)]
+        return self._values[key]
+
+    def __iter__(self):
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+
+class _LibsqlCursor:
+    def __init__(self, cursor) -> None:
+        self._cursor = cursor
+
+    @property
+    def _columns(self) -> tuple[str, ...]:
+        return tuple(column[0] for column in (self._cursor.description or ()))
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return _LibsqlRow(tuple(row), self._columns) if row is not None else None
+
+    def fetchall(self):
+        columns = self._columns
+        return [_LibsqlRow(tuple(row), columns) for row in self._cursor.fetchall()]
+
+    def __iter__(self):
+        return iter(self.fetchall())
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class _LibsqlConnection:
+    """Adapt libsql's sqlite-like connection to the repository's row contract."""
+
+    def __init__(self, connection) -> None:
+        self._connection = connection
+
+    def execute(self, *args, **kwargs):
+        return _LibsqlCursor(self._connection.execute(*args, **kwargs))
+
+    def executemany(self, *args, **kwargs):
+        return _LibsqlCursor(self._connection.executemany(*args, **kwargs))
+
+    def executescript(self, *args, **kwargs):
+        return self._connection.executescript(*args, **kwargs)
+
+    def commit(self) -> None:
+        self._connection.commit()
+
+    def rollback(self) -> None:
+        self._connection.rollback()
+
+    def close(self) -> None:
+        self._connection.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
+
+
 class NormalizedSnapshotRepository:
     """Transactional source-neutral CCASS snapshot persistence."""
 
@@ -42,10 +115,12 @@ class NormalizedSnapshotRepository:
                 raise RuntimeError(
                     "TURSO_DATABASE_URL/TURSO_AUTH_TOKEN are set but libsql is not installed"
                 ) from exc
-            connection = libsql.connect(database=turso_url, auth_token=turso_token)
+            connection = _LibsqlConnection(
+                libsql.connect(database=turso_url, auth_token=turso_token)
+            )
         else:
             connection = sqlite3.connect(self.path, isolation_level=None)
-        connection.row_factory = sqlite3.Row
+            connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
 
