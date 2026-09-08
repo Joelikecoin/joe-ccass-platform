@@ -2070,6 +2070,47 @@ async def health() -> dict[str, str]:
     return {"status": "ok", "app": "joe-ccass-visual-portal-8504"}
 
 
+@app.get("/internal/p0/history-proof")
+async def p0_history_proof(code: str = Query(..., min_length=1)) -> JSONResponse:
+    """Return read-only, non-sensitive snapshot metadata for P0 verification."""
+    normalized_code = code.strip().zfill(5)
+    turso_env_present = bool(
+        os.getenv("TURSO_DATABASE_URL") and os.getenv("TURSO_AUTH_TOKEN")
+    )
+    backend = "turso" if turso_env_present else "local"
+    try:
+        repository = _snapshot_repo()
+        dates = repository.available_dates(normalized_code, include_partial=True)
+        bounds = repository.history_bounds(normalized_code, include_partial=True)
+        latest = repository.latest(normalized_code, include_partial=True)
+        snapshot_count = repository.count_snapshots(normalized_code)
+        return JSONResponse(
+            {
+                "code": normalized_code,
+                "backend": backend,
+                "turso_env_present": turso_env_present,
+                "snapshot_count": snapshot_count,
+                "date_count": bounds.date_count,
+                "available_dates": [item.isoformat() for item in dates],
+                "latest_date": latest.snapshot_date.isoformat() if latest else None,
+                "latest_row_count": len(latest.holdings) if latest else None,
+                "latest_source_id": latest.source.source_id if latest else None,
+            }
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "ERROR",
+                "code": normalized_code,
+                "backend": backend,
+                "turso_env_present": turso_env_present,
+                "error_type": type(exc).__name__,
+                "error_message": "canonical snapshot repository read failed",
+            },
+        )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def portal(
     code: str = Query(default=""),
