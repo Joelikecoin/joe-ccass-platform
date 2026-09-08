@@ -75,6 +75,64 @@ def test_portal_8504_initial_page_renders_without_data_date():
     assert 'dataDateInput.disabled = true;' in response.text
 
 
+def test_p0_history_proof_returns_safe_snapshot_metadata(monkeypatch):
+    snapshot = SimpleNamespace(
+        snapshot_date=date(2026, 9, 7),
+        holdings=(object(), object()),
+        source=SimpleNamespace(source_id="longbridge"),
+    )
+    repository = SimpleNamespace(
+        available_dates=lambda code, include_partial: (
+            date(2026, 9, 4),
+            date(2026, 9, 7),
+        ),
+        history_bounds=lambda code, include_partial: SimpleNamespace(date_count=2),
+        latest=lambda code, include_partial: snapshot,
+        count_snapshots=lambda code: 2,
+    )
+    monkeypatch.setattr("app.portal_8504._snapshot_repo", lambda: repository)
+    monkeypatch.setenv("TURSO_DATABASE_URL", "libsql://example.turso.io")
+    monkeypatch.setenv("TURSO_AUTH_TOKEN", "secret")
+
+    response = TestClient(portal_app).get("/internal/p0/history-proof", params={"code": "06182"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "code": "06182",
+        "backend": "turso",
+        "turso_env_present": True,
+        "snapshot_count": 2,
+        "date_count": 2,
+        "available_dates": ["2026-09-04", "2026-09-07"],
+        "latest_date": "2026-09-07",
+        "latest_row_count": 2,
+        "latest_source_id": "longbridge",
+    }
+    assert "secret" not in response.text
+
+
+def test_p0_history_proof_returns_explicit_error_without_fallback(monkeypatch):
+    def failing_repository():
+        raise RuntimeError("connection failed")
+
+    monkeypatch.setattr("app.portal_8504._snapshot_repo", failing_repository)
+    monkeypatch.setenv("TURSO_DATABASE_URL", "libsql://example.turso.io")
+    monkeypatch.setenv("TURSO_AUTH_TOKEN", "secret")
+
+    response = TestClient(portal_app).get("/internal/p0/history-proof", params={"code": "00003"})
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "ERROR",
+        "code": "00003",
+        "backend": "turso",
+        "turso_env_present": True,
+        "error_type": "RuntimeError",
+        "error_message": "canonical snapshot repository read failed",
+    }
+    assert "secret" not in response.text
+
+
 def test_portal_8504_omits_unspecified_data_date_from_generated_query():
     bundle = PortalBundle(
         requested_code="01682",
