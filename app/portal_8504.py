@@ -1213,11 +1213,6 @@ async def _build_portal_8504_bundle(
             )
         if not price_rows and base.live_product.price_history:
             price_rows = _normalize_price_rows(base.live_product.price_history)
-    concentration_rows = _concentration_history_rows(base)
-    for row in concentration_rows:
-        snapshot = row.get("snapshot")
-        if isinstance(snapshot, HistoricalSnapshot):
-            row["snapshot"] = snapshot
     longbridge_periods: dict[str, dict[str, object]] = {}
     longbridge_daily: dict[str, object] | None = None
     longbridge_error: str | None = None
@@ -1268,6 +1263,42 @@ async def _build_portal_8504_bundle(
         longbridge_daily = enrichment.get("daily")
     except Exception as exc:
         longbridge_error = _exception_details(exc)
+    # The live Longbridge fallback persists before this point.  Refresh the
+    # comparison inputs afterwards so the same request can read the previous
+    # stored snapshot instead of evaluating history before the write.
+    prepared = base.prepared
+    if prepared is not None and prepared.response is not None:
+        current_response = prepared.response
+        try:
+            source_name = str(current_response.metadata.source_name or "").lower()
+            source_id = "longbridge" if source_name == "longbridge" else None
+            previous_snapshot = _snapshot_repo().previous(
+                base.resolved_code,
+                before_date=current_response.metadata.holdings_date,
+                source_id=source_id,
+                include_partial=True,
+            )
+            previous_response = previous_snapshot.to_response() if previous_snapshot else None
+            refreshed_analysis = compute_analysis(
+                current_response,
+                previous=previous_response,
+                big_change_threshold=big_change_threshold,
+            )
+            base.prepared = replace(
+                prepared,
+                previous_response=previous_response,
+                analysis=refreshed_analysis,
+            )
+            base.previous_available = previous_response is not None
+        except Exception:
+            # Keep the already prepared product response if history refresh is
+            # unavailable; section-local history remains explicit below.
+            pass
+    concentration_rows = _concentration_history_rows(base)
+    for row in concentration_rows:
+        snapshot = row.get("snapshot")
+        if isinstance(snapshot, HistoricalSnapshot):
+            row["snapshot"] = snapshot
     return Portal8504Bundle(
         base=base,
         price_rows=price_rows,
