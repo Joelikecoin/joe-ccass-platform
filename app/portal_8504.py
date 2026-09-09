@@ -2154,19 +2154,27 @@ async def portal(
 ) -> HTMLResponse:
     if code.strip():
         try:
-            bundle = await _build_portal_8504_bundle(
-                raw_code=code,
-                input_type=input_type,
-                source_mode=source_mode,
-                timeout_seconds=timeout_seconds,
-                announcement_period=announcement_period,
-                data_date=data_date,
-                history_range=history_range,
-                top_n=top_n,
-                percentage_basis=percentage_basis,
-                big_change_threshold=big_change_threshold,
-                use_local_history=use_local_history,
+            bundle = await asyncio.wait_for(
+                _build_portal_8504_bundle(
+                    raw_code=code,
+                    input_type=input_type,
+                    source_mode=source_mode,
+                    timeout_seconds=timeout_seconds,
+                    announcement_period=announcement_period,
+                    data_date=data_date,
+                    history_range=history_range,
+                    top_n=top_n,
+                    percentage_basis=percentage_basis,
+                    big_change_threshold=big_change_threshold,
+                    use_local_history=use_local_history,
+                ),
+                timeout=90.0,
             )
+        except TimeoutError as exc:
+            raise PlatformError(
+                "PORTAL_REQUEST_TIMEOUT",
+                "The request exceeded the 90-second product deadline.",
+            ) from exc
         except PlatformError as exc:
             base = PortalBundle(
                 requested_code=code,
@@ -2359,3 +2367,4 @@ async def download(
         raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     except PlatformError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.as_dict())
+
