@@ -271,8 +271,7 @@ async def prepare_report(
     except TimeoutError:
         error = "SOURCE_TIMEOUT: Longbridge holdings request exceeded its independent deadline."
         _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))
-        _md_t = time.perf_counter(); _p0_inner_stage("MARKDOWN_BUILD_START", _md_t, status="started")
-    markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
+        markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
         _progress(progress, 100, ui_text(locale, "progress_ready_with_error_details"))
         return PreparedReport(
             code=code,
@@ -500,6 +499,7 @@ async def prepare_report(
     _p0_inner_stage("WORKFLOW_BUILD_END", _wf_t, completed=True, status="returned")
     _p0_inner_stage("PREPARE_POST_GATEWAY_END", _post_gate_t, completed=True, status="prepared_stages_returned")
     _progress(progress, 85, ui_text(locale, "progress_rendering_report"))
+    _md_t = time.perf_counter(); _p0_inner_stage("MARKDOWN_BUILD_START", _md_t, status="started")
     markdown = build_markdown_report(
         response,
         code=code,
@@ -513,6 +513,8 @@ async def prepare_report(
         research_workflow=workflow,
         locale=locale,
     )
+    _p0_inner_stage("MARKDOWN_BUILD_END", _md_t, completed=True, status="returned")
+    _ctx_t = time.perf_counter(); _p0_inner_stage("AI_RESEARCH_CONTEXT_START", _ctx_t, status="started")
     _p0_inner_stage("MARKDOWN_BUILD_END", _md_t, completed=True, status="returned")
     _ctx_t = time.perf_counter(); _p0_inner_stage("AI_RESEARCH_CONTEXT_START", _ctx_t, status="started")
     try:
