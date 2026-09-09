@@ -612,11 +612,27 @@ class CcassService:
                 }
             )
         normalized = gateway_response.request.normalized_stock_code
-        normalized_response = finalize_latest_holdings(
-            gateway_response.normalized_response,
-            requested_code=normalized,
-            holdings_limit=holdings_limit,
-        )
+        try:
+            normalized_response = finalize_latest_holdings(
+                gateway_response.normalized_response,
+                requested_code=normalized,
+                holdings_limit=holdings_limit,
+            )
+        except PlatformError as exc:
+            # Preserve a successful authoritative gateway snapshot when the
+            # additive product validator rejects a non-core condition.
+            normalized_response = gateway_response.normalized_response.model_copy(
+                update={
+                    "data_quality_warnings": [
+                        *gateway_response.normalized_response.data_quality_warnings,
+                        structured_warning(
+                            "DATA_LIMITATION",
+                            "LATEST_HOLDINGS_VALIDATION_DEGRADED",
+                            f"Latest Holdings validation degraded ({exc.code}); core rows preserved.",
+                        ),
+                    ]
+                }
+            )
         gateway_response = gateway_response.model_copy(update={"normalized_response": normalized_response})
         source_trace_view = build_source_trace_view(gateway_response)
         validation = validate_ccass_date_convention(
