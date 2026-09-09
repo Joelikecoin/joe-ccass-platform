@@ -818,7 +818,9 @@ class CcassService:
     ) -> CcassResponse:
         warnings = list(response.data_quality_warnings)
         errors = list(response.errors)
-        previous_response = self._previous_response(response)
+        # Keep synchronous Turso/history reads off the event loop so a slow
+        # remote repository cannot block the portal request deadline.
+        previous_response = await asyncio.to_thread(self._previous_response, response)
 
         changes = response.changes
         big_changes = response.big_changes
@@ -831,7 +833,8 @@ class CcassService:
                 previous_response = None
             else:
                 try:
-                    changes = get_changes_service().get_changes(
+                    changes = await asyncio.to_thread(
+                        get_changes_service().get_changes,
                         normalized_stock_code,
                         snapshot_date=response.metadata.data_as_of,
                         compare_date=compare_date,
@@ -848,7 +851,8 @@ class CcassService:
                         )
                     )
                 try:
-                    big_changes = get_big_changes_service().get_big_changes(
+                    big_changes = await asyncio.to_thread(
+                        get_big_changes_service().get_big_changes,
                         normalized_stock_code,
                         snapshot_date=response.metadata.data_as_of,
                         compare_date=compare_date,
@@ -868,7 +872,8 @@ class CcassService:
         concentration = response.concentration
         if response.metadata.data_as_of is not None:
             try:
-                concentration = get_concentration_service().get_concentration(
+                concentration = await asyncio.to_thread(
+                    get_concentration_service().get_concentration,
                     normalized_stock_code,
                     snapshot_date=response.metadata.data_as_of,
                     top_holders_limit=max(1, min(holdings_limit, 100)),
