@@ -684,6 +684,7 @@ class CcassService:
                         normalized_stock_code=normalized,
                         holdings_limit=holdings_limit,
                         source_trace_view=source_trace_view,
+                        include_optional_surfaces=False,
                     ),
                     timeout=20.0,
                 )
@@ -867,6 +868,7 @@ class CcassService:
         normalized_stock_code: str,
         holdings_limit: int,
         source_trace_view: SourceTraceView | None,
+        include_optional_surfaces: bool = True,
     ) -> CcassResponse:
         warnings = list(response.data_quality_warnings)
         errors = list(response.errors)
@@ -942,19 +944,20 @@ class CcassService:
                     )
                 )
         fetch_jobs: list[tuple[str, Any]] = []
-        if response.announcements is None:
-            fetch_jobs.append(("announcements", get_announcements_service().get_announcements(normalized_stock_code)))
-        if response.stock_events is None:
-            fetch_jobs.append(("stock_events", get_stock_events_service().get_stock_events(normalized_stock_code)))
-        if response.capital_information is None:
-            fetch_jobs.append((
-                "capital_information",
-                get_capital_information_service().get_capital_information(normalized_stock_code),
-            ))
-        if response.officers is None:
-            fetch_jobs.append(("officers", get_officers_service().get_officers(normalized_stock_code)))
-        if response.price_history is None:
-            fetch_jobs.append(("price_history", get_price_history_service().get_price_history(normalized_stock_code)))
+        if include_optional_surfaces:
+            if response.announcements is None:
+                fetch_jobs.append(("announcements", get_announcements_service().get_announcements(normalized_stock_code)))
+            if response.stock_events is None:
+                fetch_jobs.append(("stock_events", get_stock_events_service().get_stock_events(normalized_stock_code)))
+            if response.capital_information is None:
+                fetch_jobs.append((
+                    "capital_information",
+                    get_capital_information_service().get_capital_information(normalized_stock_code),
+                ))
+            if response.officers is None:
+                fetch_jobs.append(("officers", get_officers_service().get_officers(normalized_stock_code)))
+            if response.price_history is None:
+                fetch_jobs.append(("price_history", get_price_history_service().get_price_history(normalized_stock_code)))
 
         fetched: dict[str, Any] = {}
         if fetch_jobs:
