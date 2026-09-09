@@ -675,12 +675,29 @@ class CcassService:
                     }
                 )
         else:
-            normalized_response = await self._attach_related_surfaces(
-                normalized_response,
-                normalized_stock_code=normalized,
-                holdings_limit=holdings_limit,
-                source_trace_view=source_trace_view,
-            )
+            try:
+                normalized_response = await asyncio.wait_for(
+                    self._attach_related_surfaces(
+                        normalized_response,
+                        normalized_stock_code=normalized,
+                        holdings_limit=holdings_limit,
+                        source_trace_view=source_trace_view,
+                    ),
+                    timeout=20.0,
+                )
+            except asyncio.TimeoutError:
+                normalized_response = normalized_response.model_copy(
+                    update={
+                        "data_quality_warnings": [
+                            *normalized_response.data_quality_warnings,
+                            structured_warning(
+                                "DATA_LIMITATION",
+                                "SECONDARY_SURFACES_TIMEOUT",
+                                "Optional enrichment timed out; core holdings remain available.",
+                            ),
+                        ]
+                    }
+                )
         return gateway_response.model_copy(update={"normalized_response": normalized_response})
 
     def _has_valid_longbridge_snapshot(
