@@ -224,6 +224,7 @@ async def prepare_report(
     progress: Callable[[int, str], None] | None = None,
 ) -> PreparedReport:
     code = normalize_stock_code(raw_code)
+    _wf_t = time.perf_counter(); _p0_inner_stage("WORKFLOW_BUILD_START", _wf_t, status="started")
     workflow = build_research_workflow_session_from_result(
         code=code,
         response=None,
