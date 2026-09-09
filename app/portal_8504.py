@@ -101,6 +101,8 @@ from app.streamlit_ui import (
 from ccass_core.collector import SnapshotStore
 
 
+prepare_report = _post_trace("PREPARE_REPORT")(prepare_report)
+
 APP_TITLE_EN = "Joe Visual Portal"
 APP_TITLE_ZH = "Joe Visual Portal"
 APP_SUBTITLE_EN = "Golden Joe reference portal for live market news and CCASS holdings."
