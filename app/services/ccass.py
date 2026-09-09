@@ -684,6 +684,19 @@ class CcassService:
                         ]
                     }
                 )
+            except Exception as exc:
+                normalized_response = normalized_response.model_copy(
+                    update={
+                        "data_quality_warnings": [
+                            *normalized_response.data_quality_warnings,
+                            structured_warning(
+                                "DATA_LIMITATION",
+                                "SECONDARY_SURFACES_ERROR",
+                                f"Optional enrichment failed ({type(exc).__name__}); core holdings remain available.",
+                            ),
+                        ]
+                    }
+                )
         else:
             try:
                 normalized_response = await asyncio.wait_for(
@@ -704,6 +717,19 @@ class CcassService:
                                 "DATA_LIMITATION",
                                 "SECONDARY_SURFACES_TIMEOUT",
                                 "Optional enrichment timed out; core holdings remain available.",
+                            ),
+                        ]
+                    }
+                )
+            except Exception as exc:
+                normalized_response = normalized_response.model_copy(
+                    update={
+                        "data_quality_warnings": [
+                            *normalized_response.data_quality_warnings,
+                            structured_warning(
+                                "DATA_LIMITATION",
+                                "SECONDARY_SURFACES_ERROR",
+                                f"Optional enrichment failed ({type(exc).__name__}); core holdings remain available.",
                             ),
                         ]
                     }
