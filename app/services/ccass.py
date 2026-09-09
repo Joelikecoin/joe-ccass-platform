@@ -670,6 +670,14 @@ class CcassService:
         )
         gateway_response = gateway_response.model_copy(update={"normalized_response": normalized_response})
         normalized_response = self._apply_recovery_metadata(gateway_response)
+        # A fresh Longbridge result is the trusted current Holdings core.  Do
+        # not await history, concentration, or other related surfaces on this
+        # critical path; those capabilities remain available through their
+        # dedicated services/endpoints.
+        if normalized_response.metadata.source_name.lower() == "longbridge":
+            return gateway_response.model_copy(
+                update={"normalized_response": normalized_response}
+            )
         # A persisted Longbridge snapshot is already a complete trusted core.
         # Bound optional enrichment so Webb/secondary outages cannot prevent
         # the core holdings page from reaching a terminal state.

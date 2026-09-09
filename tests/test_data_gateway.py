@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 from app.config import Settings
 from app.errors import ErrorCode, PlatformError
@@ -498,6 +499,46 @@ async def test_ccass_service_loads_optional_surfaces_concurrently(current_respon
         "price_history",
     }
     assert result.normalized_response.metadata.code == "01592"
+
+
+async def test_live_longbridge_core_returns_without_related_surface_attach(
+    current_response,
+    monkeypatch,
+):
+    longbridge_response = current_response.model_copy(
+        update={
+            "metadata": current_response.metadata.model_copy(
+                update={"source_name": "Longbridge"}
+            )
+        }
+    )
+    service = CcassService(client=FixtureSource(longbridge_response))
+    initial = await service.gateway.get_holdings(_request())
+    longbridge_gateway_response = initial.model_copy(
+        update={
+            "routing": initial.routing.model_copy(
+                update={
+                    "selected_source_id": "longbridge",
+                    "selected_source_name": "Longbridge",
+                }
+            ),
+            "normalized_response": longbridge_response,
+        }
+    )
+
+    async def _get_holdings(_request):
+        return longbridge_gateway_response
+
+    service.gateway = SimpleNamespace(get_holdings=_get_holdings)
+
+    async def _unexpected_attach(*args, **kwargs):
+        raise AssertionError("related surfaces must not block the Holdings core")
+
+    monkeypatch.setattr(service, "_attach_related_surfaces", _unexpected_attach)
+    result = await service.get_stock_gateway_response("1592", holdings_limit=2)
+
+    assert result.normalized_response.metadata.source_name == "Longbridge"
+    assert len(result.normalized_response.holdings) == 2
 
 
 async def test_ccass_service_regression_preserves_latest_holdings_contract(current_response):
