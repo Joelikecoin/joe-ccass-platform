@@ -2154,7 +2154,7 @@ async def portal(
 ) -> HTMLResponse:
     if code.strip():
         try:
-            bundle = await asyncio.wait_for(
+            build_task = asyncio.create_task(
                 _build_portal_8504_bundle(
                     raw_code=code,
                     input_type=input_type,
@@ -2167,9 +2167,13 @@ async def portal(
                     percentage_basis=percentage_basis,
                     big_change_threshold=big_change_threshold,
                     use_local_history=use_local_history,
-                ),
-                timeout=45.0,
+                )
             )
+            done, _ = await asyncio.wait({build_task}, timeout=45.0)
+            if not done:
+                build_task.cancel()
+                raise TimeoutError("portal request deadline exceeded")
+            bundle = build_task.result()
         except TimeoutError as exc:
             raise PlatformError(
                 "PORTAL_REQUEST_TIMEOUT",
