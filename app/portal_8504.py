@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import faulthandler
 import html
 import io
 import json
@@ -2181,6 +2182,10 @@ async def portal(
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> HTMLResponse:
+    gate51_diagnostic = code.strip().zfill(5) == "00001" and os.getenv("P0_LONGBRIDGE_TRACE") == "1"
+    if gate51_diagnostic:
+        print("GATE51_ROUTE_START code=00001 route=/", flush=True)
+        faulthandler.dump_traceback_later(20, repeat=False)
     if code.strip():
         try:
             build_task = asyncio.create_task(
@@ -2234,6 +2239,9 @@ async def portal(
                 error_message=f"{exc.code}: {exc.message}",
             )
             bundle = Portal8504Bundle(base=base, price_rows=[], concentration_rows=[])
+        finally:
+            if gate51_diagnostic:
+                faulthandler.cancel_dump_traceback_later()
     else:
         base = PortalBundle(
             requested_code="",
