@@ -969,4 +969,3 @@ def get_ccass_service() -> CcassService:
         settings=settings,
         lkg_repository=NormalizedSnapshotRepository(settings.ccass_sqlite_path),
     )
-
