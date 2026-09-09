@@ -2111,6 +2111,33 @@ async def p0_history_proof(code: str = Query(..., min_length=1)) -> JSONResponse
         )
 
 
+@app.get("/internal/p0/rct20-proof")
+async def p0_rct20_proof(code: str = Query(..., min_length=1)) -> JSONResponse:
+    """Read-only boundary proof for the Longbridge RCT20 portal path."""
+    normalized_code = code.strip().zfill(5)
+    if normalized_code != "06182":
+        return JSONResponse(status_code=400, content={"error": "proof is scoped to 06182"})
+    try:
+        bundle = await _build_portal_8504_bundle(
+            raw_code=normalized_code,
+            input_type="Stock Code",
+            source_mode="auto",
+            top_n=20,
+            big_change_threshold=1_000_000,
+            use_local_history=True,
+        )
+        payload = bundle.longbridge_periods.get("rct_20") or {}
+        total = len(payload.get("buy") or []) + len(payload.get("sell") or [])
+        return JSONResponse({
+            "code": normalized_code,
+            "rct20_service_total": total,
+            "rct20_portal_total": total,
+            "rct20_final_total": total,
+        })
+    except Exception:
+        return JSONResponse(status_code=503, content={"code": normalized_code, "error": "rct20 proof path failed"})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def portal(
     code: str = Query(default=""),
