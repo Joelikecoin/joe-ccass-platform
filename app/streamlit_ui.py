@@ -349,32 +349,15 @@ async def prepare_report(
     _se_t = time.perf_counter(); _p0_inner_stage("STOCK_EVENTS_START", _se_t, status="started")
     stock_events = response.stock_events
     if stock_events is None:
-        try:
-            stock_events = await asyncio.wait_for(
-                asyncio.to_thread(_run_async_blocking, get_stock_events_service().get_stock_events, code),
-                timeout=8.0,
+        # Stock Events is optional specialized work; keep it off the current
+        # Holdings response path. The dedicated Events API remains available.
+        response.data_quality_warnings.append(
+            structured_warning(
+                "DATA_LIMITATION",
+                "STOCK_EVENTS_UNAVAILABLE",
+                "Stock events are unavailable for this current Holdings response.",
             )
-            response = response.model_copy(update={"stock_events": stock_events})
-        except PlatformError as exc:
-            stock_events = None
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "STOCK_EVENTS_UNAVAILABLE",
-                    f"Stock events are unavailable ({exc.code}: {exc.message}).",
-                )
-            )
-        except Exception as exc:
-            stock_events = None
-            response.data_quality_warnings.append(
-                structured_warning(
-                    "DATA_LIMITATION",
-                    "STOCK_EVENTS_UNAVAILABLE",
-                    f"Stock events are unavailable ({type(exc).__name__}).",
-                )
-            )
-        else:
-            response.data_quality_warnings.extend(stock_events.data_quality_warnings)
+        )
 
     _p0_inner_stage("STOCK_EVENTS_END", _se_t, completed=True, status="returned")
     _ci_t = time.perf_counter(); _p0_inner_stage("CAPITAL_INFORMATION_START", _ci_t, status="started")
