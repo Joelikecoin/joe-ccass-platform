@@ -280,16 +280,22 @@ async def _build_bundle(
     )
     prepared = await ccass_task
     post_started = time.perf_counter(); _p0_bundle_trace("POST_PREPARE_START", post_started, status="prepared")
-    if prepared.response is not None and prepared.response.holdings:
-        _p0_bundle_trace("PREPARED_RESPONSE", post_started, completed=True, status=f"holdings={len(prepared.response.holdings)}")
+    prepared_response = prepared.response
+    prepared_holdings = list(getattr(prepared_response, "holdings", ()) or ()) if prepared_response is not None else []
+    _p0_bundle_trace(
+        "PREPARED_RESPONSE",
+        post_started,
+        completed=prepared_response is not None,
+        status=f"holdings={len(prepared_holdings)}",
+    )
     product_kwargs = {"code": resolved_code, "source_trace": prepared.source_trace}
     # The service has already attempted optional enrichment for a persisted
     # Longbridge core response. Do not launch the same external surfaces a
     # second time while rendering the portal.
-    if prepared.response is not None and prepared.response.holdings:
-        # CcassService/prepare_report already performs the bounded auxiliary
-        # enrichment pass.  Do not launch a second set of external calls while
-        # rendering a complete core Holdings response.
+    if prepared_response is not None:
+        # prepare_report already completed the authoritative gateway journey.
+        # Preserve that response and never re-enter external enrichment while
+        # rendering the portal, even when a secondary surface is unavailable.
         product_kwargs["allow_external"] = False
     if source_mode == "local_db":
         product_kwargs["allow_external"] = False
