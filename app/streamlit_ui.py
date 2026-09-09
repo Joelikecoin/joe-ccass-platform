@@ -26,6 +26,12 @@ def _p0_trace(stage: str, started: float, *, completed=None, exception_type="", 
         return
     payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
     print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
+def _p0_inner_stage(stage: str, started: float, *, completed=None, exception_type="", timeout=False, status="") -> None:
+    if os.getenv("P0_LONGBRIDGE_TRACE") != "1":
+        return
+    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
+    print("LB_PREPARE_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
+
 from app.config import get_settings
 from app.data_quality import structured_warning, warning_code
 from app.models import (
@@ -242,6 +248,7 @@ async def prepare_report(
                     raise
                 gateway_response = await gateway_getter(code, holdings_limit=holdings_limit)
             response = gateway_response.normalized_response
+            _post_gate_t = time.perf_counter(); _p0_inner_stage("PREPARE_POST_GATEWAY_START", _post_gate_t, status="gateway_returned")
             source_trace = build_source_trace_view(gateway_response)
         else:
             try:
@@ -263,7 +270,8 @@ async def prepare_report(
     except TimeoutError:
         error = "SOURCE_TIMEOUT: Longbridge holdings request exceeded its independent deadline."
         _progress(progress, 75, ui_text(locale, "progress_source_unavailable"))
-        markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
+        _md_t = time.perf_counter(); _p0_inner_stage("MARKDOWN_BUILD_START", _md_t, status="started")
+    markdown = build_markdown_report(None, code=code, fetch_error=error, locale=locale)
         _progress(progress, 100, ui_text(locale, "progress_ready_with_error_details"))
         return PreparedReport(
             code=code,
@@ -294,6 +302,7 @@ async def prepare_report(
         )
 
     _progress(progress, 65, ui_text(locale, "progress_computing_analysis"))
+    _prev_t = time.perf_counter(); _p0_inner_stage("PREVIOUS_LOADER_START", _prev_t, status="started")
     try:
         if previous_loader is not None:
             previous = previous_loader(response)
@@ -308,6 +317,7 @@ async def prepare_report(
             )
         )
         previous = None
+    _p0_inner_stage("PREVIOUS_LOADER_END", _prev_t, completed=True, status="returned")
     announcements = response.announcements
     if announcements_enabled and announcements is None:
         try:
@@ -336,6 +346,7 @@ async def prepare_report(
         else:
             response.data_quality_warnings.extend(announcements.data_quality_warnings)
 
+    _se_t = time.perf_counter(); _p0_inner_stage("STOCK_EVENTS_START", _se_t, status="started")
     stock_events = response.stock_events
     if stock_events is None:
         try:
@@ -365,6 +376,8 @@ async def prepare_report(
         else:
             response.data_quality_warnings.extend(stock_events.data_quality_warnings)
 
+    _p0_inner_stage("STOCK_EVENTS_END", _se_t, completed=True, status="returned")
+    _ci_t = time.perf_counter(); _p0_inner_stage("CAPITAL_INFORMATION_START", _ci_t, status="started")
     capital_information = response.capital_information
     if capital_information is None:
         try:
@@ -398,6 +411,8 @@ async def prepare_report(
         else:
             response.data_quality_warnings.extend(capital_information.data_quality_warnings)
 
+    _p0_inner_stage("CAPITAL_INFORMATION_END", _ci_t, completed=True, status="returned")
+    _of_t = time.perf_counter(); _p0_inner_stage("OFFICERS_START", _of_t, status="started")
     officers = response.officers
     if officers is None:
         try:
@@ -427,6 +442,8 @@ async def prepare_report(
         else:
             response.data_quality_warnings.extend(officers.data_quality_warnings)
 
+    _p0_inner_stage("OFFICERS_END", _of_t, completed=True, status="returned")
+    _ph_t = time.perf_counter(); _p0_inner_stage("PRICE_HISTORY_START", _ph_t, status="started")
     price_history: PriceHistoryResponse | None = response.price_history if price_history_enabled else None
     if price_history_enabled:
         if (
@@ -459,6 +476,8 @@ async def prepare_report(
                 )
             else:
                 response.data_quality_warnings.extend(price_history.data_quality_warnings)
+    _p0_inner_stage("PRICE_HISTORY_END", _ph_t, completed=True, status="returned")
+    _an_t = time.perf_counter(); _p0_inner_stage("COMPUTE_ANALYSIS_START", _an_t, status="started")
     analysis = compute_analysis(
         response,
         previous=previous,
@@ -476,6 +495,9 @@ async def prepare_report(
         price_history=price_history,
         session_id=workflow.metadata.session_id,
     )
+    _p0_inner_stage("COMPUTE_ANALYSIS_END", _an_t, completed=True, status="returned")
+    _p0_inner_stage("WORKFLOW_BUILD_END", _wf_t, completed=True, status="returned")
+    _p0_inner_stage("PREPARE_POST_GATEWAY_END", _post_gate_t, completed=True, status="prepared_stages_returned")
     _progress(progress, 85, ui_text(locale, "progress_rendering_report"))
     markdown = build_markdown_report(
         response,
@@ -490,6 +512,8 @@ async def prepare_report(
         research_workflow=workflow,
         locale=locale,
     )
+    _p0_inner_stage("MARKDOWN_BUILD_END", _md_t, completed=True, status="returned")
+    _ctx_t = time.perf_counter(); _p0_inner_stage("AI_RESEARCH_CONTEXT_START", _ctx_t, status="started")
     try:
         research_context_entry = build_ai_research_context_consumer_entry_for_result(
             code=code,
