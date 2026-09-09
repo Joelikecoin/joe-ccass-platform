@@ -211,3 +211,4 @@ def _price_row(item: dict[str, Any]) -> PriceHistoryRow | None:
 
 def get_longbridge_holdings_service() -> LongbridgeHoldingsService:
     return LongbridgeHoldingsService()
+
