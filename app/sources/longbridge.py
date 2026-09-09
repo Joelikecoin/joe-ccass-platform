@@ -154,7 +154,7 @@ class LongbridgeMcpClient:
             self.endpoint,
             headers=self._auth_headers(),
             timeout=30,
-            sse_read_timeout=300,
+            sse_read_timeout=15,
             auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
@@ -193,7 +193,7 @@ class LongbridgeMcpClient:
             self.endpoint,
             headers=self._auth_headers(),
             timeout=30,
-            sse_read_timeout=300,
+            sse_read_timeout=15,
             auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
@@ -240,7 +240,7 @@ class LongbridgeMcpClient:
             self.endpoint,
             headers=self._auth_headers(),
             timeout=30,
-            sse_read_timeout=300,
+            sse_read_timeout=15,
             auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
@@ -306,3 +306,4 @@ def normalize_longbridge_symbol(stock_code: str) -> str:
     if not digits or len(digits) > 5:
         raise ValueError(f"invalid HK stock code: {stock_code!r}")
     return f"{int(digits):d}.HK"
+
