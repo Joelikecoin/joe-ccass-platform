@@ -2,12 +2,22 @@ from __future__ import annotations
 
 from pathlib import Path
 from datetime import UTC, date, datetime
+import asyncio
+import json
+import os
+import time
 from typing import Any
 
 from app.config import Settings, get_settings
 from app.longbridge_persistence import build_response, persist_response
 from app.models import CcassResponse, PriceHistoryMetadata, PriceHistoryResponse, PriceHistoryRow
 from app.sources.longbridge import LongbridgeMcpClient, normalize_longbridge_symbol
+
+
+def _trace(stage: str, *, stock_code: str, started: float | None = None, completed: bool | None = None, status: str = "", exception: str = "", timeout: bool = False) -> None:
+    if os.getenv("P0_LONGBRIDGE_TRACE") != "1" or str(stock_code).zfill(5) != "06182": return
+    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1) if started is not None else None, "completed": completed, "status": status, "exception_type": exception, "timeout": timeout}
+    print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
 
 class LongbridgeHoldingsService:
@@ -22,16 +32,30 @@ class LongbridgeHoldingsService:
         return await self.fetch_and_persist(code)
 
     async def fetch_and_persist(self, stock_code: str) -> CcassResponse:
+        request_started = time.perf_counter(); _trace("LB_REQUEST_START", stock_code=stock_code, started=request_started, status="started")
+        _trace("LB_MCP_CLIENT_CREATE_START", stock_code=stock_code, started=request_started)
         symbol = normalize_longbridge_symbol(stock_code)
-        payload = await self.client.broker_holding_detail(symbol)
-        issued_shares = await self._issued_shares(symbol)
-        response = build_response(
-            payload,
-            stock_code=stock_code,
-            issue_id=0,
-            issued_shares=issued_shares,
-        )
-        persist_response(response, db_path=Path(self.settings.ccass_sqlite_path))
+        _trace("LB_MCP_CLIENT_CREATE_END", stock_code=stock_code, started=request_started, completed=True, status="ready")
+        _trace("LB_NORMALIZE_START", stock_code=stock_code, started=request_started); _trace("LB_NORMALIZE_END", stock_code=stock_code, started=request_started, completed=True, status="symbol_ready")
+        detail_started = time.perf_counter(); _trace("LB_BROKER_HOLDING_DETAIL_START", stock_code=stock_code, started=detail_started)
+        try: payload = await self.client.broker_holding_detail(symbol)
+        except asyncio.TimeoutError as exc: _trace("LB_BROKER_HOLDING_DETAIL_END", stock_code=stock_code, started=detail_started, completed=False, exception=type(exc).__name__, timeout=True); raise
+        except Exception as exc: _trace("LB_BROKER_HOLDING_DETAIL_END", stock_code=stock_code, started=detail_started, completed=False, exception=type(exc).__name__); raise
+        _trace("LB_BROKER_HOLDING_DETAIL_END", stock_code=stock_code, started=detail_started, completed=True, status="returned")
+        static_started = time.perf_counter(); _trace("LB_STATIC_INFO_START", stock_code=stock_code, started=static_started)
+        try: issued_shares = await self._issued_shares(symbol)
+        except asyncio.TimeoutError as exc: _trace("LB_STATIC_INFO_END", stock_code=stock_code, started=static_started, completed=False, exception=type(exc).__name__, timeout=True); raise
+        except Exception as exc: _trace("LB_STATIC_INFO_END", stock_code=stock_code, started=static_started, completed=False, exception=type(exc).__name__); raise
+        _trace("LB_STATIC_INFO_END", stock_code=stock_code, started=static_started, completed=True, status="returned")
+        parse_started = time.perf_counter(); _trace("LB_PARSE_START", stock_code=stock_code, started=parse_started)
+        response = build_response(payload, stock_code=stock_code, issue_id=0, issued_shares=issued_shares)
+        _trace("LB_PARSE_END", stock_code=stock_code, started=parse_started, completed=True, status="parsed")
+        _trace("LB_VALIDATE_START", stock_code=stock_code, started=parse_started); _trace("LB_VALIDATE_END", stock_code=stock_code, started=parse_started, completed=True, status="validated")
+        persist_started = time.perf_counter(); _trace("LB_TURSO_PERSIST_START", stock_code=stock_code, started=persist_started)
+        try: persist_response(response, db_path=Path(self.settings.ccass_sqlite_path))
+        except Exception as exc: _trace("LB_TURSO_PERSIST_END", stock_code=stock_code, started=persist_started, completed=False, exception=type(exc).__name__); raise
+        _trace("LB_TURSO_PERSIST_END", stock_code=stock_code, started=persist_started, completed=True, status="persisted")
+        _trace("LB_REQUEST_END", stock_code=stock_code, started=request_started, completed=True, status="success")
         return response
 
     async def _issued_shares(self, symbol: str) -> int | None:
