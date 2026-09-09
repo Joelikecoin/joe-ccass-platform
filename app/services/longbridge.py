@@ -15,6 +15,12 @@ class LongbridgeHoldingsService:
         self.settings = settings or get_settings()
         self.client = client or LongbridgeMcpClient()
 
+    async def get_holdings(self, code: str, limit: int = 15) -> CcassResponse:
+        """Gateway adapter for the current Longbridge holdings source."""
+        # Keep the complete persisted snapshot; the gateway applies any
+        # presentation limit after source selection.
+        return await self.fetch_and_persist(code)
+
     async def fetch_and_persist(self, stock_code: str) -> CcassResponse:
         symbol = normalize_longbridge_symbol(stock_code)
         payload = await self.client.broker_holding_detail(symbol)
@@ -205,3 +211,4 @@ def _price_row(item: dict[str, Any]) -> PriceHistoryRow | None:
 
 def get_longbridge_holdings_service() -> LongbridgeHoldingsService:
     return LongbridgeHoldingsService()
+

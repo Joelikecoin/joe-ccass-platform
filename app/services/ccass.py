@@ -35,6 +35,7 @@ from app.services.holdings_lkg import (
     SERVED_AT_PREFIX,
     build_stale_lkg_warnings,
 )
+from app.services.longbridge import LongbridgeHoldingsService
 from app.services.request_context import REQUESTED_CCASS_SNAPSHOT_DATE
 from ccass_core.source_trace import (
     SourceTraceView,
@@ -434,12 +435,24 @@ class CcassService:
     ) -> tuple[GatewaySourceCandidate, ...]:
         if self.settings.data_source == "auto":
             candidates: list[GatewaySourceCandidate] = []
+            # Longbridge is the authoritative current-data source. Webb remains
+            # available as a fallback for historical/special coverage.
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id="longbridge",
+                    source_name="Longbridge",
+                    priority=0,
+                    status="active",
+                    backend=_DeferredHoldingsSource(lambda: LongbridgeHoldingsService()),
+                    fallback_eligible=True,
+                )
+            )
             if any(source.source_id == WEBBSITE_SOURCE_ID for source in self.available_sources):
                 candidates.append(
                     GatewaySourceCandidate(
                         source_id=WEBBSITE_SOURCE_ID,
                         source_name=self.source_definitions_by_id[WEBBSITE_SOURCE_ID].display_name,
-                        priority=0,
+                        priority=1,
                         status="active",
                         backend=_DeferredHoldingsSource(lambda: WebbsiteClient(self.settings)),
                         fallback_eligible=True,
@@ -485,7 +498,7 @@ class CcassService:
                 GatewaySourceCandidate(
                     source_id=HKEX_SDW_SOURCE_ID,
                     source_name="HKEX SDW",
-                    priority=1,
+                    priority=2,
                     status="active",
                     backend=_DeferredHoldingsSource(lambda: HKEXSdwClient(self.settings)),
                     fallback_eligible=True,
@@ -956,3 +969,4 @@ def get_ccass_service() -> CcassService:
         settings=settings,
         lkg_repository=NormalizedSnapshotRepository(settings.ccass_sqlite_path),
     )
+
