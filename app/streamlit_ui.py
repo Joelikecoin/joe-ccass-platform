@@ -114,7 +114,7 @@ STREAMLIT_SOURCE_MODES = ("auto", "webbsite", "google_drive_csv")
 STREAMLIT_ANNOUNCEMENT_PERIODS = ("All", "7 days", "30 days", "90 days")
 STREAMLIT_HISTORY_RANGES = ("Latest", "7 days", "30 days", "90 days", "Custom")
 STREAMLIT_PERCENTAGE_BASES = ("CCASS", "Issued Shares")
-CURRENT_HOLDINGS_FETCH_TIMEOUT_SECONDS = 35.0
+CURRENT_HOLDINGS_FETCH_TIMEOUT_SECONDS = 40.0
 HOLDINGS_PREVIEW_COLUMNS = (
     "Rank",
     "CCASS ID",
