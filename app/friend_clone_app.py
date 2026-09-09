@@ -275,11 +275,10 @@ async def _build_bundle(
     # The service has already attempted optional enrichment for a persisted
     # Longbridge core response. Do not launch the same external surfaces a
     # second time while rendering the portal.
-    if (
-        prepared.response is not None
-        and prepared.response.metadata.cached
-        and prepared.response.metadata.source_name.lower() == "longbridge"
-    ):
+    if prepared.response is not None and prepared.response.holdings:
+        # CcassService/prepare_report already performs the bounded auxiliary
+        # enrichment pass.  Do not launch a second set of external calls while
+        # rendering a complete core Holdings response.
         product_kwargs["allow_external"] = False
     if source_mode == "local_db":
         product_kwargs["allow_external"] = False
@@ -1718,3 +1717,4 @@ async def download(
                 bundle.ccass_artifacts.raw_preview_holdings_filename,
             )
     raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
+
