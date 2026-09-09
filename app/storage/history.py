@@ -949,29 +949,40 @@ class NormalizedSnapshotRepository:
         snapshot_id: int,
         holdings: tuple[NormalizedHolding, ...],
     ) -> None:
-        connection.executemany(
-            """
+        statement = """
             INSERT INTO ccass_holdings(
                 snapshot_id, participant_id, participant_name, rank, shares, last_change,
                 pct_of_issued, pct_of_ccass, cumulative_pct_of_issued, participant_category
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                (
-                    snapshot_id,
-                    row.participant_id,
-                    row.participant_name,
-                    row.rank,
-                    row.shares,
-                    row.last_change.isoformat() if row.last_change else None,
-                    row.pct_of_issued,
-                    row.pct_of_ccass,
-                    row.cumulative_pct_of_issued,
-                    row.participant_category,
+            ) VALUES
+        """
+        placeholders = "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        parameters = [
+            (
+                snapshot_id,
+                row.participant_id,
+                row.participant_name,
+                row.rank,
+                row.shares,
+                row.last_change.isoformat() if row.last_change else None,
+                row.pct_of_issued,
+                row.pct_of_ccass,
+                row.cumulative_pct_of_issued,
+                row.participant_category,
+            )
+            for row in holdings
+        ]
+        if isinstance(connection, _LibsqlConnection):
+            # Remote executemany performs a network operation per holding and
+            # stalled Gate 51 in production. Keep batches below 999 bind values
+            # and inside save()'s existing transaction, including rollback.
+            for offset in range(0, len(parameters), 90):
+                batch = parameters[offset:offset + 90]
+                connection.execute(
+                    statement + ", ".join([placeholders] * len(batch)),
+                    tuple(value for row in batch for value in row),
                 )
-                for row in holdings
-            ],
-        )
+        else:
+            connection.executemany(statement + placeholders, parameters)
 
     def _load_snapshot(
         self, connection: sqlite3.Connection, row: sqlite3.Row
