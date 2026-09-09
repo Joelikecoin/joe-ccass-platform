@@ -447,17 +447,6 @@ class CcassService:
                     fallback_eligible=True,
                 )
             )
-            if any(source.source_id == WEBBSITE_SOURCE_ID for source in self.available_sources):
-                candidates.append(
-                    GatewaySourceCandidate(
-                        source_id=WEBBSITE_SOURCE_ID,
-                        source_name=self.source_definitions_by_id[WEBBSITE_SOURCE_ID].display_name,
-                        priority=1,
-                        status="active",
-                        backend=_DeferredHoldingsSource(lambda: WebbsiteClient(self.settings)),
-                        fallback_eligible=True,
-                    )
-                )
             recovery_source_ids = tuple(dict.fromkeys([
                 *(
                     source.source_id
