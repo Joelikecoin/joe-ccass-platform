@@ -52,7 +52,7 @@ class LongbridgeHoldingsService:
         _trace("LB_PARSE_END", stock_code=stock_code, started=parse_started, completed=True, status="parsed")
         _trace("LB_VALIDATE_START", stock_code=stock_code, started=parse_started); _trace("LB_VALIDATE_END", stock_code=stock_code, started=parse_started, completed=True, status="validated")
         persist_started = time.perf_counter(); _trace("LB_TURSO_PERSIST_START", stock_code=stock_code, started=persist_started)
-        try: persist_response(response, db_path=Path(self.settings.ccass_sqlite_path))
+        try: await asyncio.to_thread(persist_response, response, db_path=Path(self.settings.ccass_sqlite_path))
         except Exception as exc: _trace("LB_TURSO_PERSIST_END", stock_code=stock_code, started=persist_started, completed=False, exception=type(exc).__name__); raise
         _trace("LB_TURSO_PERSIST_END", stock_code=stock_code, started=persist_started, completed=True, status="persisted")
         _trace("LB_REQUEST_END", stock_code=stock_code, started=request_started, completed=True, status="success")

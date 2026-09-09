@@ -49,3 +49,66 @@ def test_libsql_adapter_translates_named_parameter_mapping():
     )
     row = connection.execute("SELECT code, snapshot_date FROM snapshots").fetchone()
     assert tuple(row) == ("06182", "2026-09-07")
+
+
+def _gate51_holdings(count):
+    return tuple(
+        types.SimpleNamespace(
+            participant_id=f"B{i:05d}", participant_name=f"Broker '{i}",
+            rank=i + 1, shares=1000 + i, last_change=None,
+            pct_of_issued=0.1, pct_of_ccass=0.2,
+            cumulative_pct_of_issued=0.3, participant_category="broker",
+        )
+        for i in range(count)
+    )
+
+
+def _gate51_connection():
+    connection = sqlite3.connect(":memory:", isolation_level=None)
+    connection.execute("""CREATE TABLE ccass_holdings (
+        snapshot_id INTEGER, participant_id TEXT UNIQUE, participant_name TEXT,
+        rank INTEGER, shares INTEGER, last_change TEXT, pct_of_issued REAL,
+        pct_of_ccass REAL, cumulative_pct_of_issued REAL, participant_category TEXT
+    )""")
+    return connection
+
+
+def test_remote_holdings_batches_preserve_every_value_and_bound_parameters():
+    class Remote:
+        def __init__(self):
+            self.connection = _gate51_connection()
+            self.batch_sizes = []
+
+        def execute(self, statement, parameters):
+            self.batch_sizes.append(len(parameters))
+            return self.connection.execute(statement, parameters)
+
+        def executemany(self, *args):
+            raise AssertionError("remote per-row executemany must not be used")
+
+    repository = object.__new__(NormalizedSnapshotRepository)
+    holdings = _gate51_holdings(235)
+    remote = Remote()
+    local = _gate51_connection()
+    repository._insert_holdings(_LibsqlConnection(remote), 7, holdings)
+    repository._insert_holdings(local, 7, holdings)
+    query = "SELECT * FROM ccass_holdings ORDER BY rank"
+    assert remote.connection.execute(query).fetchall() == local.execute(query).fetchall()
+    assert remote.batch_sizes == [900, 900, 550]
+    repository._insert_holdings(_LibsqlConnection(remote), 7, ())
+    assert remote.batch_sizes == [900, 900, 550]
+
+
+def test_remote_holdings_later_batch_failure_rolls_back_entire_transaction():
+    repository = object.__new__(NormalizedSnapshotRepository)
+    connection = _gate51_connection()
+    holdings = _gate51_holdings(100)
+    holdings = holdings[:99] + (holdings[0],)
+    connection.execute("BEGIN IMMEDIATE")
+    try:
+        repository._insert_holdings(_LibsqlConnection(connection), 7, holdings)
+    except sqlite3.IntegrityError:
+        connection.rollback()
+    else:
+        raise AssertionError("duplicate participant must reject the batch")
+    assert connection.execute("SELECT COUNT(*) FROM ccass_holdings").fetchone()[0] == 0
