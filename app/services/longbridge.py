@@ -15,8 +15,8 @@ from app.sources.longbridge import LongbridgeMcpClient, normalize_longbridge_sym
 
 
 def _trace(stage: str, *, stock_code: str, started: float | None = None, completed: bool | None = None, status: str = "", exception: str = "", timeout: bool = False) -> None:
-    if os.getenv("P0_LONGBRIDGE_TRACE") != "1" or str(stock_code).zfill(5) != "06182": return
-    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1) if started is not None else None, "completed": completed, "status": status, "exception_type": exception, "timeout": timeout}
+    if os.getenv("P0_LONGBRIDGE_TRACE") != "1" or str(stock_code).zfill(5) not in {"06182", "00001"}: return
+    payload = {"stage": stage, "stock": str(stock_code).zfill(5), "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1) if started is not None else None, "completed": completed, "status": status, "exception_type": exception, "timeout": timeout}
     print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
 
