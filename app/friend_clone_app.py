@@ -551,13 +551,18 @@ def _big_changes_block(bundle: PortalBundle) -> str:
     )
     rows: list[list[str]] = []
     for change in rows_source[: bundle.top_n]:
+        # ``AnalysisResult`` uses the canonical ccass_core HoldingChange names;
+        # retain compatibility with API ChangeRow objects used by older callers.
+        shares_before = getattr(change, "previous_shares", getattr(change, "shares_before", 0))
+        shares_after = getattr(change, "current_shares", getattr(change, "shares_after", 0))
+        shares_change = getattr(change, "share_change", getattr(change, "shares_change", 0))
         rows.append(
             [
                 _escape(change.participant_id),
                 _escape(change.participant),
-                _escape(f"{change.shares_before:,}"),
-                _escape(f"{change.shares_after:,}"),
-                _escape(f"{change.shares_change:+,}"),
+                _escape(f"{shares_before:,}"),
+                _escape(f"{shares_after:,}"),
+                _escape(f"{shares_change:+,}"),
                 _escape(change.status),
             ]
         )
