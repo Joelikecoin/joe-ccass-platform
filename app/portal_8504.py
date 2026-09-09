@@ -8,6 +8,7 @@ import json
 import math
 import os
 import sys
+import time
 import threading
 import traceback
 from dataclasses import dataclass, field, replace
@@ -21,10 +22,6 @@ def _post_emit(stage, started, *, completed=None, exception_type="", timeout=Fal
     payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
     print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
-
-def _post_emit(stage, started, *, completed=None, exception_type="", timeout=False, status=""):
-    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
-    print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
 
 def _post_trace(stage: str):
@@ -88,6 +85,8 @@ from app.live_product import YAHOO_CHART_API_URL
 from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
 from app.services.longbridge import LongbridgeHoldingsService
+
+_build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
 from ccass_core.compute import compute_analysis
 from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
@@ -1162,6 +1161,7 @@ def _portal_big_changes_block(bundle: PortalBundle) -> str:
     return _big_changes_block(bundle)
 
 
+@_post_trace("BUILD_PORTAL_BUNDLE")
 async def _build_portal_8504_bundle(
     *,
     raw_code: str,
@@ -2257,8 +2257,16 @@ async def portal(
             previous_available=False,
         )
         bundle = Portal8504Bundle(base=base, price_rows=[], concentration_rows=[])
+    render_started = time.perf_counter()
+    _post_emit("HTML_RENDER_START", render_started)
     html_page = _render_page(bundle)
-    return HTMLResponse(html_page)
+    _post_emit("HTML_RENDER_END", render_started, completed=True, status="rendered")
+    response_started = time.perf_counter()
+    _post_emit("FASTAPI_RESPONSE_START", response_started)
+    response = HTMLResponse(html_page)
+    _post_emit("FASTAPI_RESPONSE_END", response_started, completed=True, status="created")
+    _post_emit("ROUTE_RETURN", response_started, completed=True, status="returning")
+    return response
 
 
 async def _stream_bytes(data: bytes, media_type: str, filename: str) -> StreamingResponse:
