@@ -7,6 +7,7 @@ import io
 import os
 import re
 import tempfile
+import time
 import warnings
 from datetime import date
 from collections.abc import Callable, Sequence
@@ -18,6 +19,13 @@ import zipfile
 from xml.sax.saxutils import escape as xml_escape
 
 from app.errors import ErrorCode, PlatformError
+
+
+def _p0_trace(stage: str, started: float, *, completed=None, exception_type="", timeout=False, status="") -> None:
+    if os.getenv("P0_LONGBRIDGE_TRACE") != "1":
+        return
+    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
+    print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 from app.config import get_settings
 from app.data_quality import structured_warning, warning_code
 from app.models import (
@@ -174,6 +182,23 @@ class DownloadArtifacts:
     raw_preview_json_filename: str
 
 
+
+
+def _p0_prepare_trace(fn):
+    async def wrapped(*args, **kwargs):
+        code = str(kwargs.get("raw_code") or (args[0] if args else "")).zfill(5)
+        if code != "06182" or os.getenv("P0_LONGBRIDGE_TRACE") != "1":
+            return await fn(*args, **kwargs)
+        started = time.perf_counter(); _p0_trace("PREPARE_REPORT_START", started, status="started")
+        try:
+            result = await fn(*args, **kwargs)
+        except Exception as exc:
+            _p0_trace("PREPARE_REPORT_END", started, completed=False, exception_type=type(exc).__name__, timeout=isinstance(exc, TimeoutError)); raise
+        _p0_trace("PREPARE_REPORT_END", started, completed=True, status="returned")
+        return result
+    return wrapped
+
+@_p0_prepare_trace
 async def prepare_report(
     raw_code: str,
     *,
