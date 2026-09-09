@@ -2168,12 +2168,12 @@ async def portal(
                     big_change_threshold=big_change_threshold,
                     use_local_history=use_local_history,
                 ),
-                timeout=90.0,
+                timeout=45.0,
             )
         except TimeoutError as exc:
             raise PlatformError(
                 "PORTAL_REQUEST_TIMEOUT",
-                "The request exceeded the 90-second product deadline.",
+                "The request exceeded the 45-second product deadline.",
             ) from exc
         except PlatformError as exc:
             base = PortalBundle(
