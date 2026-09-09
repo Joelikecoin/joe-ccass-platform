@@ -154,7 +154,7 @@ class LongbridgeMcpClient:
             self.endpoint,
             headers=self._auth_headers(),
             timeout=30,
-            sse_read_timeout=300,
+            sse_read_timeout=15,
             auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
@@ -193,7 +193,7 @@ class LongbridgeMcpClient:
             self.endpoint,
             headers=self._auth_headers(),
             timeout=30,
-            sse_read_timeout=300,
+            sse_read_timeout=15,
             auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
@@ -240,7 +240,7 @@ class LongbridgeMcpClient:
             self.endpoint,
             headers=self._auth_headers(),
             timeout=30,
-            sse_read_timeout=300,
+            sse_read_timeout=15,
             auth=self._oauth,
         ) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
