@@ -6,6 +6,7 @@ import json
 import os
 import asyncio
 import threading
+import time
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,12 @@ from mcp import ClientSession
 from mcp.client.auth import OAuthClientProvider, TokenStorage
 from mcp.client.streamable_http import streamablehttp_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
+
+
+def _trace(stage: str, *, symbol: str, started: float | None = None, completed: bool | None = None, status: str = "", exception: str = "", timeout: bool = False) -> None:
+    if os.getenv("P0_LONGBRIDGE_TRACE") != "1" or str(symbol).strip().upper() != "6182.HK": return
+    payload = {"stage": stage, "symbol": "6182.HK", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1) if started is not None else None, "completed": completed, "status": status, "exception_type": exception, "timeout": timeout}
+    print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
 
 class _FileTokenStorage(TokenStorage):
@@ -150,27 +157,36 @@ class LongbridgeMcpClient:
             )
 
     async def _call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
-        async with streamablehttp_client(
-            self.endpoint,
-            headers=self._auth_headers(),
-            timeout=30,
-            sse_read_timeout=15,
-            auth=self._oauth,
-        ) as (read_stream, write_stream, _):
-            async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
-                result = await session.call_tool(name, arguments)
-        if getattr(result, "is_error", False):
-            raise RuntimeError(str(result.content))
+        symbol = str(arguments.get("symbol", "")); started = time.perf_counter()
+        _trace("LB_AUTH_START", symbol=symbol, started=started)
+        _trace("LB_MCP_CLIENT_CREATE_START", symbol=symbol, started=started)
+        _trace("LB_MCP_CLIENT_CREATE_END", symbol=symbol, started=started, completed=True, status="ready")
+        connect_started = time.perf_counter(); _trace("LB_MCP_CONNECT_START", symbol=symbol, started=connect_started)
+        try:
+            async with streamablehttp_client(self.endpoint, headers=self._auth_headers(), timeout=30, sse_read_timeout=15, auth=self._oauth) as (read_stream, write_stream, _):
+                _trace("LB_AUTH_END", symbol=symbol, started=started, completed=True, status="configured")
+                async with ClientSession(read_stream, write_stream) as session:
+                    await session.initialize()
+                    _trace("LB_MCP_CONNECT_END", symbol=symbol, started=connect_started, completed=True, status="connected")
+                    call_started = time.perf_counter(); _trace("LB_TOOL_CALL_START", symbol=symbol, started=call_started, status=name)
+                    try: result = await session.call_tool(name, arguments)
+                    except asyncio.TimeoutError as exc:
+                        _trace("LB_TOOL_CALL_END", symbol=symbol, started=call_started, completed=False, status=name, exception=type(exc).__name__, timeout=True); raise
+                    except Exception as exc:
+                        _trace("LB_TOOL_CALL_END", symbol=symbol, started=call_started, completed=False, status=name, exception=type(exc).__name__); raise
+                    _trace("LB_TOOL_CALL_END", symbol=symbol, started=call_started, completed=True, status=name)
+        except asyncio.TimeoutError as exc:
+            _trace("LB_MCP_CONNECT_END", symbol=symbol, started=connect_started, completed=False, exception=type(exc).__name__, timeout=True); raise
+        except Exception as exc:
+            _trace("LB_MCP_CONNECT_END", symbol=symbol, started=connect_started, completed=False, exception=type(exc).__name__); raise
+        if getattr(result, "is_error", False): raise RuntimeError("Longbridge MCP tool error")
         content = getattr(result, "content", None) or []
         text = next((item.text for item in content if getattr(item, "text", None)), None)
         if text:
-            try:
-                result = json.loads(text)
-            except json.JSONDecodeError:
-                raise RuntimeError("Longbridge MCP returned non-JSON tool content") from None
-        if not isinstance(result, (dict, list)):
-            raise RuntimeError("Longbridge MCP returned an invalid JSON payload")
+            try: result = json.loads(text)
+            except json.JSONDecodeError: raise RuntimeError("Longbridge MCP returned non-JSON tool content") from None
+        _trace("LB_RESPONSE_RECEIVED", symbol=symbol, started=started, completed=True, status="decoded")
+        if not isinstance(result, (dict, list)): raise RuntimeError("Longbridge MCP returned an invalid JSON payload")
         return result
 
     def _auth_headers(self) -> dict[str, str] | None:
