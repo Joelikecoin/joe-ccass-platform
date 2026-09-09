@@ -12,10 +12,26 @@ import threading
 import traceback
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
+
+def _post_trace(stage: str):
+    def decorate(fn):
+        @wraps(fn)
+        async def wrapped(*args, **kwargs):
+            code = str(kwargs.get("raw_code") or kwargs.get("code") or (args[0] if args else "")).zfill(5)
+            if code != "06182" or os.getenv("P0_LONGBRIDGE_TRACE") != "1": return await fn(*args, **kwargs)
+            import time
+            started=time.perf_counter(); print(f"LB_TRACE {{json.dumps({{"stage": stage+"_START", "stock": "06182", "ts": time.time(), "elapsed_ms": 0.0, "completed": None, "status": "", "exception_type": "", "timeout": False}}, separators=(',', ':'))}}", flush=True)
+            try: result=await fn(*args, **kwargs)
+            except Exception as exc:
+                print(f"LB_TRACE {{json.dumps({{"stage": stage+"_END", "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter()-started)*1000,1), "completed": False, "status": "", "exception_type": type(exc).__name__, "timeout": isinstance(exc, TimeoutError)}}, separators=(',', ':'))}}", flush=True); raise
+            print(f"LB_TRACE {{json.dumps({{"stage": stage+"_END", "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter()-started)*1000,1), "completed": True, "status": "returned", "exception_type": "", "timeout": False}}, separators=(',', ':'))}}", flush=True); return result
+        return wrapped
+    return decorate
+
 
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
