@@ -1,6 +1,6 @@
 import asyncio
 from datetime import UTC, date, datetime
-from functools import lru_cache
+from functools import lru_cache, wraps
 from typing import Any, Protocol
 
 from app.config import Settings, get_settings
@@ -14,6 +14,27 @@ from app.services.data_gateway import (
     GatewaySourceCandidate,
 )
 from app.services.latest_holdings import finalize_latest_holdings
+
+def _post_trace(stage: str):
+    def decorate(fn):
+        @wraps(fn)
+        async def wrapped(*args, **kwargs):
+            response = args[1] if len(args) > 1 else kwargs.get("response")
+            code = getattr(getattr(response, "metadata", None), "code", "")
+            if str(code).zfill(5) != "06182" or __import__("os").getenv("P0_LONGBRIDGE_TRACE") != "1":
+                return await fn(*args, **kwargs)
+            import json, time
+            started = time.perf_counter(); print("LB_TRACE " + json.dumps({"stage": stage+"_START", "stock": "06182", "ts": time.time(), "elapsed_ms": 0.0, "completed": None, "status": "", "exception_type": "", "timeout": False}, separators=(",", ":")), flush=True)
+            try:
+                result = await fn(*args, **kwargs)
+            except Exception as exc:
+                print("LB_TRACE " + json.dumps({"stage": stage+"_END", "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter()-started)*1000,1), "completed": False, "status": "", "exception_type": type(exc).__name__, "timeout": isinstance(exc, TimeoutError)}, separators=(",", ":")), flush=True)
+                raise
+            print("LB_TRACE " + json.dumps({"stage": stage+"_END", "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter()-started)*1000,1), "completed": True, "status": "returned", "exception_type": "", "timeout": False}, separators=(",", ":")), flush=True)
+            return result
+        return wrapped
+    return decorate
+
 from app.domain.history import HistoricalSnapshot
 from app.services.announcements import get_announcements_service
 from app.services.capital_information import get_capital_information_service
