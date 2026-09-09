@@ -179,7 +179,7 @@ class LongbridgeMcpClient:
             _trace("LB_MCP_CONNECT_END", symbol=symbol, started=connect_started, completed=False, exception=type(exc).__name__, timeout=True); raise
         except Exception as exc:
             _trace("LB_MCP_CONNECT_END", symbol=symbol, started=connect_started, completed=False, exception=type(exc).__name__); raise
-        if getattr(result, "is_error", False): raise RuntimeError("Longbridge MCP tool error")
+        if getattr(result, "is_error", False): raise RuntimeError(str(result.content))
         content = getattr(result, "content", None) or []
         text = next((item.text for item in content if getattr(item, "text", None)), None)
         if text:
