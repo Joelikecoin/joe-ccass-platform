@@ -22,6 +22,11 @@ def _post_emit(stage, started, *, completed=None, exception_type="", timeout=Fal
     print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
 
+def _post_emit(stage, started, *, completed=None, exception_type="", timeout=False, status=""):
+    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
+    print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
+
+
 def _post_trace(stage: str):
     def decorate(fn):
         @wraps(fn)
