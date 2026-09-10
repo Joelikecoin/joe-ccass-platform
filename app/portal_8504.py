@@ -90,6 +90,8 @@ from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
 from app.models import StockEventsResponse
 from app.services.stock_events import StockEventsService, get_stock_events_service
+from app.models import OfficersResponse
+from app.services.officers import OfficersService, get_officers_service
 
 _build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
 from ccass_core.compute import compute_analysis
@@ -2121,6 +2123,14 @@ async def get_stock_events(
     service: StockEventsService = Depends(get_stock_events_service),
 ) -> StockEventsResponse:
     return await service.get_stock_events(stock_code)
+
+
+@app.get("/api/v1/stocks/{stock_code}/officers", response_model=OfficersResponse, tags=["officers"])
+async def get_stock_officers(
+    stock_code: str,
+    service: OfficersService = Depends(get_officers_service),
+) -> OfficersResponse:
+    return await service.get_officers(stock_code)
 
 
 @app.get("/internal/p0/history-proof")
