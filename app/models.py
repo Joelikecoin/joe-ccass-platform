@@ -384,3 +384,31 @@ class CapitalInformationResponse(BaseModel):
     metadata: CapitalInformationMetadata
     capital_information: list[CapitalInformationRow] = Field(default_factory=list)
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class ShareCapitalHistoryRow(BaseModel):
+    announce_date: date
+    shares_million: float | None = None
+    shares_approx: str | None = None
+    reason: str | None = None
+    reason_tags: list[str] = Field(default_factory=list)
+    change_date: date | None = None
+    source: str
+    source_url: str
+
+
+class ShareCapitalHistoryMetadata(BaseModel):
+    code: str
+    source_name: str
+    fetched_at: datetime
+    source_status: Literal["ready", "partial", "unavailable"]
+    documents_attempted: int = 0
+    documents_fetched: int = 0
+    documents_parsed: int = 0
+    documents_failed: int = 0
+
+
+class ShareCapitalHistoryResponse(BaseModel):
+    metadata: ShareCapitalHistoryMetadata
+    rows: list[ShareCapitalHistoryRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)

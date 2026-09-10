@@ -24,6 +24,7 @@ from app.models import (
     PriceHistoryResponse,
     StockEventsResponse,
     CorporateTimeline,
+    ShareCapitalHistoryResponse,
 )
 from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
@@ -37,6 +38,7 @@ from app.services.price_history import PriceHistoryService, get_price_history_se
 from app.services.stock_events import StockEventsService, get_stock_events_service
 from app.services.longbridge import LongbridgeHoldingsService, get_longbridge_holdings_service
 from app.services.corporate_timeline import build_corporate_timeline
+from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
 from app.sources.registry import SourceRegistry, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import build_section_csv_artifact
@@ -950,6 +952,21 @@ async def get_capital_information(
     service: CapitalInformationService = Depends(get_capital_information_service),
 ) -> CapitalInformationResponse:
     return await service.get_capital_information(stock_code)
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/share-capital-history",
+    response_model=ShareCapitalHistoryResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["share-capital"],
+)
+async def get_share_capital_history(
+    stock_code: str,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    service: ShareCapitalHistoryService = Depends(get_share_capital_history_service),
+) -> ShareCapitalHistoryResponse:
+    return await service.get_share_capital_history(stock_code, start_date=start_date, end_date=end_date)
 
 
 @app.get(
