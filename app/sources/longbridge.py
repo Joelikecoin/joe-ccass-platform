@@ -303,6 +303,13 @@ class LongbridgeMcpClient:
             raise RuntimeError("Longbridge static_info returned an invalid payload")
         return result
 
+    async def executive(self, symbol: str) -> dict[str, Any]:
+        """Return Longbridge company executive and board member data."""
+        result = await self._call_tool("executive", {"symbol": symbol})
+        if not isinstance(result, dict):
+            raise RuntimeError("Longbridge executive returned an invalid payload")
+        return result
+
     async def quote(self, symbol: str) -> dict[str, Any]:
         """Return the authenticated Longbridge quote payload."""
         return await self._call_tool("quote", {"symbols": [symbol]})
