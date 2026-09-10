@@ -41,7 +41,7 @@ def _post_trace(stage: str):
         return wrapped
     return decorate
 
-from fastapi import FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app.config import get_settings
@@ -84,6 +84,9 @@ from app.friend_clone_app import (
 from app.live_product import YAHOO_CHART_API_URL
 from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
+from app.models import CorporateTimeline
+from app.services.announcements import AnnouncementsService, get_announcements_service
+from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
 
 _build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
@@ -2097,6 +2100,17 @@ async def platform_error_handler(_: Request, exc: PlatformError) -> JSONResponse
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": "joe-ccass-visual-portal-8504"}
+
+
+@app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline)
+async def get_corporate_timeline(
+    stock_code: str,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    service: AnnouncementsService = Depends(get_announcements_service),
+) -> CorporateTimeline:
+    response = await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
+    return build_corporate_timeline(response, start_date=start_date, end_date=end_date)
 
 
 @app.get("/internal/p0/history-proof")
