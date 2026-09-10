@@ -280,6 +280,25 @@ class AnnouncementsResponse(BaseModel):
     data_quality_warnings: list[str] = Field(default_factory=list)
 
 
+class CorporateEvidence(BaseModel):
+    event_id: str
+    stock_code: str
+    event_date: date
+    event_type: str
+    title: str
+    source: str
+    source_url: str | None = None
+    evidence_status: str = "verified"
+    retrieved_at: datetime
+
+
+class CorporateTimeline(BaseModel):
+    stock_code: str
+    start_date: date
+    end_date: date
+    events: list[CorporateEvidence] = Field(default_factory=list)
+
+
 class StockEventRow(BaseModel):
     event_date: date
     title: str
