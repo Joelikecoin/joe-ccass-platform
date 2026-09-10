@@ -34,6 +34,7 @@ from app.services.ccass import get_ccass_service
 from app.services.capital_information import get_capital_information_service
 from app.services.changes import get_changes_service
 from app.services.concentration import get_concentration_service
+from app.services.corporate_timeline import build_corporate_timeline
 from app.services.officers import get_officers_service
 from app.services.price_history import get_price_history_service
 from app.services.stock_events import get_stock_events_service
@@ -236,6 +237,22 @@ async def get_announcements(
     """Return HKEXnews announcements for a Hong Kong stock code."""
     result = await get_announcements_service().get_announcements(
         code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return result.model_dump(mode="json")
+
+
+@mcp.tool
+async def get_corporate_timeline(code: str, start_date: date, end_date: date) -> dict:
+    """Return conservatively classified HKEX corporate evidence for a date range."""
+    announcements = await get_announcements_service().get_announcements(
+        code,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    result = build_corporate_timeline(
+        announcements,
         start_date=start_date,
         end_date=end_date,
     )
@@ -469,6 +486,7 @@ for _tool in (
     get_concentration,
     get_rainbow_data,
     get_announcements,
+    get_corporate_timeline,
     get_full_report,
     get_source_status,
     get_download_artifact,
