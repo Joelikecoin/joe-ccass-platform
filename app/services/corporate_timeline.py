@@ -14,6 +14,9 @@ def build_corporate_timeline(
 ) -> CorporateTimeline:
     events: list[CorporateEvidence] = []
     for row in response.announcements:
+        event_type = _tag(row.title)
+        if event_type is None:
+            continue
         key = f"{response.metadata.code}|{row.announcement_date.isoformat()}|{row.title}|{row.link or ''}"
         event_id = hashlib.sha256(key.encode()).hexdigest()[:24]
         events.append(
@@ -21,7 +24,7 @@ def build_corporate_timeline(
                 event_id=event_id,
                 stock_code=response.metadata.code,
                 event_date=row.announcement_date,
-                event_type=_tag(row.title),
+                event_type=event_type,
                 title=row.title,
                 source=row.source,
                 source_url=row.link,
@@ -33,12 +36,10 @@ def build_corporate_timeline(
     return CorporateTimeline(stock_code=response.metadata.code, start_date=start_date, end_date=end_date, events=events)
 
 
-def _tag(title: str) -> str:
+def _tag(title: str) -> str | None:
     value = title.casefold()
     if "buy-back" in value or "buyback" in value:
         return "BUYBACK"
-    if "dividend" in value:
-        return "OTHER_MAJOR_CORPORATE_EVENT"
     if "capital" in value or "securities" in value or "share" in value:
         return "SHARE_CAPITAL_CHANGE"
     if "acquisition" in value:
@@ -47,4 +48,6 @@ def _tag(title: str) -> str:
         return "MAJOR_DISPOSAL"
     if "auditor" in value:
         return "AUDITOR_CHANGE"
-    return "OTHER_MAJOR_CORPORATE_EVENT"
+    if "going concern" in value:
+        return "GOING_CONCERN"
+    return None
