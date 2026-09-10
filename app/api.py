@@ -23,6 +23,7 @@ from app.models import (
     OfficersResponse,
     PriceHistoryResponse,
     StockEventsResponse,
+    CorporateTimeline,
 )
 from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
@@ -35,6 +36,7 @@ from app.services.officers import OfficersService, get_officers_service
 from app.services.price_history import PriceHistoryService, get_price_history_service
 from app.services.stock_events import StockEventsService, get_stock_events_service
 from app.services.longbridge import LongbridgeHoldingsService, get_longbridge_holdings_service
+from app.services.corporate_timeline import build_corporate_timeline
 from app.sources.registry import SourceRegistry, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import build_section_csv_artifact
@@ -898,6 +900,17 @@ async def get_stock_announcements(
         start_date=start_date,
         end_date=end_date,
     )
+
+
+@app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline, tags=["announcements"], dependencies=[Depends(verify_api_key)])
+async def get_corporate_timeline(
+    stock_code: str,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    service: AnnouncementsService = Depends(get_announcements_service),
+) -> CorporateTimeline:
+    response = await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
+    return build_corporate_timeline(response, start_date=start_date, end_date=end_date)
 
 
 @app.get(
