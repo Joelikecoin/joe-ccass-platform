@@ -16,6 +16,7 @@ from app.data_quality import structured_warning
 from app.errors import ErrorCode, PlatformError
 from app.models import OfficerRow, OfficersMetadata, OfficersResponse
 from ccass_core.normalize import normalize_stock_code
+from app.sources.longbridge import LongbridgeMcpClient, normalize_longbridge_symbol
 
 OFFICERS_SOURCE_NAME = "同花順 F10 managers"
 OFFICERS_SOURCE_URL_TEMPLATE = "https://stockpage.10jqka.com.cn/basicweb/176/HK{code}/manager.html"
@@ -51,6 +52,72 @@ class PendingOfficersSource:
                     "Officers source is pending approval; placeholder read path only.",
                 )
             ],
+        )
+
+
+class LongbridgeOfficersSource:
+    """Current executives from Longbridge's company executive contract."""
+
+    def __init__(self, client: LongbridgeMcpClient | None = None) -> None:
+        self.client = client or LongbridgeMcpClient()
+
+    async def get_officers(self, code: str | int) -> OfficersResponse:
+        normalized = normalize_stock_code(code)
+        symbol = normalize_longbridge_symbol(normalized)
+        source_url = f"longbridge://executive/{symbol}"
+        try:
+            payload = await self.client.executive(symbol)
+        except Exception as exc:
+            return OfficersResponse(
+                metadata=OfficersMetadata(
+                    code=normalized,
+                    source_name="Longbridge executives",
+                    source_url=source_url,
+                    fetched_at=datetime.now(UTC),
+                    data_as_of=None,
+                    officers_count=0,
+                    source_status="unavailable",
+                ),
+                officers=[],
+                data_quality_warnings=[
+                    structured_warning(
+                        "SOURCE_STATUS",
+                        "OFFICERS_SOURCE_UNAVAILABLE",
+                        f"Longbridge executive source unavailable ({type(exc).__name__}).",
+                    )
+                ],
+            )
+        members: list[dict] = []
+        direct = payload.get("members")
+        if isinstance(direct, list):
+            members = [item for item in direct if isinstance(item, dict)]
+        if not members:
+            for group in payload.get("professional_list", []):
+                if not isinstance(group, dict):
+                    continue
+                professionals = group.get("professionals")
+                if isinstance(professionals, list):
+                    members.extend(item for item in professionals if isinstance(item, dict))
+        officers = []
+        for member in members:
+            name = str(member.get("name") or member.get("name_en") or member.get("name_zhcn") or "").strip()
+            title = str(member.get("title") or "").strip()
+            biography = str(member.get("biography") or "").strip()
+            if not name or not title and not biography:
+                continue
+            officers.append(OfficerRow(name=name, positions=[title] if title else [], biography=biography or None))
+        return OfficersResponse(
+            metadata=OfficersMetadata(
+                code=normalized,
+                source_name="Longbridge executives",
+                source_url=source_url,
+                fetched_at=datetime.now(UTC),
+                data_as_of=None,
+                officers_count=len(officers),
+                source_status="ready" if officers else "unavailable",
+            ),
+            officers=officers,
+            data_quality_warnings=[] if officers else [structured_warning("SOURCE_STATUS", "OFFICERS_SOURCE_UNAVAILABLE", "Longbridge returned no executive rows.")],
         )
 
 
