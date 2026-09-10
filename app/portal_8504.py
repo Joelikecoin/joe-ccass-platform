@@ -88,6 +88,8 @@ from app.models import CorporateTimeline
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
+from app.models import StockEventsResponse
+from app.services.stock_events import StockEventsService, get_stock_events_service
 
 _build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
 from ccass_core.compute import compute_analysis
@@ -2111,6 +2113,14 @@ async def get_corporate_timeline(
 ) -> CorporateTimeline:
     response = await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
     return build_corporate_timeline(response, start_date=start_date, end_date=end_date)
+
+
+@app.get("/api/v1/stocks/{stock_code}/stock-events", response_model=StockEventsResponse, tags=["stock-events"])
+async def get_stock_events(
+    stock_code: str,
+    service: StockEventsService = Depends(get_stock_events_service),
+) -> StockEventsResponse:
+    return await service.get_stock_events(stock_code)
 
 
 @app.get("/internal/p0/history-proof")
