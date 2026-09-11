@@ -27,6 +27,7 @@ WEBBSITE_SOURCE_ID = "webbsite"
 HKEX_SDW_SOURCE_ID = "hkex_sdw"
 GOOGLE_DRIVE_CSV_SOURCE_ID = "google_drive_csv"
 SourceMode = Literal["auto", "webbsite", "google_drive_csv"]
+LONG_BRIDGE_SOURCE_ID = "longbridge"
 
 
 class SourceCapability(StrEnum):
@@ -325,6 +326,40 @@ class SourceRegistry:
     def select_holdings_sources(self, mode: SourceMode) -> SourceSelection:
         return self.classify_holdings(mode)
 
+
+
+
+def longbridge_persisted_source(settings: Settings) -> SourceDefinition:
+    return _definition(
+        source_id=LONG_BRIDGE_SOURCE_ID,
+        display_name="Longbridge",
+        priority=0,
+        configured=True,
+        setting_enabled=True,
+        audit_state=SourceAuditState.APPROVED,
+        audit_date=None,
+        active_status=SourceStatus.ACTIVE,
+        capabilities=frozenset({SourceCapability.LATEST, SourceCapability.REQUESTED_DATE, SourceCapability.HISTORICAL}),
+        fallback_eligible=False,
+        parser_id="longbridge-normalized-response",
+        parser_version="ccass-response-v1",
+        schema_version="ccass-response-v1",
+        policy=SourcePolicy(
+            timeout_seconds=settings.request_timeout_seconds,
+            max_bytes=settings.webbsite_max_bytes,
+            retry_attempts=settings.source_retry_attempts,
+            minimum_interval_seconds=settings.min_request_interval_seconds,
+            cache_ttl_seconds=settings.cache_ttl_seconds,
+            cache_policy="persistent_normalized_snapshot",
+            last_known_good_policy="persistent_normalized_snapshot",
+            lkg_max_age_seconds=settings.holdings_lkg_max_age_seconds,
+        ),
+        hostname=None,
+        attribution="Persisted Longbridge normalized CCASS response",
+        terms_review="approved_existing_source_scope",
+        robots_review="not_applicable_persisted_data",
+        limitations=("persisted normalized snapshots only", "exact-date analysis requires an existing snapshot"),
+    )
 
 def build_source_registry(settings: Settings) -> SourceRegistry:
     webbsite_configured, webbsite_hostname = _webbsite_configuration(settings)

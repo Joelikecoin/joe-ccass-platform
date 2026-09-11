@@ -17,7 +17,11 @@ from app.models import (
     HoldingRow,
 )
 from app.services.latest_holdings import finalize_latest_holdings, latest_holdings_is_complete
-from app.sources.registry import SourceDefinition, build_source_registry
+from app.sources.registry import (
+    SourceDefinition,
+    build_source_registry,
+    longbridge_persisted_source,
+)
 from app.storage.history import NormalizedSnapshotRepository
 from ccass_core.normalize import normalize_stock_code
 
@@ -266,5 +270,5 @@ def get_concentration_service() -> ConcentrationService:
     registry = build_source_registry(settings)
     return ConcentrationService(
         NormalizedSnapshotRepository(settings.ccass_sqlite_path),
-        registry.select_holdings(settings.data_source),
+        (*registry.select_holdings(settings.data_source), longbridge_persisted_source(settings)),
     )
