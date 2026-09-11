@@ -84,7 +84,7 @@ from app.friend_clone_app import (
 from app.live_product import YAHOO_CHART_API_URL
 from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
-from app.models import CorporateTimeline
+from app.models import CorporateTimeline, ShareCapitalHistoryResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
@@ -92,6 +92,7 @@ from app.models import StockEventsResponse
 from app.services.stock_events import StockEventsService, get_stock_events_service
 from app.models import OfficersResponse
 from app.services.officers import OfficersService, get_officers_service
+from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
 
 _build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
 from ccass_core.compute import compute_analysis
@@ -2131,6 +2132,16 @@ async def get_stock_officers(
     service: OfficersService = Depends(get_officers_service),
 ) -> OfficersResponse:
     return await service.get_officers(stock_code)
+
+
+@app.get("/api/v1/stocks/{stock_code}/share-capital-history", response_model=ShareCapitalHistoryResponse, tags=["share-capital"])
+async def get_share_capital_history(
+    stock_code: str,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    service: ShareCapitalHistoryService = Depends(get_share_capital_history_service),
+) -> ShareCapitalHistoryResponse:
+    return await service.get_share_capital_history(stock_code, start_date=start_date, end_date=end_date)
 
 
 @app.get("/internal/p0/history-proof")
