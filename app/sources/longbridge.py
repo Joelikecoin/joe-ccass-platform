@@ -8,12 +8,15 @@ import asyncio
 import threading
 import time
 import webbrowser
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import httpx
 from mcp import ClientSession
 from mcp.client.auth import OAuthClientProvider, TokenStorage
-from mcp.client.streamable_http import streamablehttp_client
+from mcp.client.streamable_http import streamable_http_client as streamablehttp_client
+from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.shared.auth import OAuthClientInformationFull, OAuthClientMetadata, OAuthToken
 
 
@@ -21,6 +24,14 @@ def _trace(stage: str, *, symbol: str, started: float | None = None, completed: 
     if os.getenv("P0_LONGBRIDGE_TRACE") != "1" or str(symbol).strip().upper() != "6182.HK": return
     payload = {"stage": stage, "symbol": "6182.HK", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1) if started is not None else None, "completed": completed, "status": status, "exception_type": exception, "timeout": timeout}
     print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
+
+
+@asynccontextmanager
+async def _streamable_client(endpoint: str, headers: dict[str, str] | None, auth: Any):
+    timeout = httpx.Timeout(30, read=15)
+    async with create_mcp_http_client(headers=headers, timeout=timeout, auth=auth) as http_client:
+        async with streamablehttp_client(endpoint, http_client=http_client) as streams:
+            yield streams
 
 
 class _FileTokenStorage(TokenStorage):
@@ -163,7 +174,7 @@ class LongbridgeMcpClient:
         _trace("LB_MCP_CLIENT_CREATE_END", symbol=symbol, started=started, completed=True, status="ready")
         connect_started = time.perf_counter(); _trace("LB_MCP_CONNECT_START", symbol=symbol, started=connect_started)
         try:
-            async with streamablehttp_client(self.endpoint, headers=self._auth_headers(), timeout=30, sse_read_timeout=15, auth=self._oauth) as (read_stream, write_stream, _):
+            async with _streamable_client(self.endpoint, self._auth_headers(), self._oauth) as (read_stream, write_stream, _):
                 _trace("LB_AUTH_END", symbol=symbol, started=started, completed=True, status="configured")
                 async with ClientSession(read_stream, write_stream) as session:
                     await session.initialize()
@@ -205,13 +216,7 @@ class LongbridgeMcpClient:
             ("daily", "broker_holding_daily", {"symbol": symbol, "broker_id": broker_id}),
         ]
         output: dict[str, Any] = {}
-        async with streamablehttp_client(
-            self.endpoint,
-            headers=self._auth_headers(),
-            timeout=30,
-            sse_read_timeout=15,
-            auth=self._oauth,
-        ) as (read_stream, write_stream, _):
+        async with _streamable_client(self.endpoint, self._auth_headers(), self._oauth) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 for key, name, arguments in names:
@@ -252,13 +257,7 @@ class LongbridgeMcpClient:
                 {"symbol": symbol, "start_date": start_date, "end_date": end_date},
             ),
         )
-        async with streamablehttp_client(
-            self.endpoint,
-            headers=self._auth_headers(),
-            timeout=30,
-            sse_read_timeout=15,
-            auth=self._oauth,
-        ) as (read_stream, write_stream, _):
+        async with _streamable_client(self.endpoint, self._auth_headers(), self._oauth) as (read_stream, write_stream, _):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 for key, name, arguments in calls:
