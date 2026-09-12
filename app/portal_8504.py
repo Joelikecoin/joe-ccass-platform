@@ -11,6 +11,7 @@ import sys
 import time
 import threading
 import traceback
+import uuid
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache, wraps
@@ -2098,6 +2099,58 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 app = FastAPI(title=APP_TITLE_EN, version="8504")
 
 
+_snapshot_jobs: dict[str, dict[str, object]] = {}
+_snapshot_jobs_lock = threading.Lock()
+
+
+def _job_public(job_id: str) -> dict[str, object] | None:
+    with _snapshot_jobs_lock:
+        job = _snapshot_jobs.get(job_id)
+        return dict(job) if job else None
+
+
+def _update_snapshot_job(job_id: str, **updates: object) -> None:
+    with _snapshot_jobs_lock:
+        if job_id in _snapshot_jobs:
+            _snapshot_jobs[job_id].update(updates)
+
+
+async def _run_snapshot_job(job_id: str, selected: tuple[str, ...] | None, dry_run: bool) -> None:
+    started = time.monotonic()
+
+    def progress(update: dict[str, object]) -> None:
+        _update_snapshot_job(
+            job_id,
+            total=update.get("total", 0),
+            succeeded=update.get("succeeded", 0),
+            failed=update.get("failed", 0),
+            skipped=update.get("skipped", 0),
+            current_code=update.get("current_code"),
+            elapsed_s=round(time.monotonic() - started, 3),
+        )
+
+    try:
+        result = await run_daily_snapshot(selected, dry_run=dry_run, job_id=job_id, progress=progress)
+    except Exception:
+        _update_snapshot_job(
+            job_id,
+            state="error",
+            elapsed_s=round(time.monotonic() - started, 3),
+            current_code=None,
+        )
+        return
+    _update_snapshot_job(
+        job_id,
+        state=result.get("status", "error"),
+        total=result.get("total", 0),
+        succeeded=result.get("succeeded", 0),
+        failed=result.get("failed", 0),
+        skipped=result.get("skipped", 0),
+        current_code=result.get("current_code"),
+        elapsed_s=result.get("elapsed_s", round(time.monotonic() - started, 3)),
+    )
+
+
 @app.exception_handler(PlatformError)
 async def platform_error_handler(_: Request, exc: PlatformError) -> JSONResponse:
     return JSONResponse(status_code=exc.status_code, content=exc.as_dict())
@@ -2134,8 +2187,38 @@ async def snapshot_watchlist(
     selected = tuple(item.strip() for item in stocks.split(",") if item.strip()) if stocks else None
     if selected and len(selected) > 2:
         raise PlatformError("INVALID_SCHEMA", "Controlled rollout accepts at most two stock codes.", status_code=400)
-    result = await run_daily_snapshot(selected, dry_run=dry_run)
-    return JSONResponse(result)
+    job_id = uuid.uuid4().hex
+    with _snapshot_jobs_lock:
+        _snapshot_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "accepted",
+            "total": len(selected) if selected else 52,
+            "succeeded": 0,
+            "failed": 0,
+            "skipped": 0,
+            "current_code": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_snapshot_job(job_id, selected, dry_run))
+    _update_snapshot_job(job_id, state="running")
+    return JSONResponse(
+        {"status": "accepted", "job_id": job_id, "state": "running"},
+        status_code=202,
+    )
+
+
+@app.get("/admin/longbridge/snapshot_job/{job_id}", tags=["admin"])
+async def snapshot_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _job_public(job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Snapshot job was not found.", status_code=404)
+    return JSONResponse(job)
 
 @app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline)
 async def get_corporate_timeline(

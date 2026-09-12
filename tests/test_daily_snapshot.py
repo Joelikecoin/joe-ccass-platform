@@ -87,3 +87,48 @@ def test_snapshot_watchlist_bounds_controlled_rollout(monkeypatch):
         "/admin/longbridge/snapshot_watchlist?key=configured&stocks=00005,06182,00700"
     )
     assert response.status_code == 400
+
+
+def test_snapshot_watchlist_dispatches_background_job(monkeypatch):
+    monkeypatch.setattr(
+        "app.portal_8504.get_settings", lambda: SimpleNamespace(api_key="configured")
+    )
+    jobs = []
+
+    def fake_create_task(coro):
+        jobs.append(coro)
+        coro.close()
+        return None
+
+    monkeypatch.setattr("app.portal_8504.asyncio.create_task", fake_create_task)
+    response = TestClient(portal_app).post(
+        "/admin/longbridge/snapshot_watchlist?key=configured&stocks=00005,06182&dry_run=true"
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "accepted"
+    assert body["state"] == "running"
+    assert body["job_id"]
+    assert len(jobs) == 1
+
+
+def test_snapshot_job_status_requires_auth_and_returns_progress(monkeypatch):
+    monkeypatch.setattr(
+        "app.portal_8504.get_settings", lambda: SimpleNamespace(api_key="configured")
+    )
+    monkeypatch.setattr("app.portal_8504.asyncio.create_task", lambda coro: coro.close())
+    response = TestClient(portal_app).post(
+        "/admin/longbridge/snapshot_watchlist?key=configured&stocks=00005&dry_run=true"
+    )
+    job_id = response.json()["job_id"]
+
+    unauthenticated = TestClient(portal_app).get(f"/admin/longbridge/snapshot_job/{job_id}")
+    authenticated = TestClient(portal_app).get(
+        f"/admin/longbridge/snapshot_job/{job_id}?key=configured"
+    )
+
+    assert unauthenticated.status_code == 401
+    assert authenticated.status_code == 200
+    assert authenticated.json()["job_id"] == job_id
+    assert "current_code" in authenticated.json()

@@ -4,6 +4,7 @@ import asyncio
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -109,14 +110,20 @@ async def run_daily_snapshot(
     service: LongbridgeHoldingsService | None = None,
     dry_run: bool = False,
     pacing_seconds: float = 1.5,
+    job_id: str | None = None,
+    progress: Callable[[dict[str, object]], None] | None = None,
 ) -> dict[str, object]:
     started = time.monotonic()
-    job_id = uuid.uuid4().hex
+    job_id = job_id or uuid.uuid4().hex
+
+    def emit(payload: dict[str, object]) -> None:
+        if progress:
+            progress(payload)
     requested = stocks or daily_watchlist()
     codes = tuple(dict.fromkeys(normalize_stock_code(code) for code in requested))
     now = hkt_now()
     if not is_trading_day(now.date()):
-        return {
+        result = {
             "job_id": job_id,
             "status": "skipped_holiday",
             "date_hkt": now.date().isoformat(),
@@ -129,8 +136,10 @@ async def run_daily_snapshot(
             "elapsed_s": round(time.monotonic() - started, 3),
             "results": [],
         }
+        emit(result)
+        return result
     if dry_run:
-        return {
+        result = {
             "job_id": job_id,
             "status": "complete",
             "date_hkt": now.date().isoformat(),
@@ -143,11 +152,22 @@ async def run_daily_snapshot(
             "dry_run": True,
             "results": [],
         }
+        emit(result)
+        return result
 
     collector = service or LongbridgeHoldingsService()
     results: list[dict[str, object]] = []
     for index, code in enumerate(codes):
         item_started = time.monotonic()
+        emit({
+            "status": "running",
+            "total": len(codes),
+            "succeeded": sum(result["status"] == "COMPLETE" for result in results),
+            "failed": sum(result["status"] != "COMPLETE" for result in results),
+            "skipped": 0,
+            "current_code": code,
+            "elapsed_s": round(time.monotonic() - started, 3),
+        })
         status = "ERROR"
         error = None
         source_date = None
