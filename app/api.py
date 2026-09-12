@@ -39,6 +39,10 @@ from app.services.stock_events import StockEventsService, get_stock_events_servi
 from app.services.longbridge import LongbridgeHoldingsService, get_longbridge_holdings_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
+from app.services.historical_intelligence import (
+    HistoricalIntelligenceResponse,
+    get_historical_intelligence,
+)
 from app.sources.registry import SourceRegistry, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import build_section_csv_artifact
@@ -967,6 +971,34 @@ async def get_share_capital_history(
     service: ShareCapitalHistoryService = Depends(get_share_capital_history_service),
 ) -> ShareCapitalHistoryResponse:
     return await service.get_share_capital_history(stock_code, start_date=start_date, end_date=end_date)
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/historical-intelligence",
+    response_model=HistoricalIntelligenceResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["historical-intelligence"],
+)
+async def get_stock_historical_intelligence(
+    stock_code: str,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    announcements_service: AnnouncementsService = Depends(get_announcements_service),
+    capital_service: CapitalInformationService = Depends(get_capital_information_service),
+    share_capital_service: ShareCapitalHistoryService = Depends(get_share_capital_history_service),
+    officers_service: OfficersService = Depends(get_officers_service),
+    stock_events_service: StockEventsService = Depends(get_stock_events_service),
+) -> HistoricalIntelligenceResponse:
+    return await get_historical_intelligence(
+        normalize_stock_code(stock_code),
+        start_date=start_date,
+        end_date=end_date,
+        announcements_service=announcements_service,
+        capital_service=capital_service,
+        share_capital_service=share_capital_service,
+        officers_service=officers_service,
+        stock_events_service=stock_events_service,
+    )
 
 
 @app.get(
