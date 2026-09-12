@@ -209,7 +209,7 @@ async def test_service_auto_routes_webbsite_failure_to_persistent_lkg_and_persis
         )
     )
     service = CcassService(
-        settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
+        settings=Settings(data_source="webbsite", holdings_lkg_max_age_seconds=1_000_000),
         lkg_repository=repository,
     )
 
@@ -269,7 +269,7 @@ async def test_service_auto_fails_loudly_without_local_snapshot(
     monkeypatch.setattr("app.services.ccass.HKEXSdwClient", ForbiddenHKEX)
 
     service = CcassService(
-        settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
+        settings=Settings(data_source="webbsite", holdings_lkg_max_age_seconds=1_000_000),
         lkg_repository=repository,
     )
 
