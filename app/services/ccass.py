@@ -68,6 +68,7 @@ from app.sources.google_drive_csv import GoogleDriveCsvSource
 from app.sources.registry import (
     HKEX_SDW_SOURCE_ID,
     GOOGLE_DRIVE_CSV_SOURCE_ID,
+    LONG_BRIDGE_SOURCE_ID,
     WEBBSITE_SOURCE_ID,
     SourceDefinition,
     SourceRegistry,
@@ -456,17 +457,18 @@ class CcassService:
     ) -> tuple[GatewaySourceCandidate, ...]:
         if self.settings.data_source == "auto":
             candidates: list[GatewaySourceCandidate] = []
-            if any(source.source_id == WEBBSITE_SOURCE_ID for source in self.available_sources):
-                candidates.append(
-                    GatewaySourceCandidate(
-                        source_id=WEBBSITE_SOURCE_ID,
-                        source_name=self.source_definitions_by_id[WEBBSITE_SOURCE_ID].display_name,
-                        priority=0,
-                        status="active",
-                        backend=_DeferredHoldingsSource(lambda: WebbsiteClient(self.settings)),
-                        fallback_eligible=True,
-                    )
+            # Longbridge is the authoritative current/latest Holdings source;
+            # historical Webb-site data remains available through recovery paths.
+            candidates.append(
+                GatewaySourceCandidate(
+                    source_id="longbridge",
+                    source_name="Longbridge",
+                    priority=0,
+                    status="active",
+                    backend=_DeferredHoldingsSource(lambda: LongbridgeHoldingsService()),
+                    fallback_eligible=True,
                 )
+            )
             recovery_source_ids = tuple(dict.fromkeys([
                 *(
                     source.source_id
@@ -794,13 +796,17 @@ class CcassService:
         if source_id in {None, "cache", "persistent_lkg"}:
             return None
         definition = self.source_definitions_by_id.get(source_id)
-        if definition is None:
+        parser_source_id = source_id
+        parser_version = definition.parser_version if definition is not None else None
+        if source_id == LONG_BRIDGE_SOURCE_ID and parser_version is None:
+            parser_version = "ccass-response-v1"
+        if parser_version is None:
             return None
         try:
             snapshot = HistoricalSnapshot.from_response(
                 gateway_response.normalized_response,
-                source_id=definition.source_id,
-                parser_version=definition.parser_version,
+                source_id=parser_source_id,
+                parser_version=parser_version,
             )
             self.lkg_repository.save(snapshot)
         except Exception as error:

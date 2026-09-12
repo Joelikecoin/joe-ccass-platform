@@ -360,7 +360,7 @@ async def test_auto_recovery_includes_hkex_persistent_snapshots(
     gateway_response = await service.get_stock_gateway_response("01682", holdings_limit=2)
     response = gateway_response.normalized_response
 
-    assert calls == ["webbsite"]
+    assert calls == ["longbridge"]
     assert gateway_response.routing.selected_source_id == "persistent_lkg"
     assert gateway_response.source_trace.selected_source_id == "persistent_lkg"
     assert response.metadata.code == "01682"
@@ -435,14 +435,14 @@ async def test_ccass_service_persists_live_success_into_local_snapshot_cache(
 ):
     repository = NormalizedSnapshotRepository(tmp_path / "persist.db")
     source = FixtureSource(current_response)
-    monkeypatch.setattr("app.services.ccass.WebbsiteClient", lambda settings: source)
+    monkeypatch.setattr("app.services.ccass.LongbridgeHoldingsService", lambda: source)
     service = CcassService(lkg_repository=repository)
 
     gateway_response = await service.get_stock_gateway_response("1592", holdings_limit=2)
 
     assert source.calls == [("01592", 10000)]
-    assert gateway_response.routing.selected_source_id == WEBBSITE_SOURCE_ID
-    stored = repository.latest("01592", source_id=WEBBSITE_SOURCE_ID)
+    assert gateway_response.routing.selected_source_id == "longbridge"
+    stored = repository.latest("01592", source_id="longbridge")
     assert stored is not None
     assert stored.snapshot_date == current_response.metadata.holdings_date
     assert stored.fetched_at == current_response.metadata.fetched_at
