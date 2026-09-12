@@ -95,9 +95,11 @@ from app.services.stock_events import StockEventsService, get_stock_events_servi
 from app.models import OfficersResponse
 from app.services.officers import OfficersService, get_officers_service
 from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
+from ccass_core.compute import HoldingChange, compute_analysis
 
-_build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
-from ccass_core.compute import compute_analysis
+from app.services.big_changes import get_big_changes_service
+from app.services.changes import get_changes_service
+from app.services.concentration import get_concentration_service
 from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
 from app.streamlit_ui import (
@@ -114,6 +116,10 @@ from ccass_core.collector import SnapshotStore
 prepare_report = _post_trace("PREPARE_REPORT")(prepare_report)
 
 APP_TITLE_EN = "Joe Visual Portal"
+
+
+_build_bundle = _post_trace("BUILD_BUNDLE")(_build_bundle)
+
 APP_TITLE_ZH = "Joe Visual Portal"
 APP_SUBTITLE_EN = "Golden Joe reference portal for live market news and CCASS holdings."
 APP_SUBTITLE_ZH = "Golden Joe 參考入口：即時市場資訊與 CCASS 持股。"
@@ -419,6 +425,101 @@ def _cached_price_history(symbol: str) -> tuple[dict[str, object], ...]:
 def _history_windows(rows: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
     return {window: _range_slice(rows, window) for window in PRICE_RANGE_WINDOWS}
 
+
+
+
+def _refresh_persisted_derived_chain(base: PortalBundle, *, big_change_threshold: int) -> None:
+    prepared = base.prepared
+    if prepared is None or prepared.response is None:
+        return
+    current = prepared.response
+    if str(getattr(current.metadata, "source_name", "")).lower() != "longbridge":
+        raise PlatformError(
+            "INVALID_SCHEMA",
+            "Derived analytics require a persisted Longbridge current snapshot.",
+            status_code=502,
+        )
+    snapshot_date = getattr(current.metadata, "holdings_date", None)
+    if snapshot_date is None:
+        return
+    previous_snapshot = _snapshot_repo().previous(
+        current.metadata.code,
+        before_date=snapshot_date,
+        source_id="longbridge",
+        include_partial=False,
+    )
+    if previous_snapshot is None:
+        raise PlatformError(
+            "NOT_FOUND",
+            "An exact previous Longbridge snapshot is required for derived analytics.",
+            status_code=404,
+        )
+    changes = get_changes_service().get_changes(
+        current.metadata.code,
+        snapshot_date=snapshot_date,
+        compare_date=previous_snapshot.snapshot_date,
+    )
+    big_changes = get_big_changes_service().get_big_changes(
+        current.metadata.code,
+        snapshot_date=changes.metadata.snapshot_date,
+        compare_date=changes.metadata.compare_date,
+        threshold_shares=big_change_threshold,
+    )
+    concentration = get_concentration_service().get_concentration(
+        current.metadata.code,
+        snapshot_date=changes.metadata.snapshot_date,
+        top_holders_limit=10,
+    )
+    previous_response = previous_snapshot.to_response()
+    analysis = compute_analysis(current, previous=previous_response, big_change_threshold=big_change_threshold)
+    analysis = replace(
+        analysis,
+        changes=tuple(
+            HoldingChange(
+                participant_id=row.participant_id,
+                participant=row.participant,
+                previous_shares=row.shares_before,
+                current_shares=row.shares_after,
+                share_change=row.shares_change,
+                previous_pct_of_issued=row.percent_before,
+                current_pct_of_issued=row.percent_after,
+                pct_point_change=row.percent_change,
+                status=row.status,
+            )
+            for row in changes.changes
+        ),
+        big_changes=tuple(
+            HoldingChange(
+                participant_id=row.participant_id,
+                participant=row.participant,
+                previous_shares=row.shares_before,
+                current_shares=row.shares_after,
+                share_change=row.shares_change,
+                previous_pct_of_issued=row.percent_before,
+                current_pct_of_issued=row.percent_after,
+                pct_point_change=row.percent_change,
+                status=row.status,
+            )
+            for row in big_changes.big_changes
+        ),
+        previous_available=True,
+        source_status=big_changes.source_status,
+        authority_status=big_changes.authority_status,
+        concentration={
+            "participant_count": concentration.summary.participant_count,
+            "top5_pct_of_issued": concentration.summary.top5_pct_of_issued,
+            "top10_pct_of_issued": concentration.summary.top10_pct_of_issued,
+            "top5_pct_of_ccass": concentration.summary.top5_pct_of_ccass,
+            "top10_pct_of_ccass": concentration.summary.top10_pct_of_ccass,
+        },
+    )
+    base.prepared = replace(
+        prepared,
+        response=current.model_copy(update={"big_changes": big_changes}),
+        previous_response=previous_response,
+        analysis=analysis,
+    )
+    base.previous_available = True
 
 def _snapshot_repo() -> NormalizedSnapshotRepository:
     return NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)
@@ -1302,37 +1403,9 @@ async def _build_portal_8504_bundle(
         longbridge_daily = enrichment.get("daily")
     except Exception as exc:
         longbridge_error = _exception_details(exc)
-    # The live Longbridge fallback persists before this point.  Refresh the
-    # comparison inputs afterwards so the same request can read the previous
-    # stored snapshot instead of evaluating history before the write.
-    prepared = base.prepared
-    if prepared is not None and prepared.response is not None:
-        current_response = prepared.response
-        try:
-            source_name = str(current_response.metadata.source_name or "").lower()
-            source_id = "longbridge" if source_name == "longbridge" else None
-            previous_snapshot = _snapshot_repo().previous(
-                base.resolved_code,
-                before_date=current_response.metadata.holdings_date,
-                source_id=source_id,
-                include_partial=True,
-            )
-            previous_response = previous_snapshot.to_response() if previous_snapshot else None
-            refreshed_analysis = compute_analysis(
-                current_response,
-                previous=previous_response,
-                big_change_threshold=big_change_threshold,
-            )
-            base.prepared = replace(
-                prepared,
-                previous_response=previous_response,
-                analysis=refreshed_analysis,
-            )
-            base.previous_available = previous_response is not None
-        except Exception:
-            # Keep the already prepared product response if history refresh is
-            # unavailable; section-local history remains explicit below.
-            pass
+    # Derived analytics must use the same exact persisted Longbridge chain as
+    # the API services; do not silently fall back to local UI computation.
+    _refresh_persisted_derived_chain(base, big_change_threshold=big_change_threshold)
     concentration_rows = _concentration_history_rows(base)
     for row in concentration_rows:
         snapshot = row.get("snapshot")
