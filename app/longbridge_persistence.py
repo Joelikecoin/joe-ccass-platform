@@ -69,6 +69,14 @@ def build_response(
             )
         )
     issued_ratio = sum(row.pct_of_issued for row in rows)
+    top5 = rows[:5]
+    top10 = rows[:10]
+    top5_shares = sum(row.shares for row in top5)
+    top10_shares = sum(row.shares for row in top10)
+    top5_pct_of_issued = round(top5_shares / issued_shares * 100.0, 6) if issued_shares else None
+    top10_pct_of_issued = round(top10_shares / issued_shares * 100.0, 6) if issued_shares else None
+    top5_pct_of_ccass = round(top5_shares / total * 100.0, 6)
+    top10_pct_of_ccass = round(top10_shares / total * 100.0, 6)
     return CcassResponse(
         metadata=SourceMetadata(
             code=code,
@@ -85,6 +93,10 @@ def build_response(
             issued_shares=issued_shares,
             issued_shares_as_of=snapshot_date if issued_shares else None,
             participant_count=len(rows),
+            top5_pct_of_issued=top5_pct_of_issued,
+            top10_pct_of_issued=top10_pct_of_issued,
+            top5_pct_of_ccass=top5_pct_of_ccass,
+            top10_pct_of_ccass=top10_pct_of_ccass,
         ),
         holdings=rows,
     )

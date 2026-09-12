@@ -169,7 +169,7 @@ class BigChangesResponse(BaseModel):
     big_changes: list[ChangeRow] = Field(default_factory=list)
     diagnostics: ChangesDiagnostics
     source_status: Literal["local_derived", "unavailable"] = "unavailable"
-    authority_status: Literal["local_history_limited", "unavailable"] = "unavailable"
+    authority_status: Literal["exact_persisted", "local_history_limited", "unavailable"] = "unavailable"
     data_quality_warnings: list[str] = Field(default_factory=list)
 
 
