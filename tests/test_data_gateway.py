@@ -338,19 +338,20 @@ async def test_auto_recovery_includes_hkex_persistent_snapshots(
     _persist_snapshot(repository, hkex_response, source_id=HKEX_SDW_SOURCE_ID)
     calls: list[str] = []
 
-    class FailingWebbsite:
-        def __init__(self, settings):
-            self.settings = settings
-
+    class FailingLongbridge:
         async def get_holdings(self, code, limit=15):
-            calls.append("webbsite")
+            calls.append("longbridge")
             raise PlatformError(
-                ErrorCode.SOURCE_FORBIDDEN,
-                "Webb-site mirror blocked in test fixture.",
-                status_code=403,
+                ErrorCode.SOURCE_UNAVAILABLE,
+                "Longbridge unavailable in test fixture.",
+                retry_recommended=True,
+                status_code=503,
             )
 
-    monkeypatch.setattr("app.services.ccass.WebbsiteClient", FailingWebbsite)
+    monkeypatch.setattr(
+        "app.services.ccass.LongbridgeHoldingsService",
+        lambda: FailingLongbridge(),
+    )
 
     service = CcassService(
         settings=Settings(holdings_lkg_max_age_seconds=1_000_000),
@@ -360,7 +361,7 @@ async def test_auto_recovery_includes_hkex_persistent_snapshots(
     gateway_response = await service.get_stock_gateway_response("01682", holdings_limit=2)
     response = gateway_response.normalized_response
 
-    assert calls == ["webbsite"]
+    assert calls == ["longbridge"]
     assert gateway_response.routing.selected_source_id == "persistent_lkg"
     assert gateway_response.source_trace.selected_source_id == "persistent_lkg"
     assert response.metadata.code == "01682"
@@ -436,7 +437,10 @@ async def test_ccass_service_persists_live_success_into_local_snapshot_cache(
     repository = NormalizedSnapshotRepository(tmp_path / "persist.db")
     source = FixtureSource(current_response)
     monkeypatch.setattr("app.services.ccass.WebbsiteClient", lambda settings: source)
-    service = CcassService(lkg_repository=repository)
+    service = CcassService(
+        settings=Settings(data_source="webbsite"),
+        lkg_repository=repository,
+    )
 
     gateway_response = await service.get_stock_gateway_response("1592", holdings_limit=2)
 
