@@ -41,10 +41,11 @@ def _post_trace(stage: str):
         return wrapped
     return decorate
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
 from app.config import get_settings
+from app.daily_snapshot import run_daily_snapshot
 from app.domain.history import HistoricalSnapshot
 from app.errors import PlatformError
 from app.friend_clone_app import (
@@ -2106,6 +2107,35 @@ async def platform_error_handler(_: Request, exc: PlatformError) -> JSONResponse
 async def health() -> dict[str, str]:
     return {"status": "ok", "app": "joe-ccass-visual-portal-8504"}
 
+
+
+def _verify_daily_admin_key(
+    key: str | None,
+    x_api_key: str | None,
+    authorization: str | None,
+) -> None:
+    expected = get_settings().api_key
+    if not expected:
+        raise PlatformError("AUTH_FAILED", "Daily snapshot administration is not configured.", status_code=503)
+    bearer = authorization.removeprefix("Bearer ") if authorization else None
+    if expected not in {key, x_api_key, bearer}:
+        raise PlatformError("AUTH_FAILED", "A valid API key is required.", status_code=401)
+
+
+@app.post("/admin/longbridge/snapshot_watchlist", tags=["admin"])
+async def snapshot_watchlist(
+    stocks: str | None = Query(default=None, include_in_schema=False),
+    dry_run: bool = Query(default=False, include_in_schema=False),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    selected = tuple(item.strip() for item in stocks.split(",") if item.strip()) if stocks else None
+    if selected and len(selected) > 2:
+        raise PlatformError("INVALID_SCHEMA", "Controlled rollout accepts at most two stock codes.", status_code=400)
+    result = await run_daily_snapshot(selected, dry_run=dry_run)
+    return JSONResponse(result)
 
 @app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline)
 async def get_corporate_timeline(

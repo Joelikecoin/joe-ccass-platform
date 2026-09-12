@@ -9,3 +9,5 @@ pydantic-settings>=2.7,<3
 streamlit>=1.40,<2
 yfinance>=0.2,<2
 uvicorn[standard]>=0.34,<1
+tzdata
+pandas-market-calendars>=5,<6
