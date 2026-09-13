@@ -112,6 +112,8 @@ from app.streamlit_ui import (
 )
 from ccass_core.collector import SnapshotStore
 
+from app.api import get_concentration_evidence, verify_api_key
+
 
 prepare_report = _post_trace("PREPARE_REPORT")(prepare_report)
 
@@ -2170,6 +2172,14 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
 
 app = FastAPI(title=APP_TITLE_EN, version="8504")
+
+app.add_api_route(
+    "/api/v1/stocks/{stock_code}/concentration/evidence",
+    get_concentration_evidence,
+    methods=["GET"],
+    dependencies=[Depends(verify_api_key)],
+    tags=["concentration"],
+)
 
 
 _snapshot_jobs: dict[str, dict[str, object]] = {}
