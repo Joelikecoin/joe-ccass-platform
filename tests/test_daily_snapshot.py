@@ -1,3 +1,5 @@
+import hashlib
+import logging
 from datetime import date
 from types import SimpleNamespace
 
@@ -87,6 +89,49 @@ def test_snapshot_watchlist_bounds_controlled_rollout(monkeypatch):
         "/admin/longbridge/snapshot_watchlist?key=configured&stocks=00005,06182,00700"
     )
     assert response.status_code == 400
+
+
+def test_failed_scheduler_auth_logs_only_request_fingerprint(monkeypatch, caplog):
+    expected = "expected-production-key"
+    supplied = "supplied-request-key"
+    monkeypatch.setattr(
+        "app.portal_8504.get_settings", lambda: SimpleNamespace(api_key=expected)
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.portal_8504"):
+        response = TestClient(portal_app).post(
+            "/admin/longbridge/snapshot_watchlist",
+            headers={"X-API-Key": supplied},
+        )
+
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "AUTH_FAILED"
+    assert "AUTH_FAILED REQUEST_KEY_PRESENT=yes" in caplog.text
+    assert "REQUEST_KEY_LENGTH=20" in caplog.text
+    assert (
+        f"REQUEST_KEY_SHA256_PREFIX={hashlib.sha256(supplied.encode()).hexdigest()[:8]}"
+        in caplog.text
+    )
+    assert "AUTH_SOURCE=x_api_key" in caplog.text
+    assert expected not in caplog.text
+    assert supplied not in caplog.text
+
+
+def test_settings_startup_log_contains_only_api_key_fingerprint(monkeypatch, caplog):
+    secret = "startup-secret-value"
+    monkeypatch.setenv("API_KEY", secret)
+    from app.config import get_settings
+
+    get_settings.cache_clear()
+    with caplog.at_level(logging.INFO, logger="app.config"):
+        settings = get_settings()
+
+    assert settings.api_key == secret
+    assert "API_KEY_PRESENT=yes" in caplog.text
+    assert "API_KEY_LENGTH=20" in caplog.text
+    assert f"API_KEY_SHA256_PREFIX={hashlib.sha256(secret.encode()).hexdigest()[:8]}" in caplog.text
+    assert secret not in caplog.text
+    get_settings.cache_clear()
 
 
 def test_snapshot_watchlist_dispatches_background_job(monkeypatch):

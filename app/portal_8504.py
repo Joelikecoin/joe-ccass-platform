@@ -5,6 +5,7 @@ import csv
 import html
 import io
 import json
+import logging
 import math
 import os
 import sys
@@ -45,7 +46,7 @@ def _post_trace(stage: str):
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 
-from app.config import get_settings
+from app.config import get_settings, secret_fingerprint
 from app.daily_snapshot import run_daily_snapshot
 from app.domain.history import HistoricalSnapshot
 from app.errors import PlatformError
@@ -113,6 +114,9 @@ from app.streamlit_ui import (
 from ccass_core.collector import SnapshotStore
 
 from app.api import get_concentration_evidence, verify_api_key
+
+
+logger = logging.getLogger(__name__)
 
 
 prepare_report = _post_trace("PREPARE_REPORT")(prepare_report)
@@ -2168,6 +2172,7 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
 
 app = FastAPI(title=APP_TITLE_EN, version="8504")
+get_settings()
 
 
 app.add_api_route(
@@ -2251,7 +2256,26 @@ def _verify_daily_admin_key(
     if not expected:
         raise PlatformError("AUTH_FAILED", "Daily snapshot administration is not configured.", status_code=503)
     bearer = authorization.removeprefix("Bearer ") if authorization else None
+    supplied = (
+        ("query", key)
+        if key is not None
+        else ("x_api_key", x_api_key)
+        if x_api_key is not None
+        else ("bearer", bearer)
+        if bearer is not None
+        else ("none", None)
+    )
+    source, supplied_value = supplied
     if expected not in {key, x_api_key, bearer}:
+        present, length, fingerprint = secret_fingerprint(supplied_value)
+        logger.warning(
+            "AUTH_FAILED REQUEST_KEY_PRESENT=%s REQUEST_KEY_LENGTH=%d "
+            "REQUEST_KEY_SHA256_PREFIX=%s AUTH_SOURCE=%s",
+            "yes" if present else "no",
+            length,
+            fingerprint or "none",
+            source,
+        )
         raise PlatformError("AUTH_FAILED", "A valid API key is required.", status_code=401)
 
 

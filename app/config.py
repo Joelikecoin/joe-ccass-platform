@@ -1,3 +1,5 @@
+import hashlib
+import logging
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -5,6 +7,9 @@ from typing import Literal
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
@@ -67,9 +72,24 @@ class Settings(BaseSettings):
         return self
 
 
+def secret_fingerprint(value: str | None) -> tuple[bool, int, str | None]:
+    if not value:
+        return False, 0, None
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:8]
+    return True, len(value), digest
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    present, length, fingerprint = secret_fingerprint(settings.api_key)
+    logger.info(
+        "API_KEY_PRESENT=%s API_KEY_LENGTH=%d API_KEY_SHA256_PREFIX=%s",
+        "yes" if present else "no",
+        length,
+        fingerprint or "none",
+    )
+    return settings
 
 
 def _repo_root() -> Path:
