@@ -106,7 +106,13 @@ def test_failed_scheduler_auth_logs_only_request_fingerprint(monkeypatch, caplog
 
     assert response.status_code == 401
     assert response.json()["error_code"] == "AUTH_FAILED"
-    assert "AUTH_FAILED REQUEST_KEY_PRESENT=yes" in caplog.text
+    assert "AUTH_FAILED EXPECTED_KEY_PRESENT=yes" in caplog.text
+    assert "EXPECTED_KEY_LENGTH=23" in caplog.text
+    assert (
+        f"EXPECTED_KEY_SHA256_PREFIX={hashlib.sha256(expected.encode()).hexdigest()[:8]}"
+        in caplog.text
+    )
+    assert "REQUEST_KEY_PRESENT=yes" in caplog.text
     assert "REQUEST_KEY_LENGTH=20" in caplog.text
     assert (
         f"REQUEST_KEY_SHA256_PREFIX={hashlib.sha256(supplied.encode()).hexdigest()[:8]}"

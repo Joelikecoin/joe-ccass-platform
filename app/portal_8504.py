@@ -2267,10 +2267,15 @@ def _verify_daily_admin_key(
     )
     source, supplied_value = supplied
     if expected not in {key, x_api_key, bearer}:
+        expected_present, expected_length, expected_fingerprint = secret_fingerprint(expected)
         present, length, fingerprint = secret_fingerprint(supplied_value)
         logger.warning(
-            "AUTH_FAILED REQUEST_KEY_PRESENT=%s REQUEST_KEY_LENGTH=%d "
-            "REQUEST_KEY_SHA256_PREFIX=%s AUTH_SOURCE=%s",
+            "AUTH_FAILED EXPECTED_KEY_PRESENT=%s EXPECTED_KEY_LENGTH=%d "
+            "EXPECTED_KEY_SHA256_PREFIX=%s REQUEST_KEY_PRESENT=%s "
+            "REQUEST_KEY_LENGTH=%d REQUEST_KEY_SHA256_PREFIX=%s AUTH_SOURCE=%s",
+            "yes" if expected_present else "no",
+            expected_length,
+            expected_fingerprint or "none",
             "yes" if present else "no",
             length,
             fingerprint or "none",
