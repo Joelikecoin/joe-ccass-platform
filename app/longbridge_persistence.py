@@ -68,6 +68,8 @@ def build_response(
                 pct_of_ccass=round(shares / total * 100.0, 6),
             )
         )
+    rows.sort(key=lambda row: (-row.shares, row.participant_id))
+    rows = [row.model_copy(update={"rank": rank}) for rank, row in enumerate(rows, start=1)]
     issued_ratio = sum(row.pct_of_issued for row in rows)
     top5 = rows[:5]
     top10 = rows[:10]

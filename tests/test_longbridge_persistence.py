@@ -8,9 +8,9 @@ def test_longbridge_summary_preserves_issued_and_ccass_denominators():
         {
             "updated_at": "2026-09-11",
             "list": [
+                {"parti_number": "P3", "name": "Three", "shares": 100, "ratio": 0.01},
                 {"parti_number": "P1", "name": "One", "shares": 600, "ratio": 0.06},
                 {"parti_number": "P2", "name": "Two", "shares": 300, "ratio": 0.03},
-                {"parti_number": "P3", "name": "Three", "shares": 100, "ratio": 0.01},
             ],
         },
         stock_code="00005",
@@ -20,6 +20,8 @@ def test_longbridge_summary_preserves_issued_and_ccass_denominators():
     )
 
     summary = response.holdings_summary
+    assert [row.participant_id for row in response.holdings] == ["P1", "P2", "P3"]
+    assert [row.rank for row in response.holdings] == [1, 2, 3]
     assert summary.total_in_ccass_shares == 1_000
     assert summary.top5_pct_of_issued == 10.0
     assert summary.top10_pct_of_issued == 10.0
