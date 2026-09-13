@@ -112,7 +112,7 @@ from app.streamlit_ui import (
 )
 from ccass_core.collector import SnapshotStore
 
-from app.api import get_concentration_evidence, get_snapshot_repository, verify_api_key
+from app.api import get_concentration_evidence, verify_api_key
 
 
 prepare_report = _post_trace("PREPARE_REPORT")(prepare_report)
@@ -2172,25 +2172,6 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
 
 app = FastAPI(title=APP_TITLE_EN, version="8504")
-
-
-# TEMPORARY_P0_ACCEPTANCE_ROUTE_REMOVE_AFTER_CONCENTRATION_GATE_PASS
-async def _temporary_concentration_acceptance_evidence(
-    repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
-) -> dict[str, object]:
-    return await get_concentration_evidence(
-        stock_code="00005",
-        snapshot_date=date(2026, 9, 11),
-        repository=repository,
-    )
-
-
-app.add_api_route(
-    "/internal/acceptance/concentration-evidence",
-    _temporary_concentration_acceptance_evidence,
-    methods=["GET"],
-    tags=["internal-acceptance"],
-)
 
 
 app.add_api_route(
