@@ -113,6 +113,28 @@ def test_snapshot_watchlist_dispatches_background_job(monkeypatch):
     assert len(jobs) == 1
 
 
+def test_snapshot_watchlist_full_run_returns_bounded_receipt(monkeypatch):
+    monkeypatch.setattr(
+        "app.portal_8504.get_settings", lambda: SimpleNamespace(api_key="configured")
+    )
+    jobs = []
+
+    def fake_create_task(coro):
+        jobs.append(coro)
+        coro.close()
+        return None
+
+    monkeypatch.setattr("app.portal_8504.asyncio.create_task", fake_create_task)
+    response = TestClient(portal_app).post(
+        "/admin/longbridge/snapshot_watchlist?key=configured"
+    )
+
+    assert response.status_code == 202
+    assert response.json().keys() == {"status", "job_id", "state"}
+    assert len(response.content) < 128
+    assert len(jobs) == 1
+
+
 def test_snapshot_job_status_requires_auth_and_returns_progress(monkeypatch):
     monkeypatch.setattr(
         "app.portal_8504.get_settings", lambda: SimpleNamespace(api_key="configured")
