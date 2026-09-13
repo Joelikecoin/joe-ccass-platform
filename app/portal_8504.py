@@ -451,11 +451,7 @@ def _refresh_persisted_derived_chain(base: PortalBundle, *, big_change_threshold
         include_partial=False,
     )
     if previous_snapshot is None:
-        raise PlatformError(
-            "NOT_FOUND",
-            "An exact previous Longbridge snapshot is required for derived analytics.",
-            status_code=404,
-        )
+        return
     changes = get_changes_service().get_changes(
         current.metadata.code,
         snapshot_date=snapshot_date,

@@ -42,10 +42,50 @@ from app.portal_8504 import (
     Portal8504Bundle,
     _build_query_payload,
     _build_portal_8504_bundle,
+    _refresh_persisted_derived_chain,
     _overview_block,
     _price_panel,
     _render_page,
 )
+
+
+
+def test_portal_8504_first_longbridge_snapshot_preserves_current_response(monkeypatch):
+    response = SimpleNamespace(
+        metadata=SimpleNamespace(
+            code="00006",
+            source_name="Longbridge",
+            holdings_date=date(2026, 9, 11),
+        )
+    )
+    prepared = SimpleNamespace(response=response)
+    base = PortalBundle(
+        requested_code="00006",
+        resolved_code="00006",
+        input_type="Stock Code",
+        source_mode="auto",
+        top_n=20,
+        big_change_threshold=1_000_000,
+        use_local_history=True,
+        live_product=SimpleNamespace(),
+        prepared=prepared,
+        live_markdown_en="",
+        live_markdown_zh="",
+        ccass_markdown_en="",
+        ccass_markdown_zh="",
+        live_artifacts=None,
+        ccass_artifacts=None,
+        previous_available=False,
+    )
+    monkeypatch.setattr(
+        "app.portal_8504._snapshot_repo",
+        lambda: SimpleNamespace(previous=lambda *args, **kwargs: None),
+    )
+
+    _refresh_persisted_derived_chain(base, big_change_threshold=1_000_000)
+
+    assert base.prepared.response is response
+    assert base.previous_available is False
 
 
 def test_portal_8504_defaults_data_date_to_latest_available(monkeypatch):
@@ -287,7 +327,7 @@ def test_portal_8504_bundle_does_not_eagerly_generate_ccass_markdown(monkeypatch
         )
         prepared = SimpleNamespace(
             response=SimpleNamespace(
-                metadata=SimpleNamespace(code="01592", data_as_of=date(2026, 8, 14)),
+                metadata=SimpleNamespace(code="01592", data_as_of=date(2026, 8, 14), source_name="Longbridge"),
                 data_quality_warnings=[],
             ),
             source_trace=None,
@@ -337,7 +377,7 @@ def test_portal_8504_bundle_does_not_eagerly_generate_ccass_markdown(monkeypatch
 def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     calls = {"live": [], "ccass": []}
 
-    fake_response = SimpleNamespace(metadata=SimpleNamespace(code="01592"))
+    fake_response = SimpleNamespace(metadata=SimpleNamespace(code="01592", source_name="Longbridge"))
     fake_prepared = SimpleNamespace(
         response=fake_response,
         source_trace=[],
@@ -376,7 +416,9 @@ def test_portal_8504_bundle_defers_zh_markdown_generation(monkeypatch):
     async def fake_prepare_report(*args, **kwargs):
         return fake_prepared
 
-    async def fake_build_live_product_from_surfaces(response, *, code, source_trace):
+    async def fake_build_live_product_from_surfaces(
+        response, *, code, source_trace, allow_external=True, source_mode="auto"
+    ):
         return fake_live_product
 
     def fake_render_live_markdown(live_product, *, locale="en"):
