@@ -375,6 +375,57 @@ async def get_stock_history_snapshots(
 
 
 @app.get(
+    "/api/v1/stocks/{stock_code}/concentration/evidence",
+    dependencies=[Depends(verify_api_key)],
+    tags=["concentration"],
+)
+async def get_concentration_evidence(
+    stock_code: str,
+    snapshot_date: date,
+    repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
+) -> dict[str, object]:
+    normalized = normalize_stock_code(stock_code)
+    snapshot = repository.snapshot_on(normalized, snapshot_date, source_id="longbridge")
+    if snapshot is None:
+        raise PlatformError(
+            "NOT_FOUND",
+            "The exact persisted Longbridge snapshot is unavailable.",
+            status_code=404,
+        )
+    holdings = list(snapshot.holdings)
+    total = sum(row.shares for row in holdings)
+    top5 = sum(row.shares for row in holdings[:5])
+    top10 = sum(row.shares for row in holdings[:10])
+    issued = snapshot.issued_shares
+    return {
+        "stock_code": normalized,
+        "snapshot_date": snapshot.snapshot_date,
+        "source_id": snapshot.source.source_id,
+        "snapshot_status": "partial" if snapshot.partial else "stale" if snapshot.stale else "complete",
+        "participant_count": len(holdings),
+        "participants": [
+            {
+                "rank": rank,
+                "participant_id": row.participant_id,
+                "participant_name": row.participant_name,
+                "shares": row.shares,
+            }
+            for rank, row in enumerate(holdings, start=1)
+        ],
+        "summary": {
+            "top5_shares": top5,
+            "top10_shares": top10,
+            "total_ccass_shares": total,
+            "issued_shares": issued,
+            "top5_pct_of_issued": round(top5 / issued * 100, 6) if issued else None,
+            "top10_pct_of_issued": round(top10 / issued * 100, 6) if issued else None,
+            "top5_pct_of_ccass": round(top5 / total * 100, 6) if total else None,
+            "top10_pct_of_ccass": round(top10 / total * 100, 6) if total else None,
+        },
+    }
+
+
+@app.get(
     "/api/v1/stocks/{stock_code}/download/{section}/{kind}",
     dependencies=[Depends(verify_api_key)],
     tags=["downloads"],
