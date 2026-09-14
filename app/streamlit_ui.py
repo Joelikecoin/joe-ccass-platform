@@ -238,16 +238,22 @@ async def prepare_report(
         gateway_getter = getattr(service, "get_stock_gateway_response", None)
         if callable(gateway_getter):
             try:
-                gateway_response = await gateway_getter(
-                    code,
-                    holdings_limit=holdings_limit,
-                    cache_first=False,
-                    requested_date=requested_date,
+                gateway_response = await asyncio.wait_for(
+                    gateway_getter(
+                        code,
+                        holdings_limit=holdings_limit,
+                        cache_first=False,
+                        requested_date=requested_date,
+                    ),
+                    timeout=CURRENT_HOLDINGS_FETCH_TIMEOUT_SECONDS,
                 )
             except TypeError as exc:
                 if "requested_date" not in str(exc):
                     raise
-                gateway_response = await gateway_getter(code, holdings_limit=holdings_limit)
+                gateway_response = await asyncio.wait_for(
+                    gateway_getter(code, holdings_limit=holdings_limit),
+                    timeout=CURRENT_HOLDINGS_FETCH_TIMEOUT_SECONDS,
+                )
             response = gateway_response.normalized_response
             _post_gate_t = time.perf_counter(); _p0_inner_stage("PREPARE_POST_GATEWAY_START", _post_gate_t, status="gateway_returned")
             source_trace = build_source_trace_view(gateway_response)
