@@ -1,0 +1,65 @@
+name: Gate20 postdeploy verification
+
+on:
+  push:
+    branches:
+      - openhands/p0-runtime-api-key-fingerprint-proof
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: openhands/p0-runtime-api-key-fingerprint-proof
+          fetch-depth: 0
+
+      - name: Verify health and production holdings exports
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://joe-ccass-api.onrender.com'
+          curl -fsS --max-time 30 "$base/health" >/tmp/health.txt
+          echo 'HEALTH=PASS'
+          for code in 00005 00006 06182; do
+            curl -fsS --max-time 90 "$base/download/holdings/csv?code=$code" -o "/tmp/$code.csv"
+            CODE="$code" python - <<'PY'
+          import csv, io, os, pathlib
+          code = os.environ['CODE']
+          raw = pathlib.Path(f'/tmp/{code}.csv').read_bytes()
+          assert raw.startswith(b'\xef\xbb\xbf'), f'{code}: missing UTF8 BOM'
+          rows = list(csv.DictReader(io.StringIO(raw.decode('utf-8-sig'))))
+          assert rows, f'{code}: no holdings rows'
+          required = {'schema_version','section_status','source','data_as_of','warnings'}
+          assert required <= set(rows[0]), f'{code}: missing metadata fields'
+          assert {r['section_status'].lower() for r in rows} == {'ready'}, f'{code}: status not ready'
+          assert all(r['schema_version'] == '1' for r in rows), f'{code}: schema version mismatch'
+          print(f'{code}=PASS rows={len(rows)} source={rows[0]["source"]} data_as_of={rows[0]["data_as_of"]}')
+          PY
+          done
+
+      - name: Verify incompatible schema fails loudly
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl -sS --max-time 30 -o /tmp/schema.json -w '%{http_code}' 'https://joe-ccass-api.onrender.com/download/holdings/csv?code=00005&schema_version=2')
+          test "$status" = 400
+          python - <<'PY'
+          import json, pathlib
+          payload=json.loads(pathlib.Path('/tmp/schema.json').read_text())
+          assert payload.get('error_code') == 'SCHEMA_VERSION_UNSUPPORTED', payload
+          print('INCOMPATIBLE_SCHEMA_FAIL_LOUD=PASS')
+          PY
+
+      - name: Remove temporary verifier
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "Joe CCASS Gate20 Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/gate20_postdeploy_verify.yml
+          git commit -m "chore: remove Gate20 post-deploy verifier"
+          git push origin HEAD:openhands/p0-runtime-api-key-fingerprint-proof
