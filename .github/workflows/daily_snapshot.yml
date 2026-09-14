@@ -2,7 +2,8 @@ name: Daily Longbridge snapshot
 
 on:
   schedule:
-    - cron: '30 5 * * *'
+    # Registration refresh test; restored after verification.
+    - cron: '50 6 * * *'
   workflow_dispatch:
     inputs:
       stocks:
