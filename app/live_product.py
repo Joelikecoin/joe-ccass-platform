@@ -30,6 +30,9 @@ from app.models import HoldingsSummary, SourceMetadata
 
 YAHOO_CHART_API_URL = f"{YAHOO_CHART_BASE_URL}{{symbol}}"
 ANNOUNCEMENTS_LOAD_TIMEOUT_SECONDS = 5.0
+PRICE_HISTORY_LOAD_TIMEOUT_SECONDS = 5.0
+STOCK_EVENTS_LOAD_TIMEOUT_SECONDS = 8.0
+CAPITAL_INFORMATION_LOAD_TIMEOUT_SECONDS = 8.0
 OFFICERS_LOAD_TIMEOUT_SECONDS = 8.0
 
 
@@ -192,7 +195,12 @@ async def build_live_product_from_response_with_surfaces(
     async def _load_auxiliary() -> tuple[Any, Any, Any, Any, Any]:
         tasks: list[Any] = []
         if need_price_history:
-            tasks.append(get_price_history_service().get_price_history(normalized_code))
+            tasks.append(
+                asyncio.wait_for(
+                    get_price_history_service().get_price_history(normalized_code),
+                    timeout=PRICE_HISTORY_LOAD_TIMEOUT_SECONDS,
+                )
+            )
         if need_announcements:
             tasks.append(
                 asyncio.wait_for(
@@ -201,9 +209,19 @@ async def build_live_product_from_response_with_surfaces(
                 )
             )
         if need_stock_events and allow_external:
-            tasks.append(get_stock_events_service().get_stock_events(normalized_code))
+            tasks.append(
+                asyncio.wait_for(
+                    get_stock_events_service().get_stock_events(normalized_code),
+                    timeout=STOCK_EVENTS_LOAD_TIMEOUT_SECONDS,
+                )
+            )
         if need_capital_information:
-            tasks.append(get_capital_information_service().get_capital_information(normalized_code))
+            tasks.append(
+                asyncio.wait_for(
+                    get_capital_information_service().get_capital_information(normalized_code),
+                    timeout=CAPITAL_INFORMATION_LOAD_TIMEOUT_SECONDS,
+                )
+            )
         if need_officers:
             tasks.append(asyncio.wait_for(get_officers_service().get_officers(normalized_code), timeout=OFFICERS_LOAD_TIMEOUT_SECONDS))
         results = await asyncio.gather(*tasks, return_exceptions=True) if tasks else []
