@@ -53,6 +53,7 @@ jobs:
           test "$(jq -r '.status // empty' <<<"$response")" = "accepted"
           job_id=$(jq -r '.job_id // empty' <<<"$response")
           test -n "$job_id"
+          echo "JOB_ID=$job_id"
           echo "job_id=$job_id" >> "$GITHUB_OUTPUT"
 
       - name: Poll job and require real persistence
@@ -67,7 +68,7 @@ jobs:
             payload=$(curl -fsS --max-time 20 \
               -H "X-API-Key: $API_KEY" \
               "$BASE_URL/admin/longbridge/snapshot_job/$JOB_ID")
-            terminal=$(jq -r '.status // empty' <<<"$payload")
+            terminal=$(jq -r '.state // empty' <<<"$payload")
             case "$terminal" in
               complete|partial|error|skipped_holiday) break ;;
             esac
