@@ -2036,6 +2036,40 @@ _SECTION_DOWNLOAD_HEADERS: dict[str, tuple[str, ...]] = {
 }
 
 
+_SECTION_EXPORT_METADATA_HEADERS = (
+    "schema_version",
+    "section_status",
+    "source",
+    "data_as_of",
+    "warnings",
+)
+
+
+def _section_export_metadata(response: CcassResponse, section: str) -> dict[str, object]:
+    surface = getattr(response, section, None)
+    metadata = getattr(surface, "metadata", None)
+    warnings = list(getattr(surface, "data_quality_warnings", ()) or ())
+    if not warnings:
+        warnings = list(getattr(response, "data_quality_warnings", ()) or ())
+    response_metadata = getattr(response, "metadata", None)
+    source = getattr(metadata, "source_name", None) or getattr(response_metadata, "source_name", None) or ""
+    data_as_of = getattr(metadata, "data_as_of", None)
+    if data_as_of is None:
+        data_as_of = getattr(metadata, "snapshot_date", None) or getattr(response_metadata, "data_as_of", None)
+    status = getattr(metadata, "source_status", None)
+    if status is None:
+        status = getattr(getattr(surface, "diagnostics", None), "validation_status", None)
+    if status is None:
+        status = "ready" if surface is not None and not warnings else "unavailable"
+    return {
+        "schema_version": 1,
+        "section_status": status,
+        "source": source,
+        "data_as_of": data_as_of.isoformat() if hasattr(data_as_of, "isoformat") else data_as_of or "",
+        "warnings": json.dumps(warnings, ensure_ascii=False, separators=(",", ":")),
+    }
+
+
 def build_section_csv_artifact(response: CcassResponse, section: str) -> tuple[bytes, str]:
     section_key = section.lower()
     if section_key == "holdings":
@@ -2054,7 +2088,10 @@ def build_section_csv_artifact(response: CcassResponse, section: str) -> tuple[b
         raise PlatformError("NOT_FOUND", f"Unsupported section download: {section}")
 
     detected_headers, normalized_rows = _rows_from_models(rows)
-    headers = detected_headers or _SECTION_DOWNLOAD_HEADERS[section_key]
+    row_headers = detected_headers or _SECTION_DOWNLOAD_HEADERS[section_key]
+    headers = row_headers + _SECTION_EXPORT_METADATA_HEADERS
+    metadata = _section_export_metadata(response, section_key)
+    normalized_rows = [dict(row, **metadata) for row in normalized_rows]
     buffer = io.StringIO()
     writer = csv.DictWriter(buffer, fieldnames=headers, lineterminator="\n")
     writer.writeheader()
