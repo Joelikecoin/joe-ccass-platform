@@ -1,6 +1,9 @@
 name: Daily Longbridge snapshot
 
 on:
+  push:
+    branches:
+      - codex/p0-free-scheduler-reference
   schedule:
     - cron: '30 13 * * *'
   workflow_dispatch:
