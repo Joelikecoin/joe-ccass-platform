@@ -747,3 +747,46 @@ def test_ccass_export_schema_version_rejects_incompatible_payload() -> None:
     payload["schema_version"] = 2
     with pytest.raises(ValidationError):
         CcassResponse.model_validate(payload)
+
+
+
+def test_holdings_csv_preserves_ready_status_with_unrelated_warnings():
+    from app.streamlit_ui import _section_export_metadata, build_section_csv_artifact
+
+    response = CcassResponse(
+        metadata=SourceMetadata(
+            code="00005",
+            name="HSBC HOLDINGS PLC",
+            issue_id=1,
+            holdings_date=date(2026, 9, 11),
+            fetched_at=datetime(2026, 9, 14, tzinfo=UTC),
+            source_url="longbridge://mcp/broker_holding_detail",
+            source_name="Longbridge",
+        ),
+        holdings_summary=HoldingsSummary(participant_count=1),
+        holdings=[
+            {
+                "rank": 1,
+                "participant_id": "P1",
+                "participant": "Alpha Holdings",
+                "shares": 1234,
+                "last_change": None,
+                "pct_of_issued": 1.2345,
+                "pct_of_ccass": 2.3456,
+                "cumulative_pct_of_issued": 1.2345,
+                "participant_category": "Nominee",
+            }
+        ],
+        data_quality_warnings=[
+            "DATA_LIMITATION: STOCK_EVENTS_UNAVAILABLE: supplementary events were skipped"
+        ],
+    )
+
+    csv_bytes, _ = build_section_csv_artifact(response, "holdings")
+    csv_text = csv_bytes.decode("utf-8-sig")
+    assert "section_status" in csv_text.splitlines()[0]
+    assert ",ready," in csv_text.splitlines()[1]
+    assert "STOCK_EVENTS_UNAVAILABLE" in csv_text
+
+    unavailable = response.model_copy(update={"holdings": []})
+    assert _section_export_metadata(unavailable, "holdings")["section_status"] == "unavailable"

@@ -2060,7 +2060,10 @@ def _section_export_metadata(response: CcassResponse, section: str) -> dict[str,
     if status is None:
         status = getattr(getattr(surface, "diagnostics", None), "validation_status", None)
     if status is None:
-        status = "ready" if surface is not None and not warnings else "unavailable"
+        if section == "holdings":
+            status = "ready" if bool(getattr(response, "holdings", ())) else "unavailable"
+        else:
+            status = "ready" if surface is not None and not warnings else "unavailable"
     return {
         "schema_version": 1,
         "section_status": status,
