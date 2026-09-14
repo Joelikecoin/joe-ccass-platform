@@ -2441,6 +2441,7 @@ async def _stream_bytes(data: bytes, media_type: str, filename: str) -> Streamin
 async def download(
     section: str,
     kind: str,
+    schema_version: int = Query(default=1, ge=1),
     locale: str = Query(default="en"),
     code: str = Query(default=DEFAULT_CODE),
     input_type: str = Query(default="Stock Code"),
@@ -2454,6 +2455,12 @@ async def download(
     big_change_threshold: int = Query(default=1_000_000, ge=0),
     use_local_history: bool = Query(default=True),
 ) -> StreamingResponse:
+    if schema_version != 1:
+        raise PlatformError(
+            "SCHEMA_VERSION_UNSUPPORTED",
+            f"Export schema version {schema_version} is unsupported; expected version 1.",
+            status_code=400,
+        )
     try:
         bundle = await _build_portal_8504_bundle(
             raw_code=code,

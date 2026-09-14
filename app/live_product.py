@@ -68,6 +68,7 @@ class LiveProduct:
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "schema_version": 1,
             "code": self.code,
             "symbol": self.symbol,
             "company": self.company,
