@@ -434,6 +434,7 @@ async def get_stock_download(
     stock_code: str,
     section: str,
     kind: str,
+    schema_version: int = Query(default=1, ge=1),
     locale: str = Query(default="en"),
     holdings_limit: int = Query(default=20, ge=1, le=100),
     big_change_threshold: int = Query(default=1_000_000, ge=0),
@@ -441,6 +442,12 @@ async def get_stock_download(
     use_local_history: bool = Query(default=True),
     repository: NormalizedSnapshotRepository = Depends(get_snapshot_repository),
 ) -> StreamingResponse:
+    if schema_version != 1:
+        raise PlatformError(
+            "SCHEMA_VERSION_UNSUPPORTED",
+            f"Export schema version {schema_version} is unsupported; expected version 1.",
+            status_code=400,
+        )
     bundle = await _build_bundle(
         raw_code=stock_code,
         input_type="Stock Code",
