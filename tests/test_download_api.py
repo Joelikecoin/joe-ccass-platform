@@ -3,14 +3,17 @@ from __future__ import annotations
 import asyncio
 import json
 from base64 import b64decode
-from datetime import date
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.api import app
 from app.domain.history import HistoricalSnapshot
 from app import mcp_server
+from app.models import CcassResponse, HoldingsSummary, SourceMetadata
 
 
 def _make_bundle() -> SimpleNamespace:
@@ -200,6 +203,7 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tm
 
     live_md = client.get("/api/v1/stocks/01592/download/live/md")
     ccass_json = client.get("/api/v1/stocks/01592/download/ccass/json")
+    unsupported_schema = client.get("/api/v1/stocks/01592/download/ccass/json?schema_version=2")
     raw_json = client.get("/api/v1/stocks/01592/download/raw_previews/json")
     raw_summary_csv = client.get("/api/v1/stocks/01592/download/raw_previews/summary_csv")
     raw_holdings_csv = client.get("/api/v1/stocks/01592/download/raw_previews/holdings_csv")
@@ -221,6 +225,9 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tm
     assert ccass_json.status_code == 200
     assert ccass_json.headers["content-disposition"] == 'attachment; filename="01592_ccass.json"'
     assert ccass_json.text == "{\n  \"code\": \"01592\"\n}"
+
+    assert unsupported_schema.status_code == 400
+    assert unsupported_schema.json()["code"] == "SCHEMA_VERSION_UNSUPPORTED"
 
     assert raw_json.status_code == 200
     assert raw_json.headers["content-disposition"] == 'attachment; filename="raw.json"'
@@ -254,6 +261,10 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tm
     assert holdings_csv.status_code == 200
     assert holdings_csv.headers["content-disposition"] == 'attachment; filename="01592_holdings.csv"'
     assert "Alpha Holdings" in holdings_csv.text
+    assert holdings_csv.content.startswith(b"\xef\xbb\xbf")
+    holdings_header = holdings_csv.content.decode("utf-8-sig").splitlines()[0]
+    for field in ("schema_version", "section_status", "source", "data_as_of", "warnings"):
+        assert field in holdings_header
 
     assert changes_csv.status_code == 200
     assert changes_csv.headers["content-disposition"] == 'attachment; filename="01592_changes.csv"'
@@ -719,3 +730,20 @@ def test_history_snapshots_api_and_mcp_expose_persisted_snapshot_payloads(monkey
     mcp_result = asyncio.run(mcp_server.get_snapshot_history_snapshots.fn("01592", include_partial=False))
     assert mcp_result == body
     client.app.dependency_overrides.clear()
+
+
+def test_ccass_export_schema_version_rejects_incompatible_payload() -> None:
+    response = CcassResponse(
+        metadata=SourceMetadata(
+            code="00005",
+            issue_id=1,
+            fetched_at=datetime.now(UTC),
+            source_url="https://example.invalid/source",
+        ),
+        holdings_summary=HoldingsSummary(),
+    )
+    assert response.schema_version == 1
+    payload = response.model_dump(mode="json")
+    payload["schema_version"] = 2
+    with pytest.raises(ValidationError):
+        CcassResponse.model_validate(payload)
