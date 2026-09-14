@@ -728,7 +728,7 @@ def _download_links(bundle: PortalBundle) -> str:
         )
     sqlite_path = get_settings().ccass_sqlite_path
     if sqlite_path.is_file():
-        links.append(("ccass", "sqlite", "Download SQLite Backup", "下載 SQLite 備份"))
+        links.append(("ccass", "sqlite", "Download Snapshot DB Backup", "下載 Snapshot DB 備份"))
     items = []
     for section, kind, en, zh in links:
         href = f"/download/{section}/{kind}?{base}"

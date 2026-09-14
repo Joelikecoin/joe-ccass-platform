@@ -547,7 +547,7 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch, tmp_
     assert ccass_response.text == "ZH CCASS"
     assert raw_tables_response.status_code == 200
     assert raw_tables_response.json() == {"tables": []}
-    assert "Download SQLite Backup" in client.get("/", params={"code": "01592"}).text
+    assert "Download Snapshot DB Backup" in client.get("/", params={"code": "01592"}).text
     assert "Download Raw Preview Summary CSV" in client.get("/", params={"code": "01592"}).text
     assert "Download Raw Preview Holdings CSV" in client.get("/", params={"code": "01592"}).text
     assert calls["live"] == ["zh_HK"]
@@ -631,7 +631,7 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     assert "Download Raw Tables JSON" in response.text
     assert "/download/raw_previews/json" in response.text
     assert "Download This Stock" in response.text
-    assert "Download SQLite Backup" in response.text
+    assert "Download Snapshot DB Backup" in response.text
     assert "/download/ccass/sqlite" in response.text
     assert "Download All Data CSV" in response.text
     assert "/download/ccass/csv" in response.text
