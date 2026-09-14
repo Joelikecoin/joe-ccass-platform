@@ -1,0 +1,98 @@
+name: Daily Longbridge snapshot
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      stocks:
+        description: Controlled stock list (maximum two)
+        required: false
+        default: '00005,06182'
+
+permissions:
+  contents: read
+
+env:
+  BASE_URL: https://joe-ccass-api.onrender.com
+  STOCKS: ${{ inputs.stocks || '00005,06182' }}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Wake and verify Render
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if health=$(curl -fsS --max-time 15 "$BASE_URL/health"); then
+              test "$(jq -r '.status // empty' <<<"$health")" = "ok"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Render health did not become ready within the bounded wake window." >&2
+          exit 1
+
+      - name: Start controlled Longbridge snapshot
+        id: start
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$API_KEY"
+          response=$(curl -fsS --max-time 20 -X POST \
+            -H "X-API-Key: $API_KEY" \
+            "$BASE_URL/admin/longbridge/snapshot_watchlist?stocks=$STOCKS")
+          test "$(jq -r '.status // empty' <<<"$response")" = "accepted"
+          job_id=$(jq -r '.job_id // empty' <<<"$response")
+          test -n "$job_id"
+          echo "JOB_ID=$job_id"
+          echo "job_id=$job_id" >> "$GITHUB_OUTPUT"
+
+      - name: Poll job and require real persistence
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          JOB_ID: ${{ steps.start.outputs.job_id }}
+        run: |
+          set -euo pipefail
+          terminal=''
+          payload=''
+          for attempt in $(seq 1 60); do
+            payload=$(curl -fsS --max-time 20 \
+              -H "X-API-Key: $API_KEY" \
+              "$BASE_URL/admin/longbridge/snapshot_job/$JOB_ID")
+            terminal=$(jq -r '.state // empty' <<<"$payload")
+            case "$terminal" in
+              complete|partial|error|skipped_holiday) break ;;
+            esac
+            sleep 10
+          done
+          case "$terminal" in
+            skipped_holiday) exit 0 ;;
+            complete|partial) ;;
+            *) echo "Snapshot job did not reach a terminal state." >&2; exit 1 ;;
+          esac
+          jq -e '{state, total, succeeded, failed, skipped, current_code, elapsed_s}' <<<"$payload"
+          test "$(jq -r '.succeeded // 0' <<<"$payload")" -gt 0
+          test "$(jq -r '.failed // 0' <<<"$payload")" = "0"
+
+      - name: Verify Turso read-back
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+        run: |
+          set -euo pipefail
+          for code in $(tr ',' ' ' <<<"$STOCKS"); do
+            history=$(curl -fsS --max-time 20 \
+              -H "X-API-Key: $API_KEY" \
+              "$BASE_URL/internal/p0/history-proof?code=$code")
+            test "$(jq -r '.code' <<<"$history")" = "$code"
+            test "$(jq -r '.snapshot_count' <<<"$history")" -gt 0
+            test "$(jq -r '.latest_date // empty' <<<"$history")" != ""
+            test "$(jq -r '.latest_row_count // 0' <<<"$history")" -gt 0
+            test "$(jq -r '.latest_source_id // empty' <<<"$history")" = "longbridge"
+            echo "STOCK=$code SOURCE_DATE=$(jq -r '.latest_date' <<<"$history") ROW_COUNT=$(jq -r '.latest_row_count' <<<"$history") SOURCE=$(jq -r '.latest_source_id' <<<"$history")"
+          done
