@@ -60,6 +60,9 @@ class HoldingsSummary(BaseModel):
 
 
 class CcassResponse(BaseModel):
+    # Export contract version.  Keep this literal so incompatible payloads fail
+    # validation instead of being silently interpreted as the current schema.
+    schema_version: Literal[1] = 1
     metadata: SourceMetadata
     holdings_summary: HoldingsSummary
     holdings: list[HoldingRow] = Field(default_factory=list)
