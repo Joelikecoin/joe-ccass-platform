@@ -30,7 +30,7 @@ jobs:
               raise SystemExit(f'compatibility self-fn loop count={text.count(old_loop)}')
           text = text.replace(old_loop, '')
           old_rainbow = '        rainbow_payload = await get_rainbow_data(code)\n'
-          new_rainbow = '        rainbow_payload = await get_rainbow_data.fn(code)\n'
+          new_rainbow = '''        rainbow_callable = getattr(get_rainbow_data, "fn", get_rainbow_data)\n        rainbow_payload = await rainbow_callable(code)\n'''
           if text.count(old_rainbow) != 1:
               raise SystemExit(f'rainbow internal call count={text.count(old_rainbow)}')
           text = text.replace(old_rainbow, new_rainbow)
