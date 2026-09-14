@@ -227,7 +227,7 @@ def test_canonical_download_api_routes_stream_expected_artifacts(monkeypatch, tm
     assert ccass_json.text == "{\n  \"code\": \"01592\"\n}"
 
     assert unsupported_schema.status_code == 400
-    assert unsupported_schema.json()["code"] == "SCHEMA_VERSION_UNSUPPORTED"
+    assert unsupported_schema.json()["error_code"] == "SCHEMA_VERSION_UNSUPPORTED"
 
     assert raw_json.status_code == 200
     assert raw_json.headers["content-disposition"] == 'attachment; filename="raw.json"'

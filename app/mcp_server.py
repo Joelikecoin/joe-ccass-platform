@@ -341,7 +341,8 @@ async def get_download_artifact(
         else:
             raise PlatformError("NOT_FOUND", f"Unsupported download kind: {section}/{kind}", status_code=404)
     elif section == "rainbow":
-        rainbow_payload = await get_rainbow_data(code)
+        rainbow_callable = getattr(get_rainbow_data, "fn", get_rainbow_data)
+        rainbow_payload = await rainbow_callable(code)
         if kind == "json":
             payload = json.dumps(rainbow_payload, ensure_ascii=False, indent=2).encode("utf-8")
             filename = f"{normalize_stock_code(code)}_rainbow.json"
@@ -455,30 +456,6 @@ async def get_ai_read_model(code: str) -> dict:
     """Return the normalized AI read model for a Hong Kong stock code."""
     result = await get_ai_read_model_service().get_read_model(code)
     return result.model_dump(mode="json")
-
-
-for _tool in (
-    get_ccass_stock_data,
-    get_stock_summary,
-    get_holdings,
-    get_price_history,
-    get_snapshot_history,
-    get_snapshot_history_snapshots,
-    get_changes,
-    get_big_changes,
-    get_concentration,
-    get_rainbow_data,
-    get_announcements,
-    get_full_report,
-    get_source_status,
-    get_download_artifact,
-    get_raw_previews,
-    get_officers,
-    get_stock_events,
-    get_capital_information,
-    get_ai_read_model,
-):
-    setattr(_tool, "fn", _tool)
 
 
 if __name__ == "__main__":
