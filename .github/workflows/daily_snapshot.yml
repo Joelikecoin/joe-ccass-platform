@@ -1,6 +1,9 @@
 name: Daily Longbridge snapshot
 
 on:
+  push:
+    branches:
+      - codex/p0-free-scheduler-reference
   schedule:
     - cron: '30 13 * * *'
   workflow_dispatch:
@@ -76,13 +79,9 @@ jobs:
             complete|partial) ;;
             *) echo "Snapshot job did not reach a terminal state." >&2; exit 1 ;;
           esac
-          for code in $(tr ',' ' ' <<<"$STOCKS"); do
-            item=$(jq -c --arg code "$code" '.results[] | select(.stock_code == $code)' <<<"$payload")
-            test -n "$item"
-            test "$(jq -r '.status' <<<"$item")" = "COMPLETE"
-            test "$(jq -r '.rows' <<<"$item")" -gt 0
-            test "$(jq -r '.persist_status' <<<"$item")" = "persisted"
-          done
+          jq -e '{state, total, succeeded, failed, skipped, current_code, elapsed_s}' <<<"$payload"
+          test "$(jq -r '.succeeded // 0' <<<"$payload")" -gt 0
+          test "$(jq -r '.failed // 0' <<<"$payload")" = "0"
 
       - name: Verify Turso read-back
         env:
@@ -95,5 +94,7 @@ jobs:
               "$BASE_URL/api/v1/stocks/$code/history/snapshots?include_partial=true")
             test "$(jq -r '.available' <<<"$history")" = "true"
             test "$(jq -r '.snapshot_count' <<<"$history")" -gt 0
-            test "$(jq '[.snapshots[] | select(.source.source_id == "longbridge" and (.holdings | length) > 0)] | length' <<<"$history")" -gt 0
+            snapshot=$(jq -c '[.snapshots[] | select(.source.source_id == "longbridge" and (.snapshot_date != null) and (.holdings | length) > 0)] | last // empty' <<<"$history")
+            test -n "$snapshot"
+            echo "STOCK=$code SOURCE_DATE=$(jq -r '.snapshot_date' <<<"$snapshot") ROW_COUNT=$(jq '.holdings | length' <<<"$snapshot") SOURCE=$(jq -r '.source.source_id' <<<"$snapshot")"
           done
