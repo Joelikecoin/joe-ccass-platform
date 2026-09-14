@@ -91,10 +91,11 @@ jobs:
           for code in $(tr ',' ' ' <<<"$STOCKS"); do
             history=$(curl -fsS --max-time 20 \
               -H "X-API-Key: $API_KEY" \
-              "$BASE_URL/api/v1/stocks/$code/history/snapshots?include_partial=true")
-            test "$(jq -r '.available' <<<"$history")" = "true"
+              "$BASE_URL/internal/p0/history-proof?code=$code")
+            test "$(jq -r '.code' <<<"$history")" = "$code"
             test "$(jq -r '.snapshot_count' <<<"$history")" -gt 0
-            snapshot=$(jq -c '[.snapshots[] | select(.source.source_id == "longbridge" and (.snapshot_date != null) and (.holdings | length) > 0)] | last // empty' <<<"$history")
-            test -n "$snapshot"
-            echo "STOCK=$code SOURCE_DATE=$(jq -r '.snapshot_date' <<<"$snapshot") ROW_COUNT=$(jq '.holdings | length' <<<"$snapshot") SOURCE=$(jq -r '.source.source_id' <<<"$snapshot")"
+            test "$(jq -r '.latest_date // empty' <<<"$history")" != ""
+            test "$(jq -r '.latest_row_count // 0' <<<"$history")" -gt 0
+            test "$(jq -r '.latest_source_id // empty' <<<"$history")" = "longbridge"
+            echo "STOCK=$code SOURCE_DATE=$(jq -r '.latest_date' <<<"$history") ROW_COUNT=$(jq -r '.latest_row_count' <<<"$history") SOURCE=$(jq -r '.latest_source_id' <<<"$history")"
           done
