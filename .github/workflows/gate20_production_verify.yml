@@ -1,0 +1,61 @@
+name: Gate20 production export verification
+
+on:
+  push:
+    branches:
+      - openhands/p0-runtime-api-key-fingerprint-proof
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: openhands/p0-runtime-api-key-fingerprint-proof
+          fetch-depth: 0
+
+      - name: Verify production holdings CSV contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://joe-ccass-api.onrender.com/api/v1/stocks/00005/download/holdings/csv'
+          curl -fsS --max-time 90 -D /tmp/headers.txt "$URL" -o /tmp/holdings.csv
+          python - <<'PY'
+          import csv, io, pathlib
+          raw = pathlib.Path('/tmp/holdings.csv').read_bytes()
+          if not raw.startswith(b'\xef\xbb\xbf'):
+              raise SystemExit('UTF8_BOM=FAIL')
+          text = raw.decode('utf-8-sig')
+          rows = list(csv.DictReader(io.StringIO(text)))
+          if not rows:
+              raise SystemExit('HOLDINGS_ROWS=FAIL')
+          required = {'schema_version','section_status','source','data_as_of','warnings'}
+          missing = required - set(rows[0])
+          if missing:
+              raise SystemExit(f'MISSING_FIELDS={sorted(missing)}')
+          statuses = {str(row.get('section_status','')).lower() for row in rows}
+          if statuses != {'ready'}:
+              raise SystemExit(f'SECTION_STATUS=FAIL:{sorted(statuses)}')
+          if not any(row.get('source') for row in rows):
+              raise SystemExit('SOURCE=FAIL')
+          print('PRODUCTION_CSV_HTTP=PASS')
+          print(f'HOLDINGS_ROWS={len(rows)}')
+          print('SCHEMA_VERSION=PASS')
+          print('SECTION_STATUS=ready')
+          print(f'SOURCE={rows[0].get("source")}')
+          print(f'DATA_AS_OF={rows[0].get("data_as_of")}')
+          print('UTF8_SIG=PASS')
+          PY
+
+      - name: Remove temporary verifier
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "Joe CCASS Gate20 Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/gate20_production_verify.yml
+          git commit -m "chore: remove Gate20 production verifier"
+          git push origin HEAD:openhands/p0-runtime-api-key-fingerprint-proof
