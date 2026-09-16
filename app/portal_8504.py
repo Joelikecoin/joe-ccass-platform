@@ -2347,7 +2347,14 @@ async def get_stock_announcements(
     end_date: date | None = Query(default=None),
     service: AnnouncementsService = Depends(get_announcements_service),
 ) -> AnnouncementsResponse:
-    return await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
+    print("ANN_TRACE stage=ANN_ROUTE_BODY_START", flush=True)
+    try:
+        print("ANN_TRACE stage=ANN_SERVICE_GET_START", flush=True)
+        response = await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
+        print("ANN_TRACE stage=ANN_SERVICE_GET_DONE", flush=True)
+        return response
+    finally:
+        print("ANN_TRACE stage=ANN_ROUTE_BODY_END", flush=True)
 
 
 @app.get("/api/v1/stocks/{stock_code}/stock-events", response_model=StockEventsResponse, tags=["stock-events"])
