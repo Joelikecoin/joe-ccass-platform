@@ -56,6 +56,8 @@ This register is descriptive preparation for Joe. Every decision remains `UNDECI
 | F050 | keep-alive behavior | Automation | UNDECIDED | UNKNOWN | YES | UNKNOWN_RUNTIME | Longbridge + persistent SQLite/Turso history; No dedicated storage / response metadata | app/api.py route(s) | No direct MCP evidence | NONE | UNKNOWN | NOT_APPLICABLE |
 | F051 | history proof/internal verification surfaces | Diagnostics | UNDECIDED | UNKNOWN | YES | WORKING | Local application/shared core; No dedicated storage / response metadata | app/api.py route(s) | No direct MCP evidence | NONE | UNKNOWN | YES |
 
+| F052 | Stock search | Input | UNDECIDED | UNKNOWN | YES | WORKING | Local application/shared core; No dedicated storage / response metadata | app/api.py route(s) | No direct MCP evidence | NONE | UNKNOWN | YES |
+
 ## Neutral decision consequences
 
 For every row above, the following consequences apply; they are not recommendations.
@@ -71,7 +73,7 @@ Each feature requires the same later review fields: code change, runtime change,
 
 ## Counts
 
-TOTAL_FEATURES=51
+TOTAL_FEATURES=52
 REFERENCE_MATCH=10
 REFERENCE_PARTIAL=3
 REFERENCE_GAP=0
@@ -88,7 +90,7 @@ TOGGLE_READY_PARTIAL=17
 TOGGLE_READY_NO=0
 TOGGLE_READY_NA=10
 JOE_DECIDED=0
-JOE_UNDECIDED=51
+JOE_UNDECIDED=52
 
 ## Evidence boundary
 
