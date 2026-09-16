@@ -2,6 +2,7 @@
 import os
 import re
 import sqlite3
+import time
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -109,11 +110,23 @@ class NormalizedSnapshotRepository:
     """Transactional source-neutral CCASS snapshot persistence."""
 
     def __init__(self, path: Path) -> None:
+        started = time.perf_counter()
+        def trace(stage: str) -> None:
+            payload = {"stage": stage, "elapsed_ms": round((time.perf_counter() - started) * 1000, 1)}
+            print("ANN_DEP_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
+        trace("REPO_INIT_START")
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        trace("REPO_CONNECT_START")
         with self._connect() as connection:
+            trace("REPO_CONNECT_DONE")
+            trace("REPO_MIGRATION_START")
             apply_migrations(connection)
+            trace("REPO_MIGRATION_DONE")
+        trace("REPO_LEGACY_START")
         self._migrate_legacy_snapshots()
+        trace("REPO_LEGACY_DONE")
+        trace("REPO_INIT_DONE")
 
     def _connect(self) -> sqlite3.Connection:
         turso_url = os.getenv("TURSO_DATABASE_URL")

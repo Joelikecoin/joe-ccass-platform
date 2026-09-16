@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 from functools import lru_cache
+import json
+import time
 
 from app.config import Settings, get_settings
 from app.errors import PlatformError
@@ -10,6 +12,11 @@ from app.storage.announcements import AnnouncementRepository
 from app.storage.history import NormalizedSnapshotRepository
 from app.sources.announcements import HKEXNewsAnnouncementsSource
 from ccass_core.normalize import normalize_stock_code
+
+
+def _dependency_trace(stage: str, started: float) -> None:
+    payload = {"stage": stage, "elapsed_ms": round((time.perf_counter() - started) * 1000, 1)}
+    print("ANN_DEP_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 
 
 class AnnouncementsService:
@@ -51,7 +58,16 @@ class AnnouncementsService:
 
 @lru_cache
 def get_announcements_service() -> AnnouncementsService:
+    started = time.perf_counter()
+    _dependency_trace("GET_ANN_SERVICE_START", started)
     settings: Settings = get_settings()
+    _dependency_trace("GET_ANN_SETTINGS_DONE", started)
+    _dependency_trace("GET_ANN_REPOSITORY_START", started)
     repository = AnnouncementRepository(NormalizedSnapshotRepository(settings.ccass_sqlite_path))
-    return AnnouncementsService(HKEXNewsAnnouncementsSource(settings), repository)
+    _dependency_trace("GET_ANN_REPOSITORY_DONE", started)
+    source = HKEXNewsAnnouncementsSource(settings)
+    _dependency_trace("GET_ANN_SOURCE_DONE", started)
+    service = AnnouncementsService(source, repository)
+    _dependency_trace("GET_ANN_SERVICE_DONE", started)
+    return service
 
