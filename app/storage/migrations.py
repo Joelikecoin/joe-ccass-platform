@@ -221,7 +221,36 @@ MIGRATION_3 = Migration(
 )
 
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3)
+MIGRATION_4 = Migration(
+    version=4,
+    name="historical_announcements",
+    statements=(
+        """
+        CREATE TABLE announcements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            document_id TEXT NOT NULL,
+            publication_datetime TEXT NOT NULL,
+            announcement_date TEXT NOT NULL,
+            title TEXT NOT NULL,
+            category TEXT,
+            long_text TEXT,
+            document_url TEXT,
+            language TEXT,
+            source TEXT NOT NULL,
+            file_type TEXT,
+            file_info TEXT,
+            retrieved_at TEXT NOT NULL,
+            retrieval_status TEXT NOT NULL DEFAULT 'metadata',
+            UNIQUE(stock_code, source, document_id)
+        )
+        """,
+        "CREATE INDEX idx_announcements_code_date ON announcements(stock_code, announcement_date DESC)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 

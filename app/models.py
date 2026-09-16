@@ -261,6 +261,14 @@ class AnnouncementRow(BaseModel):
     title: str
     source: str
     link: str | None = None
+    publication_datetime: datetime | None = None
+    category: str | None = None
+    long_text: str | None = None
+    language: str | None = None
+    document_id: str | None = None
+    file_type: str | None = None
+    file_info: str | None = None
+    retrieval_status: str = "metadata"
 
 
 class AnnouncementsMetadata(BaseModel):
@@ -272,6 +280,11 @@ class AnnouncementsMetadata(BaseModel):
     earliest_announcement_date: date | None = None
     latest_announcement_date: date | None = None
     announcement_count: int = 0
+    coverage_start: date | None = None
+    coverage_end: date | None = None
+    source_status: str = "ready"
+    document_access_status: str = "links_available"
+    cached: bool = False
 
     @computed_field
     @property
