@@ -65,7 +65,6 @@ from ccass_core.source_trace import (
     validate_ccass_date_convention,
 )
 from app.sources.google_drive_csv import GoogleDriveCsvSource
-from app.backfill_ccass import BackfillConfig, run_backfill
 from app.sources.registry import (
     HKEX_SDW_SOURCE_ID,
     GOOGLE_DRIVE_CSV_SOURCE_ID,
@@ -676,19 +675,6 @@ class CcassService:
         # critical path; those capabilities remain available through their
         # dedicated services/endpoints.
         if normalized_response.metadata.source_name.lower() == "longbridge":
-            historical_warning = await self._ensure_historical_backfill(
-                normalized,
-                holdings_limit=holdings_limit,
-            )
-            if historical_warning is not None:
-                normalized_response = normalized_response.model_copy(
-                    update={
-                        "data_quality_warnings": [
-                            *normalized_response.data_quality_warnings,
-                            historical_warning,
-                        ]
-                    }
-                )
             return gateway_response.model_copy(
                 update={"normalized_response": normalized_response}
             )
@@ -774,75 +760,6 @@ class CcassService:
                     }
                 )
         return gateway_response.model_copy(update={"normalized_response": normalized_response})
-
-    async def _ensure_historical_backfill(
-        self,
-        code: str,
-        *,
-        holdings_limit: int,
-    ) -> str | None:
-        """Load two real archive dates on first use when an approved archive is configured."""
-        if self.lkg_repository is None:
-            return None
-        existing_dates = self.lkg_repository.available_dates(code, include_partial=False)
-        if len(existing_dates) >= 2:
-            return None
-        definition = self.source_definitions_by_id.get(GOOGLE_DRIVE_CSV_SOURCE_ID)
-        if definition is None or not definition.configured or not definition.enabled:
-            return structured_warning(
-                "HISTORICAL_STATUS",
-                "SOURCE_HISTORY_UNAVAILABLE",
-                "No configured approved historical archive is available for first-query backfill.",
-            )
-        try:
-            source = GoogleDriveCsvSource(self.settings)
-            available = await asyncio.wait_for(source.available_dates(code), timeout=20.0)
-            if len(available) < 2:
-                return structured_warning(
-                    "HISTORICAL_STATUS",
-                    "SOURCE_HISTORY_UNAVAILABLE",
-                    "The approved historical archive has fewer than two verified dates for this stock.",
-                )
-            result = await asyncio.wait_for(
-                run_backfill(
-                    BackfillConfig(
-                        stock_code=code,
-                        sqlite_path=self.settings.ccass_sqlite_path,
-                        source_mode="google_drive_csv",
-                        latest_count=2,
-                        retry_attempts=1,
-                        request_sleep_seconds=0,
-                        collection_limit=max(holdings_limit, 10_000),
-                    ),
-                    settings=self.settings,
-                    source=source,
-                    repository=self.lkg_repository,
-                ),
-                timeout=35.0,
-            )
-            if result.success_count >= 2 or len(self.lkg_repository.available_dates(code, include_partial=False)) >= 2:
-                return structured_warning(
-                    "HISTORICAL_STATUS",
-                    "HISTORICAL_BACKFILL_COMPLETE",
-                    f"Loaded {result.success_count} verified historical snapshot(s) from the approved archive.",
-                )
-            return structured_warning(
-                "HISTORICAL_STATUS",
-                "HISTORICAL_BACKFILL_PARTIAL",
-                "The approved historical archive returned fewer than two complete snapshots.",
-            )
-        except asyncio.TimeoutError:
-            return structured_warning(
-                "HISTORICAL_STATUS",
-                "HISTORICAL_BACKFILL_TIMEOUT",
-                "Historical archive retrieval exceeded its bounded deadline; current Holdings remains available.",
-            )
-        except Exception as exc:
-            return structured_warning(
-                "HISTORICAL_STATUS",
-                "SOURCE_HISTORY_UNAVAILABLE",
-                f"Historical archive retrieval was unavailable ({type(exc).__name__}); current Holdings remains available.",
-            )
 
     def _has_valid_longbridge_snapshot(
         self,
@@ -1137,3 +1054,4 @@ def get_ccass_service() -> CcassService:
         settings=settings,
         lkg_repository=NormalizedSnapshotRepository(settings.ccass_sqlite_path),
     )
+
