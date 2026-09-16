@@ -23,6 +23,7 @@ class AnnouncementRepository:
                 """,
                 (response.metadata.code, response.metadata.name, now, now),
             )
+            values = []
             for row in response.announcements:
                 document_id = row.document_id or (
                     f"{row.announcement_date.isoformat()}|{row.title}|{row.link or ''}"
@@ -31,7 +32,24 @@ class AnnouncementRepository:
                     row.publication_datetime
                     or datetime.combine(row.announcement_date, datetime.min.time(), tzinfo=UTC)
                 ).isoformat()
-                connection.execute(
+                values.append((
+                    response.metadata.code,
+                    document_id,
+                    published,
+                    row.announcement_date.isoformat(),
+                    row.title,
+                    row.category,
+                    row.long_text,
+                    row.link,
+                    row.language,
+                    row.source,
+                    row.file_type,
+                    row.file_info,
+                    now,
+                    row.retrieval_status,
+                ))
+            if values:
+                connection.executemany(
                     """
                     INSERT INTO announcements(
                         stock_code, document_id, publication_datetime, announcement_date, title,
@@ -51,22 +69,7 @@ class AnnouncementRepository:
                         retrieved_at=excluded.retrieved_at,
                         retrieval_status=excluded.retrieval_status
                     """,
-                    (
-                        response.metadata.code,
-                        document_id,
-                        published,
-                        row.announcement_date.isoformat(),
-                        row.title,
-                        row.category,
-                        row.long_text,
-                        row.link,
-                        row.language,
-                        row.source,
-                        row.file_type,
-                        row.file_info,
-                        now,
-                        row.retrieval_status,
-                    ),
+                    values,
                 )
 
     def load(

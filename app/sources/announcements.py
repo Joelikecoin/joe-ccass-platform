@@ -55,8 +55,6 @@ class HKEXNewsAnnouncementsSource:
         end_date: date | None = None,
         row_range: int = 10_000,
     ) -> AnnouncementsResponse:
-        started = time.monotonic()
-        print("ANN_TRACE stage=ANN_RESOLVE_STOCK_ID_START", flush=True)
         normalized = normalize_stock_code(code)
         request = self._normalize_request(
             normalized,
@@ -67,14 +65,11 @@ class HKEXNewsAnnouncementsSource:
         cache_key = (request.code, request.start_date, request.end_date, request.row_range)
         cached = self._cache.get(cache_key)
         if cached is not None:
-            print("ANN_TRACE stage=ANN_SOURCE_GET_DONE cache=true", flush=True)
             return cached.model_copy(deep=True)
 
         stock_id = await self._resolve_stock_id(request.code)
-        print("ANN_TRACE stage=ANN_RESOLVE_STOCK_ID_DONE", flush=True)
         payload = await self._fetch_payload(request, stock_id=stock_id)
         response = self._build_response(request, stock_id=stock_id, payload=payload)
-        print("ANN_TRACE stage=ANN_SOURCE_GET_DONE", flush=True)
         self._cache[cache_key] = response.model_copy(deep=True)
         return response
 
@@ -142,7 +137,6 @@ class HKEXNewsAnnouncementsSource:
         }
         headers = {"User-Agent": self.settings.user_agent}
         url = f"{HKEXNEWS_PREFIX_URL}?{urlencode(params)}"
-        print(f"ANN_TRACE stage=ANN_PREFIX_REQUEST_START type={securities_type}", flush=True)
         try:
             async with self._request_lock:
                 wait = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at)
@@ -155,7 +149,6 @@ class HKEXNewsAnnouncementsSource:
                 ) as client:
                     response = await client.get(url)
                     self._last_request_at = time.monotonic()
-            print(f"ANN_TRACE stage=ANN_PREFIX_RESPONSE_RECEIVED status={response.status_code}", flush=True)
             if response.status_code == 403:
                 raise PlatformError(
                     ErrorCode.SOURCE_FORBIDDEN,
@@ -217,9 +210,7 @@ class HKEXNewsAnnouncementsSource:
                 status_code=502,
             )
         try:
-            payload = json.loads(callback_match.group(1))
-            print("ANN_TRACE stage=ANN_PREFIX_PARSE_DONE", flush=True)
-            return payload
+            return json.loads(callback_match.group(1))
         except json.JSONDecodeError as exc:
             raise PlatformError(
                 ErrorCode.PARSE_ERROR,
@@ -252,7 +243,6 @@ class HKEXNewsAnnouncementsSource:
             "X-Requested-With": "XMLHttpRequest",
         }
         url = f"{HKEXNEWS_TITLE_SEARCH_SERVLET_URL}?{urlencode(params)}"
-        print("ANN_TRACE stage=ANN_TITLE_REQUEST_START", flush=True)
         try:
             async with self._request_lock:
                 wait = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at)
@@ -265,7 +255,6 @@ class HKEXNewsAnnouncementsSource:
                 ) as client:
                     response = await client.get(url)
                     self._last_request_at = time.monotonic()
-            print(f"ANN_TRACE stage=ANN_TITLE_RESPONSE_RECEIVED status={response.status_code}", flush=True)
             if response.status_code == 403:
                 raise PlatformError(
                     ErrorCode.SOURCE_FORBIDDEN,
@@ -296,7 +285,6 @@ class HKEXNewsAnnouncementsSource:
                 )
             response.raise_for_status()
             payload = response.json()
-            print("ANN_TRACE stage=ANN_TITLE_PARSE_DONE", flush=True)
         except httpx.TimeoutException as exc:
             raise PlatformError(
                 ErrorCode.SOURCE_TIMEOUT,

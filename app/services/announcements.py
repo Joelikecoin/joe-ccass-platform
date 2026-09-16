@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import date
 from functools import lru_cache
-import time
 
 from app.config import Settings, get_settings
 from app.errors import PlatformError
@@ -29,8 +28,6 @@ class AnnouncementsService:
         start_date: date | None = None,
         end_date: date | None = None,
     ) -> AnnouncementsResponse:
-        started = time.monotonic()
-        print("ANN_TRACE stage=ANN_SOURCE_GET_START", flush=True)
         try:
             response = await self.source.get_announcements(
                 code,
@@ -38,10 +35,7 @@ class AnnouncementsService:
                 end_date=end_date,
             )
             if self.repository is not None:
-                print("ANN_TRACE stage=ANN_PERSIST_START", flush=True)
                 self.repository.save(response)
-                print("ANN_TRACE stage=ANN_PERSIST_DONE", flush=True)
-            print(f"ANN_TRACE stage=ANN_NORMALIZE_DONE elapsed_ms={(time.monotonic()-started)*1000:.1f}", flush=True)
             return response
         except PlatformError:
             if self.repository is not None:
@@ -53,8 +47,6 @@ class AnnouncementsService:
                 if cached is not None:
                     return cached
             raise
-        finally:
-            print(f"ANN_TRACE stage=ANN_SERVICE_GET_DONE elapsed_ms={(time.monotonic()-started)*1000:.1f}", flush=True)
 
 
 @lru_cache
