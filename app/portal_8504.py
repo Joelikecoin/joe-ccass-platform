@@ -2347,15 +2347,7 @@ async def get_stock_announcements(
     end_date: date | None = Query(default=None),
     service: AnnouncementsService = Depends(get_announcements_service),
 ) -> AnnouncementsResponse:
-    started = time.perf_counter()
-    logger.info("ANN_TRACE %s", json.dumps({"stage":"ANN_ROUTE_START","stock_code":stock_code,"elapsed_ms":0.0}, separators=(",", ":")))
-    try:
-        response = await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
-    except Exception as exc:
-        logger.exception("ANN_TRACE %s", json.dumps({"stage":"ANN_ROUTE_ERROR","stock_code":stock_code,"elapsed_ms":round((time.perf_counter()-started)*1000,1),"exception_type":type(exc).__name__}, separators=(",", ":")))
-        raise
-    logger.info("ANN_TRACE %s", json.dumps({"stage":"ANN_ROUTE_END","stock_code":stock_code,"elapsed_ms":round((time.perf_counter()-started)*1000,1)}, separators=(",", ":")))
-    return response
+    return await service.get_announcements(stock_code, start_date=start_date, end_date=end_date)
 
 
 @app.get("/api/v1/stocks/{stock_code}/stock-events", response_model=StockEventsResponse, tags=["stock-events"])
