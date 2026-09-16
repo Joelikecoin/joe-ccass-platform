@@ -19,10 +19,10 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from app.config import get_settings
 
 
-def _p0_bundle_trace(stage: str, started: float, *, completed=None, exception_type="", timeout=False, status="") -> None:
+def _p0_bundle_trace(stage: str, started: float, *, stock: str = "", completed=None, exception_type="", timeout=False, status="") -> None:
     if os.getenv("P0_LONGBRIDGE_TRACE") != "1":
         return
-    payload = {"stage": stage, "stock": "06182", "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
+    payload = {"stage": stage, "stock": stock, "ts": time.time(), "elapsed_ms": round((time.perf_counter() - started) * 1000, 1), "completed": completed, "status": status, "exception_type": exception_type, "timeout": timeout}
     print("LB_TRACE " + json.dumps(payload, separators=(",", ":")), flush=True)
 from app.errors import PlatformError
 from app.live_product import (
@@ -279,12 +279,13 @@ async def _build_bundle(
         previous_loader=previous_loader,
     )
     prepared = await ccass_task
-    post_started = time.perf_counter(); _p0_bundle_trace("POST_PREPARE_START", post_started, status="prepared")
+    post_started = time.perf_counter(); _p0_bundle_trace("POST_PREPARE_START", post_started, stock=resolved_code, status="prepared")
     prepared_response = prepared.response
     prepared_holdings = list(getattr(prepared_response, "holdings", ()) or ()) if prepared_response is not None else []
     _p0_bundle_trace(
         "PREPARED_RESPONSE",
         post_started,
+        stock=resolved_code,
         completed=prepared_response is not None,
         status=f"holdings={len(prepared_holdings)}",
     )
@@ -300,28 +301,28 @@ async def _build_bundle(
     if source_mode == "local_db":
         product_kwargs["allow_external"] = False
         product_kwargs["source_mode"] = source_mode
-    _p0_bundle_trace("LIVE_PRODUCT_CALL_START", post_started, status=f"allow_external={product_kwargs.get('allow_external', True)}")
+    _p0_bundle_trace("LIVE_PRODUCT_CALL_START", post_started, stock=resolved_code, status=f"allow_external={product_kwargs.get('allow_external', True)}")
     live_product = await build_live_product_from_response_with_surfaces(prepared.response, **product_kwargs)
-    _p0_bundle_trace("LIVE_PRODUCT_CALL_END", post_started, completed=True, status="returned")
+    _p0_bundle_trace("LIVE_PRODUCT_CALL_END", post_started, stock=resolved_code, completed=True, status="returned")
 
     if previous_loader and prepared.response is not None:
-        _p0_bundle_trace("PREVIOUS_LOADER_START", post_started)
+        _p0_bundle_trace("PREVIOUS_LOADER_START", post_started, stock=resolved_code)
         try:
             previous_snapshot = previous_loader(prepared.response)
         except Exception:
             previous_snapshot = None
-        _p0_bundle_trace("PREVIOUS_LOADER_END", post_started, completed=True, status="returned")
+        _p0_bundle_trace("PREVIOUS_LOADER_END", post_started, stock=resolved_code, completed=True, status="returned")
 
-    _p0_bundle_trace("LIVE_MARKDOWN_START", post_started)
+    _p0_bundle_trace("LIVE_MARKDOWN_START", post_started, stock=resolved_code)
     live_markdown_en = render_live_markdown(live_product, locale="en") if live_product else ""
-    _p0_bundle_trace("LIVE_MARKDOWN_END", post_started, completed=True, status="returned")
-    _p0_bundle_trace("LIVE_ARTIFACTS_START", post_started)
+    _p0_bundle_trace("LIVE_MARKDOWN_END", post_started, stock=resolved_code, completed=True, status="returned")
+    _p0_bundle_trace("LIVE_ARTIFACTS_START", post_started, stock=resolved_code)
     live_artifacts = build_live_download_artifacts(live_product) if live_product else None
-    _p0_bundle_trace("LIVE_ARTIFACTS_END", post_started, completed=True, status="returned")
-    _p0_bundle_trace("CCASS_ARTIFACTS_START", post_started)
+    _p0_bundle_trace("LIVE_ARTIFACTS_END", post_started, stock=resolved_code, completed=True, status="returned")
+    _p0_bundle_trace("CCASS_ARTIFACTS_START", post_started, stock=resolved_code)
     ccass_artifacts = build_download_artifacts(prepared.response) if prepared.response is not None else None
-    _p0_bundle_trace("CCASS_ARTIFACTS_END", post_started, completed=True, status="returned")
-    _p0_bundle_trace("PORTAL_BUNDLE_CREATE_START", post_started)
+    _p0_bundle_trace("CCASS_ARTIFACTS_END", post_started, stock=resolved_code, completed=True, status="returned")
+    _p0_bundle_trace("PORTAL_BUNDLE_CREATE_START", post_started, stock=resolved_code)
     bundle = PortalBundle(
         requested_code=raw_code,
         resolved_code=resolved_code,
@@ -345,8 +346,8 @@ async def _build_bundle(
         history_range=history_range,
         percentage_basis=percentage_basis,
     )
-    _p0_bundle_trace("PORTAL_BUNDLE_CREATE_END", post_started, completed=True, status="created")
-    _p0_bundle_trace("BUILD_BUNDLE_END", post_started, completed=True, status="returned")
+    _p0_bundle_trace("PORTAL_BUNDLE_CREATE_END", post_started, stock=resolved_code, completed=True, status="created")
+    _p0_bundle_trace("BUILD_BUNDLE_END", post_started, stock=resolved_code, completed=True, status="returned")
     return bundle
 
 
