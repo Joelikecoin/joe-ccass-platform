@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass
@@ -28,6 +29,17 @@ HKEXNEWS_CATEGORY = "0"
 HKEXNEWS_DOCUMENT_TYPE = "-1"
 HKEXNEWS_SEARCH_TYPE = "0"
 HKEXNEWS_TIER_DEFAULT = "-2"
+logger = logging.getLogger(__name__)
+
+
+def _announcement_trace(stage: str, code: str, started: float, **fields: object) -> None:
+    payload = {
+        "stage": stage,
+        "stock_code": code,
+        "elapsed_ms": round((time.perf_counter() - started) * 1000, 1),
+        **fields,
+    }
+    logger.info("ANN_TRACE %s", json.dumps(payload, separators=(",", ":")))
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +149,8 @@ class HKEXNewsAnnouncementsSource:
         }
         headers = {"User-Agent": self.settings.user_agent}
         url = f"{HKEXNEWS_PREFIX_URL}?{urlencode(params)}"
+        started = time.perf_counter()
+        _announcement_trace("ANN_PREFIX_START", code, started, parse_stage="request")
         try:
             async with self._request_lock:
                 wait = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at)
@@ -149,6 +163,15 @@ class HKEXNewsAnnouncementsSource:
                 ) as client:
                     response = await client.get(url)
                     self._last_request_at = time.monotonic()
+            _announcement_trace(
+                "ANN_PREFIX_RESPONSE",
+                code,
+                started,
+                http_status=response.status_code,
+                response_content_type=response.headers.get("content-type"),
+                response_length=len(response.content),
+                parse_stage="response",
+            )
             if response.status_code == 403:
                 raise PlatformError(
                     ErrorCode.SOURCE_FORBIDDEN,
@@ -180,6 +203,7 @@ class HKEXNewsAnnouncementsSource:
             response.raise_for_status()
             text = response.text.strip()
         except httpx.TimeoutException as exc:
+            _announcement_trace("ANN_PREFIX_END", code, started, exception_type=type(exc).__name__, timeout=True, parse_stage="error")
             raise PlatformError(
                 ErrorCode.SOURCE_TIMEOUT,
                 "HKEXnews announcement lookup timed out.",
@@ -187,6 +211,7 @@ class HKEXNewsAnnouncementsSource:
                 status_code=503,
             ) from exc
         except httpx.NetworkError as exc:
+            _announcement_trace("ANN_PREFIX_END", code, started, exception_type=type(exc).__name__, timeout=False, parse_stage="error")
             raise PlatformError(
                 ErrorCode.SOURCE_UNAVAILABLE,
                 f"HKEXnews announcement lookup network failure: {type(exc).__name__}.",
@@ -194,6 +219,7 @@ class HKEXNewsAnnouncementsSource:
                 status_code=503,
             ) from exc
         except httpx.HTTPError as exc:
+            _announcement_trace("ANN_PREFIX_END", code, started, exception_type=type(exc).__name__, timeout=False, parse_stage="error")
             raise PlatformError(
                 ErrorCode.DATA_SOURCE_ERROR,
                 f"HKEXnews announcement lookup failed: {type(exc).__name__}.",
@@ -203,6 +229,7 @@ class HKEXNewsAnnouncementsSource:
 
         callback_match = re.fullmatch(r"callback\((.*)\);\s*", text, flags=re.S)
         if callback_match is None:
+            _announcement_trace("ANN_PREFIX_END", code, started, exception_type="ParseError", timeout=False, response_length=len(text), parse_stage="callback")
             raise PlatformError(
                 ErrorCode.PARSE_ERROR,
                 "HKEXnews announcement lookup returned unexpected content.",
@@ -210,8 +237,11 @@ class HKEXNewsAnnouncementsSource:
                 status_code=502,
             )
         try:
-            return json.loads(callback_match.group(1))
+            payload = json.loads(callback_match.group(1))
+            _announcement_trace("ANN_PREFIX_END", code, started, timeout=False, response_length=len(text), parse_stage="complete")
+            return payload
         except json.JSONDecodeError as exc:
+            _announcement_trace("ANN_PREFIX_END", code, started, exception_type=type(exc).__name__, timeout=False, response_length=len(text), parse_stage="json")
             raise PlatformError(
                 ErrorCode.PARSE_ERROR,
                 "HKEXnews announcement lookup returned invalid JSON.",
@@ -243,6 +273,8 @@ class HKEXNewsAnnouncementsSource:
             "X-Requested-With": "XMLHttpRequest",
         }
         url = f"{HKEXNEWS_TITLE_SEARCH_SERVLET_URL}?{urlencode(params)}"
+        started = time.perf_counter()
+        _announcement_trace("ANN_TITLE_START", request.code, started, parse_stage="request", stock_id=stock_id)
         try:
             async with self._request_lock:
                 wait = self.settings.min_request_interval_seconds - (time.monotonic() - self._last_request_at)
@@ -255,6 +287,16 @@ class HKEXNewsAnnouncementsSource:
                 ) as client:
                     response = await client.get(url)
                     self._last_request_at = time.monotonic()
+            _announcement_trace(
+                "ANN_TITLE_RESPONSE",
+                request.code,
+                started,
+                http_status=response.status_code,
+                response_content_type=response.headers.get("content-type"),
+                response_length=len(response.content),
+                parse_stage="response",
+                stock_id=stock_id,
+            )
             if response.status_code == 403:
                 raise PlatformError(
                     ErrorCode.SOURCE_FORBIDDEN,
@@ -286,6 +328,7 @@ class HKEXNewsAnnouncementsSource:
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:
+            _announcement_trace("ANN_TITLE_END", request.code, started, exception_type=type(exc).__name__, timeout=True, parse_stage="error", stock_id=stock_id)
             raise PlatformError(
                 ErrorCode.SOURCE_TIMEOUT,
                 "HKEXnews announcement request timed out.",
@@ -293,6 +336,7 @@ class HKEXNewsAnnouncementsSource:
                 status_code=503,
             ) from exc
         except httpx.NetworkError as exc:
+            _announcement_trace("ANN_TITLE_END", request.code, started, exception_type=type(exc).__name__, timeout=False, parse_stage="error", stock_id=stock_id)
             raise PlatformError(
                 ErrorCode.SOURCE_UNAVAILABLE,
                 f"HKEXnews announcement network failure: {type(exc).__name__}.",
@@ -300,6 +344,7 @@ class HKEXNewsAnnouncementsSource:
                 status_code=503,
             ) from exc
         except httpx.HTTPError as exc:
+            _announcement_trace("ANN_TITLE_END", request.code, started, exception_type=type(exc).__name__, timeout=False, parse_stage="error", stock_id=stock_id)
             raise PlatformError(
                 ErrorCode.DATA_SOURCE_ERROR,
                 f"HKEXnews announcement request failed: {type(exc).__name__}.",
@@ -307,12 +352,14 @@ class HKEXNewsAnnouncementsSource:
                 status_code=502,
             ) from exc
         except ValueError as exc:
+            _announcement_trace("ANN_TITLE_END", request.code, started, exception_type=type(exc).__name__, timeout=False, parse_stage="json", stock_id=stock_id)
             raise PlatformError(
                 ErrorCode.PARSE_ERROR,
                 "HKEXnews announcement request returned non-JSON content.",
                 retry_recommended=True,
                 status_code=502,
             ) from exc
+        _announcement_trace("ANN_TITLE_END", request.code, started, timeout=False, response_length=len(response.content), parse_stage="complete", stock_id=stock_id)
         return payload
 
     def _build_response(
