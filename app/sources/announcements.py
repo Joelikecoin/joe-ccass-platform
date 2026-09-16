@@ -45,6 +45,7 @@ class HKEXNewsAnnouncementsSource:
         self._request_lock = asyncio.Lock()
         self._last_request_at = 0.0
         self._cache: dict[tuple[str, date, date], AnnouncementsResponse] = {}
+        self._stock_id_cache: dict[str, int] = {}
 
     async def get_announcements(
         self,
@@ -104,6 +105,9 @@ class HKEXNewsAnnouncementsSource:
         )
 
     async def _resolve_stock_id(self, code: str) -> int:
+        cached = self._stock_id_cache.get(code)
+        if cached is not None:
+            return cached
         for securities_type in ("A", "I"):
             payload = await self._fetch_stock_candidates(code, securities_type)
             candidates = payload.get("stockInfo") or []
@@ -112,8 +116,10 @@ class HKEXNewsAnnouncementsSource:
                 if candidate_code == code:
                     stock_id = candidate.get("stockId")
                     if isinstance(stock_id, int) and stock_id > 0:
+                        self._stock_id_cache[code] = stock_id
                         return stock_id
                     if isinstance(stock_id, str) and stock_id.isdigit():
+                        self._stock_id_cache[code] = int(stock_id)
                         return int(stock_id)
         raise PlatformError(
             ErrorCode.NOT_FOUND,
@@ -344,12 +350,20 @@ class HKEXNewsAnnouncementsSource:
             if announcement_date is None or not title:
                 continue
             link = self._absolute_link(row.get("FILE_LINK") or row.get("DOD_WEB_PATH"))
+            publication_datetime = self._parse_row_datetime(row.get("DATE_TIME"))
             announcements.append(
                 AnnouncementRow(
                     announcement_date=announcement_date,
                     title=title,
                     source=HKEXNEWS_SOURCE_NAME,
                     link=link,
+                    publication_datetime=publication_datetime,
+                    category=str(row.get("CATEGORY") or row.get("LONG_TEXT") or "").strip() or None,
+                    long_text=str(row.get("LONG_TEXT") or "").strip() or None,
+                    language="E",
+                    document_id=str(row.get("NEWS_ID") or "").strip() or None,
+                    file_type=str(row.get("FILE_TYPE") or "").strip() or None,
+                    file_info=str(row.get("FILE_INFO") or "").strip() or None,
                 )
             )
 
@@ -375,6 +389,10 @@ class HKEXNewsAnnouncementsSource:
             earliest_announcement_date=min(dates) if dates else None,
             latest_announcement_date=max(dates) if dates else None,
             announcement_count=len(announcements),
+            coverage_start=request.start_date,
+            coverage_end=request.end_date,
+            source_status="partial" if payload.get("hasNextRow") else "ready",
+            document_access_status="links_available",
         )
         return AnnouncementsResponse(
             metadata=metadata,
@@ -422,6 +440,15 @@ class HKEXNewsAnnouncementsSource:
             return None
         try:
             return datetime.strptime(value.split(" ", 1)[0], "%d/%m/%Y").date()
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _parse_row_datetime(value: object | None) -> datetime | None:
+        if not isinstance(value, str) or not value.strip():
+            return None
+        try:
+            return datetime.strptime(value.strip(), "%d/%m/%Y %H:%M").replace(tzinfo=UTC)
         except ValueError:
             return None
 
