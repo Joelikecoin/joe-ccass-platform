@@ -9,6 +9,7 @@
 > **Authority HEAD:** `3324d8625d682c304e875d94867a1cc59e362da5` (2026-09-17 18:29 +0800)
 > **Render:** `joe-ccass-api`, Docker runtime, latest redeploy `dep-dalvpk142hec73dsi6i0` = LIVE (commit `3324d86`)
 > **Current P0:** verify live Docker Chromium + real DION E2E → then any-new-stock unified gate.
+> **RESUME PHRASE (Joe pastes this to any machine/session):** `read PROJECT_PROGRESS_V3.md §12` — then follow §12's scoped task list.
 > **Product definition:** changed — see §2. The platform is now a **5-Year Stock Intelligence Data Layer**, not a CCASS website.
 
 ---
