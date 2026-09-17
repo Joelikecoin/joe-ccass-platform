@@ -83,6 +83,8 @@ class HKEXDisclosureInterestsSource:
                 await page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
                 html = await page.content()
                 if "Form Serial Number" not in html:
+                    if "Total records:" in html:
+                        return self._parse_result(code, html, start_date, end_date)
                     return self._unavailable(code, "DION browser result table was not returned")
                 return self._parse_result(code, html, start_date, end_date)
             finally:
