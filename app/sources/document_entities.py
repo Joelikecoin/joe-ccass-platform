@@ -41,6 +41,8 @@ def _extract_rows(spec: HKEXDocumentSpec, text: str, retrieved_at: datetime) -> 
     normalized = re.sub(r"\s+", " ", text).strip()
     for entity_type, label in _TYPES:
         for match in re.finditer(label, normalized, flags=re.I):
+            if entity_type == "financial_adviser" and re.search(r"independent\s*$", normalized[max(0, match.start() - 20):match.start()], re.I):
+                continue
             window = normalized[max(0, match.start() - 240): min(len(normalized), match.end() + 300)]
             # Capture only an explicitly named organisation adjacent to a role label.
             name_match = re.search(r"([A-Z][A-Za-z0-9 &'.,()/-]{2,100}?(?:Limited|Corporation|Company Limited|Securities Company Limited))", window)
