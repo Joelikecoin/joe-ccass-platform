@@ -55,9 +55,9 @@ read PROJECT_PROGRESS_V3.md §12
 | Code 修改、Render 驗證、API 測試、文檔 | ✅ | ✅ |
 | DI 異步 job 開發（Phase 0.2 下一步） | ✅ | ✅ |
 | 讀朋友解題包/證據（H: 雲端） | ✅ | ✅（裝 Google Drive 掛載 H: 同一條路徑） |
-| Webb 歷史抽取 | ✅（D:\ 已有 17GB SQL） | ✅ 都得——雲端有壓縮母本 `docs_reference_evidence\David_Webb_CCASS_Research_Pack\...\CCASS schema\ccass251227.7z`（1.5GB），裝 7-Zip 解壓即得 17GB SQL（實測 75 秒），C 槽預留 ~18GB |
+| Webb 歷史抽取 | ✅（D:\ 已有 17GB SQL） | ✅ 兩條路任揀：(a) 直接 copy 雲端 raw SQL `David_Webb_CCASS_Research_Pack\WEBBSITE_CCASS_EXTRACT\ccassData-2025-12-27- 600.sql`（17GB，2026-09-18 已上載，大小與屋企 D:\ 完全一致）；(b) 下載細 11 倍嘅 `...\CCASS schema\ccass251227.7z`（1.5GB）→ 裝 7-Zip 解壓（實測 75 秒）。C 槽預留 ~18GB |
 
-歷史數據不需要另外上載：17GB SQL 嘅壓縮母本早已喺雲端，兩部機都由佢還原。
+歷史數據不需要另外上載：raw 17GB SQL 同 1.5GB 壓縮母本都已喺雲端，兩部機都由佢還原。
 
 ## 六、規矩（不變）
 
