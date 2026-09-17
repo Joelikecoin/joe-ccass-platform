@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     api_key: str = ""
-    data_source: Literal["auto", "webbsite", "google_drive_csv"] = "auto"
+    data_source: Literal["auto", "webbsite", "google_drive_csv", "webbsite_archive"] = "auto"
     ccass_csv_url: str = ""
     ccass_csv_max_bytes: int = 5_000_000
     google_drive_csv_enabled: bool = True
@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     webbsite_base_url: str = "https://webb-database.com"
     webbsite_fallback_base_url: str = "https://webbsite.0xmd.com"
     webbsite_enabled: bool = True
+    webb_historical_sqlite_path: Path | None = None
+    webb_historical_enabled: bool = True
     webbsite_audit_state: Literal["approved", "disabled", "unverified"] = "approved"
     webbsite_audit_date: date | None = None
     webbsite_max_bytes: int = 5_000_000
@@ -69,6 +71,8 @@ class Settings(BaseSettings):
             raise ValueError("cache TTL and request intervals cannot be negative")
         if not self.ccass_sqlite_path.is_absolute():
             self.ccass_sqlite_path = _repo_root() / self.ccass_sqlite_path
+        if self.webb_historical_sqlite_path is not None and not self.webb_historical_sqlite_path.is_absolute():
+            self.webb_historical_sqlite_path = _repo_root() / self.webb_historical_sqlite_path
         return self
 
 
