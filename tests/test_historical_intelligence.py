@@ -89,7 +89,11 @@ async def test_historical_intelligence_builds_timeline_and_explicit_gaps():
     assert result.domains["announcements"].status == "COMPLETE"
     assert result.domains["share_capital"].status == "COMPLETE"
     assert result.domains["stock_events"].status == "PARTIAL"
+    assert result.domains["structured_corporate_events"].status == "COMPLETE"
+    assert result.domains["structured_corporate_events"].count == 2
     assert result.domains["di_ownership"].status == "UNAVAILABLE"
+    assert result.domains["whitewash"].status == "UNAVAILABLE"
+    assert result.domains["fundamentals"].status == "UNAVAILABLE"
     assert [item.event_date for item in result.timeline] == [date(2026, 8, 1), date(2026, 8, 2)]
     assert result.timeline[0].source_url
     assert result.timeline[0].raw_label == "Capital change"
