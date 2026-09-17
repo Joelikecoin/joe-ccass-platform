@@ -48,14 +48,16 @@ read PROJECT_PROGRESS_V3.md §12
 
 呢句咒語喺任何機、任何 session 貼俾 ZCode 就即刻接上（§12 有：已批准任務、根因、驗證步驟）。
 
-## 五、兩部機分工（重要）
+## 五、兩部機分工
 
 | 工作 | 屋企機 | 公司機 |
 |---|---|---|
 | Code 修改、Render 驗證、API 測試、文檔 | ✅ | ✅ |
 | DI 異步 job 開發（Phase 0.2 下一步） | ✅ | ✅ |
-| Webb 歷史抽取/重建（需要 D:\ 17GB dump + selective index） | ✅ | ❌ 做唔到（公司機冇呢啲檔案） |
-| 讀朋友解題包/證據（H: 雲端） | ✅ | ✅（如果公司機裝咗 Google Drive、掛載 H: 同一條路徑） |
+| 讀朋友解題包/證據（H: 雲端） | ✅ | ✅（裝 Google Drive 掛載 H: 同一條路徑） |
+| Webb 歷史抽取 | ✅（D:\ 已有 17GB SQL） | ✅ 都得——雲端有壓縮母本 `docs_reference_evidence\David_Webb_CCASS_Research_Pack\...\CCASS schema\ccass251227.7z`（1.5GB），裝 7-Zip 解壓即得 17GB SQL（實測 75 秒），C 槽預留 ~18GB |
+
+歷史數據不需要另外上載：17GB SQL 嘅壓縮母本早已喺雲端，兩部機都由佢還原。
 
 ## 六、規矩（不變）
 
