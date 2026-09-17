@@ -317,6 +317,68 @@ class CorporateTimeline(BaseModel):
     events: list[CorporateEvidence] = Field(default_factory=list)
 
 
+class DisclosureInterestRow(BaseModel):
+    filing_id: str
+    stock_code: str
+    event_date: date
+    filer: str
+    classification: str
+    shares_involved: int | None = None
+    previous_balance: int | None = None
+    present_balance: int | None = None
+    percentage: float | None = None
+    average_price: float | None = None
+    reason: str | None = None
+    source_url: str
+    retrieved_at: datetime
+    provenance: str = "HKEX DION"
+
+
+class DisclosureInterestsMetadata(BaseModel):
+    code: str
+    source_name: str = "HKEX DION"
+    source_url: str
+    fetched_at: datetime
+    source_status: Literal["ready", "unavailable"] = "ready"
+    filing_count: int = 0
+
+
+class DisclosureInterestsResponse(BaseModel):
+    metadata: DisclosureInterestsMetadata
+    filings: list[DisclosureInterestRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class DocumentEntityRow(BaseModel):
+    stock_code: str
+    document_id: str
+    document_type: str
+    entity_type: Literal["placing_agent", "financial_adviser", "independent_financial_adviser", "offeror", "underwriter", "whitewash_waiver", "concert_party"]
+    entity_name: str | None = None
+    direct_source_fact: str
+    derived_classification: str | None = None
+    source_url: str
+    announcement_date: date
+    retrieved_at: datetime
+    provenance: str = "HKEXnews document text"
+
+
+class DocumentEntitiesMetadata(BaseModel):
+    code: str
+    source_name: str = "HKEXnews document text"
+    fetched_at: datetime
+    source_status: Literal["ready", "partial", "unavailable"]
+    documents_attempted: int = 0
+    documents_fetched: int = 0
+    rows_extracted: int = 0
+
+
+class DocumentEntitiesResponse(BaseModel):
+    metadata: DocumentEntitiesMetadata
+    rows: list[DocumentEntityRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
 class StockEventRow(BaseModel):
     event_date: date
     title: str
@@ -427,4 +489,43 @@ class ShareCapitalHistoryMetadata(BaseModel):
 class ShareCapitalHistoryResponse(BaseModel):
     metadata: ShareCapitalHistoryMetadata
     rows: list[ShareCapitalHistoryRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class FundamentalRow(BaseModel):
+    stock_code: str
+    reporting_period: str
+    announcement_date: date
+    report_type: str
+    revenue: float | None = None
+    net_profit_loss: float | None = None
+    cash: float | None = None
+    debt: float | None = None
+    net_assets: float | None = None
+    equity: float | None = None
+    operating_cash_flow: float | None = None
+    shares_outstanding: float | None = None
+    currency: str | None = None
+    unit: str | None = None
+    source_document: str
+    source_url: str
+    retrieval_timestamp: datetime
+    parser_method: str
+    completeness_status: Literal["complete", "partial"] = "partial"
+
+
+class FundamentalsMetadata(BaseModel):
+    code: str
+    source_name: str = "HKEXnews"
+    fetched_at: datetime
+    source_status: Literal["ready", "partial", "unavailable"]
+    documents_attempted: int = 0
+    documents_fetched: int = 0
+    documents_parsed: int = 0
+    documents_failed: int = 0
+
+
+class FundamentalsResponse(BaseModel):
+    metadata: FundamentalsMetadata
+    rows: list[FundamentalRow] = Field(default_factory=list)
     data_quality_warnings: list[str] = Field(default_factory=list)

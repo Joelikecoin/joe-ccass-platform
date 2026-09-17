@@ -249,8 +249,82 @@ MIGRATION_4 = Migration(
     ),
 )
 
+MIGRATION_5 = Migration(
+    version=5,
+    name="disclosure_interests",
+    statements=(
+        """
+        CREATE TABLE disclosure_interests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            filing_id TEXT NOT NULL,
+            event_date TEXT NOT NULL,
+            filer TEXT NOT NULL,
+            classification TEXT NOT NULL,
+            shares_involved INTEGER,
+            previous_balance INTEGER,
+            present_balance INTEGER,
+            percentage REAL,
+            average_price REAL,
+            reason TEXT,
+            source_url TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            provenance TEXT NOT NULL,
+            UNIQUE(stock_code, filing_id)
+        )
+        """,
+        "CREATE INDEX idx_disclosure_interests_code_date ON disclosure_interests(stock_code, event_date DESC)",
+    ),
+)
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4)
+MIGRATION_6 = Migration(
+    version=6,
+    name="historical_fundamentals",
+    statements=(
+        """
+        CREATE TABLE fundamentals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            source_document TEXT NOT NULL,
+            reporting_period TEXT NOT NULL,
+            announcement_date TEXT NOT NULL,
+            report_type TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            UNIQUE(stock_code, source_document)
+        )
+        """,
+        "CREATE INDEX idx_fundamentals_code_period ON fundamentals(stock_code, reporting_period)",
+    ),
+)
+
+MIGRATION_7 = Migration(
+    version=7,
+    name="document_entities",
+    statements=(
+        """
+        CREATE TABLE document_entities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            document_id TEXT NOT NULL,
+            document_type TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_name TEXT,
+            direct_source_fact TEXT NOT NULL,
+            derived_classification TEXT,
+            source_url TEXT NOT NULL,
+            announcement_date TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            provenance TEXT NOT NULL,
+            UNIQUE(stock_code, document_id, entity_type, entity_name)
+        )
+        """,
+        "CREATE INDEX idx_document_entities_code_date ON document_entities(stock_code, announcement_date DESC)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 

@@ -22,11 +22,12 @@ from app.sources.webbsite_parser import (
     WEBBSITE_PARSER_VERSION,
     WEBBSITE_SCHEMA_VERSION,
 )
+from app.sources.webbsite_historical import WEBB_HISTORICAL_SOURCE_ID
 
 WEBBSITE_SOURCE_ID = "webbsite"
 HKEX_SDW_SOURCE_ID = "hkex_sdw"
 GOOGLE_DRIVE_CSV_SOURCE_ID = "google_drive_csv"
-SourceMode = Literal["auto", "webbsite", "google_drive_csv"]
+SourceMode = Literal["auto", "webbsite", "google_drive_csv", "webbsite_archive"]
 LONG_BRIDGE_SOURCE_ID = "longbridge"
 
 
@@ -475,11 +476,46 @@ def build_source_registry(settings: Settings) -> SourceRegistry:
             "persistent normalized LKG is collector/service managed",
         ),
     )
+    archive = _definition(
+        source_id=WEBB_HISTORICAL_SOURCE_ID,
+        display_name="Webb-site repository archive",
+        priority=5,
+        configured=bool(settings.webb_historical_sqlite_path and settings.webb_historical_sqlite_path.exists()),
+        setting_enabled=settings.webb_historical_enabled,
+        audit_state=SourceAuditState.APPROVED,
+        audit_date=None,
+        active_status=SourceStatus.ACTIVE,
+        capabilities=frozenset({SourceCapability.REQUESTED_DATE, SourceCapability.HISTORICAL}),
+        fallback_eligible=False,
+        parser_id="webbsite-canonical-sqlite",
+        parser_version="1",
+        schema_version="webbsite-canonical-v1",
+        policy=SourcePolicy(
+            timeout_seconds=settings.request_timeout_seconds,
+            max_bytes=settings.webbsite_max_bytes,
+            retry_attempts=1,
+            minimum_interval_seconds=0,
+            cache_ttl_seconds=0,
+            cache_policy="read_only_local_index",
+            last_known_good_policy="none",
+            lkg_max_age_seconds=settings.holdings_lkg_max_age_seconds,
+        ),
+        hostname=None,
+        attribution="David Webb original Webb-site repository archive",
+        terms_review="approved_existing_source_scope",
+        robots_review="not_applicable_local_archive",
+        limitations=(
+            "coverage ends 2025-12-24",
+            "requires a provisioned canonical historical SQLite index",
+            "later dates are returned as unavailable",
+        ),
+    )
     return SourceRegistry(
         {
             webbsite.source_id: webbsite,
             google.source_id: google,
             hkex_sdw.source_id: hkex_sdw,
+            archive.source_id: archive,
         }
     )
 

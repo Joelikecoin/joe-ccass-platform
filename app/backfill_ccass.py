@@ -17,6 +17,7 @@ from app.domain.history import BackfillRunItemRecord, BackfillRunRecord, Histori
 from app.errors import ErrorCode, PlatformError
 from app.models import CcassResponse
 from app.sources.google_drive_csv import GoogleDriveCsvSource
+from app.sources.webbsite_historical import WEBB_HISTORICAL_SOURCE_ID, WebbHistoricalSqliteSource
 from app.sources.registry import (
     GOOGLE_DRIVE_CSV_SOURCE_ID,
     SourceCapability,
@@ -50,7 +51,7 @@ class HistoricalSource(Protocol):
 class BackfillConfig:
     stock_code: str
     sqlite_path: Path = DEFAULT_DATABASE
-    source_mode: Literal["auto", "webbsite", "google_drive_csv"] = "auto"
+    source_mode: Literal["auto", "webbsite", "google_drive_csv", "webbsite_archive"] = "auto"
     date_from: date | None = None
     date_to: date | None = None
     latest_count: int | None = None
@@ -328,6 +329,8 @@ def _historical_source(
     registry.require(source.source_id, SourceCapability.HISTORICAL)
     if source.source_id == GOOGLE_DRIVE_CSV_SOURCE_ID:
         return GoogleDriveCsvSource(settings), source.policy.max_pages
+    if source.source_id == WEBB_HISTORICAL_SOURCE_ID and settings.webb_historical_sqlite_path:
+        return WebbHistoricalSqliteSource(settings.webb_historical_sqlite_path), source.policy.max_pages
     raise PlatformError(
         ErrorCode.DATE_UNAVAILABLE,
         f"Source mode {source_mode} cannot provide a verified requested-date snapshot.",
@@ -575,7 +578,7 @@ def backfill_config_from_args(argv: Sequence[str] | None = None) -> BackfillConf
     parser.add_argument("--to", type=_parse_date, dest="date_to")
     parser.add_argument(
         "--source",
-        choices=("auto", "webbsite", "google_drive_csv"),
+        choices=("auto", "webbsite", "google_drive_csv", "webbsite_archive"),
         default=defaults.data_source,
     )
     parser.add_argument(

@@ -93,12 +93,19 @@ async def get_historical_intelligence(
     domains["share_capital"] = _response_domain(share_capital, "share_capital", results[1])
     domains["officers"] = _response_domain(officers, "officers", results[2])
     domains["stock_events"] = _response_domain(stock_events, "stock_events", results[3])
-    for unavailable in ("di_ownership", "major_shareholders", "advisers_intermediaries"):
+    timeline = _timeline(code, announcements, share_capital, stock_events, start_date, end_date)
+    domains["structured_corporate_events"] = IntelligenceDomain(
+        status="COMPLETE" if timeline else "PARTIAL",
+        source=getattr(announcements.metadata, "source_name", None) if announcements else None,
+        source_url=getattr(announcements.metadata, "source_url", None) if announcements else None,
+        count=len(timeline),
+        warnings=[] if timeline else ["No classified corporate-event rows were available."],
+    )
+    for unavailable in ("di_ownership", "major_shareholders", "advisers_intermediaries", "whitewash", "fundamentals"):
         domains[unavailable] = IntelligenceDomain(
             status="UNAVAILABLE",
             warnings=["No approved historical source is implemented for this domain."],
         )
-    timeline = _timeline(code, announcements, share_capital, stock_events, start_date, end_date)
     return HistoricalIntelligenceResponse(
         stock_code=code,
         lookback_start=start_date,

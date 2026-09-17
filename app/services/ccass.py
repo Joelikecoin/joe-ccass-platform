@@ -57,6 +57,8 @@ from app.services.holdings_lkg import (
     build_stale_lkg_warnings,
 )
 from app.services.longbridge import LongbridgeHoldingsService
+from app.backfill_ccass import BackfillConfig, run_backfill
+from app.sources.webbsite_historical import WEBB_HISTORICAL_SOURCE_ID, WebbHistoricalSqliteSource
 from app.services.request_context import REQUESTED_CCASS_SNAPSHOT_DATE
 from ccass_core.source_trace import (
     SourceTraceView,
@@ -675,6 +677,23 @@ class CcassService:
         # critical path; those capabilities remain available through their
         # dedicated services/endpoints.
         if normalized_response.metadata.source_name.lower() == "longbridge":
+            if self.settings.webb_historical_sqlite_path:
+                try:
+                    await asyncio.wait_for(
+                        self._ensure_webb_historical_backfill(normalized),
+                        timeout=20.0,
+                    )
+                except asyncio.TimeoutError:
+                    normalized_response = normalized_response.model_copy(update={
+                        "data_quality_warnings": [
+                            *normalized_response.data_quality_warnings,
+                            structured_warning(
+                                "HISTORICAL_STATUS",
+                                "HISTORICAL_BACKFILL_TIMEOUT",
+                                "Webb historical backfill exceeded its bounded deadline; current Holdings remains available.",
+                            ),
+                        ]
+                    })
             return gateway_response.model_copy(
                 update={"normalized_response": normalized_response}
             )
@@ -760,6 +779,31 @@ class CcassService:
                     }
                 )
         return gateway_response.model_copy(update={"normalized_response": normalized_response})
+
+    async def _ensure_webb_historical_backfill(self, code: str) -> None:
+        if self.lkg_repository is None or self.settings.webb_historical_sqlite_path is None:
+            return
+        existing = self.lkg_repository.available_dates(code, include_partial=False)
+        if len(existing) >= 2:
+            return
+        source = WebbHistoricalSqliteSource(self.settings.webb_historical_sqlite_path)
+        available = await source.available_dates(code)
+        if not available:
+            return
+        await run_backfill(
+            BackfillConfig(
+                stock_code=code,
+                sqlite_path=self.settings.ccass_sqlite_path,
+                source_mode=WEBB_HISTORICAL_SOURCE_ID,
+                latest_count=min(2, len(available)),
+                retry_attempts=1,
+                request_sleep_seconds=0,
+                collection_limit=10_000,
+            ),
+            settings=self.settings,
+            source=source,
+            repository=self.lkg_repository,
+        )
 
     def _has_valid_longbridge_snapshot(
         self,

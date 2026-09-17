@@ -38,6 +38,19 @@ def build_corporate_timeline(
 
 def _tag(title: str) -> str | None:
     value = title.casefold()
+    # Keep classification conservative: these tags identify announcement
+    # categories already present in the HKEX title feed; they do not infer
+    # ownership, consideration, or transaction terms from a title alone.
+    if "whitewash" in value:
+        return "WHITEWASH"
+    if "offeror" in value or "general offer" in value or "mandatory unconditional" in value or "voluntary conditional" in value:
+        return "OFFEROR_EVENT"
+    if "placing" in value:
+        return "PLACING"
+    if "financial adviser" in value or "financial advisor" in value or "independent adviser" in value or "independent advisor" in value:
+        return "ADVISER_EVENT"
+    if "disclosure of interest" in value or "disclosure of interests" in value or "substantial shareholder" in value or "change in shareholding" in value:
+        return "DI_DISCLOSURE"
     if "buy-back" in value or "buyback" in value:
         return "BUYBACK"
     if "capital" in value or "securities" in value or "share" in value:
