@@ -18,7 +18,7 @@ class DisclosureInterestsService:
     async def get_disclosures(self, code: str | int, *, start_date: date, end_date: date) -> DisclosureInterestsResponse:
         response = await self.source.get_disclosures(code, start_date=start_date, end_date=end_date)
         if self.repository is not None:
-            self.repository.save_disclosures(response)
+            self.repository.save(response)
         return response
 
 
