@@ -23,6 +23,10 @@ class HKEXDocumentSpec:
 DOCUMENT_ENTITY_SPECS = (
     HKEXDocumentSpec("00388", "2026031701088", "AGM circular", date(2026, 3, 17), "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0317/2026031701088.pdf"),
     HKEXDocumentSpec("00006", "2026040800063", "major transaction circular", date(2026, 4, 8), "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0408/2026040800063.pdf"),
+    HKEXDocumentSpec("00362", "2024102500409", "major transaction circular with placing agent", date(2024, 10, 25), "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/1025/2024102500409.pdf"),
+    HKEXDocumentSpec("00372", "2025042400015", "voluntary offer document", date(2025, 4, 24), "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0424/2025042400015.pdf"),
+    HKEXDocumentSpec("08226", "2021120301552", "rights issue underwriting circular", date(2021, 12, 3), "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/1203/2021120301552.pdf"),
+    HKEXDocumentSpec("01168", "2021021100191", "rights issue whitewash circular", date(2021, 2, 11), "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/0211/2021021100191.pdf"),
 )
 
 _TYPES = (
@@ -45,7 +49,23 @@ def _extract_rows(spec: HKEXDocumentSpec, text: str, retrieved_at: datetime) -> 
                 continue
             window = normalized[max(0, match.start() - 240): min(len(normalized), match.end() + 300)]
             # Capture only an explicitly named organisation adjacent to a role label.
-            name_match = re.search(r"([A-Z][A-Za-z0-9 &'.,()/-]{2,100}?(?:Limited|Corporation|Company Limited|Securities Company Limited))", window)
+            name_pattern = r"([A-Z][A-Za-z0-9 &'.,()/-]{2,100}?(?:Limited|Corporation|Company Limited|Securities Company Limited))"
+            # Prefer the organisation explicitly following the role label; only
+            # fall back to the preceding context when the document uses
+            # "<name>, the <role>" wording.
+            after_label = normalized[match.end() : min(len(normalized), match.end() + 260)]
+            name_match = None
+            if entity_type == "offeror":
+                name_match = re.search(r"Offeror[”\"]?\s*[:\-]?\s*([A-Z][A-Za-z0-9 &'.,()/-]{2,100}?(?:Limited|Corporation|Company Limited|Securities Company Limited))", normalized, re.I)
+            elif entity_type == "placing_agent":
+                name_match = re.search(r"with\s+([A-Z][A-Za-z ]+Limited)\s*\(", normalized, re.I)
+            elif entity_type == "underwriter":
+                name_match = re.search(r"(?:First\s+|Second\s+)?Underwriter\s*:\s*([A-Z][A-Za-z0-9 &'.,()/-]{2,100}?(?:Limited|Corporation|Company Limited|Securities Company Limited))", normalized, re.I)
+            if name_match is None:
+                name_match = re.search(name_pattern, after_label)
+            if name_match is None:
+                before_label = normalized[max(0, match.start() - 240) : match.start()]
+                name_match = re.search(name_pattern, before_label)
             entity_name = name_match.group(1).strip(" ,.;:") if name_match else None
             direct = window[:500]
             if entity_name is None and entity_type not in {"whitewash_waiver", "concert_party"}:
