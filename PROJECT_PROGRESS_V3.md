@@ -325,3 +325,20 @@ Everything in V2 §13 still applies, plus:
 > A normal user enters a real HK stock code into the 8504 product — even one never queried before — and receives trustworthy Reference-equivalent data quickly: persistent across reload/restart, second snapshot derivable, Changes / Big Changes / Concentration derived from the same chain, **and a 5-year (listing-bounded, evidence-extendable to 10 years) corporate intelligence storyline** suitable for AI 20–30-page financial-engineering analysis — with every fact provenanced and every gap explicitly labelled.
 
 No preload, no fixtures, no prior history, no manual imports, no stock-specific code, no fake fallback data.
+
+---
+
+## 12. End-of-day handoff (2026-09-17 night) — NEXT SESSION STARTS HERE
+
+```text
+JOE_STATUS=RESTING
+OPTION_A_ASYNC_DI_JOB=APPROVED (Joe, 2026-09-17 night) — implement on 2026-09-18
+ALL_WORK_PUSHED_THROUGH=7ebe799
+```
+
+**Tomorrow's first task (approved, scoped):**
+1. Implement Option A — async DI job in `app/api.py` + `app/services/disclosure_interests.py`, reusing the existing `/admin/longbridge/snapshot_job/{job_id}` background pattern: `POST` trigger → background browser fetch (90 s budget) → persist to Turso → poll job status → read rows from DB. Update `tests/test_disclosure_interests.py` accordingly.
+2. Commit + push → Render redeploy (manual, autoDeploy is off) → trigger DI job for `00388` → poll → verify real rows in Turso (`disclosure_interests` baseline was 0) → tick checklist 0.2, then repeat for `01810` (0.3).
+3. If the background flow STILL produces zero rows at 90 s → the failure is inside the container/browser/DION flow itself; escalation ladder in §7 0.2 applies (Render logs / local reproduction — this machine currently only has the WindowsApps Python stub, `py` absent).
+
+**Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
