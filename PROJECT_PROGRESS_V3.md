@@ -164,7 +164,7 @@ Per Joe (2026-09-17): the friend solution pack is the successful example; later 
 
 **Live observation (probed 2026-09-17 ~16:19 UTC):**
 
-- UI: `https://webbsite-ccass-tool-r3ntrqvqx9w2k3xffasgwf.streamlit.app/` — **login-gated** (Streamlit private sharing). **Joe (09-17 evening): friend will NOT grant viewer access — live UI browsing is CLOSED.** `01_Reference_Website\` screenshots are **OUTDATED (per Joe)**; Joe will supply **new long screenshots** (pending). Until then the openapi surface is the only current functional reference.
+- UI: `https://webbsite-ccass-tool-r3ntrqvqx9w2k3xffasgwf.streamlit.app/` — **login-gated** (Streamlit private sharing). **Joe (09-17 evening): friend will NOT grant viewer access — live UI browsing is CLOSED.** `01_Reference_Website\` screenshots are **OUTDATED (per Joe)**; Joe will supply **new long screenshots** (promised 2026-09-18). Friend api_token: **friend declined to provide** — live functional benchmarking via friend API is CLOSED; openapi surface is the only current functional reference.
 - API: `https://webbsite-ccass-api.onrender.com` — public, `v1.13.0`, `ok:true`. `/health` shows: **Longbridge authenticated via oauth_device_flow** (token refreshable), **`db_backend: turso`** (migrations complete), watchlists `lshape79(79) / caiji(28) / research(557)`, Google Drive service account configured, Render free-tier (cold starts; uptime was 410 s at probe).
 
 **Friend capability surface (from `/openapi.json`) — the parity benchmark:**
@@ -191,6 +191,14 @@ Per Joe (2026-09-17): the friend solution pack is the successful example; later 
 
 **Joe must at least MATCH (P1 parity candidates, friend-only today):** two-date holdings diff, participant cross-stock view, trade/settlement date-alignment service, batch screening, broker-daily/transfer panels, daily brief, hypothesis tracking with hit/miss, scheduled daily runs, PDF text extraction.
 
+### 5.3 Friend live UI evidence (Joe's PDF `18092026朋友原站.pdf`, 21 pages, 06182) — benchmark corrections
+
+Three findings change earlier assumptions:
+
+1. **The friend's own browser layer is broken too.** Their data-quality warnings show `CHROMIUM_UNAVAILABLE` — Playwright Chromium fails with `libglib-2.0.so.0: cannot open shared object file` (chromium-1234 in `~/.cache/ms-playwright`), so Webb mirror Holdings/Changes fetches fall back to Longbridge MCP. **Browser-on-free-hosting fragility is the industry situation, not a Joe-specific defect.** Joe's platform must simply be the one that FIXES it (Playwright official image + correct timeout).
+2. **Correction to §5.2 depth claims:** the friend DOES hold long history for some sections via the `webb-database.com` mirror (issue-based pages: `ccass/conchist.asp`, `ccass/bigchanges/issue.asp`, `dbpub/hpu.asp`): Concentration 2,131 rows (≈8.5 y daily Top5/Top10/NCIP), Price History 2,132 rows (≈8.7 y, with VWAP + Total Return + est-turnover columns), Big Changes multi-year row-level. What the friend still does NOT have: **full participant-level daily holdings history** (Holdings = current Longbridge snapshot, 105 participants for 06182, + local accumulation), DI, fundamentals depth, a unified event layer, or a permanent evidence cache. Joe's moat stands.
+3. **The provenance/UX bar to match** (from the PDF): master CSV carries per-row `section / row_meaning / source / fetch_method / http_status / error_message / data_quality_warning / ccass_trade_date / settlement_date / implied dates / export_schema_version`; date-basis is annotated everywhere (Holdings/BigChanges/Concentration = settlement T+2, Changes = explicit trade date, implied dates need XHKG sessions); `SUSPECT_DENOMINATOR` auto-excludes concentration rows on share-capital effective dates; custody/warehouse-transfer detection flags pairs like KINGSTON +75 % / GET NICE −75 %; block-trade suspect flags; DT Rainbow chart with merged-price toggle; Copy-for-ChatGPT markdown; snapshot-DB backup download; Research Panel (Daily Brief / Timeline / Broker stack). 06182 live reference values (2026-09-16, Longbridge): 105 participants, largest 宏智證券 B02094 492,684,000 = 61.58 %, 金利豐 B01438 31,024,000 = 3.87 %, Top5 = 89.61 %, Top10 = 93.38 % (useful cross-check fixtures for Joe's own 06182 runs).
+
 ---
 
 ## 6. Governance (unchanged, binding)
@@ -206,9 +214,20 @@ Per Joe (2026-09-17): the friend solution pack is the successful example; later 
 
 ## 7. Phase 0 work checklist (P0 — execute in order)
 
-- [ ] **0.1** Confirm the LIVE Render container runs the new Playwright image: read-only probes for Playwright import, Chromium executable presence, headless launch. (Health 200 ≠ DI success.)
-- [ ] **0.2** Real DION E2E for `00388`: browser fetch → parse → normalize → persist → service → API → idempotent repeat → **restart persistence**. Expect real non-zero rows (prior browser evidence ≈309; exact count may drift — non-zero authoritative results are the bar).
+- [~] **0.1** LIVE runtime identity CONFIRMED 2026-09-17 (Render API, key working): live deploy `dep-dalvpk142hec73dsi6i0` = commit `3324d86`, autoDeploy off; `/health` = 200 warm (0.5 s). Chromium executable presence inside the container is **still unproven** — see 0.2 evidence.
+- [~] **0.2** Real DION 00388 attempted twice 2026-09-17 17:09 UTC (`GET /api/v1/stocks/00388/disclosure-interests?start_date=2024-09-17&end_date=2026-09-17`): both returned HTTP 200 with `source_status:"unavailable"`, `filing_count:0`, warning `DION browser transport timed out` (~20 s). **Fail-loud behaviour verified — no fake data, no silent empty.**
+  - **Earliest root cause identified:** `app/config.py:34 request_timeout_seconds: float = 12.0`; the whole DI browser flow (Chromium launch → DION page → form → search → result page) is wrapped in `asyncio.wait_for(timeout=request_timeout_seconds)`. Production Render env does NOT set `REQUEST_TIMEOUT_SECONDS` (verified from the Environment screenshot). 12 s cannot fit a cold-CPU Chromium launch + 3-page navigation. **TIMEOUT ≠ Chromium missing** (the friend's live env fails differently — missing `libglib-2.0.so.0` crashes instantly; Joe's times out).
+  - **NEXT SINGLE ACTION (zero code change):** add env var `REQUEST_TIMEOUT_SECONDS=90` to Render service `joe-ccass-api` (Environment → Add → it auto-redeploys), then re-fire the same DI query. If it STILL times out at 90 s → escalate to container-level Chromium diagnosis (image `mcr.microsoft.com/playwright/python:v1.51.0-noble` should ship Chromium; then check logs).
 - [ ] **0.3** Real DION E2E for `01810` (prior evidence ≈391 rows; same bar).
+
+**Production DB baseline (Turso, verified live 2026-09-17 via libSQL HTTP API — connection + auth working):**
+
+```text
+stocks=12  ccass_snapshots=24  ccass_holdings=6735  announcements=274
+disclosure_interests=0   fundamentals=0   document_entities=0
+raw_provenance=199  source_errors=0
+```
+This is `PREEXISTING_ROWS_BY_DOMAIN` for the 0.4 unseen-stock gate. Tables present include `disclosure_interests`, `fundamentals`, `document_entities` (all at 0 rows — consistent with component-pass-but-not-production-proven).
 - [ ] **0.4** Pick a genuinely unseen stock (exclude `00388 01810 00004 00006 00362 00372 08226 01168 01211`). Measure `PREEXISTING_ROWS_BY_DOMAIN` first, then trigger all domains from stock code alone: CURRENT_CCASS, HISTORICAL_CCASS, CCASS_MIDDLE_GAP, CHANGES, BIG_CHANGES, CONCENTRATION, ANNOUNCEMENTS, SHARE_CAPITAL, DI, OFFICERS, FUNDAMENTALS, CORPORATE_EVENTS, INTERMEDIARIES, WHITEWASH_CONCERT, OHLCV_TURNOVER, PROVENANCE, COVERAGE, UNIFIED_EVIDENCE_PACKAGE. Verify persistence → reload → restart/redeploy → second query. No manual intervention.
 - [ ] **0.5** Fix the earliest failing non-gap dependency; re-run the same gate until it passes.
 - [ ] **0.6** (post-gate, P1) Reconcile `main` ↔ authority branch (68/8 divergence); fold Gate 20 P1 work with this line.
@@ -246,6 +265,8 @@ Explicitly **stopped** (not P0, do not spend time): Rainbow visuals, Excel/downl
 
 **Machine A (this machine, Joe Lau):**
 - Repo: `C:\Users\Joe Lau\.zcode\workspace\default\joe-ccass-platform`, branch `p0-runtime-api-key-fingerprint-proof` tracking origin.
+- Local `.env` (gitignored) now holds **working** `RENDER_API_KEY` (Render API verified 2026-09-17: services + deploys readable) and `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (production DB verified live). NOTE: `.env` values pasted from Windows Notepad carry CRLF — strip `\r` before using (`tr -d '\r'`).
+- Friend live UI long screenshots: `Desktop\18092026朋友原站.pdf` (digestion → §5.3).
 - `D:\WEBBSITE_CCASS_EXTRACT`: 17 GB Webb SQL member + `webbsite_selective.sqlite` (2.6 MB). **Do not delete; do not re-extract broadly.**
 - `Downloads\PROJECT_PROGRESS.md` (V2, archived into repo) + Longbridge round-3 task spec (background for Longbridge auth / dual-denominator / source-label rules).
 
