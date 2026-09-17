@@ -87,7 +87,7 @@ from app.friend_clone_app import (
 from app.live_product import YAHOO_CHART_API_URL
 from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
-from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHistoryResponse, DisclosureInterestsResponse, FundamentalsResponse
+from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHistoryResponse, DisclosureInterestsResponse, FundamentalsResponse, DocumentEntitiesResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
@@ -98,6 +98,7 @@ from app.services.officers import OfficersService, get_officers_service
 from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
 from app.services.disclosure_interests import DisclosureInterestsService, get_disclosure_interests_service
 from app.services.fundamentals import FundamentalsService, get_fundamentals_service
+from app.services.document_entities import DocumentEntitiesService, get_document_entities_service
 from ccass_core.compute import HoldingChange, compute_analysis
 
 from app.services.big_changes import get_big_changes_service
@@ -2365,6 +2366,11 @@ async def get_disclosure_interests(
 @app.get("/api/v1/stocks/{stock_code}/fundamentals", response_model=FundamentalsResponse, tags=["fundamentals"])
 async def get_stock_fundamentals(stock_code: str, service: FundamentalsService = Depends(get_fundamentals_service)) -> FundamentalsResponse:
     return await service.get_fundamentals(stock_code)
+
+
+@app.get("/api/v1/stocks/{stock_code}/document-entities", response_model=DocumentEntitiesResponse, tags=["deep-analysis"])
+async def get_document_entities(stock_code: str, service: DocumentEntitiesService = Depends(get_document_entities_service)) -> DocumentEntitiesResponse:
+    return await service.get_entities(stock_code)
 
 
 @app.get("/api/v1/stocks/{stock_code}/stock-events", response_model=StockEventsResponse, tags=["stock-events"])

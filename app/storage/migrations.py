@@ -298,8 +298,33 @@ MIGRATION_6 = Migration(
     ),
 )
 
+MIGRATION_7 = Migration(
+    version=7,
+    name="document_entities",
+    statements=(
+        """
+        CREATE TABLE document_entities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            document_id TEXT NOT NULL,
+            document_type TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_name TEXT,
+            direct_source_fact TEXT NOT NULL,
+            derived_classification TEXT,
+            source_url TEXT NOT NULL,
+            announcement_date TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            provenance TEXT NOT NULL,
+            UNIQUE(stock_code, document_id, entity_type, entity_name)
+        )
+        """,
+        "CREATE INDEX idx_document_entities_code_date ON document_entities(stock_code, announcement_date DESC)",
+    ),
+)
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6)
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 
