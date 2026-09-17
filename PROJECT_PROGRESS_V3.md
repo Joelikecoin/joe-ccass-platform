@@ -332,9 +332,12 @@ No preload, no fixtures, no prior history, no manual imports, no stock-specific 
 ## 12. End-of-day handoff (2026-09-17 night) — NEXT SESSION STARTS HERE
 
 ```text
-JOE_STATUS=RESTING
+JOE_STATUS=RESTING (night of 2026-09-17)
 OPTION_A_ASYNC_DI_JOB=APPROVED (Joe, 2026-09-17 night) — implement on 2026-09-18
-ALL_WORK_PUSHED_THROUGH=7ebe799
+ALL_WORK_PUSHED_THROUGH=57d113b
+CLOUD_MIRROR=H:\NamFung Drive\投資 - 享受與豐盛\AI Projects\joe-ccass-platform\PROJECT_PROGRESS_V3.md  (convenience copy; the git repo stays the single authority)
+SECOND_MACHINE=Joe's company computer — setup guide: docs/COMPANY_MACHINE_SETUP.md (mirrored next to this file on the Drive)
+NOTE: DI cancellation raised and REJECTED for now (2026-09-18 morning): friend has no DI at all; plan ladder = Option A async job → if container Chromium fails → GitHub Actions fetcher (zero-budget, no 60s limit). Do not cancel DI.
 ```
 
 **Tomorrow's first task (approved, scoped):**
