@@ -25,6 +25,7 @@ from app.models import (
     StockEventsResponse,
     CorporateTimeline,
     ShareCapitalHistoryResponse,
+    DisclosureInterestsResponse,
 )
 from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
@@ -39,6 +40,7 @@ from app.services.stock_events import StockEventsService, get_stock_events_servi
 from app.services.longbridge import LongbridgeHoldingsService, get_longbridge_holdings_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
+from app.services.disclosure_interests import DisclosureInterestsService, get_disclosure_interests_service
 from app.services.historical_intelligence import (
     HistoricalIntelligenceResponse,
     get_historical_intelligence,
@@ -964,6 +966,21 @@ async def get_stock_announcements(
         start_date=start_date,
         end_date=end_date,
     )
+
+
+@app.get(
+    "/api/v1/stocks/{stock_code}/disclosure-interests",
+    response_model=DisclosureInterestsResponse,
+    dependencies=[Depends(verify_api_key)],
+    tags=["ownership"],
+)
+async def get_disclosure_interests(
+    stock_code: str,
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    service: DisclosureInterestsService = Depends(get_disclosure_interests_service),
+) -> DisclosureInterestsResponse:
+    return await service.get_disclosures(stock_code, start_date=start_date, end_date=end_date)
 
 
 @app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline, tags=["announcements"], dependencies=[Depends(verify_api_key)])

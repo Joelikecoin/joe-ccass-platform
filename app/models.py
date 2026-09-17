@@ -317,6 +317,38 @@ class CorporateTimeline(BaseModel):
     events: list[CorporateEvidence] = Field(default_factory=list)
 
 
+class DisclosureInterestRow(BaseModel):
+    filing_id: str
+    stock_code: str
+    event_date: date
+    filer: str
+    classification: str
+    shares_involved: int | None = None
+    previous_balance: int | None = None
+    present_balance: int | None = None
+    percentage: float | None = None
+    average_price: float | None = None
+    reason: str | None = None
+    source_url: str
+    retrieved_at: datetime
+    provenance: str = "HKEX DION"
+
+
+class DisclosureInterestsMetadata(BaseModel):
+    code: str
+    source_name: str = "HKEX DION"
+    source_url: str
+    fetched_at: datetime
+    source_status: Literal["ready", "unavailable"] = "ready"
+    filing_count: int = 0
+
+
+class DisclosureInterestsResponse(BaseModel):
+    metadata: DisclosureInterestsMetadata
+    filings: list[DisclosureInterestRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
 class StockEventRow(BaseModel):
     event_date: date
     title: str

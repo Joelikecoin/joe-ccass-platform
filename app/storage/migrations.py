@@ -249,8 +249,36 @@ MIGRATION_4 = Migration(
     ),
 )
 
+MIGRATION_5 = Migration(
+    version=5,
+    name="disclosure_interests",
+    statements=(
+        """
+        CREATE TABLE disclosure_interests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            filing_id TEXT NOT NULL,
+            event_date TEXT NOT NULL,
+            filer TEXT NOT NULL,
+            classification TEXT NOT NULL,
+            shares_involved INTEGER,
+            previous_balance INTEGER,
+            present_balance INTEGER,
+            percentage REAL,
+            average_price REAL,
+            reason TEXT,
+            source_url TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            provenance TEXT NOT NULL,
+            UNIQUE(stock_code, filing_id)
+        )
+        """,
+        "CREATE INDEX idx_disclosure_interests_code_date ON disclosure_interests(stock_code, event_date DESC)",
+    ),
+)
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4)
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 
