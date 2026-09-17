@@ -277,8 +277,29 @@ MIGRATION_5 = Migration(
     ),
 )
 
+MIGRATION_6 = Migration(
+    version=6,
+    name="historical_fundamentals",
+    statements=(
+        """
+        CREATE TABLE fundamentals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            source_document TEXT NOT NULL,
+            reporting_period TEXT NOT NULL,
+            announcement_date TEXT NOT NULL,
+            report_type TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            UNIQUE(stock_code, source_document)
+        )
+        """,
+        "CREATE INDEX idx_fundamentals_code_period ON fundamentals(stock_code, reporting_period)",
+    ),
+)
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5)
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 

@@ -460,3 +460,42 @@ class ShareCapitalHistoryResponse(BaseModel):
     metadata: ShareCapitalHistoryMetadata
     rows: list[ShareCapitalHistoryRow] = Field(default_factory=list)
     data_quality_warnings: list[str] = Field(default_factory=list)
+
+
+class FundamentalRow(BaseModel):
+    stock_code: str
+    reporting_period: str
+    announcement_date: date
+    report_type: str
+    revenue: float | None = None
+    net_profit_loss: float | None = None
+    cash: float | None = None
+    debt: float | None = None
+    net_assets: float | None = None
+    equity: float | None = None
+    operating_cash_flow: float | None = None
+    shares_outstanding: float | None = None
+    currency: str | None = None
+    unit: str | None = None
+    source_document: str
+    source_url: str
+    retrieval_timestamp: datetime
+    parser_method: str
+    completeness_status: Literal["complete", "partial"] = "partial"
+
+
+class FundamentalsMetadata(BaseModel):
+    code: str
+    source_name: str = "HKEXnews"
+    fetched_at: datetime
+    source_status: Literal["ready", "partial", "unavailable"]
+    documents_attempted: int = 0
+    documents_fetched: int = 0
+    documents_parsed: int = 0
+    documents_failed: int = 0
+
+
+class FundamentalsResponse(BaseModel):
+    metadata: FundamentalsMetadata
+    rows: list[FundamentalRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)

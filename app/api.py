@@ -26,6 +26,7 @@ from app.models import (
     CorporateTimeline,
     ShareCapitalHistoryResponse,
     DisclosureInterestsResponse,
+    FundamentalsResponse,
 )
 from app.services.ai_read_model import AIReadModelService, get_ai_read_model_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
@@ -41,6 +42,7 @@ from app.services.longbridge import LongbridgeHoldingsService, get_longbridge_ho
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.share_capital_history import ShareCapitalHistoryService, get_share_capital_history_service
 from app.services.disclosure_interests import DisclosureInterestsService, get_disclosure_interests_service
+from app.services.fundamentals import FundamentalsService, get_fundamentals_service
 from app.services.historical_intelligence import (
     HistoricalIntelligenceResponse,
     get_historical_intelligence,
@@ -981,6 +983,11 @@ async def get_disclosure_interests(
     service: DisclosureInterestsService = Depends(get_disclosure_interests_service),
 ) -> DisclosureInterestsResponse:
     return await service.get_disclosures(stock_code, start_date=start_date, end_date=end_date)
+
+
+@app.get("/api/v1/stocks/{stock_code}/fundamentals", response_model=FundamentalsResponse, dependencies=[Depends(verify_api_key)], tags=["fundamentals"])
+async def get_stock_fundamentals(stock_code: str, service: FundamentalsService = Depends(get_fundamentals_service)) -> FundamentalsResponse:
+    return await service.get_fundamentals(stock_code)
 
 
 @app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline, tags=["announcements"], dependencies=[Depends(verify_api_key)])
