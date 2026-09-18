@@ -115,6 +115,7 @@ from app.streamlit_ui import (
     resolve_streamlit_query_input,
 )
 from ccass_core.collector import SnapshotStore
+from ccass_core.normalize import normalize_stock_code
 
 from app.api import get_concentration_evidence, verify_api_key
 
@@ -2332,6 +2333,137 @@ async def snapshot_job_status(
         raise PlatformError("NOT_FOUND", "Snapshot job was not found.", status_code=404)
     return JSONResponse(job)
 
+
+# Disclosure-interests async jobs: Render's free-tier edge kills synchronous
+# HTTP at ~60s, which is shorter than a cold DION browser flow, so the fetch
+# runs as a background task and is read back through the job-status route.
+_disclosure_interests_jobs: dict[str, dict[str, object]] = {}
+_disclosure_interests_jobs_lock = threading.Lock()
+
+
+def _disclosure_interests_job_public(job_id: str) -> dict[str, object] | None:
+    with _disclosure_interests_jobs_lock:
+        job = _disclosure_interests_jobs.get(job_id)
+        return dict(job) if job else None
+
+
+def _update_disclosure_interests_job(job_id: str, **updates: object) -> None:
+    with _disclosure_interests_jobs_lock:
+        if job_id in _disclosure_interests_jobs:
+            _disclosure_interests_jobs[job_id].update(updates)
+
+
+def _di_job_timeout_budget() -> float:
+    return max(1.0, float(get_settings().request_timeout_seconds)) + 15.0
+
+
+async def _run_disclosure_interests_job(
+    job_id: str,
+    code: str,
+    start_date: date,
+    end_date: date,
+    service: DisclosureInterestsService | None = None,
+) -> None:
+    started = time.monotonic()
+    active = service or get_disclosure_interests_service()
+    try:
+        response = await asyncio.wait_for(
+            active.get_disclosures(code, start_date=start_date, end_date=end_date),
+            timeout=_di_job_timeout_budget(),
+        )
+    except asyncio.TimeoutError:
+        _update_disclosure_interests_job(
+            job_id,
+            state="error",
+            error="DION browser flow exceeded the job budget",
+            elapsed_s=round(time.monotonic() - started, 3),
+        )
+        return
+    except Exception as exc:
+        _update_disclosure_interests_job(
+            job_id,
+            state="error",
+            error=f"{type(exc).__name__}: {exc}",
+            elapsed_s=round(time.monotonic() - started, 3),
+        )
+        return
+    warnings = list(response.data_quality_warnings)
+    persisted_rows: int | None = None
+    if active.repository is not None:
+        try:
+            persisted_rows = active.repository.count_rows(response.metadata.code)
+        except Exception as exc:
+            warnings.append(f"PERSISTED_ROW_COUNT_FAILED: {type(exc).__name__}: {exc}")
+    _update_disclosure_interests_job(
+        job_id,
+        state="succeeded" if response.metadata.source_status != "unavailable" else "unavailable",
+        filing_count=response.metadata.filing_count,
+        persisted_rows=persisted_rows,
+        source_status=response.metadata.source_status,
+        warnings=warnings,
+        elapsed_s=round(time.monotonic() - started, 3),
+    )
+
+
+@app.post("/admin/disclosure-interests/job", tags=["admin"])
+async def disclosure_interests_job_trigger(
+    stock_code: str = Query(...),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    normalized = normalize_stock_code(stock_code)
+    end = end_date or datetime.now(UTC).date()
+    start = start_date or end - timedelta(days=5 * 365)
+    if start > end:
+        raise PlatformError("INVALID_SCHEMA", "start_date must not be after end_date.", status_code=400)
+    job_id = uuid.uuid4().hex
+    with _disclosure_interests_jobs_lock:
+        _disclosure_interests_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "accepted",
+            "stock_code": normalized,
+            "start_date": start.isoformat(),
+            "end_date": end.isoformat(),
+            "filing_count": 0,
+            "persisted_rows": None,
+            "source_status": None,
+            "warnings": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_disclosure_interests_job(job_id, normalized, start, end))
+    _update_disclosure_interests_job(job_id, state="running")
+    return JSONResponse(
+        {
+            "status": "accepted",
+            "job_id": job_id,
+            "state": "running",
+            "stock_code": normalized,
+            "start_date": start.isoformat(),
+            "end_date": end.isoformat(),
+        },
+        status_code=202,
+    )
+
+
+@app.get("/admin/disclosure-interests/job/{job_id}", tags=["admin"])
+async def disclosure_interests_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _disclosure_interests_job_public(job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Disclosure interests job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
 @app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline)
 async def get_corporate_timeline(
     stock_code: str,
@@ -2361,6 +2493,18 @@ async def get_disclosure_interests(
     service: DisclosureInterestsService = Depends(get_disclosure_interests_service),
 ) -> DisclosureInterestsResponse:
     return await service.get_disclosures(stock_code, start_date=start_date, end_date=end_date)
+
+
+@app.get("/api/v1/stocks/{stock_code}/disclosure-interests/persisted", response_model=DisclosureInterestsResponse, tags=["ownership"])
+async def get_persisted_disclosure_interests(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    service: DisclosureInterestsService = Depends(get_disclosure_interests_service),
+) -> DisclosureInterestsResponse:
+    end = end_date or datetime.now(UTC).date()
+    start = start_date or end - timedelta(days=5 * 365)
+    return await service.get_persisted_disclosures(stock_code, start_date=start, end_date=end)
 
 
 @app.get("/api/v1/stocks/{stock_code}/fundamentals", response_model=FundamentalsResponse, tags=["fundamentals"])
