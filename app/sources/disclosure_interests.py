@@ -94,26 +94,36 @@ class HKEXDisclosureInterestsSource:
                 total_records: int | None = None
                 warnings: list[str] = []
                 first_page_url = page.url
+                html = await page.content()
                 pg = 1
-                while True:
-                    html = await page.content()
-                    total_records = self._total_records(html) or total_records
-                    parsed = self._parse_result(code, html, start_date, end_date)
-                    new_before = len(collected)
-                    for row in parsed.filings:
-                        collected[row.filing_id] = row
-                    if len(collected) == new_before:
-                        break
-                    pg += 1
-                    next_url = self._page_url(first_page_url, pg)
-                    if total_records is not None and len(collected) >= total_records:
-                        break
-                    if next_url is None:
-                        break
-                    if time.monotonic() > deadline - 5.0:
-                        warnings.append(f"DI_PAGINATION_TIME_BUDGET: collected {len(collected)} of {total_records} records before the flow budget expired")
-                        break
-                    await page.goto(next_url, wait_until="domcontentloaded", timeout=timeout_ms)
+                # The browser only earns the first result page; the pager links
+                # are stateless GETs (&pg=N), so later pages are fetched with
+                # plain HTTP instead of paying a browser navigation per page.
+                async with httpx.AsyncClient(timeout=max(1.0, self.settings.request_timeout_seconds), follow_redirects=True, headers={"User-Agent": self.settings.user_agent}) as client:
+                    while True:
+                        total_records = self._total_records(html) or total_records
+                        parsed = self._parse_result(code, html, start_date, end_date)
+                        new_before = len(collected)
+                        for row in parsed.filings:
+                            collected[row.filing_id] = row
+                        if len(collected) == new_before:
+                            break
+                        pg += 1
+                        next_url = self._page_url(first_page_url, pg)
+                        if total_records is not None and len(collected) >= total_records:
+                            break
+                        if next_url is None:
+                            break
+                        if time.monotonic() > deadline - 5.0:
+                            warnings.append(f"DI_PAGINATION_TIME_BUDGET: collected {len(collected)} of {total_records} records before the flow budget expired")
+                            break
+                        try:
+                            follow = await client.get(next_url)
+                            follow.raise_for_status()
+                        except httpx.HTTPError as exc:
+                            warnings.append(f"DI_PAGINATION_FETCH_FAILED at pg={pg}: {type(exc).__name__}")
+                            break
+                        html = follow.text
                 if total_records is not None and len(collected) < total_records and not warnings:
                     warnings.append(f"DI_PARTIAL_RESULT: parsed {len(collected)} of {total_records} listed records")
                 if not collected:
