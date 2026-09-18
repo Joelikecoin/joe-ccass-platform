@@ -2365,18 +2365,28 @@ async def _run_disclosure_interests_job(
     service: DisclosureInterestsService | None = None,
 ) -> None:
     started = time.monotonic()
+    budget = _di_job_timeout_budget()
+    _update_disclosure_interests_job(job_id, timeout_budget=budget, request_timeout_seconds=get_settings().request_timeout_seconds)
     active = service or get_disclosure_interests_service()
     try:
         response = await asyncio.wait_for(
             active.get_disclosures(code, start_date=start_date, end_date=end_date),
-            timeout=_di_job_timeout_budget(),
+            timeout=budget,
         )
     except asyncio.TimeoutError:
+        elapsed = round(time.monotonic() - started, 3)
+        if elapsed >= budget - 1.0:
+            message = f"DION browser flow exceeded the job budget ({budget}s)"
+        else:
+            message = (
+                f"DION flow raised TimeoutError after {elapsed}s (budget {budget}s, "
+                f"request_timeout={get_settings().request_timeout_seconds}) — an inner transport timeout escaped"
+            )
         _update_disclosure_interests_job(
             job_id,
             state="error",
-            error="DION browser flow exceeded the job budget",
-            elapsed_s=round(time.monotonic() - started, 3),
+            error=message,
+            elapsed_s=elapsed,
         )
         return
     except Exception as exc:
@@ -2434,6 +2444,8 @@ async def disclosure_interests_job_trigger(
             "warnings": [],
             "error": None,
             "elapsed_s": 0.0,
+            "timeout_budget": None,
+            "request_timeout_seconds": get_settings().request_timeout_seconds,
         }
     asyncio.create_task(_run_disclosure_interests_job(job_id, normalized, start, end))
     _update_disclosure_interests_job(job_id, state="running")
