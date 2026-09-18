@@ -125,7 +125,11 @@ class HKEXDisclosureInterestsSource:
                             break
                         html = follow.text
                 if total_records is not None and len(collected) < total_records and not warnings:
-                    warnings.append(f"DI_PARTIAL_RESULT: parsed {len(collected)} of {total_records} listed records")
+                    warnings.append(
+                        f"DI_DATE_WINDOW_DIFFERENCE: DION lists {total_records} records for the query; "
+                        f"{len(collected)} carry an event date inside the requested window (DION's list "
+                        "counter can use a slightly different date basis than the per-row event date)"
+                    )
                 if not collected:
                     warnings.append(
                         "DI_ZERO_ROWS_DIAGNOSTIC: "
