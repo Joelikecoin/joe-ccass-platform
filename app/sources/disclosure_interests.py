@@ -86,7 +86,7 @@ class HKEXDisclosureInterestsSource:
                     await page.locator(selector).select_option(value)
                 await page.locator("#cmdSearch").click(timeout=timeout_ms)
                 await page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
-                result_link = page.get_by_role("link", name="List of all notices")
+                result_link = page.get_by_role("link", name="List of all notices").first
                 await result_link.click(timeout=timeout_ms)
                 await page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
 
