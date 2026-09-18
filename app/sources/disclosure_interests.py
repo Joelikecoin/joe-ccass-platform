@@ -116,6 +116,12 @@ class HKEXDisclosureInterestsSource:
                     await page.goto(next_url, wait_until="domcontentloaded", timeout=timeout_ms)
                 if total_records is not None and len(collected) < total_records and not warnings:
                     warnings.append(f"DI_PARTIAL_RESULT: parsed {len(collected)} of {total_records} listed records")
+                if not collected:
+                    warnings.append(
+                        "DI_ZERO_ROWS_DIAGNOSTIC: "
+                        f"final_url={page.url} total_records={total_records} "
+                        f"title={await page.title()!r} notices_link_seen={first_page_url}"
+                    )
                 ordered = sorted(collected.values(), key=lambda row: (row.event_date, row.filing_id), reverse=True)
                 metadata = DisclosureInterestsMetadata(code=code, source_url=SEARCH, fetched_at=datetime.now(UTC), filing_count=len(ordered))
                 return DisclosureInterestsResponse(metadata=metadata, filings=ordered, data_quality_warnings=warnings)
