@@ -118,6 +118,63 @@ def test_dion_result_parser_normalizes_official_row_shape():
     assert row.source_url.endswith("CS20260824E00178")
 
 
+def test_dion_parser_reads_rows_nested_inside_real_result_layout():
+    # Real DION wraps the data rows in nested tables inside one outer row; the
+    # date column is not last, and Long/Short figures share a single cell.
+    html = """
+    <table><tr><td>
+      <table>
+        <tr><td>Form Serial Number</td><td>Name</td><td>Reason</td><td>Shares involved</td>
+        <td>Average price</td><td>Shares interested</td><td>%</td><td>Date of relevant event</td>
+        <td>Associated corporation</td><td>Debentures</td></tr>
+        <tr><td><a href="NSForm2.aspx?fn=CS20260908E00043">CS20260908E00043</a></td>
+        <td>BlackRock, Inc.</td><td>1205 (L)</td><td>726,000(L)</td><td></td>
+        <td>1,065,871,110(L) 30,260,800(S)</td><td>4.99(L) 0.14(S)</td><td>03/09/2026</td><td></td><td></td></tr>
+        <tr><td><a href="NSForm2.aspx?fn=DA20260811E00498">DA20260811E00498</a></td>
+        <td>Lei Jun</td><td>1213 (L)</td><td>12,950,321(L)</td><td></td>
+        <td>3,989,013,134(L)</td><td>90.06(L)</td><td>11/08/2026</td><td>Yes</td><td></td></tr>
+      </table>
+      Page 1 Displayed: 1 - 2 Total records: </span><span id="lblRecCount">554</span>
+    </td></tr></table>
+    """
+    source = HKEXDisclosureInterestsSource()
+    result = source._parse_result("01810", html, date(2018, 1, 1), date(2026, 12, 31))
+    assert result.metadata.filing_count == 2
+    blackrock = result.filings[0]
+    assert blackrock.filing_id == "CS20260908E00043"
+    assert blackrock.shares_involved == 726000
+    assert blackrock.present_balance == 1065871110
+    assert blackrock.percentage == 4.99
+    assert blackrock.event_date == date(2026, 9, 3)
+    leijun = result.filings[1]
+    assert leijun.filing_id == "DA20260811E00498"
+    assert leijun.present_balance == 3989013134
+    assert leijun.percentage == 90.06
+    assert source._total_records(html) == 554
+
+
+def test_dion_total_records_matches_plain_text_and_span_shapes():
+    assert HKEXDisclosureInterestsSource._total_records("x Total records: 554") == 554
+    assert HKEXDisclosureInterestsSource._total_records('Total records: </span><span id="lblRecCount">1,234</span>') == 1234
+    assert HKEXDisclosureInterestsSource._total_records("no counter here") is None
+
+
+def test_dion_page_url_appends_and_replaces_pagination_param():
+    base = "https://di.hkex.com.hk/di/NSAllFormList.aspx?sd=09%2f07%2f2018&sc=01810&g_lang=en&"
+    assert HKEXDisclosureInterestsSource._page_url(base, 2).endswith("g_lang=en&pg=2")
+    assert "pg=3" in HKEXDisclosureInterestsSource._page_url(base + "pg=2", 3)
+    assert HKEXDisclosureInterestsSource._page_url("https://di.hkex.com.hk/di/NSSrchCorp.aspx?a=1", 2) is None
+
+
+def test_dion_genuine_zero_returns_ready_with_no_rows():
+    html = "<table><tr><td>No matching records. Total records: </span><span id='lblRecCount'>0</span></td></tr></table>"
+    source = HKEXDisclosureInterestsSource()
+    result = source._parse_result("00388", html, date(2024, 9, 18), date(2026, 9, 18))
+    assert result.metadata.source_status == "ready"
+    assert result.metadata.filing_count == 0
+    assert result.filings == []
+
+
 @pytest.mark.asyncio
 async def test_di_job_runner_succeeds_and_reports_persisted_rows(monkeypatch):
     fake = _FakeService()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from datetime import UTC, date, datetime
 from urllib.parse import urlencode, urljoin
 
@@ -15,6 +16,12 @@ from ccass_core.normalize import normalize_stock_code
 
 BASE = "https://di.hkex.com.hk/di/"
 SEARCH = BASE + "NSSrchCorp.aspx?src=MAIN&lang=EN&g_lang=en"
+
+# Real DION result rows are nested <tr>s whose first cell is a form serial
+# such as CS20260908E00043 (shareholder notice) or DA20260811E00498 (director).
+SERIAL_PATTERN = re.compile(r"^(?:CS|DA)\d{8}[EP]\d{5}$")
+TOTAL_RECORDS_PATTERN = re.compile(r"Total records:\s*(?:</span>)?\s*(?:<span[^>]*>)?\s*([\d,]+)", re.IGNORECASE)
+DATE_PATTERN = re.compile(r"\d{2}/\d{2}/\d{4}")
 
 
 class HKEXDisclosureInterestsSource:
@@ -32,7 +39,7 @@ class HKEXDisclosureInterestsSource:
                 soup = BeautifulSoup(page.text, "html.parser")
                 form = soup.find("form")
                 fields = {element.get("name"): element.get("value", "") for element in form.find_all("input") if element.get("name")} if form else {}
-                fields.update({"txtStockCode": normalized, "cmdSearch": "Search", "ddlStartDateDD": f"{start_date.day:02d}", "ddlStartDateMM": f"{start_date.month:02d}", "ddlStartDateYYYY": str(start_date.year), "ddlEndDateDD": f"{end_date.day:02d}", "ddlEndDateMM": f"{end_date.month:02d}", "ddlEndDateYYYY": str(end_date.year)})
+                fields.update({"txtStockCode": normalized, "cmdSearch": "Search", "ddlStartDateDD": f"{start_date.day:02d}", "ddlStartDateMM": f"{start_date.month:02d}", "ddlEndDateDD": f"{end_date.day:02d}", "ddlStartDateYYYY": str(start_date.year), "ddlEndDateMM": f"{end_date.month:02d}", "ddlEndDateYYYY": str(end_date.year)})
                 result = await client.post(SEARCH, data=fields)
                 result.raise_for_status()
                 if "Home/Login" not in str(result.url) and "HKEX - Login" not in result.text:
@@ -81,14 +88,53 @@ class HKEXDisclosureInterestsSource:
                 result_link = page.get_by_role("link", name="List of all notices")
                 await result_link.click(timeout=timeout_ms)
                 await page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
-                html = await page.content()
-                if "Form Serial Number" not in html:
-                    if "Total records:" in html:
-                        return self._parse_result(code, html, start_date, end_date)
-                    return self._unavailable(code, "DION browser result table was not returned")
-                return self._parse_result(code, html, start_date, end_date)
+
+                deadline = time.monotonic() + max(1.0, self.settings.request_timeout_seconds)
+                collected: dict[str, DisclosureInterestRow] = {}
+                total_records: int | None = None
+                warnings: list[str] = []
+                first_page_url = page.url
+                pg = 1
+                while True:
+                    html = await page.content()
+                    total_records = self._total_records(html) or total_records
+                    parsed = self._parse_result(code, html, start_date, end_date)
+                    new_before = len(collected)
+                    for row in parsed.filings:
+                        collected[row.filing_id] = row
+                    if len(collected) == new_before:
+                        break
+                    pg += 1
+                    next_url = self._page_url(first_page_url, pg)
+                    if total_records is not None and len(collected) >= total_records:
+                        break
+                    if next_url is None:
+                        break
+                    if time.monotonic() > deadline - 5.0:
+                        warnings.append(f"DI_PAGINATION_TIME_BUDGET: collected {len(collected)} of {total_records} records before the flow budget expired")
+                        break
+                    await page.goto(next_url, wait_until="domcontentloaded", timeout=timeout_ms)
+                if total_records is not None and len(collected) < total_records and not warnings:
+                    warnings.append(f"DI_PARTIAL_RESULT: parsed {len(collected)} of {total_records} listed records")
+                ordered = sorted(collected.values(), key=lambda row: (row.event_date, row.filing_id), reverse=True)
+                metadata = DisclosureInterestsMetadata(code=code, source_url=SEARCH, fetched_at=datetime.now(UTC), filing_count=len(ordered))
+                return DisclosureInterestsResponse(metadata=metadata, filings=ordered, data_quality_warnings=warnings)
             finally:
                 await browser.close()
+
+    @staticmethod
+    def _page_url(first_page_url: str, pg: int) -> str | None:
+        if "NSAllFormList.aspx" not in first_page_url:
+            return None
+        cleaned = re.sub(r"&?pg=\d+", "", first_page_url)
+        if not cleaned.endswith(("&", "?")):
+            cleaned += "&"
+        return f"{cleaned}pg={pg}"
+
+    @staticmethod
+    def _total_records(html: str) -> int | None:
+        match = TOTAL_RECORDS_PATTERN.search(html)
+        return int(match.group(1).replace(",", "")) if match else None
 
     @staticmethod
     def _load_playwright_async_api():
@@ -113,27 +159,29 @@ class HKEXDisclosureInterestsSource:
 
     def _parse_result(self, code: str, html: str, start_date: date, end_date: date) -> DisclosureInterestsResponse:
         soup = BeautifulSoup(html, "html.parser")
-        rows: list[DisclosureInterestRow] = []
-        table = next((table for table in soup.find_all("table") if "Form Serial Number" in table.get_text(" ", strip=True)), None)
-        if table:
-            for tr in table.find_all("tr")[1:]:
-                cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"])]
-                if len(cells) < 8 or not cells[0]:
-                    continue
-                links = tr.find_all("a")
-                filing_id = cells[0]
-                href = urljoin(BASE, links[0].get("href", "")) if links else ""
-                event_match = re.search(r"\d{2}/\d{2}/\d{4}", cells[-1])
-                if not event_match:
-                    continue
-                event_date = datetime.strptime(event_match.group(), "%d/%m/%Y").date()
-                if not start_date <= event_date <= end_date:
-                    continue
-                def first_number(value: str, integer: bool = True):
-                    match = re.search(r"[\d,]+(?:\.\d+)?", value)
-                    if not match:
-                        return None
-                    return int(match.group().replace(",", "")) if integer else float(match.group().replace(",", ""))
-                classification = "director_or_substantial_shareholder" if "director" in cells[1].casefold() else "substantial_shareholder"
-                rows.append(DisclosureInterestRow(filing_id=filing_id, stock_code=code, event_date=event_date, filer=cells[1], classification=classification, shares_involved=first_number(cells[3]), average_price=first_number(cells[4], integer=False), present_balance=first_number(cells[5]), percentage=first_number(cells[6], integer=False), reason=cells[2], source_url=href, retrieved_at=datetime.now(UTC)))
-        return DisclosureInterestsResponse(metadata=DisclosureInterestsMetadata(code=code, source_url=SEARCH, fetched_at=datetime.now(UTC), filing_count=len(rows)), filings=rows)
+        rows: dict[str, DisclosureInterestRow] = {}
+        for tr in soup.find_all("tr"):
+            cells = [cell.get_text(" ", strip=True) for cell in tr.find_all(["th", "td"], recursive=False)]
+            if len(cells) < 8 or not SERIAL_PATTERN.match(cells[0]):
+                continue
+            date_match = DATE_PATTERN.search(cells[7]) if len(cells) > 7 else None
+            if date_match is None:
+                date_match = next((DATE_PATTERN.search(cell) for cell in cells if DATE_PATTERN.search(cell)), None)
+            if date_match is None:
+                continue
+            event_date = datetime.strptime(date_match.group(), "%d/%m/%Y").date()
+            if not start_date <= event_date <= end_date:
+                continue
+            links = tr.find_all("a")
+            href = urljoin(BASE, links[0].get("href", "")) if links else ""
+
+            def first_number(value: str, integer: bool = True):
+                match = re.search(r"[\d,]+(?:\.\d+)?", value)
+                if not match:
+                    return None
+                return int(match.group().replace(",", "")) if integer else float(match.group().replace(",", ""))
+
+            classification = "director_or_substantial_shareholder" if "director" in cells[1].casefold() else "substantial_shareholder"
+            rows[cells[0]] = DisclosureInterestRow(filing_id=cells[0], stock_code=code, event_date=event_date, filer=cells[1], classification=classification, shares_involved=first_number(cells[3]), average_price=first_number(cells[4], integer=False), present_balance=first_number(cells[5]), percentage=first_number(cells[6], integer=False), reason=cells[2], source_url=href, retrieved_at=datetime.now(UTC))
+        ordered = sorted(rows.values(), key=lambda row: (row.event_date, row.filing_id), reverse=True)
+        return DisclosureInterestsResponse(metadata=DisclosureInterestsMetadata(code=code, source_url=SEARCH, fetched_at=datetime.now(UTC), filing_count=len(ordered)), filings=ordered)
