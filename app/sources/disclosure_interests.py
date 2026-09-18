@@ -64,7 +64,8 @@ class HKEXDisclosureInterestsSource:
         except asyncio.TimeoutError:
             return self._unavailable(code, "DION browser transport timed out")
         except Exception as exc:
-            return self._unavailable(code, f"DION browser transport failed: {type(exc).__name__}")
+            detail = str(exc).strip().replace("\n", " ")[:220]
+            return self._unavailable(code, f"DION browser transport failed: {type(exc).__name__}: {detail}")
 
     async def _run_browser_search(self, async_playwright, code: str, *, start_date: date, end_date: date, timeout_ms: int) -> DisclosureInterestsResponse:
         async with async_playwright() as playwright:
