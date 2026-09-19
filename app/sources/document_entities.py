@@ -2,13 +2,43 @@ from __future__ import annotations
 
 import io
 import re
+import time
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 from pypdf import PdfReader
 
 from app.models import DocumentEntitiesMetadata, DocumentEntitiesResponse, DocumentEntityRow
+from app.sources.announcements import HKEXNewsAnnouncementsSource
+
+# Discovery is dynamic: corporate-action documents (placings, offers, rights
+# issues, circulars) are found per stock from the HKEXnews announcement
+# stream at runtime — no per-stock document whitelist.
+MAX_DISCOVERY_WINDOW_DAYS = 2 * 365
+MAX_DOCUMENTS_PER_RUN = 4
+MAX_PDF_BYTES = 25 * 1024 * 1024
+MAX_PDF_PAGES = 140
+RUN_BUDGET_SECONDS = 45.0
+
+ENTITY_DOCUMENT_CATEGORIES: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("general offer", re.compile(r"general offer|mandatory.{0,30}offer|voluntary.{0,30}offer|unconditional\s+cash\s+offer|cash\s+offer|composite document|offer document|offer announcement|merger by way of|要約", re.I)),
+    ("whitewash", re.compile(r"whitewash|清洗交易", re.I)),
+    ("rights issue", re.compile(r"rights issue|供股", re.I)),
+    ("placing", re.compile(r"placing|配售|先舊後新|subscription", re.I)),
+    ("underwriting", re.compile(r"underwrit", re.I)),
+    ("circular", re.compile(r"circular|通函", re.I)),
+)
+NON_ENTITY_TITLE_RE = re.compile(r"monthly return|esg|sustainab|可持續|governance|agm|sgm|notice of|proxy|annual report|interim report|quarterly", re.I)
+
+
+def _classify_entity_document(title: str) -> str | None:
+    if NON_ENTITY_TITLE_RE.search(title):
+        return None
+    for category, pattern in ENTITY_DOCUMENT_CATEGORIES:
+        if pattern.search(title):
+            return category
+    return None
 
 
 @dataclass(frozen=True)
@@ -19,15 +49,6 @@ class HKEXDocumentSpec:
     announcement_date: date
     url: str
 
-
-DOCUMENT_ENTITY_SPECS = (
-    HKEXDocumentSpec("00388", "2026031701088", "AGM circular", date(2026, 3, 17), "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0317/2026031701088.pdf"),
-    HKEXDocumentSpec("00006", "2026040800063", "major transaction circular", date(2026, 4, 8), "https://www1.hkexnews.hk/listedco/listconews/sehk/2026/0408/2026040800063.pdf"),
-    HKEXDocumentSpec("00362", "2024102500409", "major transaction circular with placing agent", date(2024, 10, 25), "https://www1.hkexnews.hk/listedco/listconews/sehk/2024/1025/2024102500409.pdf"),
-    HKEXDocumentSpec("00372", "2025042400015", "voluntary offer document", date(2025, 4, 24), "https://www1.hkexnews.hk/listedco/listconews/sehk/2025/0424/2025042400015.pdf"),
-    HKEXDocumentSpec("08226", "2021120301552", "rights issue underwriting circular", date(2021, 12, 3), "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/1203/2021120301552.pdf"),
-    HKEXDocumentSpec("01168", "2021021100191", "rights issue whitewash circular", date(2021, 2, 11), "https://www1.hkexnews.hk/listedco/listconews/sehk/2021/0211/2021021100191.pdf"),
-)
 
 _TYPES = (
     ("independent_financial_adviser", r"independent\s+financial\s+adviser"),
@@ -76,23 +97,81 @@ def _extract_rows(spec: HKEXDocumentSpec, text: str, retrieved_at: datetime) -> 
 
 
 class HKEXDocumentEntitiesSource:
-    def __init__(self, timeout: float = 45.0):
+    def __init__(self, timeout: float = 45.0, client: httpx.AsyncClient | None = None, announcements: HKEXNewsAnnouncementsSource | None = None):
         self.timeout = timeout
+        self.client = client
+        self.announcements = announcements or HKEXNewsAnnouncementsSource()
 
     async def get_entities(self, stock_code: str | int) -> DocumentEntitiesResponse:
         code = str(stock_code).zfill(5)
-        specs = tuple(spec for spec in DOCUMENT_ENTITY_SPECS if spec.stock_code == code)
         now = datetime.now(UTC)
-        rows: list[DocumentEntityRow] = []
         warnings: list[str] = []
-        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        try:
+            specs, discovery_warnings = await self._discover_entity_documents(code)
+        except Exception as exc:
+            warnings.append(f"DISCOVERY_FAILED:{type(exc).__name__}")
+            return DocumentEntitiesResponse(metadata=DocumentEntitiesMetadata(code=code, fetched_at=now, source_status="unavailable", documents_attempted=0, documents_fetched=0, rows_extracted=0), rows=[], data_quality_warnings=warnings)
+        warnings.extend(discovery_warnings)
+        rows: list[DocumentEntityRow] = []
+        failed = 0
+        deadline = time.monotonic() + RUN_BUDGET_SECONDS
+        async with (self.client or httpx.AsyncClient(timeout=self.timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})) as client:
             for spec in specs:
+                if time.monotonic() > deadline - 3.0 and rows:
+                    warnings.append("RUN_BUDGET_REACHED: time budget exhausted before this document")
+                    break
                 try:
                     response = await client.get(spec.url)
                     response.raise_for_status()
-                    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(response.content)).pages)
+                    if len(response.content) > MAX_PDF_BYTES:
+                        warnings.append(f"DOCUMENT_TOO_LARGE:{spec.document_id}:{len(response.content)}")
+                        failed += 1
+                        continue
+                    reader = PdfReader(io.BytesIO(response.content))
+                    if len(reader.pages) > MAX_PDF_PAGES:
+                        warnings.append(f"DOCUMENT_TOO_MANY_PAGES:{spec.document_id}:{len(reader.pages)}")
+                        failed += 1
+                        continue
+                    text = "\n".join(page.extract_text() or "" for page in reader.pages)
                     rows.extend(_extract_rows(spec, text, now))
                 except Exception as exc:
                     warnings.append(f"DOCUMENT_FAILED:{spec.document_id}:{type(exc).__name__}")
-        status = "ready" if rows and not warnings else ("partial" if rows else "unavailable")
-        return DocumentEntitiesResponse(metadata=DocumentEntitiesMetadata(code=code, fetched_at=now, source_status=status, documents_attempted=len(specs), documents_fetched=len(specs)-len(warnings), rows_extracted=len(rows)), rows=rows, data_quality_warnings=warnings)
+                    failed += 1
+        if rows and not failed:
+            status = "ready"
+        elif rows:
+            status = "partial"
+        else:
+            status = "unavailable"
+        return DocumentEntitiesResponse(metadata=DocumentEntitiesMetadata(code=code, fetched_at=now, source_status=status, documents_attempted=len(specs), documents_fetched=len(specs) - failed, rows_extracted=len(rows)), rows=rows, data_quality_warnings=warnings)
+
+    async def _discover_entity_documents(self, code: str) -> tuple[list[HKEXDocumentSpec], list[str]]:
+        """Find corporate-action documents (placings, offers, rights issues,
+        circulars) for any stock from its announcement stream — these carry
+        the placing agents, advisers, offerors, underwriters and whitewash
+        wording the entity extractor needs."""
+        warnings: list[str] = []
+        end = datetime.now(UTC).date()
+        start = end - timedelta(days=MAX_DISCOVERY_WINDOW_DAYS)
+        announcements = await self.announcements.get_announcements(code, start_date=start, end_date=end, row_range=400)
+        candidates: dict[str, tuple[date, str, str]] = {}
+        for row in announcements.announcements:
+            title = (row.title or "").strip()
+            if not title or not row.link:
+                continue
+            category = _classify_entity_document(title)
+            if category is None:
+                continue
+            candidates[row.link] = (row.announcement_date, category, title)
+        if not candidates:
+            warnings.append("NO_ENTITY_DOCUMENTS_DISCOVERED: no placing/offer/rights/circular documents found in the discovery window")
+            return [], warnings
+        ordered = sorted(candidates.items(), key=lambda item: item[1][0], reverse=True)
+        if len(ordered) > MAX_DOCUMENTS_PER_RUN:
+            warnings.append(f"DISCOVERY_CAPPED: parsing latest {MAX_DOCUMENTS_PER_RUN} of {len(ordered)} discovered documents (capacity discipline; heavy pulls move to the async pattern)")
+            ordered = ordered[:MAX_DOCUMENTS_PER_RUN]
+        specs = []
+        for url, (announcement_date, category, _title) in ordered:
+            document_id = url.rsplit("/", 1)[-1].removesuffix(".pdf")
+            specs.append(HKEXDocumentSpec(stock_code=code, document_id=document_id, document_type=f"{category} document", announcement_date=announcement_date, url=url))
+        return specs, warnings
