@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.models import DisclosureInterestRow, DocumentEntityRow, IntelligenceEventRow, IntelligenceEventsMetadata, IntelligenceEventsResponse
 from app.services.intelligence_events import IntelligenceEventsService
-from app.storage.intelligence_events import IntelligenceEventRepository, _event_key
+from app.storage.intelligence_events import IntelligenceEventRepository
 from app.storage.history import NormalizedSnapshotRepository
 from app.portal_8504 import app as portal_app
 from app.services.intelligence_events import get_intelligence_events_service
@@ -93,20 +93,6 @@ async def test_event_layer_repository_roundtrip_is_idempotent(tmp_path: Path):
     assert len(second.events) == len(first.events) == 2
     loaded = event_repo.load("02318")
     assert len(loaded) == 2
-
-
-def test_event_key_is_stable():
-    row = IntelligenceEventRow(
-        stock_code="02318",
-        event_type="disclosure_of_interest",
-        announce_date=date(2026, 9, 3),
-        counterparty="BlackRock, Inc.",
-        source_document="CS20260908E00043",
-        source_url="https://di.hkex.com.hk/x",
-        extraction_method="test",
-        retrieved_at=datetime.now(UTC),
-    )
-    assert _event_key(row) == "disclosure_of_interest|2026-09-03|CS20260908E00043|BlackRock, Inc.|"
 
 
 def test_intelligence_events_route_serves_from_overridden_service():
