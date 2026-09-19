@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import re
+import time
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
@@ -16,6 +17,8 @@ MAX_DISCOVERY_WINDOW_DAYS = 2 * 365
 MAX_PERIODS_PER_RUN = 4
 MAX_DOCUMENT_ATTEMPTS_PER_RUN = 6
 MAX_PDF_BYTES = 25 * 1024 * 1024
+MAX_PDF_PAGES = 200
+RUN_BUDGET_SECONDS = 55.0  # keeps the sync route inside the free-tier edge
 
 INTERIM_TITLE_RE = re.compile(r"interim|中期|half[- ]year", re.IGNORECASE)
 ANNUAL_TITLE_RE = re.compile(r"annual report|年度報告|年報|final results|全年業績|年度業績|annual results", re.IGNORECASE)
@@ -78,8 +81,10 @@ def _first_number(text: str, labels: tuple[str, ...]) -> float | None:
     return max(candidates, key=abs) if candidates else None
 
 
-def parse_fundamental_pdf(*, stock_code: str, reporting_period: str, announcement_date: date, report_type: str, source_url: str, document: str, payload: bytes, retrieved_at: datetime | None = None) -> FundamentalRow:
-    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(payload)).pages)
+def parse_fundamental_pdf(*, stock_code: str, reporting_period: str, announcement_date: date, report_type: str, source_url: str, document: str, payload: bytes, retrieved_at: datetime | None = None, reader: PdfReader | None = None) -> FundamentalRow:
+    if reader is None:
+        reader = PdfReader(io.BytesIO(payload))
+    text = "\n".join(page.extract_text() or "" for page in reader.pages)
     currency = "HKD" if re.search(r"expressed in HKD|\$m|RMB", text, re.I) else None
     unit = "million" if re.search(r"\$m|HKD million|in millions|RMB million|bn\b", text, re.I) else None
     values = {
@@ -130,15 +135,19 @@ class HKEXFundamentalsSource:
         rows: list[FundamentalRow] = []
         failed = 0
         attempts = 0
+        deadline = time.monotonic() + RUN_BUDGET_SECONDS
         async with (self.client or httpx.AsyncClient(timeout=self.timeout, follow_redirects=True)) as client:
             for period, candidates in discovered:
                 best_row: FundamentalRow | None = None
                 best_fields = 0
                 for report_type, announcement_date, url in candidates:
-                    if attempts >= MAX_DOCUMENT_ATTEMPTS_PER_RUN and best_row is not None:
+                    if best_row is not None and (attempts >= MAX_DOCUMENT_ATTEMPTS_PER_RUN or time.monotonic() > deadline - 3.0):
                         break
                     if attempts >= MAX_DOCUMENT_ATTEMPTS_PER_RUN:
                         warnings.append("ATTEMPT_BUDGET_REACHED: document attempt budget exhausted before this period")
+                        break
+                    if time.monotonic() > deadline - 3.0:
+                        warnings.append("RUN_BUDGET_REACHED: time budget exhausted before this period")
                         break
                     attempts += 1
                     try:
@@ -148,7 +157,12 @@ class HKEXFundamentalsSource:
                             warnings.append(f"DOCUMENT_TOO_LARGE:{url.rsplit('/', 1)[-1]}:{len(response.content)}")
                             failed += 1
                             continue
-                        parsed_row = parse_fundamental_pdf(stock_code=normalized, reporting_period=period, announcement_date=announcement_date, report_type=report_type, source_url=url, document=url.rsplit("/", 1)[-1], payload=response.content, retrieved_at=now)
+                        reader = PdfReader(io.BytesIO(response.content))
+                        if len(reader.pages) > MAX_PDF_PAGES:
+                            warnings.append(f"DOCUMENT_TOO_MANY_PAGES:{url.rsplit('/', 1)[-1]}:{len(reader.pages)}")
+                            failed += 1
+                            continue
+                        parsed_row = parse_fundamental_pdf(stock_code=normalized, reporting_period=period, announcement_date=announcement_date, report_type=report_type, source_url=url, document=url.rsplit("/", 1)[-1], payload=response.content, retrieved_at=now, reader=reader)
                         present = sum(parsed_row.model_dump().get(field) is not None for field in VALUE_FIELDS)
                         if present < 2:
                             warnings.append(f"LABELS_NOT_MATCHED:{url.rsplit('/', 1)[-1]}:{present}")
