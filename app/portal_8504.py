@@ -2974,7 +2974,8 @@ async def console_page(
             + f"<table><tr><th>filer</th><th>movements</th><th>+/-</th><th>latest balance</th><th>%</th></tr>{tl_rows}</table>"
         )
 
-        fundamentals = await get_fundamentals_service().get_fundamentals(normalized)
+        fundamentals_repo = get_fundamentals_service().repository
+        fundamentals = fundamentals_repo.load(normalized)
         f_rows = "".join(
             f"<tr><td>{r.reporting_period}</td><td>{_escape(str(r.revenue or ''))}</td><td>{_escape(str(r.net_profit_loss or ''))}</td><td>{_escape(str(r.equity or ''))}</td><td>{r.completeness_status}</td></tr>"
             for r in fundamentals.rows[:10]
@@ -2985,13 +2986,14 @@ async def console_page(
             + "".join(f'<div class="warn">{_escape(w)}</div>' for w in fundamentals.data_quality_warnings[:4])
         )
 
-        entities = await get_document_entities_service().get_entities(normalized)
+        entity_rows = get_document_entities_service().repository.load_rows(normalized, start_date=start, end_date=end)
         by_entity: dict[str, int] = {}
-        for row in entities.rows:
+        for row in entity_rows:
             by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
         sections.append(
-            f"<h2>Document Entities ({entities.metadata.source_status}, {entities.metadata.rows_extracted} rows)</h2>"
+            f"<h2>Document Entities ({len(entity_rows)} rows persisted)</h2>"
             + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_entity.items()))
+            + "<p>Heavy refreshes run through the admin jobs; this console reads the persisted evidence cache only.</p>"
         )
     else:
         sections.append("<p>Enter a stock code to load the unified view.</p>")
