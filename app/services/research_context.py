@@ -5,11 +5,12 @@ from functools import lru_cache
 
 from app.config import get_settings
 from app.models import IntelligenceEventsResponse, OwnershipTimelineResponse
-from app.services.intelligence_events import IntelligenceEventsService
+from app.services.intelligence_events import IntelligenceEventsService, get_intelligence_events_service
 from app.services.ownership_timeline import OwnershipTimelineService
 from app.storage.document_entities import DocumentEntityRepository
 from app.storage.fundamentals import FundamentalsRepository
 from app.storage.history import NormalizedSnapshotRepository
+from app.storage.intelligence_events import IntelligenceEventRepository
 from app.storage.share_capital_history import ShareCapitalHistoryRepository
 from ccass_core.normalize import normalize_stock_code
 
@@ -32,13 +33,7 @@ class ResearchContextService:
     ):
         settings = get_settings()
         normalized_repository = snapshot_repository or NormalizedSnapshotRepository(settings.ccass_sqlite_path)
-        self.events_service = events_service or IntelligenceEventsService(
-            disclosure_repository=None,
-            entity_repository=None,
-            event_repository=IntelligenceEventRepository(normalized_repository),
-            share_capital_repository=ShareCapitalHistoryRepository(normalized_repository),
-            announcements_repository=None,
-        )
+        self.events_service = events_service or get_intelligence_events_service()
         self.timeline_service = timeline_service or OwnershipTimelineService(
             DisclosureInterestRepositoryShim(normalized_repository)
         )
@@ -133,10 +128,10 @@ class ResearchContextService:
             total = sum(h.shares for h in holdings) or 1
             ccass = {
                 "snapshot_date": latest_snapshot.snapshot_date.isoformat(),
-                "source_id": latest_snapshot.source_id,
+                "source": str(getattr(latest_snapshot, "source", "")),
                 "participants": len(holdings),
                 "top10": [
-                    {"participant": h.participant, "shares": h.shares, "pct": round(h.shares / total * 100, 2)}
+                    {"participant_id": h.participant_id, "participant": str(getattr(h, "participant_name", None) or getattr(h, "participant", "") or h.participant_id), "shares": h.shares, "pct": round(h.shares / total * 100, 2)}
                     for h in holdings[:10]
                 ],
             }
@@ -255,7 +250,7 @@ class ResearchContextService:
         lines.append("## 7. CCASS 最新快照")
         ccass = context["ccass_latest"]
         if ccass:
-            lines.append(f"\n日期 {ccass['snapshot_date']}（{ccass['source_id']}）｜participants={ccass['participants']}")
+            lines.append(f"\n日期 {ccass['snapshot_date']}（{ccass['source']}）｜participants={ccass['participants']}")
             for entry in ccass["top10"]:
                 lines.append(f"- {entry['participant'][:40]}：{entry['shares']}（{entry['pct']}%）")
         else:
