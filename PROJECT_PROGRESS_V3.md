@@ -354,19 +354,27 @@ LESSON 2026-09-18: the original DI parser matched a fabricated HTML shape and re
 
 **Next session's task — P0 COMPLETE (0.4 gate 18/18 on 02020). PHASE 1 🥇 v0 IS LIVE (2026-09-19) — continue the event layer:**
 
-**REMAINING WORK CHECKLIST (ordered, gap excluded) — 2026-09-19 evening handoff from the company machine:**
-1. 02318 + 00941 股本持久化（兩個 job call：`POST /admin/share-capital/job?stock_code=...`）
-2. 證據股 5 年回填 — 4 隻證據股（02020/02318/00256/00397）DI/公告 補 2021-2024 窗口（異步 job 逐窗）
-3. document-entities 加 `NO_ENTITIES_EXTRACTED` 警告
-4. Portal console 加 job 觸發按鈕（連 admin key 輸入）
-5. Fundamentals parser v3 — 保險標籤覆蓋 + 錯配尺度防護
-6. Document entities 深度 — 封面式文件 fallback
-7. Corporate-timeline 5 年異步化
-8. AI 報告生成器 v1 — 研究包（`/research-context?format=md`）→ 章節初稿
-9. 實體關係圖種子（跨股中介統計）
-10. main ↔ authority branch 對齊
-11. API key 換新 — Render + .env + GitHub secret 三處（而家係 64 個 0）
-12. 公司機 3 個既有測試失敗根查
+**REMAINING WORK CHECKLIST — 2026-09-19 NIGHT PROGRESS (home-machine session, autonomous; original 12-item list from the company machine's evening handoff, items kept for traceability):**
+
+```text
+ITEM_1 (02318+00941 股本持久化) = BLOCKED-CAPACITY — 3 attempts each; heavy-issuer share-capital jobs run >10 min and appear to OOM-crash the free container (multiple 502s around them); Turso still 0 rows for 02318/00941. NEW BACKLOG: windowed/segmented share-capital persistence (or lighter document set) for heavy issuers. Retry solo after the queue drains.
+ITEM_2 (證據股 2021-2024 回填) = RUNNING — 42-job detached queue (home machine: bash script jobs_queue.sh; results in /tmp/job_results.txt of Machine A Git-Bash). VERIFIED LANDING: 02020 DI 89 rows (earliest 2021-04-20, was 25), 02318 announcements 551 rows (5y, was 236 — includes the first corporate-timeline job's persisted windows). Queue drains automatically; each trigger is health-gated.
+ITEMS_3-9 (code) = DONE + DEPLOYED LIVE (ecd63d2 = deploy dep-danb2f740ujc73bbb1v0):
+  - 3: NO_ENTITIES_EXTRACTED warning ✓
+  - 4: /console job trigger panel (admin key input + 7 buttons + 10-min poll) — VERIFIED LIVE
+  - 5: fundamentals parser v3 (insurer labels Insurance/Operating revenue; _resolve_unit thousand/billion + SCALE_AMBIGUOUS_UNIT; SCALE_SUSPECT revenue-vs-net-assets cross-check) ✓
+  - 6: document-entities cover-page fallback (title-agnostic recent PDFs ×3, COVER_PAGE_FALLBACK_ATTEMPTED) ✓
+  - 7: POST/GET /admin/corporate-timeline/job (5y window, internal ≤750d sub-windows, events in job result) — route VERIFIED LIVE; first run lost to a container crash → re-run once the queue drains
+  - 8: GET /api/v1/stocks/{code}/report-draft — VERIFIED LIVE (02318: 23.7KB, 8 chapters, 7 【AI 分析位】slots, every fact provenanced)
+  - 9: GET /api/v1/intermediary-graph (cross-stock nodes + same-document co-occurrence edges) — VERIFIED LIVE (real nodes: Morgan Stanley/Lufax adviser, Ping An offeror)
+ITEM_10 (branch 對齊) = DONE — merge 3d478fc reconciled main (Gate 20 + CI) into authority; main fast-forwarded to authority HEAD; divergence 0/0; workflows identical on both branches.
+ITEM_11 (API key 換新) = PENDING BY DESIGN — the queue uses the 64-zero key; rotate ONLY after it drains: ① Render env API_KEY (Render API) ② both machines' .env ③ GitHub secret API_KEY (web UI or gh admin).
+ITEM_12 (3 個測試失敗根查) = DONE — they were NOT company-env-specific: 7 stale/broken tests fixed (ecd63d2): history_storage migrations 1-10; registry/status tests updated for the 4th webbsite_archive source; accumulation auth test now monkeypatches get_settings (unconfigured → 503, configured-no-key → 401); officers service no longer falls back to a live Webb source on explicit "pending" state (test determinism). Full suite at home: 549 passed / 26 failed — the 26 are ALL test_streamlit_ui, pre-existing at 18cb04a (NOT from the merge): requirements floats streamlit>=1.40,<2 and home pulled 1.64.0; the company venv is older. Fix = pin the version (low priority).
+NEW_FINDINGS: (a) heavy-issuer share-capital jobs crash the free container (see ITEM_1); (b) the ~60s Render edge only bites synchronous HTTP — async jobs run 90-180s+ fine; (c) captured document-entity names can be noisy ("s should be construed accordingly. Ping An…") — parser refinement stays on the backlog; (d) home machine now has REAL Python 3.12.10 (winget) + venv at C:\Users\Joe Lau\.zcode\workspace\default\.venv-home (respx/pytest-asyncio added) — full local test runs now possible on BOTH machines.
+NEXT_SESSION: ① check /tmp/job_results.txt + Turso DI/announcement counts per evidence stock; ② retry share-capital 02318/00941 SOLO (accept a possible crash, or defer to the new windowed backlog item); ③ re-run one corporate-timeline 5y job to verify events; ④ item 11 rotation (three places); ⑤ V3 update + push + both Drive mirrors (H: home, G: company).
+```
+
+Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-capital job calls 02318+00941; 2 evidence-stock DI/announcements 2021-2024 backfill; 3 NO_ENTITIES_EXTRACTED warning; 4 console job buttons + admin key; 5 fundamentals parser v3; 6 entities cover-page fallback; 7 corporate-timeline 5y async; 8 AI report generator v1; 9 entity-graph seed; 10 branch alignment; 11 API key rotation; 12 company-machine test failures.
 1. **DONE 2026-09-19 — Unified Event Layer v0** (commits `c6eb614`→`e47b838`, Render LIVE): `intelligence_events` (MIGRATION_8, §8 row schema) + `intelligence_event_snapshots` evidence cache (MIGRATION_9, one payload_json upsert per coverage window — per-row remote writes starved the free container, 650 HTTP statements → container death; snapshot = 1 upsert, 5.9s for 637 events). `IntelligenceEventsService` derives events from persisted DI (confidence=**official**) + document-entity stores (confidence=**extracted**), upserts idempotently, serves via `GET /api/v1/stocks/{code}/intelligence-events` (4.3s sync read of 637 events) and builds via `POST /admin/intelligence-events/job`. **02318 live: 637 events (628 official DI + 9 extracted incl. Morgan Stanley/Lufax offeror facts).**
 2. **DONE 2026-09-19 — Event layer v1** (commit `d99ada9`, production-verified): MIGRATION_10 `share_capital_history` persistence + `ShareCapitalHistoryRepository` + `POST /admin/share-capital/job`; the intelligence event layer now also derives `share_capital_change` (confidence=extracted, reason/tags in provenance) and `announcement:results` (confidence=official) events. **02020 live: 61 events (25 DI official + 24 share_capital_change + 12 announcement:results; official 37/extracted 24), snapshot + share-capital rows in Turso.** Known quirk recorded in provenance: ISSUED_SHARES_MOVEMENT rows carry noisy reason text ("0 HKD 0") from the source — labelled, not hidden.
 2b. **DONE 2026-09-19 — GitHub Actions daily auto-accumulation + keepalive (§8.0)** (commit `29beaf7`): `.github/workflows/daily_snapshot.yml` (weekdays 08:15 HKT, wakes the free tier, triggers the 52-stock watchlist snapshot job, polls to completion) + `.github/workflows/keepalive.yml` (10-min health pings). **VERIFIED LIVE 2026-09-19 (Saturday): workflow ran green, job correctly returned `skipped_holiday` (52 skipped — HKEX closed); repo secret `API_KEY` already existed and works; NOTE — scheduled workflows only run from the DEFAULT branch, so the workflows were also pushed to `main` (commit `68b2be5`, supersedes the friend-era workflow files); workflow now exits 1 on genuine job errors (skipped_holiday stays green). First real snapshot: Monday 2026-09-21 08:15 HKT.** Future: add DI/announcements/fundamentals accumulation jobs to the same schedule (the 累積 evidence-cache staple).
