@@ -68,3 +68,15 @@ Key architectural lessons — and our position:
 ## 6. File housekeeping
 
 - `15092026 原webbsite係點拎DATA.md` — **FIXED 2026-09-19**: Joe re-uploaded via Desktop copy; correct 2,027-byte version now on the Drive (digested in §5b).
+
+
+## 7. ADDENDUM 2026-09-19 (evening): RTSS feasibility note + full tech spec (v1.0) received
+
+Two new docs: `13092026 自建 RTSS 式即市異動監察｜可行性與架構` and `20260912 技術規格書 自建RTSS掃描器 由零開始`.
+
+- **Confirmed: RTSS is EOD-first** — GitHub Actions 17:00 HKT → Longbridge `screener_search` (1 call sweeps the whole market) → `candlesticks` only for qualifiers (10-day turnover 10× / >500k / mcap<10億) → **Turso 唯一真源** → Streamlit read-only. No intraday worker needed at Layer 1 (15-min delayed quotes accepted).
+- **Signal honesty (both docs repeat it): 爆量 has zero excess return after controlling same-day gain (p=0.600); the tool's value = 報時 + 累積. "當日第 N 次" counter is the field worth keeping (≥3 次 historically precedes GO 報時 7.1×).**
+- **Compatibility contract with our platform (the rule already adopted):** RTSS reads Turso directly. Our platform's tables are its join surface — every RTSS alert can be enriched instantly with our CCASS snapshots, announcement stream and intelligence_events (`intelligence_event_snapshots.events_json`). Our event layer's DT-mapped 財技事件 types are exactly what turns an RTSS 報時 into a 財技 story.
+- Known open items RTSS must solve (their spec flags them): market-cap denominator (H shares/內資股), T+0 vs full-day turnover (store BOTH), holiday/half-day state resets.
+- **Sequencing (friend's own advice, matches ours): Layer 1 EOD board first (1-2 days Codex work, zero cost), run 2 weeks against the RTSS channel for threshold alignment, only then decide on the Layer-2 always-on worker.**
+- This platform (joe-ccass-platform) does NOT build the scanner — RTSS stays a separate project per §2 governance.

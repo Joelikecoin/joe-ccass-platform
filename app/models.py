@@ -492,6 +492,50 @@ class ShareCapitalHistoryResponse(BaseModel):
     data_quality_warnings: list[str] = Field(default_factory=list)
 
 
+class OwnershipMovement(BaseModel):
+    event_date: date
+    filing_id: str
+    direction: Literal["increase", "decrease", "unknown"]
+    change_shares: int | None = None
+    shares_involved: int | None = None
+    previous_balance: int | None = None
+    present_balance: int | None = None
+    percentage: float | None = None
+    average_price: float | None = None
+    reason: str | None = None
+    source_url: str
+
+
+class OwnershipFilerTimeline(BaseModel):
+    filer: str
+    classification: str
+    first_seen: date
+    last_seen: date
+    movements_count: int = 0
+    increases: int = 0
+    decreases: int = 0
+    latest_present_balance: int | None = None
+    latest_percentage: float | None = None
+    movements: list[OwnershipMovement] = Field(default_factory=list)
+
+
+class OwnershipTimelineMetadata(BaseModel):
+    code: str
+    source_name: str = "HKEX DION (official)"
+    fetched_at: datetime
+    source_status: Literal["ready", "unavailable"] = "ready"
+    filers: int = 0
+    movements: int = 0
+    coverage_start: date | None = None
+    coverage_end: date | None = None
+
+
+class OwnershipTimelineResponse(BaseModel):
+    metadata: OwnershipTimelineMetadata
+    timelines: list[OwnershipFilerTimeline] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
 class IntelligenceEventRow(BaseModel):
     stock_code: str
     event_type: str

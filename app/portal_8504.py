@@ -89,6 +89,8 @@ from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
 from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHistoryResponse, DisclosureInterestsResponse, FundamentalsResponse, DocumentEntitiesResponse, IntelligenceEventsResponse
 from app.services.intelligence_events import IntelligenceEventsService, get_intelligence_events_service
+from app.services.ownership_timeline import OwnershipTimelineService, get_ownership_timeline_service
+from app.models import OwnershipTimelineResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
@@ -2840,6 +2842,17 @@ async def share_capital_job_status(
     if job is None:
         raise PlatformError("NOT_FOUND", "Share capital job was not found.", status_code=404)
     return JSONResponse(job)
+
+
+@app.get("/api/v1/stocks/{stock_code}/ownership-timeline", response_model=OwnershipTimelineResponse, tags=["ownership"])
+async def get_ownership_timeline(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    filer: str | None = Query(default=None),
+    service: OwnershipTimelineService = Depends(get_ownership_timeline_service),
+) -> OwnershipTimelineResponse:
+    return await service.get_timeline(stock_code, start_date=start_date, end_date=end_date, filer=filer)
 
 
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
