@@ -29,10 +29,11 @@ def _row(event_date, filer, prev, present, filing):
 
 class _FakeRepo:
     def load_rows(self, stock_code, *, start_date, end_date):
+        # real DION rows carry NO previous_balance — the timeline chains it
         return [
-            _row(date(2026, 9, 3), "BlackRock, Inc.", 1_065_000_000, 1_065_871_110, "CS1"),
-            _row(date(2026, 8, 19), "BlackRock, Inc.", 1_070_000_000, 1_065_000_000, "CS0"),
-            _row(date(2026, 9, 1), "Lei Jun", 3_990_000_000, 3_989_013_134, "DA1"),
+            _row(date(2026, 9, 3), "BlackRock, Inc.", None, 1_065_871_110, "CS1"),
+            _row(date(2026, 8, 19), "BlackRock, Inc.", None, 1_065_000_000, "CS0"),
+            _row(date(2026, 9, 1), "Lei Jun", None, 3_989_013_134, "DA1"),
         ]
 
 
@@ -46,10 +47,11 @@ async def test_ownership_timeline_groups_movements_and_directions():
     assert response.metadata.movements == 3
     blackrock = next(t for t in response.timelines if t.filer == "BlackRock, Inc.")
     assert blackrock.movements_count == 2
-    assert blackrock.increases == 1 and blackrock.decreases == 1
+    assert blackrock.increases == 1 and blackrock.decreases == 0  # first-ever filing counts as unknown
     assert blackrock.movements[0].filing_id == "CS1"  # newest first
     assert blackrock.movements[0].direction == "increase"
-    assert blackrock.movements[0].change_shares == 871_110
+    assert blackrock.movements[0].change_shares == 871_110  # chained from CS0's balance
+    assert blackrock.movements[1].direction == "unknown"  # first-ever filing: no prior balance
     assert blackrock.latest_present_balance == 1_065_871_110
 
 

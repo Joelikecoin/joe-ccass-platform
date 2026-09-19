@@ -55,9 +55,13 @@ class OwnershipTimelineService:
             filer_rows.sort(key=lambda row: row.event_date)
             movements: list[OwnershipMovement] = []
             increases = decreases = 0
+            last_known_balance: int | None = None
             for row in filer_rows:
-                if row.previous_balance is not None and row.present_balance is not None:
-                    change = row.present_balance - row.previous_balance
+                # DION rows carry no previous-balance column; chain each
+                # movement to the filer's own prior disclosed balance.
+                previous = row.previous_balance if row.previous_balance is not None else last_known_balance
+                if previous is not None and row.present_balance is not None:
+                    change = row.present_balance - previous
                     direction = "increase" if change > 0 else ("decrease" if change < 0 else "unknown")
                 else:
                     change = None
@@ -72,13 +76,15 @@ class OwnershipTimelineService:
                     direction=direction,
                     change_shares=change,
                     shares_involved=row.shares_involved,
-                    previous_balance=row.previous_balance,
+                    previous_balance=previous,
                     present_balance=row.present_balance,
                     percentage=row.percentage,
                     average_price=row.average_price,
                     reason=row.reason,
                     source_url=row.source_url,
                 ))
+                if row.present_balance is not None:
+                    last_known_balance = row.present_balance
             latest = filer_rows[-1]
             timelines.append(OwnershipFilerTimeline(
                 filer=filer_name,
