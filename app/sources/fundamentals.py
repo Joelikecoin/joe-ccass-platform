@@ -17,8 +17,8 @@ MAX_DISCOVERY_WINDOW_DAYS = 2 * 365
 MAX_PERIODS_PER_RUN = 4
 MAX_DOCUMENT_ATTEMPTS_PER_RUN = 6
 MAX_PDF_BYTES = 25 * 1024 * 1024
-MAX_PDF_PAGES = 200
-RUN_BUDGET_SECONDS = 55.0  # keeps the sync route inside the free-tier edge
+MAX_PDF_PAGES = 140  # results announcements and interim reports parse fine; 300+-page full reports are too slow for free-tier CPU
+RUN_BUDGET_SECONDS = 45.0  # keeps the sync route inside the free-tier edge
 
 INTERIM_TITLE_RE = re.compile(r"interim|中期|half[- ]year", re.IGNORECASE)
 ANNUAL_TITLE_RE = re.compile(r"annual report|年度報告|年報|final results|全年業績|年度業績|annual results", re.IGNORECASE)
