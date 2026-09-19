@@ -2701,6 +2701,80 @@ async def get_persisted_disclosure_interests(
     return await service.get_persisted_disclosures(stock_code, start_date=start, end_date=end)
 
 
+_intelligence_events_jobs: dict[str, dict[str, object]] = {}
+_intelligence_events_jobs_lock = threading.Lock()
+
+
+async def _run_intelligence_events_job(job_id: str, code: str, start_date: date | None, end_date: date | None, service: IntelligenceEventsService | None = None) -> None:
+    started = time.monotonic()
+    budget = _async_job_timeout_budget(extra=120.0)
+    active = service or get_intelligence_events_service()
+    try:
+        response = await asyncio.wait_for(
+            active.get_events(code, start_date=start_date, end_date=end_date),
+            timeout=budget,
+        )
+    except asyncio.TimeoutError:
+        _update_async_job(_intelligence_events_jobs, _intelligence_events_jobs_lock, job_id, state="error", error=f"intelligence-events flow exceeded the job budget ({budget}s)", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    except Exception as exc:
+        _update_async_job(_intelligence_events_jobs, _intelligence_events_jobs_lock, job_id, state="error", error=f"{type(exc).__name__}: {exc}", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    _update_async_job(
+        _intelligence_events_jobs,
+        _intelligence_events_jobs_lock,
+        job_id,
+        state="succeeded" if response.metadata.source_status == "ready" else response.metadata.source_status,
+        event_count=response.metadata.event_count,
+        coverage_start=response.metadata.coverage_start.isoformat() if response.metadata.coverage_start else None,
+        coverage_end=response.metadata.coverage_end.isoformat() if response.metadata.coverage_end else None,
+        warnings=list(response.data_quality_warnings),
+        elapsed_s=round(time.monotonic() - started, 3),
+    )
+
+
+@app.post("/admin/intelligence-events/job", tags=["admin"])
+async def intelligence_events_job_trigger(
+    stock_code: str = Query(...),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    normalized = normalize_stock_code(stock_code)
+    job_id = uuid.uuid4().hex
+    with _intelligence_events_jobs_lock:
+        _intelligence_events_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "running",
+            "stock_code": normalized,
+            "event_count": 0,
+            "coverage_start": None,
+            "coverage_end": None,
+            "warnings": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_intelligence_events_job(job_id, normalized, start_date, end_date))
+    return JSONResponse({"status": "accepted", "job_id": job_id, "state": "running", "stock_code": normalized}, status_code=202)
+
+
+@app.get("/admin/intelligence-events/job/{job_id}", tags=["admin"])
+async def intelligence_events_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _async_job_public(_intelligence_events_jobs, _intelligence_events_jobs_lock, job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Intelligence events job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
 async def get_intelligence_events(
     stock_code: str,
