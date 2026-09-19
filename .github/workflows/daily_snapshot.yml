@@ -1,0 +1,50 @@
+name: daily-ccass-snapshot
+
+# §8.0 zero-budget scheduling: 08:15 HKT weekdays, the 52-stock watchlist
+# CCASS snapshot runs on the Render free tier via the admin job API.
+on:
+  schedule:
+    - cron: "15 0 * * 1-5" # 00:15 UTC = 08:15 HKT, Mon-Fri
+  workflow_dispatch: {} # manual run for testing
+
+env:
+  BASE_URL: https://joe-ccass-api.onrender.com
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Wake the free-tier service
+        run: |
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health" || true)
+            echo "warm attempt $i: $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "service did not warm up"
+          exit 1
+
+      - name: Trigger the watchlist snapshot job
+        id: trigger
+        run: |
+          RESP=$(curl -s -X POST "$BASE_URL/admin/longbridge/snapshot_watchlist?key=${{ secrets.API_KEY }}")
+          echo "trigger: $RESP"
+          JOB=$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id',''))")
+          if [ -z "$JOB" ]; then echo "no job_id returned"; exit 1; fi
+          echo "job_id=$JOB" >> "$GITHUB_OUTPUT"
+
+      - name: Poll to completion
+        run: |
+          for i in $(seq 1 60); do
+            BODY=$(curl -s "$BASE_URL/admin/longbridge/snapshot_job/${{ steps.trigger.outputs.job_id }}?key=${{ secrets.API_KEY }}")
+            STATE=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))")
+            echo "poll $i: $BODY"
+            case "$STATE" in
+              running|accepted) sleep 30 ;;
+              *) echo "terminal state: $STATE"; exit 0 ;;
+            esac
+          done
+          echo "job still running after the polling window"
+          exit 1
