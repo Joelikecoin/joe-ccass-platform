@@ -16,7 +16,14 @@ class OfficersService:
 
     async def get_officers(self, code: str | int) -> OfficersResponse:
         response = await self.source.get_officers(code)
-        if not response.officers and not isinstance(self.source, WebbsiteOfficersSource):
+        # "pending" is an explicit terminal state from the primary source —
+        # falling back to a live second source here would overwrite the
+        # labelled state (and makes unit tests non-deterministic).
+        if (
+            not response.officers
+            and response.metadata.source_status != "pending"
+            and not isinstance(self.source, WebbsiteOfficersSource)
+        ):
             try:
                 response = await WebbsiteOfficersSource().get_officers(code)
             except Exception:

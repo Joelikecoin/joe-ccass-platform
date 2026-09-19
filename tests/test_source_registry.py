@@ -18,6 +18,7 @@ from app.sources.registry import (
     SourceStatus,
     build_source_registry,
 )
+from app.sources.webbsite_historical import WEBB_HISTORICAL_SOURCE_ID
 
 GOOGLE_URL = (
     "https://drive.google.com/file/d/registry-fixture/view"
@@ -101,10 +102,11 @@ def test_registry_exposes_holdings_selection_roles_and_provenance():
     webbsite = registry.get(WEBBSITE_SOURCE_ID)
     google = registry.get(GOOGLE_DRIVE_CSV_SOURCE_ID)
     hkex = registry.get(HKEX_SDW_SOURCE_ID)
+    archive = registry.get(WEBB_HISTORICAL_SOURCE_ID)
 
     assert selection.primary is webbsite
     assert selection.fallback == (google, hkex)
-    assert selection.unavailable == ()
+    assert selection.unavailable == (archive,)
     assert selection.available == (webbsite, google, hkex)
     assert webbsite.availability.status == SourceStatus.ACTIVE
     assert webbsite.provenance.parser_id
@@ -117,7 +119,7 @@ def test_registry_exposes_holdings_selection_roles_and_provenance():
     explicit = registry.select_holdings_sources("webbsite")
     assert explicit.primary is webbsite
     assert explicit.fallback == ()
-    assert explicit.unavailable == (google, hkex)
+    assert explicit.unavailable == (archive, google, hkex)
 
 
 def test_safe_diagnostics_redact_urls_queries_credentials_and_private_paths():
@@ -134,6 +136,7 @@ def test_safe_diagnostics_redact_urls_queries_credentials_and_private_paths():
         WEBBSITE_SOURCE_ID,
         GOOGLE_DRIVE_CSV_SOURCE_ID,
         HKEX_SDW_SOURCE_ID,
+        WEBB_HISTORICAL_SOURCE_ID,
     }
     google = next(item for item in diagnostics if item["source_id"] == GOOGLE_DRIVE_CSV_SOURCE_ID)
     hkex = next(item for item in diagnostics if item["source_id"] == HKEX_SDW_SOURCE_ID)

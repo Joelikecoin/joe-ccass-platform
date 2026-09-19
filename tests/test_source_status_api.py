@@ -10,6 +10,7 @@ from app.sources.registry import (
     HKEX_SDW_SOURCE_ID,
     WEBBSITE_SOURCE_ID,
 )
+from app.sources.webbsite_historical import WEBB_HISTORICAL_SOURCE_ID
 
 
 def test_source_status_api_exposes_safe_registry_diagnostics():
@@ -20,15 +21,17 @@ def test_source_status_api_exposes_safe_registry_diagnostics():
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["source_count"] == 3
-    assert [item["source_id"] for item in body["sources"]] == [
+    assert body["source_count"] == 4
+    by_id = {item["source_id"]: item for item in body["sources"]}
+    assert set(by_id) == {
         WEBBSITE_SOURCE_ID,
         GOOGLE_DRIVE_CSV_SOURCE_ID,
         HKEX_SDW_SOURCE_ID,
-    ]
-    webbsite = body["sources"][0]
-    google = body["sources"][1]
-    hkex = body["sources"][2]
+        WEBB_HISTORICAL_SOURCE_ID,
+    }
+    webbsite = by_id[WEBBSITE_SOURCE_ID]
+    google = by_id[GOOGLE_DRIVE_CSV_SOURCE_ID]
+    hkex = by_id[HKEX_SDW_SOURCE_ID]
     assert webbsite["availability"]["status"] == "active"
     assert google["availability"]["status"] in {"active", "fallback", "unavailable", "disabled", "unverified"}
     assert hkex["safe_hostname"] == "www3.hkexnews.hk"

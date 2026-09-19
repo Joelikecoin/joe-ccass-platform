@@ -76,7 +76,11 @@ def test_console_page_renders_without_code():
     assert "Enter a stock code" in response.text
 
 
-def test_accumulation_job_routes_require_auth():
+def test_accumulation_job_routes_require_auth(monkeypatch):
+    monkeypatch.setattr(
+        "app.portal_8504.get_settings",
+        lambda: SimpleNamespace(api_key="configured", request_timeout_seconds=90.0),
+    )
     monkeyclient = TestClient(portal_app)
     assert monkeyclient.post("/admin/accumulation/job").status_code == 401
     assert monkeyclient.get("/admin/accumulation/job/nope").status_code == 401

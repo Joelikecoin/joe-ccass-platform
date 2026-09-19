@@ -63,6 +63,13 @@ def test_migration_creates_required_schema_and_is_idempotent(tmp_path):
         (1, "normalized_historical_foundation"),
         (2, "collector_run_items"),
         (3, "resumable_backfill_runs"),
+        (4, "historical_announcements"),
+        (5, "disclosure_interests"),
+        (6, "historical_fundamentals"),
+        (7, "document_entities"),
+        (8, "intelligence_events"),
+        (9, "intelligence_event_snapshots"),
+        (10, "share_capital_history"),
     ]
 
 
@@ -640,7 +647,7 @@ def test_version_two_database_upgrades_without_losing_collector_evidence(tmp_pat
             (run_id, datetime(2026, 7, 23, tzinfo=UTC).isoformat()),
         )
 
-        assert apply_migrations(connection) == 3
+        assert apply_migrations(connection) == SCHEMA_VERSION
         collector_count = connection.execute("SELECT COUNT(*) FROM collector_run_items").fetchone()[
             0
         ]
