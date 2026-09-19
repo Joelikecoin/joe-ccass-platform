@@ -353,6 +353,20 @@ LESSON 2026-09-18: the original DI parser matched a fabricated HTML shape and re
 ```
 
 **Next session's task — P0 COMPLETE (0.4 gate 18/18 on 02020). PHASE 1 🥇 v0 IS LIVE (2026-09-19) — continue the event layer:**
+
+**REMAINING WORK CHECKLIST (ordered, gap excluded) — 2026-09-19 evening handoff from the company machine:**
+1. 02318 + 00941 股本持久化（兩個 job call：`POST /admin/share-capital/job?stock_code=...`）
+2. 證據股 5 年回填 — 4 隻證據股（02020/02318/00256/00397）DI/公告 補 2021-2024 窗口（異步 job 逐窗）
+3. document-entities 加 `NO_ENTITIES_EXTRACTED` 警告
+4. Portal console 加 job 觸發按鈕（連 admin key 輸入）
+5. Fundamentals parser v3 — 保險標籤覆蓋 + 錯配尺度防護
+6. Document entities 深度 — 封面式文件 fallback
+7. Corporate-timeline 5 年異步化
+8. AI 報告生成器 v1 — 研究包（`/research-context?format=md`）→ 章節初稿
+9. 實體關係圖種子（跨股中介統計）
+10. main ↔ authority branch 對齊
+11. API key 換新 — Render + .env + GitHub secret 三處（而家係 64 個 0）
+12. 公司機 3 個既有測試失敗根查
 1. **DONE 2026-09-19 — Unified Event Layer v0** (commits `c6eb614`→`e47b838`, Render LIVE): `intelligence_events` (MIGRATION_8, §8 row schema) + `intelligence_event_snapshots` evidence cache (MIGRATION_9, one payload_json upsert per coverage window — per-row remote writes starved the free container, 650 HTTP statements → container death; snapshot = 1 upsert, 5.9s for 637 events). `IntelligenceEventsService` derives events from persisted DI (confidence=**official**) + document-entity stores (confidence=**extracted**), upserts idempotently, serves via `GET /api/v1/stocks/{code}/intelligence-events` (4.3s sync read of 637 events) and builds via `POST /admin/intelligence-events/job`. **02318 live: 637 events (628 official DI + 9 extracted incl. Morgan Stanley/Lufax offeror facts).**
 2. **DONE 2026-09-19 — Event layer v1** (commit `d99ada9`, production-verified): MIGRATION_10 `share_capital_history` persistence + `ShareCapitalHistoryRepository` + `POST /admin/share-capital/job`; the intelligence event layer now also derives `share_capital_change` (confidence=extracted, reason/tags in provenance) and `announcement:results` (confidence=official) events. **02020 live: 61 events (25 DI official + 24 share_capital_change + 12 announcement:results; official 37/extracted 24), snapshot + share-capital rows in Turso.** Known quirk recorded in provenance: ISSUED_SHARES_MOVEMENT rows carry noisy reason text ("0 HKD 0") from the source — labelled, not hidden.
 2b. **DONE 2026-09-19 — GitHub Actions daily auto-accumulation + keepalive (§8.0)** (commit `29beaf7`): `.github/workflows/daily_snapshot.yml` (weekdays 08:15 HKT, wakes the free tier, triggers the 52-stock watchlist snapshot job, polls to completion) + `.github/workflows/keepalive.yml` (10-min health pings). **VERIFIED LIVE 2026-09-19 (Saturday): workflow ran green, job correctly returned `skipped_holiday` (52 skipped — HKEX closed); repo secret `API_KEY` already existed and works; NOTE — scheduled workflows only run from the DEFAULT branch, so the workflows were also pushed to `main` (commit `68b2be5`, supersedes the friend-era workflow files); workflow now exits 1 on genuine job errors (skipped_holiday stays green). First real snapshot: Monday 2026-09-21 08:15 HKT.** Future: add DI/announcements/fundamentals accumulation jobs to the same schedule (the 累積 evidence-cache staple).
