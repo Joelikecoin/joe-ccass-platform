@@ -1,8 +1,19 @@
 # FRIEND ROUND-4 NOTES DIGEST — RTSS / tape / warm cache / Turso&Drive (2026-09-19)
 
 > **Sources:** four new notes in `latest_reference_updates/` dated 1309–1709 2026 (authoritative folder).
+> **Joe's framing (2026-09-19): these four notes are targeted answers to HIS current situation — (a) HOW to extract data, and (b) the relationship between Turso and the database.** Mapping below.
 > **Purpose:** map each note to our platform — what we already do better (with evidence), what to adopt, what stays scoped out. Feeds V3 §12 next-session list.
 > **Governance reminder (V3 §2):** RTSS / VCP / 派貨 / 殼價 are Derived Intelligence — never raw-data services inside this platform; RTSS is a **separate future project**.
+
+## 0. Joe's-situation mapping (note → current problem → answer → our next step)
+
+| Note | Joe's current problem it answers | The friend's answer | Our platform's next step |
+|---|---|---|---|
+| `17092026 warm_ccass_cache` | 抽 CCASS 數據：快速暖 cache 定深抓？ | warm 1.7s 只係淺摘要（Concentration+BigChanges），深度/歷史未證實；先答「要咩粒度+要唔要歷史」先至 mass-extract | 我哋已答：Turso 累積層 = 有日期嘅完整歷史；唔需要 warm 式淺抓。P0 修復（FIX-1/2/3）優先於任何大规模抽取 |
+| `15092026 原webbsite係點拎DATA`（**空檔**） | 原版 webbsite 究竟點抽數據（抽取方法權威解說） | **檔案 0 bytes — 未上載到** | Joe 重新上載；呢份係「如何抽取資料」最直接嘅答案 |
+| `14092026 跟DT或原Webbsite做` | 中間缺口（2025-12-25→2026-07-21）數據用邊條路抽 | 跟 DT 或原 Webbsite 做法；Drive folder 有數據；預留方法後加 2025-12 後 DATA | Phase-1：寫有 provenance 標籤嘅 import path（§7 parallel track 已記） |
+| `14092026 逐筆成交分析` | Longbridge 逐筆點抽、抽到幾多 | 今日限定（歷史 tape 攞唔返）+ 盤路分析法（M盤 vs 市場盤、主動買沽、簿厚度） | Phase-1 tape 日捕捉 candidate（Evidence-Cache 模式） |
+| `13092026 Turso&Drive建立` | Turso 同 database（本地 SQLite/Drive CSV）嘅關係同分工 | **Turso = 查詢/累積層**（Streamlit Cloud 讀唔到 G:\、逐行 upsert、唔使開機）；**Drive = 歸檔層**（CSV 快照、dossier、規格書）；GitHub Actions 每日收市跑；events 用 INSERT OR IGNORE | 我哋 production 已經係呢個模型（§8.0 鎖定、DI 966 rows 實證）— 筆記係獨立驗證，無需改動 |
 
 ## 1. `17092026 warm_ccass_cache…` — friend's warm cache revisited
 
