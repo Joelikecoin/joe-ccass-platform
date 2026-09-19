@@ -360,7 +360,28 @@ MIGRATION_8 = Migration(
 )
 
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7, MIGRATION_8)
+MIGRATION_9 = Migration(
+    version=9,
+    name="intelligence_event_snapshots",
+    statements=(
+        """
+        CREATE TABLE intelligence_event_snapshots (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            coverage_start TEXT NOT NULL,
+            coverage_end TEXT NOT NULL,
+            event_count INTEGER NOT NULL,
+            events_json TEXT NOT NULL,
+            generated_at TEXT NOT NULL,
+            UNIQUE(stock_code, coverage_start, coverage_end)
+        )
+        """,
+        "CREATE INDEX idx_intelligence_snapshots_code ON intelligence_event_snapshots(stock_code, coverage_end DESC)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7, MIGRATION_8, MIGRATION_9)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 
