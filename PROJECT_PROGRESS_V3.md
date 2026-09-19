@@ -372,6 +372,30 @@ ITEM_11 (API key 換新) = PENDING BY DESIGN — the queue uses the 64-zero key;
 ITEM_12 (3 個測試失敗根查) = DONE — they were NOT company-env-specific: 7 stale/broken tests fixed (ecd63d2): history_storage migrations 1-10; registry/status tests updated for the 4th webbsite_archive source; accumulation auth test now monkeypatches get_settings (unconfigured → 503, configured-no-key → 401); officers service no longer falls back to a live Webb source on explicit "pending" state (test determinism). Full suite at home: 549 passed / 26 failed — the 26 are ALL test_streamlit_ui, pre-existing at 18cb04a (NOT from the merge): requirements floats streamlit>=1.40,<2 and home pulled 1.64.0; the company venv is older. Fix = pin the version (low priority).
 NEW_FINDINGS: (a) heavy-issuer share-capital jobs crash the free container (see ITEM_1); (b) the ~60s Render edge only bites synchronous HTTP — async jobs run 90-180s+ fine; (c) captured document-entity names can be noisy ("s should be construed accordingly. Ping An…") — parser refinement stays on the backlog; (d) home machine now has REAL Python 3.12.10 (winget) + venv at C:\Users\Joe Lau\.zcode\workspace\default\.venv-home (respx/pytest-asyncio added) — full local test runs now possible on BOTH machines.
 NEXT_SESSION: ① check /tmp/job_results.txt + Turso DI/announcement counts per evidence stock; ② retry share-capital 02318/00941 SOLO (accept a possible crash, or defer to the new windowed backlog item); ③ re-run one corporate-timeline 5y job to verify events; ④ item 11 rotation (three places); ⑤ V3 update + push + both Drive mirrors (H: home, G: company).
+
+### SHUTDOWN HANDOFF 2026-09-20 01:30 HKT (Joe powering the home machine down)
+
+Backfill runners were stopped cleanly. **Turso state at shutdown (verified):** DI — 00388=108, 01810=230, 02020=89 (2021-04-20→2026-05-15), 02318=1307 (2021-01-05→2026-09-15), 00256=11 (2022-01-05→2022-06-10); announcements — 00388=274, 00941=196, 02020=117, 02318=551; share_capital_history — 02020=25 only.
+
+**Remaining backfill windows (19 async jobs; run from ANY machine with bash+curl — trigger then poll `/admin/<domain>/job/{id}` ~3-6 min each; skip nothing, all are upsert-idempotent):**
+
+```bash
+BASE=https://joe-ccass-api.onrender.com
+KEY=0000000000000000000000000000000000000000000000000000000000000000   # 64 zeros until item 11 rotation
+run(){ curl -sS --max-time 30 -X POST "$BASE$1&key=$KEY"; echo; sleep 210; }
+# DI 00256 remaining 4 windows
+for w in "2023-01-01 2023-06-30" "2023-07-01 2023-12-31" "2024-01-01 2024-06-30" "2024-07-01 2024-12-31"; do set -- $w; run "/admin/disclosure-interests/job?stock_code=00256&start_date=$1&end_date=$2"; done
+# DI 00397 all 8 windows
+for w in "2021-01-01 2021-06-30" "2021-07-01 2021-12-31" "2022-01-01 2022-06-30" "2022-07-01 2022-12-31" "2023-01-01 2023-06-30" "2023-07-01 2023-12-31" "2024-01-01 2024-06-30" "2024-07-01 2024-12-31"; do set -- $w; run "/admin/disclosure-interests/job?stock_code=00397&start_date=$1&end_date=$2"; done
+# ANN 6 windows
+for CODE in 00256 00397 02020; do run "/admin/announcements/job?stock_code=$CODE&start_date=2021-01-01&end_date=2023-01-20"; run "/admin/announcements/job?stock_code=$CODE&start_date=2023-01-21&end_date=2024-12-31"; done
+# then solo, watching for container crashes (502 → wait for /health 200 before continuing):
+run "/admin/share-capital/job?stock_code=02318"
+run "/admin/share-capital/job?stock_code=00941"
+run "/admin/corporate-timeline/job?stock_code=02318&start_date=2021-09-20&end_date=2026-09-20"
+```
+
+After the 19 jobs: verify Turso counts grew (00256 DI should stay tiny — genuine small-cap; 00397 expect real rows; ANN each stock +2021-2024 rows), then item 11 rotation, then V3 update.
 ```
 
 Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-capital job calls 02318+00941; 2 evidence-stock DI/announcements 2021-2024 backfill; 3 NO_ENTITIES_EXTRACTED warning; 4 console job buttons + admin key; 5 fundamentals parser v3; 6 entities cover-page fallback; 7 corporate-timeline 5y async; 8 AI report generator v1; 9 entity-graph seed; 10 branch alignment; 11 API key rotation; 12 company-machine test failures.
