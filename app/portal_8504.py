@@ -2948,6 +2948,12 @@ async def console_page(
     start = start_date or end - timedelta(days=365 * 2)
     sections: list[str] = []
     if normalized:
+        def _section(title: str, builder) -> None:
+            try:
+                sections.append(builder())
+            except Exception as exc:
+                sections.append(f'<h2>{_escape(title)}</h2><div class="warn">SECTION_FAILED: {type(exc).__name__}: {_escape(str(exc))[:200]} — inspect via the admin jobs/API</div>')
+
         events_service = get_intelligence_events_service()
         events = await events_service.get_events(normalized, start_date=start, end_date=end)
         by_type: dict[str, int] = {}
@@ -2964,37 +2970,44 @@ async def console_page(
             + f"<table><tr><th>type</th><th>date</th><th>counterparty</th><th>shares</th><th>confidence</th><th>source</th></tr>{rows_html}</table>"
         )
 
-        timeline = await get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end)
-        tl_rows = "".join(
-            f"<tr><td>{_escape(t.filer)[:40]}</td><td>{t.movements_count}</td><td>+{t.increases} / -{t.decreases}</td><td>{_escape(str(t.latest_present_balance or ''))}</td><td>{_escape(str(t.latest_percentage or ''))}</td></tr>"
-            for t in timeline.timelines[:10]
-        )
-        sections.append(
-            f"<h2>Ownership Timeline (top {min(10, len(timeline.timelines))} of {len(timeline.timelines)} filers)</h2>"
-            + f"<table><tr><th>filer</th><th>movements</th><th>+/-</th><th>latest balance</th><th>%</th></tr>{tl_rows}</table>"
-        )
+        try:
+            timeline = await get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end)
+            tl_rows = "".join(
+                f"<tr><td>{_escape(t.filer)[:40]}</td><td>{t.movements_count}</td><td>+{t.increases} / -{t.decreases}</td><td>{_escape(str(t.latest_present_balance or ''))}</td><td>{_escape(str(t.latest_percentage or ''))}</td></tr>"
+                for t in timeline.timelines[:10]
+            )
+            sections.append(f"<h2>Ownership Timeline (top {min(10, len(timeline.timelines))} of {len(timeline.timelines)} filers)</h2>" + f"<table><tr><th>filer</th><th>movements</th><th>+/-</th><th>latest balance</th><th>%</th></tr>{tl_rows}</table>")
+        except Exception as exc:
+            sections.append(f'<h2>Ownership Timeline</h2><div class="warn">SECTION_FAILED: {type(exc).__name__}: {_escape(str(exc))[:200]}</div>')
 
-        fundamentals_repo = get_fundamentals_service().repository
-        fundamentals = fundamentals_repo.load(normalized)
-        f_rows = "".join(
-            f"<tr><td>{r.reporting_period}</td><td>{_escape(str(r.revenue or ''))}</td><td>{_escape(str(r.net_profit_loss or ''))}</td><td>{_escape(str(r.equity or ''))}</td><td>{r.completeness_status}</td></tr>"
-            for r in fundamentals.rows[:10]
-        )
-        sections.append(
-            f"<h2>Fundamentals ({fundamentals.metadata.source_status}, {len(fundamentals.rows)} rows)</h2>"
-            + f"<table><tr><th>period</th><th>revenue</th><th>profit</th><th>equity</th><th>completeness</th></tr>{f_rows}</table>"
-            + "".join(f'<div class="warn">{_escape(w)}</div>' for w in fundamentals.data_quality_warnings[:4])
-        )
+        def _fundamentals_section() -> str:
+            fundamentals = get_fundamentals_service().repository.load(normalized)
+            if fundamentals is None:
+                return "<h2>Fundamentals</h2><p>No persisted fundamentals — trigger /admin/fundamentals/job first.</p>"
+            f_rows = "".join(
+                f"<tr><td>{r.reporting_period}</td><td>{_escape(str(r.revenue or ''))}</td><td>{_escape(str(r.net_profit_loss or ''))}</td><td>{_escape(str(r.equity or ''))}</td><td>{r.completeness_status}</td></tr>"
+                for r in fundamentals.rows[:10]
+            )
+            return (
+                f"<h2>Fundamentals ({fundamentals.metadata.source_status}, {len(fundamentals.rows)} rows)</h2>"
+                + f"<table><tr><th>period</th><th>revenue</th><th>profit</th><th>equity</th><th>completeness</th></tr>{f_rows}</table>"
+                + "".join(f'<div class="warn">{_escape(w)}</div>' for w in fundamentals.data_quality_warnings[:4])
+            )
 
-        entity_rows = get_document_entities_service().repository.load_rows(normalized, start_date=start, end_date=end)
-        by_entity: dict[str, int] = {}
-        for row in entity_rows:
-            by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
-        sections.append(
-            f"<h2>Document Entities ({len(entity_rows)} rows persisted)</h2>"
-            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_entity.items()))
-            + "<p>Heavy refreshes run through the admin jobs; this console reads the persisted evidence cache only.</p>"
-        )
+        _section("Fundamentals", _fundamentals_section)
+
+        def _entities_section() -> str:
+            entity_rows = get_document_entities_service().repository.load_rows(normalized, start_date=start, end_date=end)
+            by_entity: dict[str, int] = {}
+            for row in entity_rows:
+                by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
+            return (
+                f"<h2>Document Entities ({len(entity_rows)} rows persisted)</h2>"
+                + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_entity.items()))
+                + "<p>Heavy refreshes run through the admin jobs; this console reads the persisted evidence cache only.</p>"
+            )
+
+        _section("Document Entities", _entities_section)
     else:
         sections.append("<p>Enter a stock code to load the unified view.</p>")
 
