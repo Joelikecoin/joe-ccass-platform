@@ -7,13 +7,20 @@ from app.storage.history import NormalizedSnapshotRepository
 
 
 class IntelligenceEventRepository:
+    BATCH_SIZE = 25  # remote-Turso writes are one HTTP round trip per statement; single giant transactions kill the free container
+
     def __init__(self, repository: NormalizedSnapshotRepository):
         self.repository = repository
 
     def save(self, response: IntelligenceEventsResponse) -> None:
         now = datetime.now(UTC).isoformat()
+        rows = list(response.events)
+        for start in range(0, len(rows), self.BATCH_SIZE):
+            self._save_batch(response.metadata.code, now, rows[start : start + self.BATCH_SIZE])
+
+    def _save_batch(self, code: str, now: str, batch: list[IntelligenceEventRow]) -> None:
         with self.repository._transaction() as connection:
-            connection.execute("INSERT INTO stocks(code, current_name, market, created_at, updated_at) VALUES (?, NULL, 'HK', ?, ?) ON CONFLICT(code) DO UPDATE SET updated_at=excluded.updated_at", (response.metadata.code, now, now))
+            connection.execute("INSERT INTO stocks(code, current_name, market, created_at, updated_at) VALUES (?, NULL, 'HK', ?, ?) ON CONFLICT(code) DO UPDATE SET updated_at=excluded.updated_at", (code, now, now))
             connection.executemany(
                 """
                 INSERT INTO intelligence_events(
@@ -67,7 +74,7 @@ class IntelligenceEventRepository:
                         row.retrieved_at.isoformat(),
                         row.provenance,
                     )
-                    for row in response.events
+                    for row in batch
                 ],
             )
 
