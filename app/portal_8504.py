@@ -2576,7 +2576,7 @@ async def fundamentals_job_status(
 
 _announcements_jobs: dict[str, dict[str, object]] = {}
 _announcements_jobs_lock = threading.Lock()
-MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS = 400
+MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS = 750
 
 
 async def _run_announcements_job(job_id: str, code: str, start_date: date, end_date: date, service=None) -> None:
