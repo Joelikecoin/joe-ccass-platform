@@ -43,6 +43,7 @@ jobs:
             echo "poll $i: $BODY"
             case "$STATE" in
               running|accepted) sleep 30 ;;
+              error) echo "snapshot job failed"; exit 1 ;;
               *) echo "terminal state: $STATE"; exit 0 ;;
             esac
           done
