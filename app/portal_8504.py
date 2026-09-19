@@ -90,6 +90,7 @@ from app.services.ccass import get_ccass_service
 from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHistoryResponse, DisclosureInterestsResponse, FundamentalsResponse, DocumentEntitiesResponse, IntelligenceEventsResponse
 from app.services.intelligence_events import IntelligenceEventsService, get_intelligence_events_service
 from app.services.ownership_timeline import OwnershipTimelineService, get_ownership_timeline_service
+from app.services.accumulation import AccumulationService
 from app.models import OwnershipTimelineResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
@@ -2853,6 +2854,166 @@ async def get_ownership_timeline(
     service: OwnershipTimelineService = Depends(get_ownership_timeline_service),
 ) -> OwnershipTimelineResponse:
     return await service.get_timeline(stock_code, start_date=start_date, end_date=end_date, filer=filer)
+
+
+_accumulation_jobs: dict[str, dict[str, object]] = {}
+_accumulation_jobs_lock = threading.Lock()
+
+
+async def _run_accumulation_job(job_id: str, count: int, service: AccumulationService | None = None) -> None:
+    started = time.monotonic()
+    active = service or AccumulationService()
+
+    def progress(update: dict[str, object]) -> None:
+        _update_async_job(
+            _accumulation_jobs,
+            _accumulation_jobs_lock,
+            job_id,
+            done=update.get("done"),
+            total=update.get("total"),
+            current_code=update.get("current_code"),
+            current_step=update.get("current_step"),
+            outcomes=update.get("outcomes"),
+        )
+
+    try:
+        result = await active.run(count=count, progress=progress)
+    except Exception as exc:
+        _update_async_job(_accumulation_jobs, _accumulation_jobs_lock, job_id, state="error", error=f"{type(exc).__name__}: {exc}", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    _update_async_job(
+        _accumulation_jobs,
+        _accumulation_jobs_lock,
+        job_id,
+        state="succeeded",
+        slice_size=result.get("slice_size"),
+        stocks_ok=result.get("stocks_ok"),
+        stocks_partial=result.get("stocks_partial"),
+        outcomes=result.get("outcomes"),
+        coverage=f'{result.get("coverage_start")}..{result.get("coverage_end")}',
+        elapsed_s=result.get("elapsed_s"),
+    )
+
+
+@app.post("/admin/accumulation/job", tags=["admin"])
+async def accumulation_job_trigger(
+    count: int = Query(default=13, ge=1, le=52),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job_id = uuid.uuid4().hex
+    with _accumulation_jobs_lock:
+        _accumulation_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "running",
+            "done": 0,
+            "total": count * 4,
+            "current_code": None,
+            "current_step": None,
+            "outcomes": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_accumulation_job(job_id, count))
+    return JSONResponse({"status": "accepted", "job_id": job_id, "state": "running"}, status_code=202)
+
+
+@app.get("/admin/accumulation/job/{job_id}", tags=["admin"])
+async def accumulation_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _async_job_public(_accumulation_jobs, _accumulation_jobs_lock, job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Accumulation job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
+@app.get("/console", response_class=HTMLResponse, tags=["console"])
+async def console_page(
+    code: str = Query(default=""),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+) -> HTMLResponse:
+    """Unified read console: events, ownership, fundamentals, entities and
+    job triggers for one code — the Phase-1 read model in a single view."""
+    normalized = normalize_stock_code(code) if code.strip() else ""
+    now = datetime.now(UTC)
+    end = end_date or now.date()
+    start = start_date or end - timedelta(days=365 * 2)
+    sections: list[str] = []
+    if normalized:
+        events_service = get_intelligence_events_service()
+        events = await events_service.get_events(normalized, start_date=start, end_date=end)
+        by_type: dict[str, int] = {}
+        for event in events.events:
+            by_type[event.event_type] = by_type.get(event.event_type, 0) + 1
+        rows_html = "".join(
+            f"<tr><td>{_escape(e.event_type)}</td><td>{e.announce_date}</td><td>{_escape(str(e.counterparty or e.entity_name or ''))[:60]}</td>"
+            f"<td>{_escape(str(e.shares_after or ''))}</td><td>{e.confidence}</td><td>{_escape(e.source_document)[:40]}</td></tr>"
+            for e in events.events[:20]
+        )
+        sections.append(
+            f"<h2>Intelligence Events ({events.metadata.event_count})</h2>"
+            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_type.items()))
+            + f"<table><tr><th>type</th><th>date</th><th>counterparty</th><th>shares</th><th>confidence</th><th>source</th></tr>{rows_html}</table>"
+        )
+
+        timeline = await get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end)
+        tl_rows = "".join(
+            f"<tr><td>{_escape(t.filer)[:40]}</td><td>{t.movements_count}</td><td>+{t.increases} / -{t.decreases}</td><td>{_escape(str(t.latest_present_balance or ''))}</td><td>{_escape(str(t.latest_percentage or ''))}</td></tr>"
+            for t in timeline.timelines[:10]
+        )
+        sections.append(
+            f"<h2>Ownership Timeline (top {min(10, len(timeline.timelines))} of {len(timeline.timelines)} filers)</h2>"
+            + f"<table><tr><th>filer</th><th>movements</th><th>+/-</th><th>latest balance</th><th>%</th></tr>{tl_rows}</table>"
+        )
+
+        fundamentals = await get_fundamentals_service().get_fundamentals(normalized)
+        f_rows = "".join(
+            f"<tr><td>{r.reporting_period}</td><td>{_escape(str(r.revenue or ''))}</td><td>{_escape(str(r.net_profit_loss or ''))}</td><td>{_escape(str(r.equity or ''))}</td><td>{r.completeness_status}</td></tr>"
+            for r in fundamentals.rows[:10]
+        )
+        sections.append(
+            f"<h2>Fundamentals ({fundamentals.metadata.source_status}, {len(fundamentals.rows)} rows)</h2>"
+            + f"<table><tr><th>period</th><th>revenue</th><th>profit</th><th>equity</th><th>completeness</th></tr>{f_rows}</table>"
+            + "".join(f'<div class="warn">{_escape(w)}</div>' for w in fundamentals.data_quality_warnings[:4])
+        )
+
+        entities = await get_document_entities_service().get_entities(normalized)
+        by_entity: dict[str, int] = {}
+        for row in entities.rows:
+            by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
+        sections.append(
+            f"<h2>Document Entities ({entities.metadata.source_status}, {entities.metadata.rows_extracted} rows)</h2>"
+            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_entity.items()))
+        )
+    else:
+        sections.append("<p>Enter a stock code to load the unified view.</p>")
+
+    job_hints = "".join(
+        f'<li><code>POST {path}?stock_code={normalized or "CODE"}</code></li>'
+        for path in (
+            "/admin/disclosure-interests/job",
+            "/admin/announcements/job",
+            "/admin/fundamentals/job",
+            "/admin/share-capital/job",
+            "/admin/accumulation/job",
+        )
+    )
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Console {normalized}</title>
+<style>body{{font-family:monospace;margin:24px;background:#111;color:#ddd}} table{{border-collapse:collapse;margin:12px 0}} td,th{{border:1px solid #444;padding:4px 8px;font-size:13px}} .pill{{display:inline-block;background:#234;color:#9cf;padding:2px 8px;margin:2px;border-radius:4px}} .warn{{color:#f90;font-size:12px}} h2{{color:#9cf;border-bottom:1px solid #345}}</style></head><body>
+<h1>Joe Intelligence Console &mdash; {normalized or "(code)"}</h1>
+<form method="get"><input name="code" value="{_escape(normalized)}" placeholder="02020"><button>Load</button> ({start} .. {end})</form>
+{''.join(sections)}
+<h2>Accumulation job triggers (admin key required)</h2><ul>{job_hints}</ul>
+</body></html>"""
+    return HTMLResponse(html)
 
 
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
