@@ -10,8 +10,8 @@
 | Note | Joe's current problem it answers | The friend's answer | Our platform's next step |
 |---|---|---|---|
 | `17092026 warm_ccass_cache` | 抽 CCASS 數據：快速暖 cache 定深抓？ | warm 1.7s 只係淺摘要（Concentration+BigChanges），深度/歷史未證實；先答「要咩粒度+要唔要歷史」先至 mass-extract | 我哋已答：Turso 累積層 = 有日期嘅完整歷史；唔需要 warm 式淺抓。P0 修復（FIX-1/2/3）優先於任何大规模抽取 |
-| `15092026 原webbsite係點拎DATA`（**空檔**） | 原版 webbsite 究竟點抽數據（抽取方法權威解說） | **檔案 0 bytes — 未上載到** | Joe 重新上載；呢份係「如何抽取資料」最直接嘅答案 |
-| `14092026 跟DT或原Webbsite做` | 中間缺口（2025-12-25→2026-07-21）數據用邊條路抽 | 跟 DT 或原 Webbsite 做法；Drive folder 有數據；預留方法後加 2025-12 後 DATA | Phase-1：寫有 provenance 標籤嘅 import path（§7 parallel track 已記） |
+| `15092026 原webbsite係點拎DATA` | 原版 webbsite 究竟點抽數據（抽取方法權威解說） | 四角色數據流：Webb-site 源頭 → 本機一次抓 → Turso（抓一次讀多次）→ Render API（free plan 慢）或**直連 Turso 最穩** → Drive 交收 | 記錄規則：姊妹系統（RTSS 等）直連 Turso 讀；Render API 服務人類/外部查詢（見 §5b） |
+| `14092026 跟DT或原Webbsite做` | 中間缺口（2025-12-25→2026-07-21）數據用邊條路抽；**DT = DisclosureTracker 財技網站**；**數據幾日內到** | 跟 DT 或原 Webbsite 做法；Drive folder 有數據；預留方法後加 2025-12 後 DATA | Phase-1：寫有 provenance 標籤嘅 import path（§7 parallel track 已記）；**數據落地前準備好** |
 | `14092026 逐筆成交分析` | Longbridge 逐筆點抽、抽到幾多 | 今日限定（歷史 tape 攞唔返）+ 盤路分析法（M盤 vs 市場盤、主動買沽、簿厚度） | Phase-1 tape 日捕捉 candidate（Evidence-Cache 模式） |
 | `13092026 Turso&Drive建立` | Turso 同 database（本地 SQLite/Drive CSV）嘅關係同分工 | **Turso = 查詢/累積層**（Streamlit Cloud 讀唔到 G:\、逐行 upsert、唔使開機）；**Drive = 歸檔層**（CSV 快照、dossier、規格書）；GitHub Actions 每日收市跑；events 用 INSERT OR IGNORE | 我哋 production 已經係呢個模型（§8.0 鎖定、DI 966 rows 實證）— 筆記係獨立驗證，無需改動 |
 
@@ -50,10 +50,21 @@
 
 ## 5. `14092026 跟DT 或原Webbsite做…` — the CCASS middle-gap data source named
 
+- **DT = DisclosureTracker**（財技網站）— the note's route is DT-based; DT roughly teaches the grabbing approach (大約教抓下的方式). Joe: **gap data lands in ~a few days** (2026-09-19 estimate).
 - Contains the Drive folder link (Joe's private channel) designated for **post-2025-12 gap data** — this is the gap-closure source §7's parallel track awaited ("Joe will supply from private channels").
 - DT (per the RTSS note) exports 殼股價值分析 + 六個財技事件（配股/供股/全購/合股/拆股/CB）— **these six map 1:1 onto our Phase-1 event_type values**; if DT has an API, the "only human step" in any weekly pipeline disappears. Import path (not re-derivation) is our committed posture for gap closure.
-- Action queued for Phase-1: build the labelled import path (source=DT/webbsite-archive, provenance kept) when the data lands; do not start Zhipu retrieval (unchanged rule).
+- Action queued for Phase-1: build the labelled import path (source=DT/webbsite-archive, provenance kept) when the data lands — **ETA days, be ready**; do not start Zhipu retrieval (unchanged rule).
+
+## 5b. `15092026 原webbsite係點拎DATA` — the four-role data-flow map (file re-uploaded 2026-09-19, was empty)
+
+The friend's teaching doc on how the original webbsite data pipeline is assembled. Four roles: **Webb-site = 原始數據源頭 → 本機 warm 抓取 → Turso（抓一次讀多次）→ Render API（free plan 慢/唔穩）或直連 Turso → 報表 CSV 經 Google Drive 交收 → Streamlit 前端**.
+
+Key architectural lessons — and our position:
+
+1. **"Read Turso directly, bypass the Render middleman, 最穩"** — the friend's own verdict on free-plan Render instability. Our equivalent rule to record: **the Render API (joe-ccass-api) serves humans/external queries; sibling systems (RTSS/monitor scripts) should read Turso directly** (`turso_query.py` pattern). Our mitigations for the Render side (async jobs + keepalive + Turso accumulation) are already locked in §8.0.
+2. **Extraction is a LOCAL one-time job** (Webb-site → 本機 → Turso), usage is cloud-side — same shape as our 17GB Webb SQL / workstate extraction feeding Turso accumulation. Confirms: never re-run broad extraction on servers; extract locally, accumulate remotely.
+3. Their status table shows warm→Turso stuck on credentials and STOCKSCAN→Turso as PART 2 — i.e., the friend is building, on their side, the same Turso-centred accumulation we already run in production (DI 966 rows).
 
 ## 6. File housekeeping
 
-- `15092026 原webbsite係點拎DATA.md` is **0 bytes (empty)** on the Drive — likely a failed save. Joe: re-upload if it had content.
+- `15092026 原webbsite係點拎DATA.md` — **FIXED 2026-09-19**: Joe re-uploaded via Desktop copy; correct 2,027-byte version now on the Drive (digested in §5b).
