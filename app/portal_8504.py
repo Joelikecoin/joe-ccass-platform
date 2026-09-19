@@ -44,7 +44,7 @@ def _post_trace(stage: str):
     return decorate
 
 from fastapi import Depends, FastAPI, Header, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, StreamingResponse
 
 from app.config import get_settings, secret_fingerprint
 from app.daily_snapshot import run_daily_snapshot
@@ -91,6 +91,7 @@ from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHis
 from app.services.intelligence_events import IntelligenceEventsService, get_intelligence_events_service
 from app.services.ownership_timeline import OwnershipTimelineService, get_ownership_timeline_service
 from app.services.accumulation import AccumulationService
+from app.services.research_context import ResearchContextService, get_research_context_service
 from app.models import OwnershipTimelineResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
@@ -3029,6 +3030,20 @@ async def console_page(
 <h2>Accumulation job triggers (admin key required)</h2><ul>{job_hints}</ul>
 </body></html>"""
     return HTMLResponse(html)
+
+
+@app.get("/api/v1/stocks/{stock_code}/research-context", tags=["research"])
+async def get_research_context(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    format: str = Query(default="json"),
+    service: ResearchContextService = Depends(get_research_context_service),
+):
+    context = await service.build(stock_code, start_date=start_date, end_date=end_date)
+    if format in ("md", "markdown"):
+        return PlainTextResponse(service.to_markdown(context), media_type="text/markdown; charset=utf-8")
+    return JSONResponse(context)
 
 
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
