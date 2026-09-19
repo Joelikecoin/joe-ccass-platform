@@ -324,7 +324,43 @@ MIGRATION_7 = Migration(
 )
 
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7)
+MIGRATION_8 = Migration(
+    version=8,
+    name="intelligence_events",
+    statements=(
+        """
+        CREATE TABLE intelligence_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            event_key TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            announce_date TEXT NOT NULL,
+            effective_date TEXT,
+            shares_before REAL,
+            shares_after REAL,
+            price REAL,
+            ratio TEXT,
+            discount REAL,
+            counterparty TEXT,
+            beneficial_owner TEXT,
+            placing_agent TEXT,
+            adviser TEXT,
+            entity_name TEXT,
+            source_document TEXT NOT NULL,
+            source_url TEXT NOT NULL,
+            confidence TEXT NOT NULL DEFAULT 'derived',
+            extraction_method TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            provenance TEXT NOT NULL,
+            UNIQUE(stock_code, event_key)
+        )
+        """,
+        "CREATE INDEX idx_intelligence_events_code_date ON intelligence_events(stock_code, announce_date DESC)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7, MIGRATION_8)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 

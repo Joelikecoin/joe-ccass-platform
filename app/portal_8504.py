@@ -87,7 +87,8 @@ from app.friend_clone_app import (
 from app.live_product import YAHOO_CHART_API_URL
 from app.live_product import _build_latest_price, _build_price_history_rows
 from app.services.ccass import get_ccass_service
-from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHistoryResponse, DisclosureInterestsResponse, FundamentalsResponse, DocumentEntitiesResponse
+from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHistoryResponse, DisclosureInterestsResponse, FundamentalsResponse, DocumentEntitiesResponse, IntelligenceEventsResponse
+from app.services.intelligence_events import IntelligenceEventsService, get_intelligence_events_service
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
 from app.services.longbridge import LongbridgeHoldingsService
@@ -2698,6 +2699,16 @@ async def get_persisted_disclosure_interests(
     end = end_date or datetime.now(UTC).date()
     start = start_date or end - timedelta(days=5 * 365)
     return await service.get_persisted_disclosures(stock_code, start_date=start, end_date=end)
+
+
+@app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
+async def get_intelligence_events(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    service: IntelligenceEventsService = Depends(get_intelligence_events_service),
+) -> IntelligenceEventsResponse:
+    return await service.get_events(stock_code, start_date=start_date, end_date=end_date)
 
 
 @app.get("/api/v1/stocks/{stock_code}/fundamentals", response_model=FundamentalsResponse, tags=["fundamentals"])

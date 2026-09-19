@@ -492,6 +492,45 @@ class ShareCapitalHistoryResponse(BaseModel):
     data_quality_warnings: list[str] = Field(default_factory=list)
 
 
+class IntelligenceEventRow(BaseModel):
+    stock_code: str
+    event_type: str
+    announce_date: date
+    effective_date: date | None = None
+    shares_before: float | None = None
+    shares_after: float | None = None
+    price: float | None = None
+    ratio: str | None = None
+    discount: float | None = None
+    counterparty: str | None = None
+    beneficial_owner: str | None = None
+    placing_agent: str | None = None
+    adviser: str | None = None
+    entity_name: str | None = None
+    source_document: str
+    source_url: str
+    confidence: Literal["official", "extracted", "derived"] = "derived"
+    extraction_method: str
+    retrieved_at: datetime
+    provenance: str = ""
+
+
+class IntelligenceEventsMetadata(BaseModel):
+    code: str
+    source_name: str = "Joe Intelligence Event Layer"
+    fetched_at: datetime
+    source_status: Literal["ready", "partial", "unavailable"] = "ready"
+    event_count: int = 0
+    coverage_start: date | None = None
+    coverage_end: date | None = None
+
+
+class IntelligenceEventsResponse(BaseModel):
+    metadata: IntelligenceEventsMetadata
+    events: list[IntelligenceEventRow] = Field(default_factory=list)
+    data_quality_warnings: list[str] = Field(default_factory=list)
+
+
 class FundamentalRow(BaseModel):
     stock_code: str
     reporting_period: str

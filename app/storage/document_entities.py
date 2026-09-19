@@ -36,3 +36,35 @@ class DocumentEntityRepository:
                     for r in response.rows
                 ],
             )
+
+    def load_rows(self, stock_code: str, *, start_date, end_date):
+        from datetime import date
+
+        from app.models import DocumentEntityRow
+
+        with self.repository._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT document_id, document_type, entity_type, entity_name,
+                       direct_source_fact, source_url, announcement_date, retrieved_at, provenance
+                FROM document_entities
+                WHERE stock_code = ? AND announcement_date BETWEEN ? AND ?
+                ORDER BY announcement_date DESC
+                """,
+                (stock_code, start_date.isoformat(), end_date.isoformat()),
+            ).fetchall()
+        return [
+            DocumentEntityRow(
+                stock_code=stock_code,
+                document_id=row[0],
+                document_type=row[1],
+                entity_type=row[2],
+                entity_name=row[3],
+                direct_source_fact=row[4],
+                source_url=row[5],
+                announcement_date=date.fromisoformat(row[6]),
+                retrieved_at=row[7],
+                provenance=row[8],
+            )
+            for row in rows
+        ]
