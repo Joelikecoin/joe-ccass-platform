@@ -2583,6 +2583,73 @@ _announcements_jobs: dict[str, dict[str, object]] = {}
 _announcements_jobs_lock = threading.Lock()
 MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS = 750
 
+_corporate_timeline_jobs: dict[str, dict[str, object]] = {}
+_corporate_timeline_jobs_lock = threading.Lock()
+MAX_CORPORATE_TIMELINE_JOB_WINDOW_DAYS = 1900
+
+
+async def _run_corporate_timeline_job(job_id: str, code: str, start_date: date, end_date: date, service=None) -> None:
+    """Derive the corporate timeline over a long window (5y+) by walking the
+    announcement stream in sub-windows no wider than the announcements job
+    ceiling — a single wide HKEXnews payload OOM-crashes the free container."""
+    started = time.monotonic()
+    active = service or get_announcements_service()
+    warnings: list[str] = []
+    merged: dict[tuple, object] = {}
+    base_metadata = None
+    window = timedelta(days=MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS)
+    cursor = start_date
+    try:
+        while cursor <= end_date:
+            win_end = min(cursor + window, end_date)
+            try:
+                response = await active.get_announcements(code, start_date=cursor, end_date=win_end)
+                if base_metadata is None:
+                    base_metadata = response.metadata
+                for row in response.announcements:
+                    merged.setdefault((row.announcement_date, row.title, row.link), row)
+                for line in response.data_quality_warnings:
+                    if line not in warnings:
+                        warnings.append(line)
+            except Exception as exc:
+                warnings.append(f"WINDOW_FAILED:{cursor.isoformat()}:{win_end.isoformat()}:{type(exc).__name__}:{exc}")
+            cursor = win_end + timedelta(days=1)
+        if base_metadata is None:
+            _update_async_job(
+                _corporate_timeline_jobs,
+                _corporate_timeline_jobs_lock,
+                job_id,
+                state="unavailable",
+                event_count=0,
+                warnings=warnings,
+                error="every sub-window fetch failed — no announcement metadata obtained",
+                elapsed_s=round(time.monotonic() - started, 3),
+            )
+            return
+        ordered = [merged[key] for key in sorted(merged, key=lambda k: (k[0], k[1], k[2] or ""))]
+        merged_response = AnnouncementsResponse(metadata=base_metadata, announcements=ordered, data_quality_warnings=[])
+        timeline = build_corporate_timeline(merged_response, start_date=start_date, end_date=end_date)
+        _update_async_job(
+            _corporate_timeline_jobs,
+            _corporate_timeline_jobs_lock,
+            job_id,
+            state="succeeded" if timeline.events or not warnings else "partial",
+            event_count=len(timeline.events),
+            events=[event.model_dump(mode="json") for event in timeline.events],
+            warnings=warnings,
+            elapsed_s=round(time.monotonic() - started, 3),
+        )
+    except Exception as exc:
+        _update_async_job(
+            _corporate_timeline_jobs,
+            _corporate_timeline_jobs_lock,
+            job_id,
+            state="error",
+            error=f"{type(exc).__name__}: {exc}",
+            warnings=warnings,
+            elapsed_s=round(time.monotonic() - started, 3),
+        )
+
 
 async def _run_announcements_job(job_id: str, code: str, start_date: date, end_date: date, service=None) -> None:
     started = time.monotonic()
@@ -2659,6 +2726,53 @@ async def announcements_job_status(
     job = _async_job_public(_announcements_jobs, _announcements_jobs_lock, job_id)
     if job is None:
         raise PlatformError("NOT_FOUND", "Announcements job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
+@app.post("/admin/corporate-timeline/job", tags=["admin"])
+async def corporate_timeline_job_trigger(
+    stock_code: str = Query(...),
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    normalized = normalize_stock_code(stock_code)
+    if (end_date - start_date).days > MAX_CORPORATE_TIMELINE_JOB_WINDOW_DAYS:
+        raise PlatformError("INVALID_SCHEMA", f"Window exceeds {MAX_CORPORATE_TIMELINE_JOB_WINDOW_DAYS} days — split into sub-windows.", status_code=400)
+    if start_date > end_date:
+        raise PlatformError("INVALID_SCHEMA", "start_date must not be after end_date.", status_code=400)
+    job_id = uuid.uuid4().hex
+    with _corporate_timeline_jobs_lock:
+        _corporate_timeline_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "running",
+            "stock_code": normalized,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "event_count": 0,
+            "events": [],
+            "warnings": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_corporate_timeline_job(job_id, normalized, start_date, end_date))
+    return JSONResponse({"status": "accepted", "job_id": job_id, "state": "running", "stock_code": normalized, "start_date": start_date.isoformat(), "end_date": end_date.isoformat()}, status_code=202)
+
+
+@app.get("/admin/corporate-timeline/job/{job_id}", tags=["admin"])
+async def corporate_timeline_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _async_job_public(_corporate_timeline_jobs, _corporate_timeline_jobs_lock, job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Corporate timeline job was not found.", status_code=404)
     return JSONResponse(job)
 
 
@@ -2935,6 +3049,67 @@ async def accumulation_job_status(
     return JSONResponse(job)
 
 
+_JOB_PANEL_SCRIPT = """
+<div id="jobbtns"></div>
+<pre id="jobout">[no job triggered yet]</pre>
+<script>
+(function(){
+  var CODE = "__CODE__";
+  var bar = document.getElementById('jobbtns');
+  var keyin = document.createElement('input');
+  keyin.id = 'adminkey';
+  keyin.type = 'password';
+  keyin.placeholder = 'admin key (stored in this browser only)';
+  keyin.style.width = '300px';
+  keyin.value = localStorage.getItem('joeAdminKey') || '';
+  keyin.oninput = function(){ localStorage.setItem('joeAdminKey', keyin.value); };
+  bar.appendChild(keyin);
+  var JOBS = [
+    ['di-2y', '/admin/disclosure-interests/job', {}],
+    ['announcements-2y', '/admin/announcements/job', {}],
+    ['fundamentals', '/admin/fundamentals/job', {}],
+    ['share-capital', '/admin/share-capital/job', {}],
+    ['intelligence-events', '/admin/intelligence-events/job', {}],
+    ['corporate-timeline-5y', '/admin/corporate-timeline/job', {start_date: '__START5Y__', end_date: '__END__'}],
+    ['accumulation', '/admin/accumulation/job', {}]
+  ];
+  JOBS.forEach(function(j){
+    var b = document.createElement('button');
+    b.textContent = j[0];
+    b.style.margin = '2px';
+    b.onclick = function(){ runJob(j[0], j[1], j[2]); };
+    bar.appendChild(b);
+  });
+  async function runJob(name, path, extra){
+    var out = document.getElementById('jobout');
+    var key = document.getElementById('adminkey').value;
+    if(!key){ out.textContent = name + ': enter the admin key first'; return; }
+    var params = new URLSearchParams({stock_code: CODE, key: key});
+    Object.keys(extra).forEach(function(k){ params.set(k, extra[k]); });
+    out.textContent = name + ': triggering...';
+    var r, j;
+    try { r = await fetch(path + '?' + params.toString(), {method: 'POST'}); j = await r.json(); }
+    catch(e){ out.textContent = name + ' trigger failed: ' + e; return; }
+    if(!j.job_id){ out.textContent = name + ': ' + JSON.stringify(j).slice(0, 400); return; }
+    var id = j.job_id;
+    for(var i = 0; i < 120; i++){
+      await new Promise(function(s){ setTimeout(s, 5000); });
+      var s;
+      try { s = await (await fetch(path + '/' + id + '?key=' + encodeURIComponent(key))).json(); }
+      catch(e){ out.textContent = name + ' poll failed: ' + e; return; }
+      out.textContent = name + ' [' + id.slice(0, 8) + '] ' + s.state + ' (' + (i*5) + 's) ' + (s.error || '');
+      if(['succeeded','partial','unavailable','error','failed'].indexOf(s.state) >= 0){
+        out.textContent = name + ' [' + id.slice(0, 8) + '] ' + s.state + ' :: ' + JSON.stringify(s).slice(0, 600);
+        return;
+      }
+    }
+    out.textContent = name + ': still running after 10 minutes of polling';
+  }
+})();
+</script>
+"""
+
+
 @app.get("/console", response_class=HTMLResponse, tags=["console"])
 async def console_page(
     code: str = Query(default=""),
@@ -3012,24 +3187,39 @@ async def console_page(
     else:
         sections.append("<p>Enter a stock code to load the unified view.</p>")
 
-    job_hints = "".join(
-        f'<li><code>POST {path}?stock_code={normalized or "CODE"}</code></li>'
-        for path in (
-            "/admin/disclosure-interests/job",
-            "/admin/announcements/job",
-            "/admin/fundamentals/job",
-            "/admin/share-capital/job",
-            "/admin/accumulation/job",
+    if normalized:
+        five_y_start = (end - timedelta(days=365 * 5)).isoformat()
+        job_panel = (
+            "<h2>Job triggers (admin key required &mdash; jobs run in the background and persist to Turso)</h2>"
+            + _JOB_PANEL_SCRIPT.replace("__CODE__", normalized)
+            .replace("__START5Y__", five_y_start)
+            .replace("__END__", end.isoformat())
         )
-    )
+    else:
+        job_panel = "<p>Load a stock code to enable the job trigger panel.</p>"
+
     html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Console {normalized}</title>
-<style>body{{font-family:monospace;margin:24px;background:#111;color:#ddd}} table{{border-collapse:collapse;margin:12px 0}} td,th{{border:1px solid #444;padding:4px 8px;font-size:13px}} .pill{{display:inline-block;background:#234;color:#9cf;padding:2px 8px;margin:2px;border-radius:4px}} .warn{{color:#f90;font-size:12px}} h2{{color:#9cf;border-bottom:1px solid #345}}</style></head><body>
+<style>body{{font-family:monospace;margin:24px;background:#111;color:#ddd}} table{{border-collapse:collapse;margin:12px 0}} td,th{{border:1px solid #444;padding:4px 8px;font-size:13px}} .pill{{display:inline-block;background:#234;color:#9cf;padding:2px 8px;margin:2px;border-radius:4px}} .warn{{color:#f90;font-size:12px}} h2{{color:#9cf;border-bottom:1px solid #345}} button{{background:#345;color:#9cf;border:1px solid #567;padding:4px 10px;cursor:pointer}} #jobout{{background:#181818;border:1px solid #333;padding:8px;white-space:pre-wrap}}</style></head><body>
 <h1>Joe Intelligence Console &mdash; {normalized or "(code)"}</h1>
 <form method="get"><input name="code" value="{_escape(normalized)}" placeholder="02020"><button>Load</button> ({start} .. {end})</form>
 {''.join(sections)}
-<h2>Accumulation job triggers (admin key required)</h2><ul>{job_hints}</ul>
+{job_panel}
 </body></html>"""
     return HTMLResponse(html)
+
+
+@app.get("/api/v1/intermediary-graph", tags=["deep-analysis"])
+async def get_intermediary_graph(
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    service: DocumentEntitiesService = Depends(get_document_entities_service),
+):
+    """實體關係圖種子: cross-stock intermediary statistics — nodes (who,
+    how many stocks, how often) + same-document co-occurrence edges (who
+    works with whom). Grows automatically as entity extraction accumulates."""
+    if start_date > end_date:
+        raise PlatformError("INVALID_SCHEMA", "start_date must not be after end_date.", status_code=400)
+    return JSONResponse(service.repository.load_graph(start_date=start_date, end_date=end_date))
 
 
 @app.get("/api/v1/stocks/{stock_code}/research-context", tags=["research"])
@@ -3044,6 +3234,19 @@ async def get_research_context(
     if format in ("md", "markdown"):
         return PlainTextResponse(service.to_markdown(context), media_type="text/markdown; charset=utf-8")
     return JSONResponse(context)
+
+
+@app.get("/api/v1/stocks/{stock_code}/report-draft", tags=["research"])
+async def get_report_draft(
+    stock_code: str,
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    service: ResearchContextService = Depends(get_research_context_service),
+):
+    """AI 報告生成器 v1: deterministic chapter draft from the research
+    package — real facts per chapter, interpretation slots marked 【AI 分析位】."""
+    context = await service.build(stock_code, start_date=start_date, end_date=end_date)
+    return PlainTextResponse(service.to_report_draft(context), media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])

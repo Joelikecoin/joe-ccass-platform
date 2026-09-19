@@ -17,6 +17,7 @@ from app.sources.announcements import HKEXNewsAnnouncementsSource
 # stream at runtime — no per-stock document whitelist.
 MAX_DISCOVERY_WINDOW_DAYS = 2 * 365
 MAX_DOCUMENTS_PER_RUN = 4
+MAX_FALLBACK_DOCUMENTS = 3
 MAX_PDF_BYTES = 25 * 1024 * 1024
 MAX_PDF_PAGES = 140
 RUN_BUDGET_SECONDS = 45.0
@@ -107,7 +108,7 @@ class HKEXDocumentEntitiesSource:
         now = datetime.now(UTC)
         warnings: list[str] = []
         try:
-            specs, discovery_warnings = await self._discover_entity_documents(code)
+            specs, fallback_specs, discovery_warnings = await self._discover_entity_documents(code)
         except Exception as exc:
             warnings.append(f"DISCOVERY_FAILED:{type(exc).__name__}")
             return DocumentEntitiesResponse(metadata=DocumentEntitiesMetadata(code=code, fetched_at=now, source_status="unavailable", documents_attempted=0, documents_fetched=0, rows_extracted=0), rows=[], data_quality_warnings=warnings)
@@ -137,35 +138,65 @@ class HKEXDocumentEntitiesSource:
                 except Exception as exc:
                     warnings.append(f"DOCUMENT_FAILED:{spec.document_id}:{type(exc).__name__}")
                     failed += 1
+            if not rows and fallback_specs:
+                fallback_batch = fallback_specs[:MAX_FALLBACK_DOCUMENTS]
+                warnings.append(f"COVER_PAGE_FALLBACK_ATTEMPTED:{len(fallback_batch)}")
+                for spec in fallback_batch:
+                    if time.monotonic() > deadline - 3.0:
+                        warnings.append("RUN_BUDGET_REACHED: time budget exhausted before this document")
+                        break
+                    try:
+                        response = await client.get(spec.url)
+                        response.raise_for_status()
+                        if len(response.content) > MAX_PDF_BYTES:
+                            continue
+                        fallback_reader = PdfReader(io.BytesIO(response.content))
+                        if len(fallback_reader.pages) > MAX_PDF_PAGES:
+                            continue
+                        text = "\n".join(page.extract_text() or "" for page in fallback_reader.pages)
+                        rows.extend(_extract_rows(spec, text, now))
+                    except Exception as exc:
+                        warnings.append(f"FALLBACK_DOCUMENT_FAILED:{spec.document_id}:{type(exc).__name__}")
         if rows and not failed:
             status = "ready"
         elif rows:
             status = "partial"
         else:
             status = "unavailable"
-        return DocumentEntitiesResponse(metadata=DocumentEntitiesMetadata(code=code, fetched_at=now, source_status=status, documents_attempted=len(specs), documents_fetched=len(specs) - failed, rows_extracted=len(rows)), rows=rows, data_quality_warnings=warnings)
+        fetched = len(specs) - failed
+        if fetched > 0 and not rows:
+            warnings.append(
+                f"NO_ENTITIES_EXTRACTED: {fetched} document(s) parsed but no intermediary/offeror labels matched "
+                "(genuine absence, or document layout not recognised — see cover-page fallback coverage)"
+            )
+        return DocumentEntitiesResponse(metadata=DocumentEntitiesMetadata(code=code, fetched_at=now, source_status=status, documents_attempted=len(specs), documents_fetched=fetched, rows_extracted=len(rows)), rows=rows, data_quality_warnings=warnings)
 
     async def _discover_entity_documents(self, code: str) -> tuple[list[HKEXDocumentSpec], list[str]]:
         """Find corporate-action documents (placings, offers, rights issues,
-        circulars) for any stock from its announcement stream — these carry
-        the placing agents, advisers, offerors, underwriters and whitewash
-        wording the entity extractor needs."""
+        circulars) for any stock from the HKEXnews announcement stream — these
+        carry the placing agents, advisers, offerors, underwriters and
+        whitewash wording the entity extractor needs.
+
+        Also returns a small title-agnostic fallback list (most recent PDFs
+        that escaped title classification): short cover-page announcements
+        often name the parties without saying so in the title."""
         warnings: list[str] = []
         end = datetime.now(UTC).date()
         start = end - timedelta(days=MAX_DISCOVERY_WINDOW_DAYS)
         announcements = await self.announcements.get_announcements(code, start_date=start, end_date=end, row_range=400)
         candidates: dict[str, tuple[date, str, str]] = {}
+        fallback: dict[str, tuple[date, str]] = {}
         for row in announcements.announcements:
             title = (row.title or "").strip()
             if not title or not row.link:
                 continue
             category = _classify_entity_document(title)
-            if category is None:
-                continue
-            candidates[row.link] = (row.announcement_date, category, title)
+            if category is not None:
+                candidates[row.link] = (row.announcement_date, category, title)
+            elif row.link.lower().endswith(".pdf") and not NON_ENTITY_TITLE_RE.search(title):
+                fallback[row.link] = (row.announcement_date, title)
         if not candidates:
             warnings.append("NO_ENTITY_DOCUMENTS_DISCOVERED: no placing/offer/rights/circular documents found in the discovery window")
-            return [], warnings
         ordered = sorted(candidates.items(), key=lambda item: item[1][0], reverse=True)
         if len(ordered) > MAX_DOCUMENTS_PER_RUN:
             warnings.append(f"DISCOVERY_CAPPED: parsing latest {MAX_DOCUMENTS_PER_RUN} of {len(ordered)} discovered documents (capacity discipline; heavy pulls move to the async pattern)")
@@ -174,4 +205,13 @@ class HKEXDocumentEntitiesSource:
         for url, (announcement_date, category, _title) in ordered:
             document_id = url.rsplit("/", 1)[-1].removesuffix(".pdf")
             specs.append(HKEXDocumentSpec(stock_code=code, document_id=document_id, document_type=f"{category} document", announcement_date=announcement_date, url=url))
-        return specs, warnings
+        tried = {spec.url for spec in specs}
+        fallback_specs = []
+        for url, (announcement_date, _title) in sorted(fallback.items(), key=lambda item: item[1][0], reverse=True):
+            if url in tried:
+                continue
+            document_id = url.rsplit("/", 1)[-1].removesuffix(".pdf")
+            fallback_specs.append(HKEXDocumentSpec(stock_code=code, document_id=document_id, document_type="cover_page_fallback", announcement_date=announcement_date, url=url))
+            if len(fallback_specs) >= MAX_FALLBACK_DOCUMENTS:
+                break
+        return specs, fallback_specs, warnings

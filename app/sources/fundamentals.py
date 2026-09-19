@@ -81,15 +81,35 @@ def _first_number(text: str, labels: tuple[str, ...]) -> float | None:
     return max(candidates, key=abs) if candidates else None
 
 
+def _resolve_unit(text: str) -> tuple[str | None, str | None]:
+    """Resolve the statement scale. Returns (unit, scale_note).
+
+    Wrong-scale capture is the silent killer of cross-period comparison, so an
+    ambiguous statement is labelled on the row instead of silently guessed.
+    """
+    million = re.search(r"\$m\b|HKD million|HK\$ million|in millions|RMB million|expressed in [A-Z]{3}\s+million", text, re.I)
+    thousand = re.search(r"in thousands|RMB'?000|HK\$'?000|\$'?000\b|RMB thousand|HKD thousand", text, re.I)
+    billion = re.search(r"in billions|RMB billion|HKD billion", text, re.I)
+    if million and thousand:
+        return ("million" if million else "thousand"), "SCALE_AMBIGUOUS_UNIT: both million- and thousand-scale statements present; preferred statement used"
+    if billion and not million:
+        return "billion", None
+    if million:
+        return "million", None
+    if thousand:
+        return "thousand", None
+    return None, None
+
+
 def parse_fundamental_pdf(*, stock_code: str, reporting_period: str, announcement_date: date, report_type: str, source_url: str, document: str, payload: bytes, retrieved_at: datetime | None = None, reader: PdfReader | None = None) -> FundamentalRow:
     if reader is None:
         reader = PdfReader(io.BytesIO(payload))
     text = "\n".join(page.extract_text() or "" for page in reader.pages)
     currency = "HKD" if re.search(r"expressed in HKD|\$m|RMB", text, re.I) else None
-    unit = "million" if re.search(r"\$m|HKD million|in millions|RMB million|bn\b", text, re.I) else None
+    unit, scale_note = _resolve_unit(text)
     values = {
-        "revenue": _first_number(text, ("Total operating income", "Revenue and other income", "Total revenue and other income", "Total revenue", "Operating income", "Revenue")),
-        "net_profit_loss": _first_number(text, ("Profit attributable to shareholders of the parent company", "Profit attributable to owners of the parent", "Net profit attributable to shareholders", "Profit attributable to shareholders", "Profit/(loss) for the period", "Profit for the year", "Profit for the period")),
+        "revenue": _first_number(text, ("Total operating income", "Total revenue and other income", "Total revenue", "Operating income", "Insurance revenue", "Operating revenue", "Revenue and other income", "Revenue")),
+        "net_profit_loss": _first_number(text, ("Profit attributable to shareholders of the parent company", "Profit attributable to owners of the parent", "Net profit attributable to shareholders", "Profit attributable to shareholders", "Profit for the year attributable to owners of the parent", "Profit/(loss) for the period", "Profit for the year", "Profit for the period")),
         "cash": _first_number(text, ("Cash and cash equivalents",)),
         "debt": _first_number(text, ("Total borrowings", "Borrowings", "Total debt")),
         "net_assets": _first_number(text, ("Net assets",)),
@@ -97,6 +117,16 @@ def parse_fundamental_pdf(*, stock_code: str, reporting_period: str, announcemen
         "operating_cash_flow": _first_number(text, ("Net cash generated from operating activities", "Net cash inflow from operating activities", "Net cash from operating activities")),
         "shares_outstanding": _first_number(text, ("Number of shares in issue", "Shares in issue", "issued shares")),
     }
+    parser_method = "pypdf-labelled-financial-statement-v3"
+    if scale_note:
+        parser_method += f"; {scale_note}"
+    # Wrong-scale cross-check: revenue and net assets live on different
+    # statements, so a wild ratio between them usually means one of the two was
+    # captured from the wrong scale/context. Labelled, never silently dropped.
+    if values["revenue"] and values["net_assets"] and values["net_assets"] != 0:
+        ratio = values["revenue"] / values["net_assets"]
+        if ratio > 2000 or ratio < 0.0005:
+            parser_method += f"; SCALE_SUSPECT(revenue/net_assets={ratio:.4g})"
     present = sum(value is not None for value in values.values())
     return FundamentalRow(
         stock_code=stock_code,
@@ -106,7 +136,7 @@ def parse_fundamental_pdf(*, stock_code: str, reporting_period: str, announcemen
         source_document=document,
         source_url=source_url,
         retrieval_timestamp=retrieved_at or datetime.now(UTC),
-        parser_method="pypdf-labelled-financial-statement-v2",
+        parser_method=parser_method,
         completeness_status="complete" if present >= 4 else "partial",
         currency=currency,
         unit=unit,

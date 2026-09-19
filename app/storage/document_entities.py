@@ -37,6 +37,67 @@ class DocumentEntityRepository:
                 ],
             )
 
+    def load_graph(self, *, start_date, end_date) -> dict:
+        """實體關係圖種子 (cross-stock intermediary graph seed): nodes are
+        named entities with appearance breadth; edges are same-document
+        co-occurrences (two entities named in one filing = working together)."""
+        with self.repository._connect() as connection:
+            node_rows = connection.execute(
+                """
+                SELECT MAX(entity_name), entity_type, COUNT(*), COUNT(DISTINCT stock_code),
+                       MIN(announcement_date), MAX(announcement_date),
+                       COUNT(DISTINCT document_id)
+                FROM document_entities
+                WHERE entity_name IS NOT NULL AND announcement_date BETWEEN ? AND ?
+                GROUP BY LOWER(entity_name), entity_type
+                ORDER BY COUNT(DISTINCT stock_code) DESC, COUNT(*) DESC
+                LIMIT 500
+                """,
+                (start_date.isoformat(), end_date.isoformat()),
+            ).fetchall()
+            edge_rows = connection.execute(
+                """
+                SELECT a.entity_name, a.entity_type, b.entity_name, b.entity_type,
+                       COUNT(DISTINCT a.document_id), MIN(a.announcement_date), MAX(a.announcement_date)
+                FROM document_entities a
+                JOIN document_entities b
+                  ON a.stock_code = b.stock_code AND a.document_id = b.document_id
+                 AND (LOWER(a.entity_name) < LOWER(b.entity_name)
+                      OR (LOWER(a.entity_name) = LOWER(b.entity_name) AND a.entity_type < b.entity_type))
+                WHERE a.entity_name IS NOT NULL AND b.entity_name IS NOT NULL
+                  AND a.announcement_date BETWEEN ? AND ?
+                GROUP BY LOWER(a.entity_name), a.entity_type, LOWER(b.entity_name), b.entity_type
+                ORDER BY COUNT(DISTINCT a.document_id) DESC
+                LIMIT 300
+                """,
+                (start_date.isoformat(), end_date.isoformat()),
+            ).fetchall()
+        nodes = [
+            {
+                "entity_name": r[0],
+                "entity_type": r[1],
+                "appearances": r[2],
+                "stocks": r[3],
+                "first_seen": r[4],
+                "last_seen": r[5],
+                "documents": r[6],
+            }
+            for r in node_rows
+        ]
+        edges = [
+            {
+                "source_name": r[0],
+                "source_type": r[1],
+                "target_name": r[2],
+                "target_type": r[3],
+                "shared_documents": r[4],
+                "first_seen": r[5],
+                "last_seen": r[6],
+            }
+            for r in edge_rows
+        ]
+        return {"nodes": nodes, "edges": edges, "window": {"start": start_date.isoformat(), "end": end_date.isoformat()}}
+
     def load_rows(self, stock_code: str, *, start_date, end_date):
         from datetime import date
 

@@ -192,6 +192,104 @@ class ResearchContextService:
             "data_quality_warnings": warnings,
         }
 
+    def to_report_draft(self, context: dict) -> str:
+        """Deterministic 20-30-page report SKELETON: every real fact from the
+        research package lands in its chapter; interpretation slots are marked
+        【AI 分析位】 for the downstream analyst (server-side drafting stays
+        fact-only — no invented narrative, zero-budget, no LLM calls)."""
+        code = context["code"]
+        coverage = context["coverage"]
+        events = context["events"]
+        ownership = context["ownership"]
+        ccass = context["ccass_latest"]
+        gap_line = lambda label: f"\n> 【AI 分析位 — {label}：v1 初稿只含已核實事實，解讀由下游 AI 補上，引用時附來源】\n"
+
+        lines: list[str] = [
+            f"# {code} 五年財技故事線 — 報告初稿 v1",
+            f"生成：{context['generated_at']}｜窗口：{context['window']['start']} → {context['window']['end']}｜性質：事實初稿（非投資建議）",
+            "",
+            "## 第一章 執行摘要",
+            "",
+            f"- 覆蓋：事件 {coverage['events']}｜申報人 {coverage['ownership_filers']}（移動 {coverage['ownership_movements']}）｜基本面 {coverage['fundamentals_periods']} 期｜文件實體 {coverage['document_entities']}｜股本行 {coverage['share_capital_rows']}｜CCASS 快照 {coverage['ccass_snapshot'] or '無'}",
+            f"- 事件信心分布：{events['by_confidence']}",
+            gap_line("執行摘要"),
+        ]
+
+        lines += ["", "## 第二章 股本故事", ""]
+        if context["share_capital"]:
+            for row in context["share_capital"]:
+                tags = "/".join(row["reason_tags"] or [])
+                lines.append(f"- {row['announce_date']}（生效 {row['change_date'] or '?'}）股本 {row['shares_million']}M｜{row['reason']}｜[{tags}]")
+        else:
+            lines.append("- 窗口內無已持久化股本變動（觸發 /admin/share-capital/job 後重生成）")
+        lines.append(gap_line("股本故事：發行/註銷動機與控股權含義"))
+
+        lines += ["", "## 第三章 股權披露與大股東行為（官方 DION）", ""]
+        if ownership["filers"]:
+            for filer in ownership["filers_detail"]:
+                bias = "淨增持" if filer["increases"] > filer["decreases"] else ("淨減持" if filer["decreases"] > filer["increases"] else "雙向")
+                lines.append(
+                    f"- {filer['filer']}（{filer['classification']}）：{filer['movements_count']} 次申報，+{filer['increases']}/-{filer['decreases']}（{bias}），最新申報現持 {filer['latest_present_balance']} 股（{filer['latest_percentage'] or '?'}%）"
+                )
+            lines.append("")
+            lines.append("單一申報人全部移動明細見研究包 JSON `ownership.filers_detail[].movements`。")
+        else:
+            lines.append("- 窗口內無 DION 申報（或未回填）")
+        lines.append(gap_line("大股東行為：撤退/收貨節奏、與價格對照"))
+
+        lines += ["", "## 第四章 CCASS 貨源分布（最新快照）", ""]
+        if ccass:
+            lines.append(f"- 快照 {ccass['snapshot_date']}（來源 {ccass['source']}）｜參與者 {ccass['participants']}")
+            for entry in ccass["top10"]:
+                lines.append(f"  - {entry['participant'][:44]}：{entry['shares']} 股（{entry['pct']}%）")
+        else:
+            lines.append("- 無持久化 CCASS 快照")
+        lines.append(gap_line("貨源：集中度變化解讀（需要歷史 Top5/Top10 序列對照）"))
+
+        lines += ["", "## 第五章 統一事件時間線", "", f"類型分布：{events['by_type']}", ""]
+        for event in events["items"][:150]:
+            who = event["counterparty"] or event["entity_name"] or ""
+            lines.append(f"- {event['announce_date']} [{event['confidence']}] {event['event_type']}｜{who}｜現持 {event['shares_after'] or ''}｜{event['source_document']}")
+        lines.append(gap_line("時間線：串故事（配股→換主→派發等階段判斷）"))
+
+        lines += ["", "## 第六章 中介網絡（文件抽取）", ""]
+        if context["document_entities"]:
+            for row in context["document_entities"]:
+                lines.append(f"- {row['announcement_date']} [{row['entity_type']}] {row['entity_name'] or '(unnamed)'}｜{row['document_type']}｜{row['source_url']}")
+        else:
+            lines.append("- 窗口內無已抽取文件實體")
+        lines.append(gap_line("中介：跨股重複出現、代理財顧網絡（需實體圖譜種子，見 §8 項目9）"))
+
+        lines += ["", "## 第七章 基本面與動機", ""]
+        if context["fundamentals"]["rows"]:
+            for row in context["fundamentals"]["rows"]:
+                lines.append(
+                    f"- {row['reporting_period']}（{row['report_type']}）收入 {row['revenue']}｜純利 {row['net_profit_loss']}｜equity {row['equity']}｜OCF {row['operating_cash_flow']}｜現金 {row['cash']}｜債務 {row['debt']}｜completeness={row['completeness_status']}｜{row['parser_method']}"
+                )
+        else:
+            lines.append("- 無已持久化基本面（觸發 /admin/fundamentals/job 後重生成）")
+        lines.append(gap_line("基本面：財務壓力、供股/配股動機、核數師/持續經營訊號"))
+
+        lines += [
+            "",
+            "## 第八章 覆蓋與缺口聲明（fail-loud）",
+            "",
+        ]
+        if context["data_quality_warnings"]:
+            for warning in context["data_quality_warnings"]:
+                lines.append(f"- {warning}")
+        else:
+            lines.append("- 無區段失敗；各 domain 終態見 coverage")
+        lines += [
+            "",
+            "## 附錄：溯源規則",
+            "",
+            "- confidence=official：官方申報系統（DION）原行；confidence=extracted：官方公告 PDF 標籤抽取。",
+            "- 每項事實帶 source_document / source_url；本初稿不含任何推斷數據；缺失=缺失，永不插值。",
+            "",
+        ]
+        return "\n".join(lines)
+
     def to_markdown(self, context: dict) -> str:
         code = context["code"]
         lines: list[str] = [
