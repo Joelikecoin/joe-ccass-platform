@@ -1,29 +1,42 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 
 from app.config import get_settings
 from app.models import IntelligenceEventRow, IntelligenceEventsMetadata, IntelligenceEventsResponse
+from app.storage.announcements import AnnouncementRepository
 from app.storage.disclosure_interests import DisclosureInterestRepository
 from app.storage.document_entities import DocumentEntityRepository
 from app.storage.history import NormalizedSnapshotRepository
 from app.storage.intelligence_events import IntelligenceEventRepository
+from app.storage.share_capital_history import ShareCapitalHistoryRepository
 from ccass_core.normalize import normalize_stock_code
 
 DEFAULT_LOOKBACK_DAYS = 5 * 365
+RESULTS_ANNOUNCEMENT_TITLE_RE = re.compile(r"results|業績|annual report|年報|interim report|中期報告", re.IGNORECASE)
 
 
 class IntelligenceEventsService:
-    """Phase-1 unified event layer v0: derives corporate-intelligence events
-    from the persisted DI (official) and document-entity (extracted) stores,
-    upserts them idempotently into the permanent evidence cache, and serves
-    the persisted layer."""
+    """Phase-1 unified event layer: derives corporate-intelligence events
+    from the persisted DI (official), document-entity (extracted),
+    share-capital and announcement stores, upserts them idempotently into
+    the permanent evidence cache, and serves the persisted layer."""
 
-    def __init__(self, disclosure_repository=None, entity_repository=None, event_repository=None):
+    def __init__(
+        self,
+        disclosure_repository=None,
+        entity_repository=None,
+        event_repository=None,
+        share_capital_repository=None,
+        announcements_repository=None,
+    ):
         self.disclosure_repository = disclosure_repository
         self.entity_repository = entity_repository
         self.event_repository = event_repository
+        self.share_capital_repository = share_capital_repository
+        self.announcements_repository = announcements_repository
 
     async def get_events(self, code: str | int, *, start_date: date | None = None, end_date: date | None = None) -> IntelligenceEventsResponse:
         normalized = normalize_stock_code(code)
@@ -95,6 +108,51 @@ class IntelligenceEventsService:
             except Exception as exc:
                 warnings.append(f"ENTITY_SOURCE_READ_FAILED:{type(exc).__name__}")
 
+        if self.share_capital_repository is not None:
+            try:
+                capital = self.share_capital_repository.load(normalized, start_date=start_date, end_date=end_date)
+                if capital is not None:
+                    for row in capital.rows:
+                        events.append(IntelligenceEventRow(
+                            stock_code=normalized,
+                            event_type="share_capital_change",
+                            announce_date=row.announce_date,
+                            effective_date=row.change_date,
+                            shares_after=row.shares_million,
+                            ratio=row.shares_approx,
+                            source_document=row.source,
+                            source_url=row.source_url,
+                            confidence="extracted",
+                            extraction_method="share-capital-history",
+                            retrieved_at=now,
+                            provenance=f"shares in millions; reason={row.reason or 'n/a'}; tags={','.join(row.reason_tags)}",
+                        ))
+            except Exception as exc:
+                warnings.append(f"SHARE_CAPITAL_SOURCE_READ_FAILED:{type(exc).__name__}")
+
+        if self.announcements_repository is not None:
+            try:
+                stored = self.announcements_repository.load(normalized, start_date=start_date, end_date=end_date)
+                if stored is not None:
+                    for row in stored.announcements:
+                        title = row.title or ""
+                        if not RESULTS_ANNOUNCEMENT_TITLE_RE.search(title):
+                            continue
+                        events.append(IntelligenceEventRow(
+                            stock_code=normalized,
+                            event_type="announcement:results",
+                            announce_date=row.announcement_date,
+                            counterparty=None,
+                            source_document=row.document_id or title[:60],
+                            source_url=row.link or "",
+                            confidence="official",
+                            extraction_method="titlesearch-metadata",
+                            retrieved_at=now,
+                            provenance=f"title={title[:200]}",
+                        ))
+            except Exception as exc:
+                warnings.append(f"ANNOUNCEMENTS_SOURCE_READ_FAILED:{type(exc).__name__}")
+
         unique: dict[tuple, IntelligenceEventRow] = {}
         for event in events:
             key = (event.event_type, event.announce_date, event.source_document, event.counterparty, event.entity_name)
@@ -123,4 +181,6 @@ def get_intelligence_events_service() -> IntelligenceEventsService:
         disclosure_repository=DisclosureInterestRepository(normalized_repository),
         entity_repository=DocumentEntityRepository(normalized_repository),
         event_repository=IntelligenceEventRepository(normalized_repository),
+        share_capital_repository=ShareCapitalHistoryRepository(normalized_repository),
+        announcements_repository=AnnouncementRepository(normalized_repository),
     )

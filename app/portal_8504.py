@@ -2775,6 +2775,73 @@ async def intelligence_events_job_status(
     return JSONResponse(job)
 
 
+_share_capital_jobs: dict[str, dict[str, object]] = {}
+_share_capital_jobs_lock = threading.Lock()
+
+
+async def _run_share_capital_job(job_id: str, code: str, start_date: date | None, end_date: date | None, service=None) -> None:
+    started = time.monotonic()
+    budget = _async_job_timeout_budget()
+    active = service or get_share_capital_history_service()
+    try:
+        response = await asyncio.wait_for(active.get_share_capital_history(code, start_date=start_date, end_date=end_date), timeout=budget)
+    except asyncio.TimeoutError:
+        _update_async_job(_share_capital_jobs, _share_capital_jobs_lock, job_id, state="error", error=f"share-capital flow exceeded the job budget ({budget}s)", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    except Exception as exc:
+        _update_async_job(_share_capital_jobs, _share_capital_jobs_lock, job_id, state="error", error=f"{type(exc).__name__}: {exc}", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    _update_async_job(
+        _share_capital_jobs,
+        _share_capital_jobs_lock,
+        job_id,
+        state="succeeded" if response.metadata.source_status == "ready" else response.metadata.source_status,
+        rows=len(response.rows),
+        warnings=list(response.data_quality_warnings),
+        elapsed_s=round(time.monotonic() - started, 3),
+    )
+
+
+@app.post("/admin/share-capital/job", tags=["admin"])
+async def share_capital_job_trigger(
+    stock_code: str = Query(...),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    normalized = normalize_stock_code(stock_code)
+    job_id = uuid.uuid4().hex
+    with _share_capital_jobs_lock:
+        _share_capital_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "running",
+            "stock_code": normalized,
+            "rows": 0,
+            "warnings": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_share_capital_job(job_id, normalized, start_date, end_date))
+    return JSONResponse({"status": "accepted", "job_id": job_id, "state": "running", "stock_code": normalized}, status_code=202)
+
+
+@app.get("/admin/share-capital/job/{job_id}", tags=["admin"])
+async def share_capital_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _async_job_public(_share_capital_jobs, _share_capital_jobs_lock, job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Share capital job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
 async def get_intelligence_events(
     stock_code: str,

@@ -381,7 +381,32 @@ MIGRATION_9 = Migration(
 )
 
 
-MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7, MIGRATION_8, MIGRATION_9)
+MIGRATION_10 = Migration(
+    version=10,
+    name="share_capital_history",
+    statements=(
+        """
+        CREATE TABLE share_capital_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stock_code TEXT NOT NULL REFERENCES stocks(code),
+            announce_date TEXT NOT NULL,
+            shares_million REAL,
+            shares_approx TEXT,
+            reason TEXT,
+            reason_tags_json TEXT NOT NULL DEFAULT '[]',
+            change_date TEXT,
+            source TEXT NOT NULL,
+            source_url TEXT NOT NULL,
+            retrieved_at TEXT NOT NULL,
+            UNIQUE(stock_code, announce_date, source_url)
+        )
+        """,
+        "CREATE INDEX idx_share_capital_code_date ON share_capital_history(stock_code, announce_date DESC)",
+    ),
+)
+
+
+MIGRATIONS: tuple[Migration, ...] = (MIGRATION_1, MIGRATION_2, MIGRATION_3, MIGRATION_4, MIGRATION_5, MIGRATION_6, MIGRATION_7, MIGRATION_8, MIGRATION_9, MIGRATION_10)
 SCHEMA_VERSION = MIGRATIONS[-1].version
 
 
