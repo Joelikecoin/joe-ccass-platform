@@ -2476,6 +2476,187 @@ async def disclosure_interests_job_status(
     return JSONResponse(job)
 
 
+# Admin async jobs for slow fetch pipelines (fundamentals, announcements):
+# trigger -> background task -> poll status -> read rows from the persisted
+# store. Same shape as the DI jobs; heavy issuers and wide windows are the
+# reason these must not run inside a synchronous request.
+
+
+def _async_job_public(store: dict[str, dict[str, object]], lock: threading.Lock, job_id: str) -> dict[str, object] | None:
+    with lock:
+        job = store.get(job_id)
+        return dict(job) if job else None
+
+
+def _update_async_job(store: dict[str, dict[str, object]], lock: threading.Lock, job_id: str, **updates: object) -> None:
+    with lock:
+        if job_id in store:
+            store[job_id].update(updates)
+
+
+def _async_job_timeout_budget(extra: float = 30.0) -> float:
+    return max(1.0, float(get_settings().request_timeout_seconds)) + extra
+
+
+_fundamentals_jobs: dict[str, dict[str, object]] = {}
+_fundamentals_jobs_lock = threading.Lock()
+
+
+async def _run_fundamentals_job(job_id: str, code: str, service: FundamentalsService | None = None) -> None:
+    started = time.monotonic()
+    budget = _async_job_timeout_budget()
+    active = service or get_fundamentals_service()
+    try:
+        response = await asyncio.wait_for(active.get_fundamentals(code), timeout=budget)
+    except asyncio.TimeoutError:
+        _update_async_job(_fundamentals_jobs, _fundamentals_jobs_lock, job_id, state="error", error=f"fundamentals flow exceeded the job budget ({budget}s)", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    except Exception as exc:
+        _update_async_job(_fundamentals_jobs, _fundamentals_jobs_lock, job_id, state="error", error=f"{type(exc).__name__}: {exc}", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    metadata = response.metadata
+    _update_async_job(
+        _fundamentals_jobs,
+        _fundamentals_jobs_lock,
+        job_id,
+        state="succeeded" if metadata.source_status == "ready" else metadata.source_status,
+        rows=len(response.rows),
+        periods=[row.reporting_period for row in response.rows],
+        documents_attempted=metadata.documents_attempted,
+        documents_parsed=metadata.documents_parsed,
+        documents_failed=metadata.documents_failed,
+        source_status=metadata.source_status,
+        warnings=list(response.data_quality_warnings),
+        elapsed_s=round(time.monotonic() - started, 3),
+    )
+
+
+@app.post("/admin/fundamentals/job", tags=["admin"])
+async def fundamentals_job_trigger(
+    stock_code: str = Query(...),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    normalized = normalize_stock_code(stock_code)
+    job_id = uuid.uuid4().hex
+    with _fundamentals_jobs_lock:
+        _fundamentals_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "running",
+            "stock_code": normalized,
+            "rows": 0,
+            "periods": [],
+            "documents_attempted": 0,
+            "documents_parsed": 0,
+            "documents_failed": 0,
+            "source_status": None,
+            "warnings": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_fundamentals_job(job_id, normalized))
+    return JSONResponse({"status": "accepted", "job_id": job_id, "state": "running", "stock_code": normalized}, status_code=202)
+
+
+@app.get("/admin/fundamentals/job/{job_id}", tags=["admin"])
+async def fundamentals_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _async_job_public(_fundamentals_jobs, _fundamentals_jobs_lock, job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Fundamentals job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
+_announcements_jobs: dict[str, dict[str, object]] = {}
+_announcements_jobs_lock = threading.Lock()
+MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS = 400
+
+
+async def _run_announcements_job(job_id: str, code: str, start_date: date, end_date: date, service=None) -> None:
+    started = time.monotonic()
+    budget = _async_job_timeout_budget()
+    active = service or get_announcements_service()
+    try:
+        response = await asyncio.wait_for(active.get_announcements(code, start_date=start_date, end_date=end_date), timeout=budget)
+    except asyncio.TimeoutError:
+        _update_async_job(_announcements_jobs, _announcements_jobs_lock, job_id, state="error", error=f"announcements flow exceeded the job budget ({budget}s)", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    except Exception as exc:
+        _update_async_job(_announcements_jobs, _announcements_jobs_lock, job_id, state="error", error=f"{type(exc).__name__}: {exc}", elapsed_s=round(time.monotonic() - started, 3))
+        return
+    metadata = response.metadata
+    _update_async_job(
+        _announcements_jobs,
+        _announcements_jobs_lock,
+        job_id,
+        state="succeeded" if metadata.source_status == "ready" else metadata.source_status,
+        announcement_count=metadata.announcement_count,
+        coverage_start=metadata.coverage_start.isoformat() if metadata.coverage_start else None,
+        coverage_end=metadata.coverage_end.isoformat() if metadata.coverage_end else None,
+        source_status=metadata.source_status,
+        warnings=list(response.data_quality_warnings),
+        elapsed_s=round(time.monotonic() - started, 3),
+    )
+
+
+@app.post("/admin/announcements/job", tags=["admin"])
+async def announcements_job_trigger(
+    stock_code: str = Query(...),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    normalized = normalize_stock_code(stock_code)
+    end = end_date or datetime.now(UTC).date()
+    start = start_date or end - timedelta(days=365 * 2)
+    if (end - start).days > MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS:
+        raise PlatformError("INVALID_SCHEMA", f"Window exceeds {MAX_ANNOUNCEMENTS_JOB_WINDOW_DAYS} days — split into sub-windows (free-container memory ceiling).", status_code=400)
+    if start > end:
+        raise PlatformError("INVALID_SCHEMA", "start_date must not be after end_date.", status_code=400)
+    job_id = uuid.uuid4().hex
+    with _announcements_jobs_lock:
+        _announcements_jobs[job_id] = {
+            "job_id": job_id,
+            "state": "running",
+            "stock_code": normalized,
+            "start_date": start.isoformat(),
+            "end_date": end.isoformat(),
+            "announcement_count": 0,
+            "coverage_start": None,
+            "coverage_end": None,
+            "source_status": None,
+            "warnings": [],
+            "error": None,
+            "elapsed_s": 0.0,
+        }
+    asyncio.create_task(_run_announcements_job(job_id, normalized, start, end))
+    return JSONResponse({"status": "accepted", "job_id": job_id, "state": "running", "stock_code": normalized, "start_date": start.isoformat(), "end_date": end.isoformat()}, status_code=202)
+
+
+@app.get("/admin/announcements/job/{job_id}", tags=["admin"])
+async def announcements_job_status(
+    job_id: str,
+    key: str | None = Query(default=None, include_in_schema=False),
+    x_api_key: str | None = Header(default=None, include_in_schema=False),
+    authorization: str | None = Header(default=None, include_in_schema=False),
+) -> JSONResponse:
+    _verify_daily_admin_key(key, x_api_key, authorization)
+    job = _async_job_public(_announcements_jobs, _announcements_jobs_lock, job_id)
+    if job is None:
+        raise PlatformError("NOT_FOUND", "Announcements job was not found.", status_code=404)
+    return JSONResponse(job)
+
+
 @app.get("/api/v1/stocks/{stock_code}/corporate-timeline", response_model=CorporateTimeline)
 async def get_corporate_timeline(
     stock_code: str,
