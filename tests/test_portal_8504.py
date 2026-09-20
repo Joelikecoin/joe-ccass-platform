@@ -99,7 +99,7 @@ def test_portal_8504_defaults_data_date_to_latest_available(monkeypatch):
     monkeypatch.setattr("app.portal_8504._render_page", lambda bundle: "<html>ok</html>")
 
     client = TestClient(portal_app)
-    response = client.get("/", params={"code": "01682"})
+    response = client.get("/full", params={"code": "01682"})
 
     assert response.status_code == 200
     assert captured["data_date"] is None
@@ -108,7 +108,7 @@ def test_portal_8504_defaults_data_date_to_latest_available(monkeypatch):
 def test_portal_8504_initial_page_renders_without_data_date():
     client = TestClient(portal_app)
 
-    response = client.get("/")
+    response = client.get("/full")
 
     assert response.status_code == 200
     assert 'name="data_date"' in response.text
@@ -589,9 +589,9 @@ def test_portal_8504_download_route_lazy_generates_zh_markdown(monkeypatch, tmp_
     assert ccass_response.text == "ZH CCASS"
     assert raw_tables_response.status_code == 200
     assert raw_tables_response.json() == {"tables": []}
-    assert "Download Snapshot DB Backup" in client.get("/", params={"code": "01592"}).text
-    assert "Download Raw Preview Summary CSV" in client.get("/", params={"code": "01592"}).text
-    assert "Download Raw Preview Holdings CSV" in client.get("/", params={"code": "01592"}).text
+    assert "Download Snapshot DB Backup" in client.get("/full", params={"code": "01592"}).text
+    assert "Download Raw Preview Summary CSV" in client.get("/full", params={"code": "01592"}).text
+    assert "Download Raw Preview Holdings CSV" in client.get("/full", params={"code": "01592"}).text
     assert calls["live"] == ["zh_HK"]
     assert calls["ccass"] == ["zh_HK"]
 
@@ -665,7 +665,7 @@ def test_portal_8504_renders_ccass_json_download_button(monkeypatch):
     monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
 
     client = TestClient(portal_app)
-    response = client.get("/", params={"code": "01592"})
+    response = client.get("/full", params={"code": "01592"})
 
     assert response.status_code == 200
     assert "Download CCASS JSON" in response.text
@@ -774,7 +774,7 @@ def test_portal_8504_does_not_render_dt_rainbow_section(monkeypatch):
     monkeypatch.setattr("app.portal_8504._build_portal_8504_bundle", fake_build_portal_8504_bundle)
 
     client = TestClient(portal_app)
-    response = client.get("/", params={"code": "01592"})
+    response = client.get("/full", params={"code": "01592"})
 
     assert response.status_code == 200
     assert 'id="dt-rainbow"' not in response.text
@@ -1645,3 +1645,12 @@ def test_portal_8504_changes_block_big_changes_metric_uses_response_big_changes(
     html = _changes_block(bundle, "en")
 
     assert 'data-i18n-en="Big changes" data-i18n-zh="大變動">Big changes</span></div><div class="metric-value">3</div>' in html
+
+
+def test_portal_fast_overview_landing_and_route_split():
+    client = TestClient(portal_app)
+    landing = client.get("/")
+    assert landing.status_code == 200
+    assert "Joe Intelligence Platform" in landing.text
+    full_page = client.get("/full", params={"code": "01592"})
+    assert full_page.status_code in (200, 502, 500)

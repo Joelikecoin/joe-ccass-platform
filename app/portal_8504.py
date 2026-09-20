@@ -3363,7 +3363,155 @@ async def p0_rct20_proof(code: str = Query(..., min_length=1)) -> JSONResponse:
         return JSONResponse(status_code=503, content={"code": normalized_code, "error": "rct20 proof path failed"})
 
 
+_FAST_LANDING = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Joe Intelligence Platform</title>
+<style>body{font-family:monospace;margin:40px;background:#111;color:#ddd} input{width:200px} button{background:#345;color:#9cf;border:1px solid #567;padding:6px 14px;cursor:pointer} a{color:#9cf}</style></head><body>
+<h1>Joe Intelligence Platform</h1>
+<form method="get" action="/">股票代號 <input name="code" placeholder="02020"><button>載入快總覽</button></form>
+<p>快總覽 = persisted 證據快取唯讀（目標 ≤5 秒）。完整即時產品：<a href="/full">/full</a>（慢，~35 秒全包）。</p>
+</body></html>"""
+
+
 @app.get("/", response_class=HTMLResponse)
+async def portal_fast(
+    code: str = Query(default=""),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+) -> HTMLResponse:
+    """Fast persisted overview — the frontend acceptance surface (target ≤5s).
+
+    Everything is read from the Turso evidence cache in parallel and trimmed to
+    Top-N; the data layer is untouched. The full live product remains at
+    /full and deep refreshes run through the admin job panel."""
+    normalized = normalize_stock_code(code) if code.strip() else ""
+    if not normalized:
+        return HTMLResponse(_FAST_LANDING)
+    now = datetime.now(UTC)
+    end = end_date or now.date()
+    start = start_date or end - timedelta(days=365 * 5)
+    svc = get_research_context_service()
+
+    async def _safe(label, coro):
+        try:
+            return label, await coro
+        except Exception as exc:
+            return label, exc
+
+    events_pair, timeline_pair, snapshot_pair, fundamentals_pair, entities_pair, share_capital_pair = await asyncio.gather(
+        _safe("events", asyncio.to_thread(svc.event_repository.load, normalized)),
+        _safe("timeline", get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end)),
+        _safe("snapshot", asyncio.to_thread(svc.snapshot_repository.latest, normalized)),
+        _safe("fundamentals", asyncio.to_thread(svc.fundamentals_repository.load, normalized)),
+        _safe("entities", asyncio.to_thread(svc.entity_repository.load_rows, normalized, start_date=start, end_date=end)),
+        _safe("share_capital", asyncio.to_thread(svc.share_capital_repository.load, normalized, start_date=start, end_date=end)),
+    )
+
+    sections: list[str] = []
+
+    snap_result = snapshot_pair[1]
+    if isinstance(snap_result, Exception):
+        sections.append(f'<h2>CCASS</h2><div class="warn">SNAPSHOT_FAILED: {_escape(str(snap_result))[:120]}</div>')
+    elif snap_result is None:
+        sections.append('<h2>CCASS</h2><p>無持久化快照 — 觸發 snapshot job 後重載。</p>')
+    else:
+        holdings = sorted(snap_result.holdings, key=lambda h: h.shares, reverse=True)
+        total = sum(h.shares for h in holdings) or 1
+        rows = "".join(
+            f"<tr><td>{_escape(str(getattr(h, 'participant_name', None) or h.participant_id))[:40]}</td><td>{h.shares}</td><td>{round(h.shares / total * 100, 2)}%</td></tr>"
+            for h in holdings[:15]
+        )
+        sections.append(
+            f"<h2>CCASS 快照（{snap_result.snapshot_date}，{len(holdings)} 參與者）</h2>"
+            + "<table><tr><th>participant</th><th>shares</th><th>% CCASS</th></tr>" + rows + "</table>"
+        )
+
+    tl_result = timeline_pair[1]
+    if isinstance(tl_result, Exception):
+        sections.append(f'<h2>Ownership Timeline</h2><div class="warn">SECTION_FAILED: {_escape(str(tl_result))[:120]}</div>')
+    else:
+        tl_rows = "".join(
+            f"<tr><td>{_escape(t.filer)[:40]}</td><td>{t.movements_count}</td><td>+{t.increases}/-{t.decreases}</td><td>{_escape(str(t.latest_present_balance or ''))}</td><td>{_escape(str(t.latest_percentage or ''))}</td></tr>"
+            for t in tl_result.timelines[:10]
+        )
+        sections.append(
+            f"<h2>Ownership Timeline（{len(tl_result.timelines)} filers，Top 10）</h2>"
+            + "<table><tr><th>filer</th><th>movements</th><th>+/-</th><th>latest balance</th><th>%</th></tr>" + tl_rows + "</table>"
+        )
+
+    ev_result = events_pair[1]
+    if isinstance(ev_result, Exception):
+        sections.append(f'<h2>Intelligence Events</h2><div class="warn">SECTION_FAILED: {_escape(str(ev_result))[:120]}</div>')
+    elif not ev_result:
+        sections.append('<h2>Intelligence Events</h2><p>無持久化事件快照 — 觸發 intelligence-events job 後重載。</p>')
+    else:
+        by_type: dict[str, int] = {}
+        for e in ev_result:
+            by_type[e.event_type] = by_type.get(e.event_type, 0) + 1
+        ev_sorted = sorted(ev_result, key=lambda e: e.announce_date, reverse=True)
+        ev_html = "".join(
+            f"<tr><td>{e.announce_date}</td><td>{_escape(e.event_type)}</td><td>{_escape(str(e.counterparty or e.entity_name or ''))[:44]}</td><td>{_escape(str(e.shares_after or ''))}</td><td>{e.confidence}</td></tr>"
+            for e in ev_sorted[:30]
+        )
+        sections.append(
+            f"<h2>Intelligence Events（{len(ev_result)} 事件，最新 30）</h2>"
+            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_type.items()))
+            + "<table><tr><th>date</th><th>type</th><th>counterparty</th><th>shares</th><th>conf</th></tr>" + ev_html + "</table>"
+        )
+
+    f_result = fundamentals_pair[1]
+    if isinstance(f_result, Exception):
+        sections.append(f'<h2>Fundamentals</h2><div class="warn">SECTION_FAILED: {_escape(str(f_result))[:120]}</div>')
+    elif f_result is None or not f_result.rows:
+        sections.append('<h2>Fundamentals</h2><p>無持久化基本面 — 觸發 fundamentals job 後重載。</p>')
+    else:
+        f_rows = "".join(
+            f"<tr><td>{r.reporting_period}</td><td>{_escape(str(r.revenue or ''))}</td><td>{_escape(str(r.net_profit_loss or ''))}</td><td>{_escape(str(r.equity or ''))}</td><td>{r.completeness_status}</td></tr>"
+            for r in f_result.rows[:10]
+        )
+        sections.append(f"<h2>Fundamentals（{len(f_result.rows)} 期）</h2><table><tr><th>period</th><th>revenue</th><th>profit</th><th>equity</th><th>completeness</th></tr>{f_rows}</table>")
+
+    ent_result = entities_pair[1]
+    if isinstance(ent_result, Exception):
+        sections.append(f'<h2>Document Entities</h2><div class="warn">SECTION_FAILED: {_escape(str(ent_result))[:120]}</div>')
+    else:
+        by_entity: dict[str, int] = {}
+        for row in ent_result:
+            by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
+        sections.append(
+            f"<h2>Document Entities（{len(ent_result)} rows）</h2>"
+            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_entity.items()))
+        )
+
+    sc_result = share_capital_pair[1]
+    if isinstance(sc_result, Exception):
+        sections.append(f'<h2>Share Capital</h2><div class="warn">SECTION_FAILED: {_escape(str(sc_result))[:120]}</div>')
+    elif sc_result is None or not sc_result.rows:
+        sections.append('<h2>Share Capital</h2><p>無持久化股本行 — 觸發 share-capital job 後重載。</p>')
+    else:
+        sc_rows = "".join(
+            f"<tr><td>{r.announce_date}</td><td>{r.shares_million}M</td><td>{_escape(str(r.reason or ''))[:60]}</td></tr>"
+            for r in sc_result.rows[:10]
+        )
+        sections.append(f"<h2>Share Capital（{len(sc_result.rows)} 行，最新 10）</h2><table><tr><th>announce</th><th>shares</th><th>reason</th></tr>{sc_rows}</table>")
+
+    five_y_start = (end - timedelta(days=365 * 5)).isoformat()
+    job_panel = (
+        "<h2>Deep Refresh（admin key required — 背後 job 完成後重載此頁）</h2>"
+        + _JOB_PANEL_SCRIPT.replace("__CODE__", normalized)
+        .replace("__START5Y__", five_y_start)
+        .replace("__END__", end.isoformat())
+    )
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{normalized} 快總覽</title>
+<style>body{{font-family:monospace;margin:24px;background:#111;color:#ddd}} table{{border-collapse:collapse;margin:12px 0}} td,th{{border:1px solid #444;padding:4px 8px;font-size:13px}} .pill{{display:inline-block;background:#234;color:#9cf;padding:2px 8px;margin:2px;border-radius:4px}} .warn{{color:#f90;font-size:12px}} h2{{color:#9cf;border-bottom:1px solid #345}} button{{background:#345;color:#9cf;border:1px solid #567;padding:4px 10px;cursor:pointer}} #jobout{{background:#181818;border:1px solid #333;padding:8px;white-space:pre-wrap}} .nav a{{color:#9cf;margin-right:14px}}</style></head><body>
+<h1>{normalized} 快總覽 <span style="font-size:13px;color:#888">（persisted 快取唯讀；窗口 {start} .. {end}）</span></h1>
+<div class="nav"><a href="/full?code={normalized}">完整即時產品 /full（~35s 全包）</a><a href="/console?code={normalized}">詳細 console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a><a href="/api/v1/stocks/{normalized}/intelligence-events">事件全量 JSON</a></div>
+<form method="get" action="/"><input name="code" value="{_escape(normalized)}" placeholder="02020"><button>切換股票</button></form>
+{''.join(sections)}
+{job_panel}
+</body></html>"""
+    return HTMLResponse(html)
+
+
+@app.get("/full", response_class=HTMLResponse)
 async def portal(
     code: str = Query(default=""),
     input_type: str = Query(default="Stock Code"),
