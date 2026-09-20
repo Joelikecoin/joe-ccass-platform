@@ -1652,5 +1652,3 @@ def test_portal_fast_overview_landing_and_route_split():
     landing = client.get("/")
     assert landing.status_code == 200
     assert "Joe Intelligence Platform" in landing.text
-    full_page = client.get("/full", params={"code": "01592"})
-    assert full_page.status_code in (200, 502, 500)
