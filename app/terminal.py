@@ -152,10 +152,11 @@ async def terminal(
     svc = get_research_context_service()
 
     results, _ = await _build_components(normalized, start, end)
-    snapshot, dates, timeline, events, fundamentals, entities, share_capital, conc_series = results
+    snapshot, dates, timeline, events, fundamentals, entities, share_capital, announcements, conc_series = results
     timeline = timeline if not isinstance(timeline, Exception) else None
     events = events if not isinstance(events, Exception) else None
     fundamentals = fundamentals if not isinstance(fundamentals, Exception) else None
+    announcements = announcements if not isinstance(announcements, Exception) else None
     entities = entities if not isinstance(entities, Exception) else []
     share_capital = share_capital if not isinstance(share_capital, Exception) else None
     snapshot = snapshot if not isinstance(snapshot, Exception) else None
@@ -329,6 +330,24 @@ async def terminal(
         )
     else:
         cards.append(_warn("⑫ 情報事件流", "無持久化事件快照 — 觸發 intelligence-events job。"))
+    # ---- 港交所公告 (raw announcements table, friend-site parity) ----
+    if announcements and announcements.announcements:
+        ann_sorted = sorted(announcements.announcements, key=lambda a: a.announcement_date, reverse=True)
+        ann_rows = [
+            f"<tr><td class='num'>{a.announcement_date}</td><td>{esc(a.category or '—')[:18]}</td>"
+            f"<td><a href='{esc(a.link or '#')}' target='_blank' rel='noopener'>{esc(a.title)[:80]}</a></td></tr>"
+            for a in ann_sorted[:15]
+        ]
+        cards.append(
+            _card(
+                f"港交所公告 · {len(announcements.announcements)} 份（最新 15）",
+                _table(["日期", "類別", "標題（點擊開 PDF）"], ann_rows),
+                wide=True,
+                note="persisted 快取 · 5 年窗口內全部可追溯原文",
+            )
+        )
+    else:
+        cards.append(_warn("港交所公告", "無持久化公告 — 觸發 announcements job（可帶 start_date/end_date 回填 5 年）。"))
 
     # ---- 13. Intermediary network ----
     by_entity: dict[str, int] = {}
@@ -450,7 +469,14 @@ async def terminal(
         )
     )
 
-    numbered = "".join(cards)
+    import re as _re
+    cells = "".join(f"<div class='cell' id='sec{i}'>{c}</div>" for i, c in enumerate(cards))
+    titles = []
+    for c in cards:
+        m = _re.search(r"<summary>(.*?)(<span class='sumnote'>|</summary>)", c)
+        titles.append(_re.sub(r"<[^>]+>", "", m.group(0)).replace("<span class='sumnote'>", "").strip() if m else f"部件 {len(titles)+1}")
+    jumps = "".join(f"<a href='#sec{i}'>{esc(t[:16])}</a> " for i, t in enumerate(titles))
+    numbered = cells
     kpi_html_final = kpi_html
     job_panel = (
         "<h2>Deep Refresh <span class='h2note'>admin key — job 完成後重載此頁</span></h2>"
@@ -477,6 +503,9 @@ nav.links a{{color:#1d4ed8;text-decoration:none;margin-right:16px;font-weight:60
 .kpi-value{{font-size:23px;font-weight:800;color:#0f172a;margin-top:3px;font-variant-numeric:tabular-nums}}
 .kpi-sub{{font-size:11px;color:#94a3b8;margin-top:2px}}
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:16px}}
+.cell{{scroll-margin-top:14px}}
+.jumps{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:2}}
+.jumps a{{color:#1d4ed8;text-decoration:none;margin-right:10px;font-weight:600}}
 .card{{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.05)}}
 .card.wide{{grid-column:1/-1}}
 .card summary{{cursor:pointer;padding:13px 18px;font-weight:700;font-size:14px;color:#0f172a;border-bottom:1px solid #eef2f7;list-style:none}}
@@ -513,6 +542,7 @@ h2{{font-size:15px}}.h2note{{font-size:12px;color:#64748b;font-weight:400}}
 <form method="get" action="/terminal"><input name="code" value="{esc(normalized)}" placeholder="輸入股票代號"><button>切換</button></form></header>
 <nav class="links"><a href="/?code={normalized}">快總覽</a><a href="/full?code={normalized}">完整即時產品</a><a href="/console?code={normalized}">Console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a></nav>
 <div class="kpis">{kpi_html_final}</div>
+<div class="jumps">{jumps}</div>
 <div class="grid">{numbered}</div>
 {job_panel}
 </div></body></html>"""
