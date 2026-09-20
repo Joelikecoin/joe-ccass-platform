@@ -3389,6 +3389,7 @@ async def portal_fast(
     end = end_date or now.date()
     start = start_date or end - timedelta(days=365 * 5)
     svc = get_research_context_service()
+    events_repo = get_intelligence_events_service().event_repository
 
     async def _safe(label, coro):
         try:
@@ -3397,7 +3398,7 @@ async def portal_fast(
             return label, exc
 
     events_pair, timeline_pair, snapshot_pair, fundamentals_pair, entities_pair, share_capital_pair = await asyncio.gather(
-        _safe("events", asyncio.to_thread(svc.event_repository.load, normalized)),
+        _safe("events", asyncio.to_thread(events_repo.load, normalized)),
         _safe("timeline", get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end)),
         _safe("snapshot", asyncio.to_thread(svc.snapshot_repository.latest, normalized)),
         _safe("fundamentals", asyncio.to_thread(svc.fundamentals_repository.load, normalized)),
