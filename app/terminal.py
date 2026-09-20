@@ -129,7 +129,7 @@ async def _build_components(normalized: str, start: date, end: date):
         _safe(asyncio.to_thread(svc.fundamentals_repository.load, normalized)),
         _safe(asyncio.to_thread(svc.entity_repository.load_rows, normalized, start_date=start, end_date=end)),
         _safe(asyncio.to_thread(svc.share_capital_repository.load, normalized, start_date=start, end_date=end)),
-        _safe(asyncio.to_thread(_concentration_series, normalized)),
+        _safe(_concentration_series(normalized)),
     )
     return components, now
 
@@ -151,9 +151,8 @@ async def terminal(
     start = start_date or end - timedelta(days=365 * 5)
     svc = get_research_context_service()
 
-    (snapshot, dates, timeline, events, fundamentals, entities, share_capital, conc_series) = (
-        await _build_components(normalized, start, end)
-    )
+    results, _ = await _build_components(normalized, start, end)
+    snapshot, dates, timeline, events, fundamentals, entities, share_capital, conc_series = results
     timeline = timeline if not isinstance(timeline, Exception) else None
     events = events if not isinstance(events, Exception) else None
     fundamentals = fundamentals if not isinstance(fundamentals, Exception) else None
@@ -212,6 +211,7 @@ async def terminal(
         cards.append(_warn("① CCASS Top 15 持倉", "無持久化快照。"))
 
     # ---- 4/5. Changes + Big changes derived from the two latest snapshots ----
+    snapshot_repo = svc.snapshot_repository
     if snapshot:
         prev = snapshot_repo.previous(normalized, before_date=snapshot.snapshot_date)
         if prev is not None:
