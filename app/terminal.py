@@ -23,6 +23,55 @@ from app.portal_8504 import (
 
 router = APIRouter()
 
+
+_TERMINAL_JS = """<script>
+(function(){
+  var CODE = "__CODE__";
+  function box(id){ return document.getElementById(id); }
+  function loadPrice(btn){
+    btn.disabled = true; box('pricebox').textContent = '載入中…';
+    fetch('/api/v1/stocks/' + CODE + '/price?days=120').then(function(r){return r.json()}).then(function(j){
+      var rows = j.prices || [];
+      if(!rows.length){ box('pricebox').textContent = '無價格數據（' + ((j.metadata||{}).source_name||'') + '）'; return; }
+      var src = ((j.metadata||{}).source_name || '') + ((j.metadata&&j.metadata.currency) ? ' · ' + j.metadata.currency : '');
+      var last = rows[rows.length-1], prev = rows[rows.length-2];
+      var chg = (prev && last.close && prev.close) ? (last.close - prev.close) : null;
+      var chgPct = (chg !== null && prev.close) ? (chg / prev.close * 100) : null;
+      var closes = rows.map(function(r){ return r.close; }).filter(function(x){ return x !== null && x !== undefined; });
+      var lo = Math.min.apply(null, closes), hi = Math.max.apply(null, closes), span = (hi-lo)||1;
+      var w = 520, h = 90, step = w/(closes.length-1);
+      var pts = closes.map(function(c,i){ return (i*step).toFixed(1) + ',' + (h - (c-lo)/span*(h-8) - 4).toFixed(1); }).join(' ');
+      var head = '<div class="kpis" style="margin-bottom:8px">' +
+        '<div class="kpi"><div class="kpi-label">最新收市</div><div class="kpi-value">' + last.close + '</div></div>' +
+        (chg !== null ? '<div class="kpi"><div class="kpi-label">日變化</div><div class="kpi-value" style="color:' + (chg>=0?'#16a34a':'#dc2626') + '">' + (chg>=0?'+':'') + chg.toFixed(3) + ' (' + chgPct.toFixed(2) + '%)</div></div>' : '') +
+        '<div class="kpi"><div class="kpi-label">成交量</div><div class="kpi-value" style="font-size:15px">' + (last.volume ? Number(last.volume).toLocaleString() : '—') + '</div></div></div>';
+      box('pricebox').innerHTML = head + '<svg width="' + w + '" height="' + h + '"><polyline fill="none" stroke="#1d4ed8" stroke-width="2" points="' + pts + '"/></svg>' +
+        '<p class="note">' + (last.price_date || last.date || '') + ' · 來源：' + src + '</p>';
+    }).catch(function(e){ box('pricebox').textContent = '載入失敗: ' + e; });
+  }
+  function loadOfficers(btn){
+    btn.disabled = true; box('officersbox').textContent = '載入中…（可能 5-15 秒：Longbridge → 同花順 F10 → Webb）';
+    fetch('/api/v1/stocks/' + CODE + '/officers').then(function(r){return r.json()}).then(function(j){
+      var o = j.officers || [];
+      if(!o.length){ box('officersbox').textContent = '無高管數據（' + ((j.metadata||{}).source_name||'') + '）'; return; }
+      var rows = o.slice(0,14).map(function(x){
+        return '<tr><td>' + (x.name||'') + '</td><td>' + ((x.positions||[]).join(' / ')||'—') + '</td><td>' + (x.appointed_date||'') + '</td></tr>';
+      }).join('');
+      box('officersbox').innerHTML = '<p class="note">來源：' + ((j.metadata||{}).source_name||'') + '（同花順為簡體原生源；字符轉換非翻譯之選項日後可加）</p>' +
+        '<table><thead><tr><th>姓名</th><th>職位</th><th>上任</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    }).catch(function(e){ box('officersbox').textContent = '載入失敗: ' + e; });
+  }
+  document.addEventListener('click', function(ev){
+    if(ev.target && ev.target.classList && ev.target.classList.contains('ldbtn')){
+      if(ev.target.dataset.kind === 'price') loadPrice(ev.target);
+      if(ev.target.dataset.kind === 'officers') loadOfficers(ev.target);
+    }
+  });
+})();
+</script>"""
+
+
+
 THIRTY_DAYS = timedelta(days=90)
 
 _FAST_LANDING = """<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><title>Joe Intelligence Terminal</title>
@@ -395,6 +444,28 @@ async def terminal(
         )
     )
 
+    # ---- Officers (lazy live hydration) ----
+    officers_card = f"""<details class='card'><summary>高管 / 董事（即時抓取）</summary><div class='cardbody'>
+<button onclick="loadOfficersT(this)">載入高管（即時 ~10-20 秒，需 admin key）</button>
+<div id='officers-out'><p class='note'>高管名單屬即時來源（同花順 F10 / Webb），未持久化 — 點擊載入。</p></div>
+<script>
+async function loadOfficersT(btn){{
+  const key = (document.getElementById('adminkey')||{{}}).value || '';
+  if(!key){{ document.getElementById('officers-out').textContent = '請先喺 Deep Refresh 面板輸入 admin key。'; return; }}
+  document.getElementById('officers-out').textContent = '即時抓取中...';
+  try {{
+    const r = await fetch(`/api/v1/stocks/{normalized}/officers?key=${{encodeURIComponent(key)}}`);
+    const j = await r.json();
+    if(!j.officers || !j.officers.length){{ document.getElementById('officers-out').textContent = '高管：' + (j.metadata && j.metadata.source_status || 'unavailable') + ' — ' + (j.data_quality_warnings||[]).join(' | '); return; }}
+    let html = '<table><thead><tr><th>姓名</th><th>職位</th></tr></thead><tbody>';
+    for(const o of j.officers.slice(0,20)){{ html += '<tr><td>'+ (o.name||'') +'</td><td>'+ (o.positions||[]).join('、') +'</td></tr>'; }}
+    html += '</tbody></table>';
+    document.getElementById('officers-out').innerHTML = html;
+  }} catch(e){{ document.getElementById('officers-out').textContent = '載入失敗：' + e; }}
+}}
+</script></div></details>"""
+    cards.append(officers_card)
+
     # ---- 17. Share capital + dilution ----
     if share_capital and share_capital.rows:
         base = share_capital.rows[-1].shares_million or 0
@@ -411,6 +482,24 @@ async def terminal(
         cards.append(_card("⑰ 股本故事", _table(["公佈日", "股本", "原因 / 標籤"], rows) + dilution))
     else:
         cards.append(_warn("⑰ 股本故事", "無持久化股本行 — 觸發 share-capital job（分段窗）。"))
+
+    # ---- 價格 + 高管 (click-to-load live cards) ----
+    cards.append(
+        _card(
+            "價格 & 成交（載入時即時抓取）",
+            "<button class='ldbtn' data-kind='price'>載入價格</button><div id='pricebox' class='draftbox'>未載入</div>",
+            open_=False,
+            wide=True,
+            note="Live 來源標籤見卡內 — 歷史累積後無需即時抓取",
+        )
+    )
+    cards.append(
+        _card(
+            "現任高管（載入時即時抓取）",
+            "<button class='ldbtn' data-kind='officers'>載入高管</button><div id='officersbox' class='draftbox'>未載入</div>",
+            open_=False,
+        )
+    )
 
     # ---- 18. AI report draft (async fetch on expand) ----
     cards.append(
@@ -486,7 +575,9 @@ async def terminal(
         .replace("__START5Y__", (end - timedelta(days=365 * 5)).isoformat())
         .replace("__END__", end.isoformat())
     )
+    terminal_js = _TERMINAL_JS.replace("__CODE__", normalized)
     page = f"""<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{normalized} · Intelligence Terminal</title>
+{terminal_js}
 <style>
 *{{box-sizing:border-box}}
 body{{margin:0;background:#eef2f7;color:#1e293b;font-family:-apple-system,'Segoe UI','Microsoft JhengHei','PingFang TC',sans-serif}}
@@ -547,6 +638,7 @@ h2{{font-size:15px}}.h2note{{font-size:12px;color:#64748b;font-weight:400}}
 <div class="jumps">{jumps}</div>
 <div class="grid">{numbered}</div>
 {job_panel}
+{terminal_js.replace('__CODE__', normalized)}
 </div></body></html>"""
     return HTMLResponse(page)
 

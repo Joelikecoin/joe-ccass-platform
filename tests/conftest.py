@@ -1,3 +1,10 @@
+
+# Auth hygiene: a developer .env with a real API_KEY would force 401s on every
+# auth'd route test. Tests either run unauthenticated or monkeypatch get_settings.
+import os as _os
+
+_os.environ.setdefault("API_KEY", "")
+_os.environ.setdefault("ADMIN_API_KEY", "")
 import asyncio
 import os
 import tempfile

@@ -235,7 +235,7 @@ class HKEXNewsAnnouncementsSource:
             "t2Gcode": HKEXNEWS_TIER_DEFAULT,
             "t2code": HKEXNEWS_TIER_DEFAULT,
             "rowRange": str(request.row_range),
-            "lang": "E",
+            "lang": self.settings.announcements_lang,
         }
         headers = {
             "User-Agent": self.settings.user_agent,
@@ -360,7 +360,7 @@ class HKEXNewsAnnouncementsSource:
                     publication_datetime=publication_datetime,
                     category=str(row.get("CATEGORY") or row.get("LONG_TEXT") or "").strip() or None,
                     long_text=str(row.get("LONG_TEXT") or "").strip() or None,
-                    language="E",
+                    language=self.settings.announcements_lang,
                     document_id=str(row.get("NEWS_ID") or "").strip() or None,
                     file_type=str(row.get("FILE_TYPE") or "").strip() or None,
                     file_info=str(row.get("FILE_INFO") or "").strip() or None,

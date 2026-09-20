@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     webbsite_max_bytes: int = 5_000_000
     # Keep two sequential mirror attempts inside a typical 30-second gateway budget.
     request_timeout_seconds: float = 12.0
+    announcements_lang: str = "E"  # HKEXnews title language: E=English, T=Traditional, S=Simplified (native source, never translated)
     cache_ttl_seconds: int = 900
     ccass_sqlite_path: Path = Path("data/ccass_snapshots.db")
     holdings_lkg_max_age_seconds: int = 604_800

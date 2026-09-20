@@ -91,6 +91,7 @@ from app.models import AnnouncementsResponse, CorporateTimeline, ShareCapitalHis
 from app.services.intelligence_events import IntelligenceEventsService, get_intelligence_events_service
 from app.services.ownership_timeline import OwnershipTimelineService, get_ownership_timeline_service
 from app.services.accumulation import AccumulationService
+from app.services.price_history import get_price_history_service
 from app.services.research_context import ResearchContextService, get_research_context_service
 from app.models import OwnershipTimelineResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
@@ -3247,6 +3248,20 @@ async def get_report_draft(
     package — real facts per chapter, interpretation slots marked 【AI 分析位】."""
     context = await service.build(stock_code, start_date=start_date, end_date=end_date)
     return PlainTextResponse(service.to_report_draft(context), media_type="text/markdown; charset=utf-8")
+
+
+@app.get("/api/v1/stocks/{stock_code}/price", tags=["market"])
+async def get_stock_price(
+    stock_code: str,
+    days: int = Query(default=120, ge=7, le=730),
+    service: PriceHistoryService = Depends(get_price_history_service),
+):
+    """Latest daily candles (source-labelled) for the terminal price card."""
+    normalized = normalize_stock_code(stock_code)
+    end = datetime.now(UTC).date()
+    start = end - timedelta(days=days)
+    response = await service.get_price_history(normalized, start_date=start, end_date=end)
+    return JSONResponse(response.model_dump(mode="json"))
 
 
 @app.get("/api/v1/stocks/{stock_code}/intelligence-events", response_model=IntelligenceEventsResponse, tags=["intelligence"])
