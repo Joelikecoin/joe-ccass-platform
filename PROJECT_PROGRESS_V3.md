@@ -389,6 +389,8 @@ NEXT_SESSION: ① check /tmp/job_results.txt + Turso DI/announcement counts per 
 - **The old full live product moved to `/full?code=`** (unchanged ~35s bundle, all params) — nothing deleted, only re-routed.
 - report-draft / research-context / full JSON endpoints remain API-only links from the fast page (AI consumption surface, not the human landing).
 - Remaining known costs: warm events snapshot read ~1.5s (1MB events_json parse) is the floor of the current page; further speedup (e.g., latest-window-only read) is optional polish.
+- **DESIGN PASS 2026-09-20 evening (Joe picked option A — light professional):** `/` redesigned — blue gradient header, KPI strip (快照日/參與者/Top5%/申報人/事件/業績期), card grid with collapsible sections, red/green movement coding, confidence badges, restyled landing. Browser-verified live on 02318: 357 參與者 / Top5 72.1% / 23 申報人 / 1,212 事件 / 4 業績期, all cards rendering real data.
+- **IMPORTANT DISCOVERY:** `/full`（35s 全包）已經係一個專業級淺色儀表板（"Joe Visual Portal"：Fetch Summary 卡、Price & Turnover 圖表、章節 pill 導航、EN/繁中切換、下載區）— earlier sessions only curl-timed it and never viewed the UI. Two-surface product now: `/` = ≤5 秒快總覽（日常驗收面）；`/full` = 完整即時參考產品（深度/圖表/下載）。Optional future: rebuild /full sections on persisted reads to keep its rich UI at fast speed.
 - Commits: `7d1d76d` (fast overview + /full split) + accessor fix; deploys `dep-danktu740ujc73c9m3og` line LIVE. Portal tests 24/24 green.
 - **Backfill relaunched on the new container** (runner + supervisor detached on Machine A; queue file /tmp/job_queue.txt, results /tmp/job_results.txt): remaining 19 windows draining automatically; supervisor relaunches the runner if it dies; done windows auto-skipped.
 
