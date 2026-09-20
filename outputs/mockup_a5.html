@@ -50,15 +50,17 @@ td{padding:4px 5px;border-bottom:1px solid #f2f5f9;font-variant-numeric:tabular-
 <div class="kpi"><div class="l">最新收市</div><div class="v">53.20</div><div class="s">09-18 · -0.65%</div></div>
 <div class="kpi"><div class="l">CCASS 快照</div><div class="v">09-18</div><div class="s">357 參與者</div></div>
 <div class="kpi"><div class="l">Top 5 佔 CCASS</div><div class="v">72.1%</div><div class="s">+0.4pp</div></div>
+<div class="kpi"><div class="l">Top 10 佔 CCASS</div><div class="v">92.3%</div><div class="s">+0.2pp</div></div>
 <div class="kpi"><div class="l">DION 申報人</div><div class="v">23</div><div class="s">1,307 次</div></div>
-<div class="kpi"><div class="l">情報事件</div><div class="v">1,212</div><div class="s">official 96%</div></div>
+
 <div class="kpi"><div class="l">業績期</div><div class="v">4</div><div class="s">2024H1→</div></div>
 <div class="kpi"><div class="l">現金結餘</div><div class="v">—</div><div class="s">v4 待解析</div></div>
 </div>
 <div class="tabs"><span class="tab on">總覽</span><span class="tab">券商彩虹</span><span class="tab">資金流向</span><span class="tab">轉倉偵測</span><span class="tab">異動盤</span><span class="tab">成交量分佈</span><span class="tab">公告</span><span class="tab">財務報表</span><span class="tab">相關人物</span><span class="tab">打和價</span><span class="tab">證據</span></div>
 
 <div class="grid">
-<div class="card w"><h3>價格 · 陰陽燭 + 成交量 <span>· 3 個月日線 · 日期軸 · 來源標籤</span></h3>
+<div class="card w"><h3>價格 · 陰陽燭 + 成交量 <span>· 日線 · 日期軸 · 來源標籤</span>
+<div class="seg" style="display:inline-flex;margin-left:10px" id="pxseg"><span data-n="22">1個月</span><span class="on" data-n="66">3個月</span><span data-n="130">6個月</span><span data-n="260">1年</span></div></h3>
 <div id="candles"></div>
 <p class="note">綠燭=收市高於開市 · 紅燭=收市低於開市 · 影線=高低 · 底部柱=成交量（升日綠/跌日紅）· X 軸=日期</p></div>
 
@@ -242,26 +244,43 @@ td{padding:4px 5px;border-bottom:1px solid #f2f5f9;font-variant-numeric:tabular-
 </div></div>
 <script>
 (function(){
-  // ---- candlesticks ----
+  // ---- candlesticks (range-aware: 1M/3M/6M/1Y) ----
   var seed=42;function rnd(){seed=(seed*9301+49297)%233280;return seed/233280}
-  var candles=[],px=53.2,d=new Date(2026,5,20);
-  var dates=[];
-  var dd=new Date(2026,5,20);
-  while(dd<=new Date(2026,8,18)){var dow=dd.getDay();if(dow!==0&&dow!==1)dates.push(new Date(dd));dd.setDate(dd.getDate()+1)}
-  for(var i=0;i<dates.length;i++){var o=px;var drift=(rnd()-0.48)*0.9;var c=Math.max(50,Math.min(56,px+drift));var hi=Math.max(o,c)+rnd()*0.35;var lo=Math.min(o,c)-rnd()*0.35;var vol=Math.round(15e6+rnd()*45e6);candles.push({o:o,c:c,h:hi,l:lo,v:vol,d:dates[i]});px=c}
-  var W=1300,H=190,lo=50,hi=54.5;function y(p){return H-28-(p-lo)/(hi-lo)*(H-48)}
-  var svg='<svg width="100%" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
-  [lo,(lo+hi)/2,hi].forEach(function(p){var yy=y(p);svg+='<line x1="0" y1="'+yy+'" x2="'+W+'" y2="'+yy+'" stroke="#eef2f8"/><text x="'+(W-30)+'" y="'+(yy-3)+'" font-size="9" fill="#8a94a6">'+p.toFixed(1)+'</text>'});
-  var step=W/candles.length,bw=Math.max(3,step*0.55);
-  var vols=candles.map(function(c){return c.v}),vmax=Math.max.apply(null,vols);
-  candles.forEach(function(cd,i){var x=i*step+step/2;var up=cd.c>=cd.o;var col=up?'#0e9f6e':'#e02424';
-    svg+='<line x1="'+x+'" y1="'+y(cd.h)+'" x2="'+x+'" y2="'+y(cd.l)+'" stroke="'+col+'" stroke-width="1"/>';
-    var top=y(Math.max(cd.o,cd.c)),bot=y(Math.min(cd.o,cd.c));
-    svg+='<rect x="'+(x-bw/2)+'" y="'+top+'" width="'+bw+'" height="'+Math.max(1,bot-top)+'" fill="'+col+'"/>';
-    var vh=(cd.v/vmax)*26;svg+='<rect x="'+(x-bw/2)+'" y="'+(H-24-vh)+'" width="'+bw+'" height="'+vh+'" fill="'+(up?'#0e9f6e':'#e02424')+'" opacity=".55"/>';});
-  [0,Math.floor(candles.length/3),Math.floor(candles.length*2/3),candles.length-1].forEach(function(i){var x=i*step+step/2;svg+='<text x="'+x+'" y="'+(H-4)+'" font-size="9" fill="#8a94a6">'+(candles[i].d.getMonth()+1)+'/'+candles[i].d.getDate()+'</text>'});
-  svg+='</svg>';
-  document.getElementById('candles').innerHTML=svg;
+  var allCandles=[],px=53.2;
+  var endD=new Date(2026,8,18),dd=new Date(endD);dd.setDate(dd.getDate()-372);
+  while(dd<=endD){var dow=dd.getDay();if(dow!==0&&dow!==1){
+    var drift=(rnd()-0.485)*0.9;var o=px;px=Math.max(48,Math.min(61,px+drift));
+    var hi=Math.max(o,px)+rnd()*0.35,lo=Math.min(o,px)-rnd()*0.35;
+    var vol=Math.round(15e6+rnd()*45e6);
+    allCandles.push({o:o,c:px,h:hi,l:lo,v:vol,d:new Date(dd)});
+  }dd.setDate(dd.getDate()+1)}
+  function renderCandles(count){
+    var cs=allCandles.slice(-count);
+    var W=1300,H=190,lo=1e9,hi=0;
+    cs.forEach(function(c){lo=Math.min(lo,c.l);hi=Math.max(hi,c.h)});
+    var pad=(hi-lo)*0.06;lo-=pad;hi+=pad;
+    function y(p){return H-28-(p-lo)/(hi-lo)*(H-48)}
+    var svg='<svg width="100%" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none">';
+    [lo,(lo+hi)/2,hi].forEach(function(p){var yy=y(p);svg+='<line x1="0" y1="'+yy+'" x2="'+W+'" y2="'+yy+'" stroke="#eef2f8"/><text x="'+(W-30)+'" y="'+(yy-3)+'" font-size="9" fill="#8a94a6">'+p.toFixed(1)+'</text>'});
+    var step=W/cs.length,bw=Math.max(3,step*0.55);
+    var vols=cs.map(function(c){return c.v}),vmax=Math.max.apply(null,vols);
+    cs.forEach(function(cd,i){var x=i*step+step/2;var up=cd.c>=cd.o;var col=up?'#0e9f6e':'#e02424';
+      svg+='<line x1="'+x+'" y1="'+y(cd.h)+'" x2="'+x+'" y2="'+y(cd.l)+'" stroke="'+col+'" stroke-width="1"/>';
+      var top=y(Math.max(cd.o,cd.c)),bot=y(Math.min(cd.o,cd.c));
+      svg+='<rect x="'+(x-bw/2)+'" y="'+top+'" width="'+bw+'" height="'+Math.max(1,bot-top)+'" fill="'+col+'"/>';
+      var vh=(cd.v/vmax)*26;svg+='<rect x="'+(x-bw/2)+'" y="'+(H-24-vh)+'" width="'+bw+'" height="'+vh+'" fill="'+(up?'#0e9f6e':'#e02424')+'" opacity=".55"/>';});
+    [0,Math.floor(cs.length/2),cs.length-1].forEach(function(i){var x=i*step+step/2;var d=cs[i].d;
+      svg+='<text x="'+x+'" y="'+(H-4)+'" font-size="9" fill="#8a94a6" text-anchor="middle">'+(d.getMonth()+1)+'/'+d.getDate()+'</text>'});
+    svg+='</svg>';
+    document.getElementById('candles').innerHTML=svg;
+  }
+  renderCandles(66);
+  document.getElementById('pxseg').addEventListener('click',function(ev){
+    if(ev.target&&ev.target.dataset&&ev.target.dataset.n){
+      var sp=this.querySelectorAll('span');for(var i=0;i<sp.length;i++)sp[i].classList.remove('on');
+      ev.target.classList.add('on');renderCandles(parseInt(ev.target.dataset.n,10));
+    }
+  });
 
   // ---- DT-style stacked rainbow (balanced) ----
   var brokers=[
