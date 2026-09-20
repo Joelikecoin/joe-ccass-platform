@@ -373,7 +373,18 @@ ITEM_12 (3 個測試失敗根查) = DONE — they were NOT company-env-specific:
 NEW_FINDINGS: (a) heavy-issuer share-capital jobs crash the free container (see ITEM_1); (b) the ~60s Render edge only bites synchronous HTTP — async jobs run 90-180s+ fine; (c) captured document-entity names can be noisy ("s should be construed accordingly. Ping An…") — parser refinement stays on the backlog; (d) home machine now has REAL Python 3.12.10 (winget) + venv at C:\Users\Joe Lau\.zcode\workspace\default\.venv-home (respx/pytest-asyncio added) — full local test runs now possible on BOTH machines.
 NEXT_SESSION: ① check /tmp/job_results.txt + Turso DI/announcement counts per evidence stock; ② retry share-capital 02318/00941 SOLO (accept a possible crash, or defer to the new windowed backlog item); ③ re-run one corporate-timeline 5y job to verify events; ④ item 11 rotation (three places); ⑤ V3 update + push + both Drive mirrors (H: home, G: company).
 
-### SHUTDOWN HANDOFF 2026-09-20 01:30 HKT (Joe powering the home machine down)
+### FRONTEND ACCEPTANCE OVERHAUL 2026-09-20 (Joe's directive: frontend speed first, backend data unchanged)
+
+**Joe's acceptance standard:** frontend loads fast; every domain complete except the 7-month gap; he trims frontend features; backend data sources untouched.
+
+- **`/` is now the FAST persisted overview** — parallel evidence-cache reads (asyncio.gather + to_thread), Top-N rendering (events latest 30, holdings top 15, timeline top 10 filers), Deep Refresh job panel on-page, nav links to everything else. **Measured live on 02318 (heavy stock): 35.4s/863KB → 4.8–6.2s/11KB (cold first hit 9.4s).** All 7 sections render.
+- **The old full live product moved to `/full?code=`** (unchanged ~35s bundle, all params) — nothing deleted, only re-routed.
+- report-draft / research-context / full JSON endpoints remain API-only links from the fast page (AI consumption surface, not the human landing).
+- Remaining known costs: warm events snapshot read ~1.5s (1MB events_json parse) is the floor of the current page; further speedup (e.g., latest-window-only read) is optional polish.
+- Commits: `7d1d76d` (fast overview + /full split) + accessor fix; deploys `dep-danktu740ujc73c9m3og` line LIVE. Portal tests 24/24 green.
+- **Backfill relaunched on the new container** (runner + supervisor detached on Machine A; queue file /tmp/job_queue.txt, results /tmp/job_results.txt): remaining 19 windows draining automatically; supervisor relaunches the runner if it dies; done windows auto-skipped.
+
+### SHUTDOWN HANDOFF 2026-09-20 01:30 HKT (superseded by the section above — kept for the Turso state snapshot)
 
 Backfill runners were stopped cleanly. **Turso state at shutdown (verified):** DI — 00388=108, 01810=230, 02020=89 (2021-04-20→2026-05-15), 02318=1307 (2021-01-05→2026-09-15), 00256=11 (2022-01-05→2022-06-10); announcements — 00388=274, 00941=196, 02020=117, 02318=551; share_capital_history — 02020=25 only.
 
