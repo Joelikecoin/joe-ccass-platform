@@ -3851,3 +3851,10 @@ async def download(
     except PlatformError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.as_dict())
 
+
+
+# Joe Intelligence Terminal (22-component frontend) — imported last: this module
+# must fully define its helpers before app.terminal reads them.
+from app.terminal import router as terminal_router  # noqa: E402
+
+app.include_router(terminal_router)
