@@ -3363,12 +3363,17 @@ async def p0_rct20_proof(code: str = Query(..., min_length=1)) -> JSONResponse:
         return JSONResponse(status_code=503, content={"code": normalized_code, "error": "rct20 proof path failed"})
 
 
-_FAST_LANDING = """<!DOCTYPE html><html><head><meta charset="utf-8"><title>Joe Intelligence Platform</title>
-<style>body{font-family:monospace;margin:40px;background:#111;color:#ddd} input{width:200px} button{background:#345;color:#9cf;border:1px solid #567;padding:6px 14px;cursor:pointer} a{color:#9cf}</style></head><body>
-<h1>Joe Intelligence Platform</h1>
-<form method="get" action="/">股票代號 <input name="code" placeholder="02020"><button>載入快總覽</button></form>
-<p>快總覽 = persisted 證據快取唯讀（目標 ≤5 秒）。完整即時產品：<a href="/full">/full</a>（慢，~35 秒全包）。</p>
-</body></html>"""
+_FAST_LANDING = """<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><title>Joe Intelligence Platform</title>
+<style>body{margin:0;background:#f5f7fa;color:#1e293b;font-family:-apple-system,'Segoe UI','Microsoft JhengHei',sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}
+.panel{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:40px 48px;text-align:center}
+h1{margin:0 0 6px;font-size:26px;color:#1e3a8a}
+input{width:200px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;font-size:15px}
+button{background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:15px;font-weight:600;cursor:pointer;margin-left:8px}
+p{color:#64748b;font-size:13px}a{color:#1d4ed8}</style></head><body>
+<div class="panel"><h1>Joe Intelligence Platform</h1>
+<p>persisted 證據快取唯讀 · 目標 ≤5 秒 · 完整即時產品請用 /full</p>
+<form method="get" action="/"><input name="code" placeholder="輸入股票代號 e.g. 02020"><button>載入情報總覽</button></form>
+</div></body></html>"""
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -3406,109 +3411,194 @@ async def portal_fast(
         _safe("share_capital", asyncio.to_thread(svc.share_capital_repository.load, normalized, start_date=start, end_date=end)),
     )
 
-    sections: list[str] = []
+    def _ok(pair):
+        return None if isinstance(pair[1], Exception) else pair[1]
 
-    snap_result = snapshot_pair[1]
-    if isinstance(snap_result, Exception):
-        sections.append(f'<h2>CCASS</h2><div class="warn">SNAPSHOT_FAILED: {_escape(str(snap_result))[:120]}</div>')
-    elif snap_result is None:
-        sections.append('<h2>CCASS</h2><p>無持久化快照 — 觸發 snapshot job 後重載。</p>')
+    snap = _ok(snapshot_pair)
+    tl = _ok(timeline_pair)
+    ev = _ok(events_pair)
+    fund = _ok(fundamentals_pair)
+    ent = _ok(entities_pair)
+    sc = _ok(share_capital_pair)
+
+    def _fail_card(title: str, result) -> str:
+        message = _escape(str(result[1]))[:140] if isinstance(result[1], Exception) else "無持久化數據 — 觸發對應 job 後重載此頁。"
+        return _card(title, f'<div class="warnbox">{message}</div>', open_=True)
+
+    def _card(title: str, body: str, *, open_: bool = True, wide: bool = False) -> str:
+        return (
+            f'<details class="card{" wide" if wide else ""}"{" open" if open_ else ""}>'
+            f"<summary>{_escape(title)}</summary><div class='cardbody'>{body}</div></details>"
+        )
+
+    def _table(headers: list[str], rows: list[str]) -> str:
+        head = "".join(f"<th>{h}</th>" for h in headers)
+        body = "".join(f"<tr>{r}</tr>" for r in rows)
+        return f'<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>'
+
+    cards: list[str] = []
+
+    # CCASS snapshot card
+    if snap is None:
+        cards.append(_fail_card("CCASS 快照", ("", RuntimeError("無持久化快照"))))
     else:
-        holdings = sorted(snap_result.holdings, key=lambda h: h.shares, reverse=True)
+        holdings = sorted(snap.holdings, key=lambda h: h.shares, reverse=True)
         total = sum(h.shares for h in holdings) or 1
-        rows = "".join(
-            f"<tr><td>{_escape(str(getattr(h, 'participant_name', None) or h.participant_id))[:40]}</td><td>{h.shares}</td><td>{round(h.shares / total * 100, 2)}%</td></tr>"
+        top5 = sum(h.shares for h in holdings[:5]) / total * 100
+        rows = [
+            f"<tr><td>{_escape(str(getattr(h, 'participant_name', None) or h.participant_id))[:36]}</td>"
+            f"<td class='num'>{h.shares:,}</td><td class='num'>{h.shares / total * 100:.2f}%</td></tr>"
             for h in holdings[:15]
-        )
-        sections.append(
-            f"<h2>CCASS 快照（{snap_result.snapshot_date}，{len(holdings)} 參與者）</h2>"
-            + "<table><tr><th>participant</th><th>shares</th><th>% CCASS</th></tr>" + rows + "</table>"
-        )
+        ]
+        body = _table(["Participant", "Shares", "% CCASS"], rows) + f"<p class='note'>{snap.snapshot_date} · 共 {len(holdings)} 名參與者 · Top 5 佔 {top5:.2f}%（CCASS 內）</p>"
+        cards.append(_card(f"CCASS 快照 · {snap.snapshot_date}", body))
 
-    tl_result = timeline_pair[1]
-    if isinstance(tl_result, Exception):
-        sections.append(f'<h2>Ownership Timeline</h2><div class="warn">SECTION_FAILED: {_escape(str(tl_result))[:120]}</div>')
+    # Ownership timeline card
+    if tl is None:
+        cards.append(_fail_card("大股東動向", ("", RuntimeError("無持久化 DION 數據"))))
     else:
-        tl_rows = "".join(
-            f"<tr><td>{_escape(t.filer)[:40]}</td><td>{t.movements_count}</td><td>+{t.increases}/-{t.decreases}</td><td>{_escape(str(t.latest_present_balance or ''))}</td><td>{_escape(str(t.latest_percentage or ''))}</td></tr>"
-            for t in tl_result.timelines[:10]
-        )
-        sections.append(
-            f"<h2>Ownership Timeline（{len(tl_result.timelines)} filers，Top 10）</h2>"
-            + "<table><tr><th>filer</th><th>movements</th><th>+/-</th><th>latest balance</th><th>%</th></tr>" + tl_rows + "</table>"
-        )
+        rows = []
+        for t in tl.timelines[:10]:
+            rows.append(
+                f"<tr><td>{_escape(t.filer)[:34]}</td><td class='num'>{t.movements_count}</td>"
+                f"<td class='num'><span class='up'>+{t.increases}</span> / <span class='down'>−{t.decreases}</span></td>"
+                f"<td class='num'>{t.latest_present_balance or '—'}</td><td class='num'>{t.latest_percentage if t.latest_percentage is not None else '—'}</td></tr>"
+            )
+        cards.append(_card(f"大股東動向 · {len(tl.timelines)} 名申報人", _table(["Filer", "申報", "增/減", "最新持倉", "%"], rows)))
 
-    ev_result = events_pair[1]
-    if isinstance(ev_result, Exception):
-        sections.append(f'<h2>Intelligence Events</h2><div class="warn">SECTION_FAILED: {_escape(str(ev_result))[:120]}</div>')
-    elif not ev_result:
-        sections.append('<h2>Intelligence Events</h2><p>無持久化事件快照 — 觸發 intelligence-events job 後重載。</p>')
+    # Intelligence events card (full width)
+    if not ev:
+        cards.append(_fail_card("情報事件", ("", RuntimeError("無持久化事件快照"))))
     else:
         by_type: dict[str, int] = {}
-        for e in ev_result:
+        for e in ev:
             by_type[e.event_type] = by_type.get(e.event_type, 0) + 1
-        ev_sorted = sorted(ev_result, key=lambda e: e.announce_date, reverse=True)
-        ev_html = "".join(
-            f"<tr><td>{e.announce_date}</td><td>{_escape(e.event_type)}</td><td>{_escape(str(e.counterparty or e.entity_name or ''))[:44]}</td><td>{_escape(str(e.shares_after or ''))}</td><td>{e.confidence}</td></tr>"
+        pills = "".join(f'<span class="pill">{_escape(k)} <b>{v}</b></span>' for k, v in sorted(by_type.items()))
+        ev_sorted = sorted(ev, key=lambda e: e.announce_date, reverse=True)
+        rows = [
+            f"<tr><td class='num'>{e.announce_date}</td><td>{_escape(e.event_type)}</td>"
+            f"<td>{_escape(str(e.counterparty or e.entity_name or ''))[:44]}</td>"
+            f"<td class='num'>{e.shares_after or '—'}</td>"
+            f"<td><span class='badge {e.confidence}'>{e.confidence}</span></td></tr>"
             for e in ev_sorted[:30]
-        )
-        sections.append(
-            f"<h2>Intelligence Events（{len(ev_result)} 事件，最新 30）</h2>"
-            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_type.items()))
-            + "<table><tr><th>date</th><th>type</th><th>counterparty</th><th>shares</th><th>conf</th></tr>" + ev_html + "</table>"
-        )
+        ]
+        body = f"<div class='pills'>{pills}</div>" + _table(["日期", "類型", "對手方", "現持", "信心"], rows)
+        cards.append(_card(f"情報事件 · {len(ev)} 項（最新 30）", body, wide=True))
 
-    f_result = fundamentals_pair[1]
-    if isinstance(f_result, Exception):
-        sections.append(f'<h2>Fundamentals</h2><div class="warn">SECTION_FAILED: {_escape(str(f_result))[:120]}</div>')
-    elif f_result is None or not f_result.rows:
-        sections.append('<h2>Fundamentals</h2><p>無持久化基本面 — 觸發 fundamentals job 後重載。</p>')
+    # Fundamentals card
+    if fund is None or not fund.rows:
+        cards.append(_fail_card("基本面", ("", RuntimeError("無持久化業績"))))
     else:
-        f_rows = "".join(
-            f"<tr><td>{r.reporting_period}</td><td>{_escape(str(r.revenue or ''))}</td><td>{_escape(str(r.net_profit_loss or ''))}</td><td>{_escape(str(r.equity or ''))}</td><td>{r.completeness_status}</td></tr>"
-            for r in f_result.rows[:10]
-        )
-        sections.append(f"<h2>Fundamentals（{len(f_result.rows)} 期）</h2><table><tr><th>period</th><th>revenue</th><th>profit</th><th>equity</th><th>completeness</th></tr>{f_rows}</table>")
+        rows = [
+            f"<tr><td>{r.reporting_period}</td><td class='num'>{r.revenue or '—'}</td>"
+            f"<td class='num'>{r.net_profit_loss or '—'}</td><td class='num'>{r.equity or '—'}</td>"
+            f"<td><span class='badge {r.completeness_status}'>{r.completeness_status}</span></td></tr>"
+            for r in fund.rows[:10]
+        ]
+        cards.append(_card(f"基本面 · {len(fund.rows)} 期", _table(["期間", "收入", "純利", "權益", "完整度"], rows)))
 
-    ent_result = entities_pair[1]
-    if isinstance(ent_result, Exception):
-        sections.append(f'<h2>Document Entities</h2><div class="warn">SECTION_FAILED: {_escape(str(ent_result))[:120]}</div>')
-    else:
-        by_entity: dict[str, int] = {}
-        for row in ent_result:
-            by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
-        sections.append(
-            f"<h2>Document Entities（{len(ent_result)} rows）</h2>"
-            + "".join(f'<span class="pill">{_escape(k)}: {v}</span> ' for k, v in sorted(by_entity.items()))
-        )
+    # Document entities card
+    if ent is None:
+        ent = []
+    by_entity: dict[str, int] = {}
+    for row in ent:
+        by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
+    pills = "".join(f'<span class="pill">{_escape(k)} <b>{v}</b></span>' for k, v in sorted(by_entity.items())) or "<span class='pill'>無</span>"
+    cards.append(_card(f"中介網絡 · {len(ent)} 筆", f"<div class='pills'>{pills}</div>"))
 
-    sc_result = share_capital_pair[1]
-    if isinstance(sc_result, Exception):
-        sections.append(f'<h2>Share Capital</h2><div class="warn">SECTION_FAILED: {_escape(str(sc_result))[:120]}</div>')
-    elif sc_result is None or not sc_result.rows:
-        sections.append('<h2>Share Capital</h2><p>無持久化股本行 — 觸發 share-capital job 後重載。</p>')
+    # Share capital card
+    if sc is None or not sc.rows:
+        cards.append(_fail_card("股本變動", ("", RuntimeError("無持久化股本行"))))
     else:
-        sc_rows = "".join(
-            f"<tr><td>{r.announce_date}</td><td>{r.shares_million}M</td><td>{_escape(str(r.reason or ''))[:60]}</td></tr>"
-            for r in sc_result.rows[:10]
-        )
-        sections.append(f"<h2>Share Capital（{len(sc_result.rows)} 行，最新 10）</h2><table><tr><th>announce</th><th>shares</th><th>reason</th></tr>{sc_rows}</table>")
+        rows = [
+            f"<tr><td class='num'>{r.announce_date}</td><td class='num'>{r.shares_million}M</td>"
+            f"<td>{_escape(str(r.reason or ''))[:52]}</td></tr>"
+            for r in sc.rows[:10]
+        ]
+        cards.append(_card(f"股本變動 · {len(sc.rows)} 行", _table(["公佈日", "股本", "原因"], rows)))
+
+    # KPI strip
+    kpi_top5 = "—"
+    kpi_parts = len(snap.holdings) if snap else 0
+    kpi_date = snap.snapshot_date if snap else "—"
+    if snap:
+        srt = sorted(snap.holdings, key=lambda h: h.shares, reverse=True)
+        tot = sum(h.shares for h in srt) or 1
+        kpi_top5 = f"{sum(h.shares for h in srt[:5]) / tot * 100:.1f}%"
+    kpis = [
+        ("快照日", str(kpi_date)),
+        ("CCASS 參與者", f"{kpi_parts:,}"),
+        ("Top 5 佔 CCASS", str(kpi_top5)),
+        ("申報人", str(len(tl.timelines) if tl else 0)),
+        ("情報事件", f"{len(ev):,}" if ev else "0"),
+        ("業績期", str(len(fund.rows) if fund and fund.rows else 0)),
+    ]
+    kpi_html = "".join(
+        f'<div class="kpi"><div class="kpi-label">{_escape(label)}</div><div class="kpi-value">{_escape(str(value))}</div></div>'
+        for label, value in kpis
+    )
 
     five_y_start = (end - timedelta(days=365 * 5)).isoformat()
     job_panel = (
-        "<h2>Deep Refresh（admin key required — 背後 job 完成後重載此頁）</h2>"
+        "<h2>Deep Refresh <span class='h2note'>admin key — 背後 job 完成後重載此頁</span></h2>"
         + _JOB_PANEL_SCRIPT.replace("__CODE__", normalized)
         .replace("__START5Y__", five_y_start)
         .replace("__END__", end.isoformat())
     )
-    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>{normalized} 快總覽</title>
-<style>body{{font-family:monospace;margin:24px;background:#111;color:#ddd}} table{{border-collapse:collapse;margin:12px 0}} td,th{{border:1px solid #444;padding:4px 8px;font-size:13px}} .pill{{display:inline-block;background:#234;color:#9cf;padding:2px 8px;margin:2px;border-radius:4px}} .warn{{color:#f90;font-size:12px}} h2{{color:#9cf;border-bottom:1px solid #345}} button{{background:#345;color:#9cf;border:1px solid #567;padding:4px 10px;cursor:pointer}} #jobout{{background:#181818;border:1px solid #333;padding:8px;white-space:pre-wrap}} .nav a{{color:#9cf;margin-right:14px}}</style></head><body>
-<h1>{normalized} 快總覽 <span style="font-size:13px;color:#888">（persisted 快取唯讀；窗口 {start} .. {end}）</span></h1>
-<div class="nav"><a href="/full?code={normalized}">完整即時產品 /full（~35s 全包）</a><a href="/console?code={normalized}">詳細 console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a><a href="/api/v1/stocks/{normalized}/intelligence-events">事件全量 JSON</a></div>
-<form method="get" action="/"><input name="code" value="{_escape(normalized)}" placeholder="02020"><button>切換股票</button></form>
-{''.join(sections)}
+    html = f"""<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{normalized} · 持倉情報總覽</title>
+<style>
+*{{box-sizing:border-box}}
+body{{margin:0;background:#f5f7fa;color:#1e293b;font-family:-apple-system,'Segoe UI','Microsoft JhengHei','PingFang TC',sans-serif}}
+.wrap{{max-width:1280px;margin:0 auto;padding:20px 24px 40px}}
+header.top{{background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border-radius:12px;padding:22px 26px;margin-bottom:16px}}
+header.top h1{{margin:0;font-size:24px;font-weight:700;letter-spacing:.5px}}
+header.top .sub{{font-size:12.5px;opacity:.85;margin-top:4px}}
+header.top form{{margin-top:12px;display:flex;gap:8px}}
+header.top input{{border:none;border-radius:6px;padding:8px 12px;font-size:14px;width:160px}}
+header.top button{{background:#fff;color:#1d4ed8;border:none;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer}}
+nav.links{{margin:0 0 16px;font-size:13px}}
+nav.links a{{color:#1d4ed8;text-decoration:none;margin-right:16px;font-weight:500}}
+nav.links a:hover{{text-decoration:underline}}
+.kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}}
+.kpi{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px}}
+.kpi-label{{font-size:11.5px;color:#64748b;text-transform:uppercase;letter-spacing:.4px}}
+.kpi-value{{font-size:22px;font-weight:700;color:#0f172a;margin-top:2px;font-variant-numeric:tabular-nums}}
+.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:16px}}
+.card{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}}
+.card.wide{{grid-column:1/-1}}
+.card summary{{cursor:pointer;padding:12px 18px;font-weight:700;font-size:14.5px;color:#0f172a;border-bottom:1px solid #eef2f7;list-style:none}}
+.card summary::before{{content:'▸ ';color:#94a3b8}}
+.card[open] summary::before{{content:'▾ '}}
+.cardbody{{padding:10px 18px 16px}}
+table{{width:100%;border-collapse:collapse;font-size:13px}}
+th{{text-align:left;color:#64748b;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e8f0;padding:6px 8px}}
+td{{border-bottom:1px solid #f1f5f9;padding:6px 8px;font-variant-numeric:tabular-nums}}
+tbody tr:hover{{background:#f8fafc}}
+.num{{text-align:right}}
+.up{{color:#16a34a;font-weight:600}}
+.down{{color:#dc2626;font-weight:600}}
+.pill{{display:inline-block;background:#eff6ff;color:#1d4ed8;padding:3px 10px;margin:3px 4px 3px 0;border-radius:999px;font-size:12px}}
+.pill b{{font-weight:700}}
+.badge{{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}}
+.badge.official{{background:#dbeafe;color:#1e40af}}
+.badge.extracted{{background:#f1f5f9;color:#475569}}
+.badge.partial{{background:#fef3c7;color:#92400e}}
+.badge.complete{{background:#dcfce7;color:#166534}}
+.warnbox{{background:#fef3c7;color:#92400e;border-radius:8px;padding:10px 14px;font-size:13px}}
+.note{{color:#64748b;font-size:12px;margin:8px 0 0}}
+h2{{font-size:15px;color:#0f172a}}
+.h2note{{font-size:12px;color:#64748b;font-weight:400}}
+#jobout{{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;white-space:pre-wrap;font-size:12.5px}}
+.card button{{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px}}
+#adminkey{{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;font-size:13px;width:280px}}
+</style></head><body><div class="wrap">
+<header class="top"><h1>{normalized} · 持倉情報總覽</h1><div class="sub">persisted 證據快取唯讀 · 窗口 {start} → {end} · 後端數據源不變</div>
+<form method="get" action="/"><input name="code" value="{_escape(normalized)}" placeholder="輸入股票代號"><button>切換</button></form></header>
+<nav class="links"><a href="/full?code={normalized}">完整即時產品（~35s）</a><a href="/console?code={normalized}">詳細 Console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a><a href="/api/v1/stocks/{normalized}/intelligence-events">事件全量 JSON</a><a href="/api/v1/intermediary-graph?start_date={start}&end_date={end}">中介圖譜</a></nav>
+<div class="kpis">{kpi_html}</div>
+<div class="grid">{''.join(cards)}</div>
 {job_panel}
-</body></html>"""
+</div></body></html>"""
     return HTMLResponse(html)
 
 
