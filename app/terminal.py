@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse
 
 from app.portal_8504 import (
     _JOB_PANEL_SCRIPT,
+    get_announcements_service,
     get_intelligence_events_service,
     get_ownership_timeline_service,
     get_research_context_service,
@@ -129,6 +130,7 @@ async def _build_components(normalized: str, start: date, end: date):
         _safe(asyncio.to_thread(svc.fundamentals_repository.load, normalized)),
         _safe(asyncio.to_thread(svc.entity_repository.load_rows, normalized, start_date=start, end_date=end)),
         _safe(asyncio.to_thread(svc.share_capital_repository.load, normalized, start_date=start, end_date=end)),
+        _safe(asyncio.to_thread(get_announcements_service().repository.load, normalized, start_date=start, end_date=end)),
         _safe(_concentration_series(normalized)),
     )
     return components, now
