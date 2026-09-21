@@ -1,20 +1,13 @@
-"""Joe Intelligence Terminal — the unlimited-creation frontend (22 components).
-
-Single persisted-read page: every component renders from the Turso evidence
-cache in parallel; deep refreshes stay behind the admin job panel. The data
-layer is untouched — this module only reads.
-"""
 from __future__ import annotations
 
 import asyncio
-import html as _html
+import json
 from datetime import UTC, date, datetime, timedelta
 
 from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
 
 from app.portal_8504 import (
-    _JOB_PANEL_SCRIPT,
     get_announcements_service,
     get_intelligence_events_service,
     get_ownership_timeline_service,
@@ -22,57 +15,6 @@ from app.portal_8504 import (
 )
 
 router = APIRouter()
-
-
-_TERMINAL_JS = """<script>
-(function(){
-  var CODE = "__CODE__";
-  function box(id){ return document.getElementById(id); }
-  function loadPrice(btn){
-    btn.disabled = true; box('pricebox').textContent = '載入中…';
-    fetch('/api/v1/stocks/' + CODE + '/price?days=120').then(function(r){return r.json()}).then(function(j){
-      var rows = j.prices || [];
-      if(!rows.length){ box('pricebox').textContent = '無價格數據（' + ((j.metadata||{}).source_name||'') + '）'; return; }
-      var src = ((j.metadata||{}).source_name || '') + ((j.metadata&&j.metadata.currency) ? ' · ' + j.metadata.currency : '');
-      var last = rows[rows.length-1], prev = rows[rows.length-2];
-      var chg = (prev && last.close && prev.close) ? (last.close - prev.close) : null;
-      var chgPct = (chg !== null && prev.close) ? (chg / prev.close * 100) : null;
-      var closes = rows.map(function(r){ return r.close; }).filter(function(x){ return x !== null && x !== undefined; });
-      var lo = Math.min.apply(null, closes), hi = Math.max.apply(null, closes), span = (hi-lo)||1;
-      var w = 520, h = 90, step = w/(closes.length-1);
-      var pts = closes.map(function(c,i){ return (i*step).toFixed(1) + ',' + (h - (c-lo)/span*(h-8) - 4).toFixed(1); }).join(' ');
-      var head = '<div class="kpis" style="margin-bottom:8px">' +
-        '<div class="kpi"><div class="kpi-label">最新收市</div><div class="kpi-value">' + last.close + '</div></div>' +
-        (chg !== null ? '<div class="kpi"><div class="kpi-label">日變化</div><div class="kpi-value" style="color:' + (chg>=0?'#16a34a':'#dc2626') + '">' + (chg>=0?'+':'') + chg.toFixed(3) + ' (' + chgPct.toFixed(2) + '%)</div></div>' : '') +
-        '<div class="kpi"><div class="kpi-label">成交量</div><div class="kpi-value" style="font-size:15px">' + (last.volume ? Number(last.volume).toLocaleString() : '—') + '</div></div></div>';
-      box('pricebox').innerHTML = head + '<svg width="' + w + '" height="' + h + '"><polyline fill="none" stroke="#1d4ed8" stroke-width="2" points="' + pts + '"/></svg>' +
-        '<p class="note">' + (last.price_date || last.date || '') + ' · 來源：' + src + '</p>';
-    }).catch(function(e){ box('pricebox').textContent = '載入失敗: ' + e; });
-  }
-  function loadOfficers(btn){
-    btn.disabled = true; box('officersbox').textContent = '載入中…（可能 5-15 秒：Longbridge → 同花順 F10 → Webb）';
-    fetch('/api/v1/stocks/' + CODE + '/officers').then(function(r){return r.json()}).then(function(j){
-      var o = j.officers || [];
-      if(!o.length){ box('officersbox').textContent = '無高管數據（' + ((j.metadata||{}).source_name||'') + '）'; return; }
-      var rows = o.slice(0,14).map(function(x){
-        return '<tr><td>' + (x.name||'') + '</td><td>' + ((x.positions||[]).join(' / ')||'—') + '</td><td>' + (x.appointed_date||'') + '</td></tr>';
-      }).join('');
-      box('officersbox').innerHTML = '<p class="note">來源：' + ((j.metadata||{}).source_name||'') + '（同花順為簡體原生源；字符轉換非翻譯之選項日後可加）</p>' +
-        '<table><thead><tr><th>姓名</th><th>職位</th><th>上任</th></tr></thead><tbody>' + rows + '</tbody></table>';
-    }).catch(function(e){ box('officersbox').textContent = '載入失敗: ' + e; });
-  }
-  document.addEventListener('click', function(ev){
-    if(ev.target && ev.target.classList && ev.target.classList.contains('ldbtn')){
-      if(ev.target.dataset.kind === 'price') loadPrice(ev.target);
-      if(ev.target.dataset.kind === 'officers') loadOfficers(ev.target);
-    }
-  });
-})();
-</script>"""
-
-
-
-THIRTY_DAYS = timedelta(days=90)
 
 _FAST_LANDING = """<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><title>Joe Intelligence Terminal</title>
 <style>body{margin:0;background:#eef2f7;color:#1e293b;font-family:-apple-system,'Segoe UI','Microsoft JhengHei',sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center}
@@ -82,15 +24,62 @@ input{width:200px;border:1px solid #cbd5e1;border-radius:6px;padding:10px 12px;f
 button{background:#1d4ed8;color:#fff;border:none;border-radius:6px;padding:10px 20px;font-size:15px;font-weight:600;cursor:pointer;margin-left:8px}
 p{color:#64748b;font-size:13px}</style></head><body>
 <div class="panel"><h1>Joe Intelligence Terminal</h1>
-<p>22 個部件 · persisted 證據快取唯讀</p>
+<p>A5 設計 · persisted 證據快取唯讀 · 逐日累積</p>
 <form method="get" action="/terminal"><input name="code" placeholder="輸入股票代號 e.g. 02318"><button>載入終端</button></form>
 </div></body></html>"""
 
+_A5_CSS = """
+*{box-sizing:border-box}
+body{margin:0;background:#f6f8fb;color:#16213a;font-family:-apple-system,'Segoe UI','Microsoft JhengHei','PingFang TC',sans-serif;font-size:12.5px}
+.wrap{max-width:1420px;margin:0 auto;padding:16px 20px 46px}
+.topbar{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e4e9f2;border-radius:12px;padding:10px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(22,33,58,.06);flex-wrap:wrap}
+.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#1d4ed8,#0ea5e9);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800}
+.topbar h1{font-size:16px;margin:0}
+.topbar .sub{font-size:11px;color:#7a8699}
+.topbar form{display:flex;gap:6px;align-items:center}
+.topbar input{border:1px solid #d7dee9;border-radius:8px;padding:7px 11px;font-size:13px;width:130px}
+.topbar .btn{background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:7px 15px;font-weight:700;cursor:pointer}
+.topbar .nav{margin-left:auto;display:flex;gap:10px;font-size:11.5px;flex-wrap:wrap}
+.topbar .nav a{color:#1d4ed8;text-decoration:none;font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:9px;margin-bottom:12px}
+.kpi{background:#fff;border:1px solid #e4e9f2;border-radius:10px;padding:9px 12px}
+.kpi .l{font-size:10px;color:#7a8699;text-transform:uppercase}
+.kpi .v{font-size:16.5px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .s{font-size:10px;color:#16a34a;font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:#fff;border:1px solid #e4e9f2;border-radius:12px;padding:12px 15px;box-shadow:0 1px 4px rgba(22,33,58,.05)}
+.card.w{grid-column:1/-1}
+.card h3{margin:0 0 8px;font-size:13px;color:#16213a}
+.card h3 span{color:#7a8699;font-weight:400;font-size:11px}
+table{width:100%;border-collapse:collapse;font-size:11.8px}
+th{text-align:left;color:#8a94a6;font-size:10px;text-transform:uppercase;border-bottom:1.5px solid #e4e9f2;padding:4px 5px}
+td{padding:4px 5px;border-bottom:1px solid #f2f5f9;font-variant-numeric:tabular-nums}
+.num{text-align:right}
+.up{color:#0e9f6e;font-weight:700}.down{color:#e02424;font-weight:700}
+.bar{position:relative;background:#eef2f8;border-radius:4px;height:14px}
+.bar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#1d4ed8,#3b82f6);border-radius:4px}
+.bar b{position:absolute;right:6px;top:0;font-size:10px;line-height:14px}
+.chip{display:inline-block;background:#eef4ff;color:#1d4ed8;border-radius:999px;padding:1.5px 9px;font-size:10.5px;margin:2px 4px 2px 0;font-weight:600;text-decoration:none}
+.chip.g{background:#e6f7f1;color:#0e9f6e}.chip.r{background:#fdecec;color:#e02424}.chip.a{background:#fef3c7;color:#92400e}
+.note{color:#8a94a6;font-size:10.5px;margin-top:6px}
+.seg{display:inline-flex;gap:4px}
+.seg span{background:#eef2f8;border-radius:4px;padding:2px 9px;font-size:10.5px;color:#5a6678;cursor:pointer}
+.seg span.on{background:#1d4ed8;color:#fff}
+.legend{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:10.5px;margin:6px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:middle}
+.insight{background:#eef4ff;border-left:4px solid #1d4ed8;border-radius:6px;padding:10px 14px;font-size:12px;margin-top:8px}
+.insight b{color:#1d4ed8}
+.warnbox{background:#fef3c7;border-left:4px solid #f59e0b;border-radius:6px;padding:8px 12px;font-size:11.5px;color:#92400e}
+a{color:#1d4ed8}
+.jump{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.jump a{background:#fff;border:1px solid #e4e9f2;border-radius:999px;padding:5px 13px;font-size:12px;font-weight:600;color:#5a6678;text-decoration:none}
+"""
 
-def esc(value) -> str:
-    from app.portal_8504 import _escape
 
-    return _escape(str(value))
+def _esc(value) -> str:
+    from html import escape
+
+    return escape(str(value if value is not None else ""))
 
 
 def _fmt_shares(value) -> str:
@@ -100,89 +89,111 @@ def _fmt_shares(value) -> str:
         return "—"
 
 
-def _card(title: str, body: str, *, open_: bool = True, wide: bool = False, note: str = "") -> str:
-    open_attr = " open" if open_ else ""
-    wide_cls = " wide" if wide else ""
-    note_html = "<p class='note'>" + esc(note) + "</p>" if note else ""
-    sumnote = "<span class='sumnote'>" + esc(note) + "</span>" if note else ""
-    return (
-        "<details class='card" + wide_cls + "'" + open_attr + ">"
-        + "<summary>" + esc(title) + sumnote + "</summary>"
-        + "<div class='cardbody'>" + body + note_html + "</div></details>"
+async def _gather(*coros):
+    results = await asyncio.gather(*coros, return_exceptions=True)
+    return [r if not isinstance(r, Exception) else None for r in results]
+
+
+def _build_rainbow_series(snapshot_repo, normalized: str, top_n: int = 12) -> dict:
+    """Walk persisted snapshots chronologically; per date, each top broker's
+    share of CCASS. Grows as the daily snapshot accumulation lands."""
+    dates: list[str] = []
+    snapshots: list[dict] = []
+    snap = snapshot_repo.latest(normalized)
+    while snap is not None and len(dates) < 40:
+        dates.insert(0, snap.snapshot_date.isoformat())
+        holdings = {h.participant_id: h for h in snap.holdings}
+        total = sum(h.shares for h in snap.holdings) or 1
+        snapshots.append({"date": snap.snapshot_date.isoformat(), "total": total, "holdings": holdings})
+        snap = snapshot_repo.previous(normalized, before_date=snap.snapshot_date)
+    if len(dates) < 1:
+        return {"dates": [], "brokers": [], "values": {}}
+    latest = snapshots[-1]["holdings"]
+    top_ids = [pid for pid, _ in sorted(latest.items(), key=lambda kv: kv[1].shares, reverse=True)[:top_n]]
+    names: dict[str, str] = {}
+    for pid in top_ids:
+        for snap in reversed(snapshots):
+            if pid in snap["holdings"]:
+                names[pid] = getattr(snap["holdings"][pid], "participant_name", None) or getattr(
+                    snap["holdings"][pid], "participant", None
+                ) or pid
+                break
+        else:
+            names[pid] = pid
+    brokers = [{"id": pid, "name": names.get(pid, pid)} for pid in top_ids]
+    values: dict[str, list[float]] = {pid: [] for pid in top_ids}
+    for snap in snapshots:
+        total = snap["total"]
+        day_map = snap["holdings"]
+        for pid in top_ids:
+            h = day_map.get(pid)
+            values[pid].append(round(h.shares / total * 100, 2) if h else 0.0)
+    return {"dates": dates, "brokers": brokers, "values": values}
+
+
+def _transfer_pairs(changes: list[tuple[str, int, int, int]]) -> list[dict]:
+    """Approximate warehouse-transfer candidates from the two-snapshot diff:
+    pair the largest decreases with similar-sized increases (±10%)."""
+    downs = sorted([c for c in changes if c[1] < 0], key=lambda c: c[1])
+    ups = sorted([c for c in changes if c[1] > 0], key=lambda c: -c[1])
+    used_up: set[str] = set()
+    pairs: list[dict] = []
+    for down in downs:
+        for up in ups:
+            if up[0] in used_up:
+                continue
+            if up[1] <= 0:
+                continue
+            ratio = up[1] / abs(down[1]) if down[1] else 0
+            if 0.9 <= ratio <= 1.1:
+                pairs.append({"out": down[0], "out_shares": abs(down[1]), "in": up[0], "in_shares": up[1]})
+                used_up.add(up[0])
+                break
+    return pairs[:10]
+
+
+def _flow_summary(timelines, days: int, end: date) -> list[dict]:
+    cutoff = end - timedelta(days=days)
+    flows: dict[str, int] = {}
+    for t in timelines:
+        for m in t.movements:
+            if m.change_shares and m.event_date >= cutoff:
+                flows[t.filer] = flows.get(t.filer, 0) + m.change_shares
+    ordered = sorted(flows.items(), key=lambda kv: kv[1], reverse=True)
+    top = ordered[:5] + ordered[-5:]
+    seen: set[str] = set()
+    rows: list[dict] = []
+    for filer, net in top:
+        if filer in seen or net == 0:
+            continue
+        seen.add(filer)
+        rows.append({"filer": filer, "net": net})
+    return rows
+
+
+def _render_kpis(snapshot, timelines, fundamentals, latest_close: str) -> str:
+    holdings = sorted(snapshot.holdings, key=lambda h: h.shares, reverse=True) if snapshot else []
+    total = sum(h.shares for h in holdings) or 1
+    top5 = sum(h.shares for h in holdings[:5]) / total * 100 if holdings else 0
+    top10 = sum(h.shares for h in holdings[:10]) / total * 100 if holdings else 0
+    periods = len(fundamentals.rows) if fundamentals else 0
+    cash = None
+    if fundamentals and fundamentals.rows:
+        cash = fundamentals.rows[0].cash
+    kpis = [
+        ("最新收市", '<span id="kpi-close">載入中…</span>', "Yahoo 延遲行情"),
+        ("市值", '<span id="kpi-mcap">—</span>', "收市×已發行（可得時）"),
+        ("CCASS 快照", str(snapshot.snapshot_date) if snapshot else "—", f"{len(holdings):,} 參與者"),
+        ("Top 5 佔 CCASS", f"{top5:.1f}%", "集中度"),
+        ("Top 10 佔 CCASS", f"{top10:.1f}%", "集中度"),
+        ("DION 申報人", str(len(timelines) if timelines else 0), "官方申報"),
+        ("業績期", str(periods), "已持久化"),
+        ("現金結餘", _fmt(cash) if cash else "—", "百萬（最新期）"),
+    ]
+    return "".join(
+        f'<div class="kpi"><div class="l">{_esc(l)}</div><div class="v">{v}</div><div class="s">{_esc(s)}</div></div>'
+        for l, v, s in kpis
     )
-
-
-def _table(headers: list[str], rows: list[str], cls: str = "") -> str:
-    head = "".join(f"<th>{h}</th>" for h in headers)
-    body = "".join(f"<tr>{r}</tr>" for r in rows) or "<tr><td colspan='9' class='empty'>暫無數據</td></tr>"
-    return f"<table class='{cls}'><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
-
-
-def _warn(title: str, message: str) -> str:
-    return _card(title, f"<div class='warnbox'>{esc(message)}</div>")
-
-
-def _bar(pct: float, color: str = "#1d4ed8") -> str:
-    pct = max(0.0, min(100.0, pct))
-    return (
-        f"<div class='bartrack'><div class='barfill' style='width:{pct:.2f}%;background:{color}'></div>"
-        f"<span class='barlabel'>{pct:.2f}%</span></div>"
-    )
-
-
-def _sparkline(points: list[float], color: str = "#1d4ed8") -> str:
-    if len(points) < 2:
-        return "<span class='empty'>數據不足</span>"
-    lo, hi = min(points), max(points)
-    span = (hi - lo) or 1.0
-    w, h = 220, 44
-    step = w / (len(points) - 1)
-    coords = " ".join(f"{i * step:.1f},{h - (p - lo) / span * (h - 6) - 3:.1f}" for i, p in enumerate(points))
-    last_x, last_y = (len(points) - 1) * step, h - (points[-1] - lo) / span * (h - 6) - 3
-    return (
-        f"<svg width='{w}' height='{h}' class='spark'><polyline fill='none' stroke='{color}' stroke-width='2' points='{coords}'/>"
-        f"<circle cx='{last_x:.1f}' cy='{last_y:.1f}' r='3' fill='{color}'/></svg>"
-    )
-
-
-async def _build_components(normalized: str, start: date, end: date):
-    svc = get_research_context_service()
-    events_repo = get_intelligence_events_service().event_repository
-    now = datetime.now(UTC)
-
-    async def _safe(coro):
-        try:
-            return await coro
-        except Exception as exc:  # fail loud per component
-            return exc
-
-    snapshot_repo = svc.snapshot_repository
-
-    async def _concentration_series(code: str, points: int = 14):
-        """Walk persisted snapshots backwards for a Top5 concentration series."""
-        series: list[tuple[date, float]] = []
-        snap = snapshot_repo.latest(code)
-        while snap is not None and len(series) < points:
-            holdings = sorted(snap.holdings, key=lambda h: h.shares, reverse=True)
-            total = sum(h.shares for h in holdings) or 1
-            top5 = sum(h.shares for h in holdings[:5]) / total * 100
-            series.append((snap.snapshot_date, top5))
-            snap = snapshot_repo.previous(code, before_date=snap.snapshot_date)
-        series.reverse()
-        return series
-
-    components = await asyncio.gather(
-        _safe(asyncio.to_thread(snapshot_repo.latest, normalized)),
-        _safe(asyncio.to_thread(snapshot_repo.available_dates, normalized, True)),
-        _safe(get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end)),
-        _safe(asyncio.to_thread(events_repo.load, normalized)),
-        _safe(asyncio.to_thread(svc.fundamentals_repository.load, normalized)),
-        _safe(asyncio.to_thread(svc.entity_repository.load_rows, normalized, start_date=start, end_date=end)),
-        _safe(asyncio.to_thread(svc.share_capital_repository.load, normalized, start_date=start, end_date=end)),
-        _safe(asyncio.to_thread(get_announcements_service().repository.load, normalized, start_date=start, end_date=end)),
-        _safe(_concentration_series(normalized)),
-    )
-    return components, now
 
 
 @router.get("/terminal", response_class=HTMLResponse)
@@ -190,7 +201,8 @@ async def terminal(
     code: str = Query(default=""),
     start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
-) -> HTMLResponse:
+    flow: int = Query(default=30, ge=7, le=1825),
+):
     normalized = (code or "").strip()
     from ccass_core.normalize import normalize_stock_code
 
@@ -201,445 +213,366 @@ async def terminal(
     end = end_date or now.date()
     start = start_date or end - timedelta(days=365 * 5)
     svc = get_research_context_service()
+    snapshot_repo = svc.snapshot_repository
 
-    results, _ = await _build_components(normalized, start, end)
-    snapshot, dates, timeline, events, fundamentals, entities, share_capital, announcements, conc_series = results
-    timeline = timeline if not isinstance(timeline, Exception) else None
-    events = events if not isinstance(events, Exception) else None
-    fundamentals = fundamentals if not isinstance(fundamentals, Exception) else None
-    announcements = announcements if not isinstance(announcements, Exception) else None
-    entities = entities if not isinstance(entities, Exception) else []
-    share_capital = share_capital if not isinstance(share_capital, Exception) else None
-    snapshot = snapshot if not isinstance(snapshot, Exception) else None
-    conc_series = conc_series if not isinstance(conc_series, Exception) else []
-    dates = dates if not isinstance(dates, Exception) else []
+    snapshot, timeline, events, fundamentals, entities, share_capital, announcements = await _gather(
+        asyncio.to_thread(snapshot_repo.latest, normalized),
+        get_ownership_timeline_service().get_timeline(normalized, start_date=start, end_date=end),
+        asyncio.to_thread(get_intelligence_events_service().event_repository.load, normalized),
+        asyncio.to_thread(svc.fundamentals_repository.load, normalized),
+        asyncio.to_thread(svc.entity_repository.load_rows, normalized, start_date=start, end_date=end),
+        asyncio.to_thread(svc.share_capital_repository.load, normalized, start_date=start, end_date=end),
+        asyncio.to_thread(get_announcements_service().repository.load, normalized, start_date=start, end_date=end),
+    )
+    snapshot = snapshot if snapshot is not None else None
+    timelines = timeline.timelines if timeline is not None else []
+    event_rows = events if events is not None else []
+    fundamentals = fundamentals if fundamentals is not None else None
+    entities = entities if entities is not None else []
+    share_capital_rows = share_capital.rows if share_capital is not None else []
+    announcement_rows = announcements.announcements if announcements is not None else []
 
-    cards: list[str] = []
-    kpis: list[tuple[str, str, str]] = []  # label, value, sub
-
-    # ---- 1. KPI strip ----
     holdings = sorted(snapshot.holdings, key=lambda h: h.shares, reverse=True) if snapshot else []
     total = sum(h.shares for h in holdings) or 1
-    top5 = sum(h.shares for h in holdings[:5]) / total * 100 if holdings else 0
-    kpis = [
-        ("CCASS 快照", str(snapshot.snapshot_date) if snapshot else "—", f"{len(holdings):,} 參與者"),
-        ("Top 5 佔 CCASS", f"{top5:.1f}%", "集中度"),
-        ("申報人", str(len(timeline.timelines) if timeline else 0), "DION 官方申報"),
-        ("情報事件", f"{len(events):,}" if events else "0", "官方+抽取"),
-        ("業績期", str(len(fundamentals.rows) if fundamentals else 0), "已持久化"),
-        ("覆蓋快照", str(len(dates)), "可回溯日期"),
-    ]
-    kpi_html = "".join(
-        f"<div class='kpi'><div class='kpi-label'>{esc(l)}</div><div class='kpi-value'>{esc(v)}</div><div class='kpi-sub'>{esc(s)}</div></div>"
-        for l, v, s in kpis
-    )
 
-    # ---- 2. Concentration trend (sparkline card) ----
-    if conc_series:
-        pts = [p for _, p in conc_series]
-        first, last = conc_series[0], conc_series[-1]
-        delta = last[1] - first[1]
-        cards.append(
-            _card(
-                "② 集中度趨勢 Top 5",
-                _sparkline(pts) + f"<p class='note'>{first[0]} {first[1]:.1f}% → {last[0]} {last[1]:.1f}%（<span class='{'up' if delta >= 0 else 'down'}'>{delta:+.1f}pp</span>）</p>",
-                note=f"{len(conc_series)} 個持久化快照",
-            )
-        )
-    else:
-        cards.append(_warn("② 集中度趨勢 Top 5", "持久化快照不足兩個 — 每日累積後自動出現。"))
-
-    # ---- 3. CCASS top holdings with bars ----
-    if snapshot:
-        rows = [
-            f"<tr><td>{i + 1}</td><td>{esc(str(getattr(h, 'participant_name', None) or h.participant_id))[:32]}</td>"
-            f"<td class='num'>{_fmt_shares(h.shares)}</td><td style='width:34%'>{_bar(h.shares / total * 100)}</td></tr>"
-            for i, h in enumerate(holdings[:15])
-        ]
-        cards.append(
-            _card("① CCASS Top 15 持倉", _table(["#", "Participant", "Shares", "佔 CCASS"], rows), note=f"快照 {snapshot.snapshot_date}")
-        )
-    else:
-        cards.append(_warn("① CCASS Top 15 持倉", "無持久化快照。"))
-
-    # ---- 4/5. Changes + Big changes derived from the two latest snapshots ----
-    snapshot_repo = svc.snapshot_repository
-    if snapshot:
-        prev = snapshot_repo.previous(normalized, before_date=snapshot.snapshot_date)
-        if prev is not None:
-            prev_map = {h.participant_id: h.shares for h in prev.holdings}
-            now_map = {h.participant_id: h.shares for h in holdings}
-            changes: list[tuple[str, int, int, int]] = []
-            for pid, now_shares in now_map.items():
-                old = prev_map.get(pid)
-                if old is None:
-                    if now_shares > 0:
-                        changes.append((pid, now_shares, now_shares, 1))
-                else:
-                    changes.append((pid, now_shares - old, now_shares, 0))
-            for pid, old in prev_map.items():
-                if pid not in now_map and old:
-                    changes.append((pid, -old, 0, -1))
-            changes.sort(key=lambda c: abs(c[1]), reverse=True)
-            threshold = total * 0.005
-            big = [c for c in changes if abs(c[1]) >= threshold]
-            ch_rows = [
-                f"<tr><td>{esc(pid)}</td><td class='num'>{_fmt_shares(now)}</td>"
-                f"<td class='num'><span class='{'up' if ch > 0 else 'down' if ch < 0 else ''}'>{_fmt_shares(ch) if ch else '新' if kind == 1 else '清'}</span></td></tr>"
-                for pid, ch, now, kind in changes[:12]
-            ]
-            cards.append(
-                _card(
-                    f"③ 持倉變動（{prev.snapshot_date} → {snapshot.snapshot_date}）",
-                    _table(["Participant", "現持", "變化"], ch_rows),
-                    note="由兩張持久化快照推算",
-                )
-            )
-            big_rows = [
-                f"<tr><td>{esc(pid)}</td><td class='num'><span class='{'up' if ch > 0 else 'down'}'>{_fmt_shares(ch)}</span></td>"
-                f"<td class='num'>{_fmt_shares(now)}</td><td>{'新倉' if kind == 1 else '清倉' if kind == -1 else '—'}</td></tr>"
-                for pid, ch, now, kind in big[:10]
-            ]
-            cards.append(
-                _card(
-                    "④ 大額變動（≥0.5% CCASS）",
-                    _table(["Participant", "變化", "現持", "性質"], big_rows)
-                    or _table(["Participant", "變化", "現持", "性質"], []),
-                    note=f"門檻 {_fmt_shares(threshold)} 股",
-                )
-            )
-        else:
-            cards.append(_warn("③ 持倉變動 / ④ 大額變動", "只有一張持久化快照 — 多累積一日即出現。"))
-    else:
-        cards.append(_warn("③ 持倉變動 / ④ 大額變動", "無持久化快照。"))
-
-    # ---- 6. CCASS metadata / coverage ----
-    if dates:
-        cards.append(
-            _card(
-                "⑨ 快照覆蓋",
-                _sparkline([1] * min(len(dates), 30), "#94a3b8")
-                + f"<p class='note'>{len(dates)} 個可回溯日期：{dates[0]} → {dates[-1]}</p>",
-                open_=False,
-            )
-        )
-
-    # ---- 10. Ownership timeline ----
-    if timeline:
-        rows = []
-        for t in timeline.timelines[:12]:
-            rows.append(
-                f"<tr><td>{esc(t.filer)[:30]}</td><td class='num'>{t.movements_count}</td>"
-                f"<td class='num'><span class='up'>+{t.increases}</span>/<span class='down'>−{t.decreases}</span></td>"
-                f"<td class='num'>{t.latest_present_balance or '—'}</td><td class='num'>{t.latest_percentage if t.latest_percentage is not None else '—'}</td></tr>"
-            )
-        cards.append(
-            _card(
-                f"⑩ 大股東動向 · {len(timeline.timelines)} 名申報人",
-                _table(["Filer", "申報", "增/減", "最新持倉", "%"], rows),
-                note="官方 DION 鏈式推算",
-            )
-        )
-    else:
-        cards.append(_warn("⑩ 大股東動向", "無持久化 DION 申報。"))
-
-    # ---- 11. DI highlights (top moves last 90 days) ----
-    if timeline:
-        moves: list[tuple[date, str, int, object]] = []
-        for t in timeline.timelines:
-            for m in t.movements:
-                if m.change_shares and m.event_date >= end - THIRTY_DAYS:
-                    moves.append((m.event_date, t.filer, m.change_shares, m))
-        moves.sort(key=lambda x: abs(x[2]), reverse=True)
-        rows = [
-            f"<tr><td class='num'>{d}</td><td>{esc(f)[:26]}</td>"
-            f"<td class='num'><span class='{'up' if ch > 0 else 'down'}'>{_fmt_shares(ch)}</span></td>"
-            f"<td class='num'>{_fmt_shares(m.present_balance) if m.present_balance else '—'}</td></tr>"
-            for d, f, ch, m in moves[:10]
-        ]
-        cards.append(
-            _card("⑪ 近 90 日重點申報", _table(["日期", "Filer", "變化", "申報後持倉"], rows), note=f"共 {len(moves)} 次移動")
-        )
-    else:
-        cards.append(_warn("⑪ 近 90 日重點申報", "無申報數據。"))
-
-    # ---- 12. Intelligence events stream ----
-    if events:
-        by_type: dict[str, int] = {}
-        for e in events:
-            by_type[e.event_type] = by_type.get(e.event_type, 0) + 1
-        pills = "".join(f'<span class="pill">{esc(k)} <b>{v}</b></span>' for k, v in sorted(by_type.items()))
-        ev_sorted = sorted(events, key=lambda e: e.announce_date, reverse=True)
-        rows = [
-            f"<tr><td class='num'>{e.announce_date}</td><td>{esc(e.event_type)}</td>"
-            f"<td>{esc(str(e.counterparty or e.entity_name or ''))[:40]}</td>"
-            f"<td><span class='badge {e.confidence}'>{e.confidence}</span></td></tr>"
-            for e in ev_sorted[:25]
-        ]
-        cards.append(
-            _card(f"⑫ 情報事件流 · {len(events):,} 項", f"<div class='pills'>{pills}</div>" + _table(["日期", "類型", "對手方", "信心"], rows), wide=True)
-        )
-    else:
-        cards.append(_warn("⑫ 情報事件流", "無持久化事件快照 — 觸發 intelligence-events job。"))
-    # ---- 港交所公告 (raw announcements table, friend-site parity) ----
-    if announcements and announcements.announcements:
-        ann_sorted = sorted(announcements.announcements, key=lambda a: a.announcement_date, reverse=True)
-        ann_rows = [
-            f"<tr><td class='num'>{a.announcement_date}</td><td>{esc(a.category or '—')[:18]}</td>"
-            f"<td><a href='{esc(a.link or '#')}' target='_blank' rel='noopener'>{esc(a.title)[:80]}</a></td></tr>"
-            for a in ann_sorted[:15]
-        ]
-        cards.append(
-            _card(
-                f"港交所公告 · {len(announcements.announcements)} 份（最新 15）",
-                _table(["日期", "類別", "標題（點擊開 PDF）"], ann_rows),
-                wide=True,
-                note="persisted 快取 · 5 年窗口內全部可追溯原文",
-            )
-        )
-    else:
-        cards.append(_warn("港交所公告", "無持久化公告 — 觸發 announcements job（可帶 start_date/end_date 回填 5 年）。"))
-
-    # ---- 13. Intermediary network ----
-    by_entity: dict[str, int] = {}
-    for row in entities:
-        by_entity[row.entity_type] = by_entity.get(row.entity_type, 0) + 1
-    pills = "".join(f'<span class="pill">{esc(k)} <b>{v}</b></span>' for k, v in sorted(by_entity.items())) or "<span class='pill'>暫無</span>"
-    ent_rows = [
-        f"<tr><td>{esc(r.announcement_date)}</td><td>{esc(r.entity_type)}</td><td>{esc(r.entity_name or '—')[:40]}</td></tr>"
-        for r in entities[:10]
-    ]
-    cards.append(_card("⑬ 中介網絡", f"<div class='pills'>{pills}</div>" + _table(["日期", "角色", "機構"], ent_rows), open_=False))
-
-    # ---- 14/15. Fundamentals + pressure signals ----
-    if fundamentals and fundamentals.rows:
-        rows = [
-            f"<tr><td>{r.reporting_period}</td><td class='num'>{r.revenue or '—'}</td>"
-            f"<td class='num'>{r.net_profit_loss or '—'}</td><td class='num'>{r.cash or '—'}</td>"
-            f"<td class='num'>{r.debt or '—'}</td><td class='num'>{r.operating_cash_flow or '—'}</td>"
-            f"<td><span class='badge {r.completeness_status}'>{r.completeness_status}</span></td></tr>"
-            for r in fundamentals.rows[:8]
-        ]
-        cards.append(_card("⑭ 基本面（官方業績）", _table(["期間", "收入", "純利", "現金", "債務", "OCF", "完整度"], rows)))
-        latest = next((r for r in fundamentals.rows if r.debt and r.equity), None)
-        if latest:
-            de = latest.debt / latest.equity if latest.equity else None
-            signal = f"<div class='pills'><span class='pill'>債務/權益 <b>{de:.2f}</b></span>" if de else "<div class='pills'>"
-            if latest.cash:
-                signal += f"<span class='pill'>現金/債務 <b>{latest.cash / latest.debt:.2f}</b></span>" if latest.debt else signal
-            signal += f"<span class='pill'>單位 <b>{fundamentals.rows[0].unit or 'raw'}</b></span><span class='pill'>已標註推算值</span></div>"
-            cards.append(_card("⑮ 財務壓力訊號（推算）", signal, open_=False, note="衍生比率 — 僅供對照，非投資建議"))
-    else:
-        cards.append(_warn("⑭ 基本面 / ⑮ 壓力訊號", "無持久化業績 — 觸發 fundamentals job。"))
-
-    # ---- 16. Company / next dates ----
-    name = None
+    prev = None
     if snapshot is not None:
-        name = getattr(snapshot, "company_name", None) or getattr(snapshot, "name", None)
-    cards.append(
-        _card(
-            "⑯ 公司與下一關鍵日",
-            f"<p><b>名稱：</b>{esc(name or '—')}</p><p><b>未來關鍵日：</b>由業績/企業事件推斷 — 暫無已申報之未來日期（誠實標籤：需月報/AGM 文件支援）。</p>",
-            open_=False,
+        try:
+            prev = snapshot_repo.previous(normalized, before_date=snapshot.snapshot_date)
+        except Exception:
+            prev = None
+
+    changes: list[tuple[str, int, int, int]] = []
+    if snapshot is not None and prev is not None:
+        prev_map = {h.participant_id: h.shares for h in prev.holdings}
+        now_map = {h.participant_id: h.shares for h in holdings}
+        names = {h.participant_id: (getattr(h, "participant_name", None) or getattr(h, "participant", None) or h.participant_id) for h in holdings}
+        for pid in prev_map:
+            names.setdefault(pid, pid)
+        for pid, now_shares in now_map.items():
+            old = prev_map.get(pid)
+            if old is None:
+                changes.append((pid, now_shares, now_shares, 1))
+            else:
+                changes.append((pid, now_shares - old, now_shares, 0))
+        for pid, old in prev_map.items():
+            if pid not in now_map and old:
+                changes.append((pid, -old, 0, -1))
+
+    transfer_pairs = _transfer_pairs(changes)
+    rainbow = _build_rainbow_series(snapshot_repo, normalized)
+    flows = _flow_summary(timelines, flow, end)
+
+    # ---- 轉倉偵測 rows ----
+    tr_rows = "".join(
+        f"<tr><td>快照間</td><td class='down'>{_esc(p['out'][:30])} −{_fmt_shares(p['out_shares'])}</td>"
+        f"<td class='up'>{_esc(p['in'][:30])} +{_fmt_shares(p['in_shares'])}</td><td class='num'>≈同量</td>"
+        f"<td><span class='chip a'>轉倉候選</span></td></tr>"
+        for p in transfer_pairs
+    ) or "<tr><td colspan='5'>兩張快照間無同量一減一增配對</td></tr>"
+
+    # ---- broker distribution ----
+    prev_map = {h.participant_id: h.shares for h in prev.holdings} if prev is not None else {}
+    dist_rows = []
+    for i, h in enumerate(holdings[:10]):
+        pid = h.participant_id
+        name = getattr(h, "participant_name", None) or getattr(h, "participant", None) or pid
+        old = prev_map.get(pid)
+        if old is None:
+            ch_html = "<span class='up'>新</span>"
+        else:
+            ch = h.shares - old
+            ch_html = f"<span class='{'up' if ch > 0 else 'down' if ch < 0 else ''}'>{_fmt_shares(ch) if ch else '+0'}</span>"
+        dist_rows.append(
+            f"<tr><td>{i + 1}</td><td>{_esc(str(name)[:34])}</td><td class='num'>{_fmt_shares(h.shares)}</td>"
+            f"<td class='num'>{h.shares / total * 100:.2f}%</td><td class='num'>{ch_html}</td></tr>"
         )
+
+    # ---- 資金流向 rows ----
+    flow_rows = "".join(
+        f"<tr><td>{_esc(f['filer'][:34])}</td><td class='num'><span class='{'up' if f['net'] > 0 else 'down'}'>{_fmt_shares(f['net'])}</span></td></tr>"
+        for f in flows
+    ) or "<tr><td colspan='2'>窗口內無申報變動</td></tr>"
+
+    # ---- 大股東動向 ----
+    own_rows = "".join(
+        f"<tr><td>{_esc(t.filer[:36])}</td><td class='num'>{t.movements_count}</td>"
+        f"<td class='num'><span class='up'>+{t.increases}</span>/<span class='down'>−{t.decreases}</span></td>"
+        f"<td class='num'>{_fmt_shares(t.latest_present_balance)}</td><td class='num'>{t.latest_percentage if t.latest_percentage is not None else '—'}</td></tr>"
+        for t in timelines[:10]
     )
 
-    # ---- Officers (lazy live hydration) ----
-    officers_card = f"""<details class='card'><summary>高管 / 董事（即時抓取）</summary><div class='cardbody'>
-<button onclick="loadOfficersT(this)">載入高管（即時 ~10-20 秒，需 admin key）</button>
-<div id='officers-out'><p class='note'>高管名單屬即時來源（同花順 F10 / Webb），未持久化 — 點擊載入。</p></div>
+    # ---- 90日重點申報 ----
+    recent: list[dict] = []
+    cutoff90 = end - timedelta(days=90)
+    for t in timelines:
+        for m in t.movements:
+            if m.change_shares and m.event_date >= cutoff90:
+                recent.append({"date": m.event_date, "filer": t.filer, "ch": m.change_shares, "present": m.present_balance})
+    recent.sort(key=lambda r: r["date"], reverse=True)
+    recent_rows = "".join(
+        f"<tr><td>{r['date']}</td><td>{_esc(r['filer'][:32])}</td>"
+        f"<td class='num'><span class='{'up' if r['ch'] > 0 else 'down'}'>{'+' if r['ch'] > 0 else ''}{_fmt_shares(r['ch'])}</span></td>"
+        f"<td class='num'>{_fmt_shares(r['present'])}</td></tr>"
+        for r in recent[:10]
+    ) or "<tr><td colspan='4'>90 日內無申報</td></tr>"
+
+    # ---- 情報事件流 ----
+    event_rows = sorted(event_rows, key=lambda e: e.announce_date, reverse=True)[:10]
+    event_rows_html = "".join(
+        f"<tr><td>{e.announce_date}</td><td>{_esc(e.event_type)}</td><td>{_esc(str(e.counterparty or e.entity_name or '—'))[:40]}</td>"
+        f"<td><span class='chip {'g' if e.confidence == 'extracted' else ''}'>{e.confidence}</span></td></tr>"
+        for e in event_rows
+    )
+
+    # ---- 港交所公告 ----
+    ann_sorted = sorted(announcement_rows, key=lambda a: a.announcement_date, reverse=True)
+    ann_rows = "".join(
+        f"<tr><td>{a.announcement_date}</td><td>{_esc((a.category or '—')[:16])}</td>"
+        f"<td><a href='{_esc(a.link or '')}' target='_blank'>{_esc(a.title[:70])}</a></td></tr>"
+        for a in ann_sorted[:10]
+    ) or "<tr><td colspan='3'>無持久化公告 — 觸發 /admin/announcements/job</td></tr>"
+
+    # ---- 損益表 / 資產負債表（fundamentals rows）----
+    f_rows = sorted(fundamentals.rows, key=lambda r: (r.announcement_date, r.reporting_period), reverse=True) if fundamentals else []
+    periods = [r.reporting_period for r in f_rows[:3]]
+    def _by_period(field: str):
+        return {r.reporting_period: r.model_dump().get(field) for r in f_rows}
+    revenue = _by_period("revenue")
+    profit = _by_period("net_profit_loss")
+    ocf = _by_period("operating_cash_flow")
+    equity = _by_period("equity")
+    cash = _by_period("cash")
+    def _cells(field_map: dict) -> str:
+        return "".join(f"<td class='num'>{_fmt(field_map.get(p)) if field_map.get(p) is not None else '—'}</td>" for p in periods)
+    is_rows = "".join(f"<tr><td>{label}</td>{_cells(m)}</tr>" for label, m in (("收入", revenue), ("純利", profit), ("經營現金流", ocf)))
+    bs_rows = "".join(f"<tr><td>{label}</td>{_cells(m)}</tr>" for label, m in (("股東權益", equity), ("現金及等價物", cash)))
+    is_note = "" if f_rows else "<p class='note'>無持久化業績 — 觸發 /admin/fundamentals/job</p>"
+
+    # ---- 相關人物 ----
+    persons: list[tuple[str, str, str]] = []
+    for t in timelines[:5]:
+        persons.append((_esc(t.filer[:34]), f"{'機構/股東'} {t.latest_percentage or '—'}%", f"{t.movements_count} 次官方申報"))
+    for row in entities[:5]:
+        persons.append((_esc(str(row.entity_name or "—"))[:34], _esc(row.entity_type), "文件抽取"))
+    person_rows = "".join(f"<tr><td>{p}</td><td>{r}</td><td>{c}</td></tr>" for p, r, c in persons) or "<tr><td colspan='3'>暫無</td></tr>"
+
+    # ---- 股本故事 ----
+    sc_sorted = sorted(share_capital_rows, key=lambda r: r.announce_date)
+    sc_first = sc_sorted[0].shares_million if sc_sorted else None
+    sc_last = sc_sorted[-1].shares_million if sc_sorted else None
+    dilution = ""
+    if sc_first and sc_last:
+        dilution = f"窗口首尾 {sc_first}M → {sc_last}M（{(sc_last / sc_first - 1) * 100:+.1f}%）"
+    sc_rows = "".join(
+        f"<tr><td>{r.announce_date}</td><td class='num'>{_fmt(r.shares_million)}M</td><td>{_esc((r.reason or '—')[:40])} {','.join(r.reason_tags)}</td></tr>"
+        for r in sc_sorted[:10]
+    ) or "<tr><td colspan='3'>無持久化股本 — 觸發 /admin/share-capital/job</td></tr>"
+
+    rainbow_json = json.dumps(rainbow, ensure_ascii=False)
+
+    html = f"""<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{normalized} · Intelligence Terminal</title><style>{_A5_CSS}</style></head><body><div class="wrap">
+<div class="topbar"><div class="logo">J</div><div><h1>{normalized} · Intelligence Terminal</h1><div class="sub">A5 設計 · DT 式彩虹堆疊 · 陰陽燭 · 全組件 · 缺口已標籤</div></div>
+<form method="get" action="/terminal"><input name="code" value="{_esc(normalized)}"><button class="btn">切換</button></form>
+<div class="nav"><a href="/?code={normalized}">快總覽</a><a href="/full?code={normalized}">完整產品</a><a href="/console?code={normalized}">Console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a></div></div>
+<div class="kpis">{_render_kpis(snapshot, timelines, fundamentals, "—")}</div>
+<div class="jump"><a href="#pxcard">價格</a><a href="#rbcard">券商彩虹</a><a href="#distcard">分佈</a><a href="#flowcard">資金流向</a><a href="#trcard">轉倉偵測</a><a href="#owncard">大股東</a><a href="#evcard">事件流</a><a href="#anncard">公告</a><a href="#fscard">財務</a><a href="#dlcard">下載</a></div>
+<div class="grid">
+
+<div class="card w" id="pxcard"><h3>價格 · 陰陽燭 + 成交量 <span>· 日線 · Yahoo 延遲</span>
+<div class="seg" id="pxseg"><span data-px="22">1個月</span><span class="on" data-px="66">3個月</span><span data-px="130">6個月</span><span data-px="260">1年</span></div></h3>
+<div id="candles">載入中…</div></div>
+
+<div class="card w" id="rbcard"><h3>★ CCASS 券商彩虹 · 堆疊面積圖 <span>· 每色=一個券商 · 厚度=持股% · 總高=合計持股% · 隨每日快照累積生長</span></h3>
+<div id="rainbow"></div><div class="legend" id="rblegend"></div>
+<div class="insight"><b>分段解讀：</b>{len(rainbow['dates'])} 個持久化快照點。快照日之間無日度數據（缺口/累積中如實標示）——每日快照 job 會逐日加厚彩虹。</div></div>
+
+<div class="card" id="distcard"><h3>券商持股完整分佈 <span>· Top 10 / 共 {len(holdings)} 名 · 對上一快照變化</span></h3>
+<table><tr><th>#</th><th>券商 / 參與者</th><th>持股</th><th>佔 CCASS</th><th>變化</th></tr>{''.join(dist_rows)}</table>
+<p class="note">由 {prev.snapshot_date if prev is not None else '—'} → {snapshot.snapshot_date if snapshot else '—'} 兩張持久化快照差分</p></div>
+
+<div class="card" id="flowcard"><h3>資金流向 <span>· 官方申報推算 ·
+<a href='/terminal?code={normalized}&flow=7'>7D</a> ·
+<span style='color:#1d4ed8;font-weight:800'>{flow}D</span> ·
+<a href='/terminal?code={normalized}&flow=90'>90D</a> ·
+<a href='/terminal?code={normalized}&flow=365'>1Y</a> ·
+<a href='/terminal?code={normalized}&flow=1825'>5Y</a></span></h3>
+<table><tr><th>Filer</th><th>淨申報（{flow}D）</th></tr>{flow_rows}</table>
+<p class="note">官方 DION 申報股數淨變化 · 推算港元值需要申報日收市價（v2）</p></div>
+
+<div class="card" id="trcard"><h3>轉倉偵測 <span>· 快照間同量一減一增配對（±10%）</span></h3>
+<table><tr><th>窗口</th><th>流出券商</th><th>流入券商</th><th>股數</th><th>判讀</th></tr>{tr_rows}</table>
+<p class="note">⚠️ 轉倉 ≠ 真實買入 · 快照間配對為近似（同日同量偵測需日內多快照）</p></div>
+
+<div class="card" id="owncard"><h3>⑩ 大股東動向 <span>· 官方 DION 鏈 · {len(timelines)} 名</span></h3>
+<table><tr><th>Filer</th><th>申報</th><th>增/減</th><th>最新持倉</th><th>%</th></tr>{own_rows}</table>
+<p class="note">首次申報方向標 unknown（無前值可鏈）· 永不估計</p></div>
+
+<div class="card"><h3>⑪ 近 90 日重點申報 <span>· Top 10</span></h3>
+<table><tr><th>日期</th><th>Filer</th><th>變化</th><th>申報後</th></tr>{recent_rows}</table></div>
+
+<div class="card" id="evcard"><h3>⑫ 情報事件流 <span>· {len(event_rows)} 項（最新 10）</span></h3>
+<table><tr><th>日期</th><th>類型</th><th>對手方</th><th>信心</th></tr>{event_rows_html}</table>
+<p class="note"><a href='/api/v1/stocks/{normalized}/intelligence-events'>全量 JSON</a> · <a href='/api/v1/stocks/{normalized}/alerts?days=30'>30 日警報</a></p></div>
+
+<div class="card" id="anncard"><h3>港交所公告 <span>· {len(ann_sorted)} 份持久化（最新 10，原生繁體標題 + 原文連結）</span></h3>
+<table><tr><th>日期</th><th>類別</th><th>標題</th></tr>{ann_rows}</table>
+<p class="note">窗口外更舊公告由累積 workflow 逐窗補回</p></div>
+
+<div class="card"><h3>異動盤 <span>· 大手/連續/對盤（當日捕捉）</span></h3>
+<div class="warnbox">tape 當日限定 — 需日內定時捕捉（Actions 分鐘級）先有歷史；捕捉器屬 RTSS/監察階段工程。</div></div>
+
+<div class="card"><h3>成交量分佈 <span>· Value Area（近似 POC）</span>
+<div class="seg"><span>1個月</span><span class="on">1年</span></div></h3>
+<div id="vpvr">載入中…</div></div>
+
+<div class="card"><h3>⑭ 資產負債表 <span>· 深度解析（v4 目標）</span></h3>
+<table><tr><th>項目</th>{''.join(f'<th>{_esc(p)}</th>' for p in periods)}</tr>{bs_rows}</table>
+<p class="note">⚠️ 資產/負債明細 = v4 解析工程（年報綜合資產負債表頁）</p></div>
+
+<div class="card"><h3>⑭b 損益表 <span>· 官方業績文件抽取</span></h3>
+<table><tr><th>項目</th>{''.join(f'<th>{_esc(p)}</th>' for p in periods)}</tr>{is_rows}</table>{is_note}
+<p class="note">v3 已有收入/純利/OCF · 毛利/ROE/每股 = v4 工程</p></div>
+
+<div class="card"><h3>⑩ 相關人物 <span>· DION 大戶 + 文件抽取實體</span></h3>
+<table><tr><th>人物 / 機構</th><th>角色</th><th>關聯</th></tr>{person_rows}</table>
+<p class="note">人物 × 券商 × 事件交叉 = 財技訊號（<a href='/api/v1/intermediary-graph'>中介圖譜 JSON</a>）</p></div>
+
+<div class="card"><h3>⑰ 股本故事 <span>· 窗口內</span></h3>
+<table><tr><th>公佈日</th><th>股本</th><th>原因</th></tr>{sc_rows}</table>
+<p class="note">{dilution or '窗口內無股本變動紀錄'}</p></div>
+
+<div class="card w" id="dlcard"><h3>下載 AI 數據源（給 ChatGPT / 任何 AI）</h3>
+<div>
+<a class="chip" href="/api/v1/stocks/{normalized}/research-context?format=json">研究包 JSON（全量結構化+溯源）</a>
+<a class="chip" href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 Markdown（AI 直讀）</a>
+<a class="chip" href="/api/v1/stocks/{normalized}/report-draft">AI 報告初稿 MD（八章+分析位）</a>
+<a class="chip" href="/api/v1/stocks/{normalized}/intelligence-events">事件全量 JSON</a>
+<a class="chip" href="/api/v1/intermediary-graph">中介圖譜 JSON</a>
+<a class="chip" href="/api/v1/stocks/{normalized}/ownership-timeline">Ownership Timeline JSON</a>
+<a class="chip" href="/api/v1/stocks/{normalized}/alerts?days=30">30 日警報 JSON</a>
+</div><p class="note">一條連結交俾 AI — 全部帶來源與信心標籤</p></div>
+
+<div class="card"><h3>㉑ 溯源與覆蓋 <span>· fail-loud</span></h3>
+<span class="chip">official = 官方申報原行</span><span class="chip">extracted = 官方文件抽取</span>
+<p class="note">CCASS 缺口 2025-12-25→2026-07-21 DEFERRED（私人途徑待導入）· 缺失永不插值 · 每日快照+累積由 GitHub Actions 排程</p></div>
+</div></div>
 <script>
-async function loadOfficersT(btn){{
-  const key = (document.getElementById('adminkey')||{{}}).value || '';
-  if(!key){{ document.getElementById('officers-out').textContent = '請先喺 Deep Refresh 面板輸入 admin key。'; return; }}
-  document.getElementById('officers-out').textContent = '即時抓取中...';
-  try {{
-    const r = await fetch(`/api/v1/stocks/{normalized}/officers?key=${{encodeURIComponent(key)}}`);
-    const j = await r.json();
-    if(!j.officers || !j.officers.length){{ document.getElementById('officers-out').textContent = '高管：' + (j.metadata && j.metadata.source_status || 'unavailable') + ' — ' + (j.data_quality_warnings||[]).join(' | '); return; }}
-    let html = '<table><thead><tr><th>姓名</th><th>職位</th></tr></thead><tbody>';
-    for(const o of j.officers.slice(0,20)){{ html += '<tr><td>'+ (o.name||'') +'</td><td>'+ (o.positions||[]).join('、') +'</td></tr>'; }}
-    html += '</tbody></table>';
-    document.getElementById('officers-out').innerHTML = html;
-  }} catch(e){{ document.getElementById('officers-out').textContent = '載入失敗：' + e; }}
-}}
-</script></div></details>"""
-    cards.append(officers_card)
+(function(){{
+  var CODE = "{normalized}";
+  var RB = {json.dumps(rainbow, ensure_ascii=False)};
+  var COLORS=["#1d4ed8","#0ea5e9","#16a34a","#f59e0b","#e02424","#8b5cf6","#ec4899","#14b8a6","#f97316","#64748b","#84cc16","#06b6d4","#a855f7","#ef4444","#0d9488"];
+  function esc(s){{return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}}
+  function fmt(n){{return (n==null)?"—":Number(n).toLocaleString("en-US")}}
 
-    # ---- 17. Share capital + dilution ----
-    if share_capital and share_capital.rows:
-        base = share_capital.rows[-1].shares_million or 0
-        latest_row = share_capital.rows[0]
-        dilution = ""
-        if base and latest_row.shares_million:
-            pct = (latest_row.shares_million - base) / base * 100
-            dilution = f"<p class='note'>窗口首尾：{base}M → {latest_row.shares_million}M（<span class='{'up' if pct >= 0 else 'down'}'>{pct:+.1f}%</span>）</p>"
-        rows = [
-            f"<tr><td class='num'>{r.announce_date}</td><td class='num'>{r.shares_million}M</td>"
-            f"<td>{esc(str(r.reason or ''))[:46]}<br><span class='tag'>{esc('/'.join(r.reason_tags or []))}</span></td></tr>"
-            for r in share_capital.rows[:12]
-        ]
-        cards.append(_card("⑰ 股本故事", _table(["公佈日", "股本", "原因 / 標籤"], rows) + dilution))
-    else:
-        cards.append(_warn("⑰ 股本故事", "無持久化股本行 — 觸發 share-capital job（分段窗）。"))
+  var SHARES_M = {float(f_rows[0].model_dump().get("shares_outstanding") or 0) if f_rows else 0};
 
-    # ---- 價格 + 高管 (click-to-load live cards) ----
-    cards.append(
-        _card(
-            "價格 & 成交（載入時即時抓取）",
-            "<button class='ldbtn' data-kind='price'>載入價格</button><div id='pricebox' class='draftbox'>未載入</div>",
-            open_=False,
-            wide=True,
-            note="Live 來源標籤見卡內 — 歷史累積後無需即時抓取",
-        )
-    )
-    cards.append(
-        _card(
-            "現任高管（載入時即時抓取）",
-            "<button class='ldbtn' data-kind='officers'>載入高管</button><div id='officersbox' class='draftbox'>未載入</div>",
-            open_=False,
-        )
-    )
+  var ALLROWS=[];
+  function renderCandles(rows){{
+    var box=document.getElementById("candles");if(!box)return;
+    if(!rows.length){{box.innerHTML='<p class="note">無價格數據</p>';return}}
+    var W=1300,H=200,lo=1e15,hi=0,vmax=1;
+    rows.forEach(function(r){{lo=Math.min(lo,(r.low!=null?r.low:r.close));hi=Math.max(hi,(r.high!=null?r.high:r.close));vmax=Math.max(vmax,r.volume||0)}});
+    var pad=(hi-lo)*0.06||1;lo-=pad;hi+=pad;
+    var step=W/rows.length,bw=Math.max(1.5,step*0.6);
+    var svg='<svg width="100%" viewBox="0 0 '+W+' '+(H+54)+'" preserveAspectRatio="none">';
+    rows.forEach(function(r,i){{
+      var x=i*step+step/2;
+      var hiV=(r.high!=null?r.high:r.close),loV=(r.low!=null?r.low:r.close);
+      var yHi=H-((hiV-lo)/(hi-lo)*H),yLo=H-((loV-lo)/(hi-lo)*H);
+      var o=(r.open!=null?r.open:r.close),c=r.close;
+      var yO=H-((Math.max(o,c)-lo)/(hi-lo)*H),yC=H-((Math.min(o,c)-lo)/(hi-lo)*H);
+      var col=(c>=o)?"#0e9f6e":"#e02424";
+      svg+='<line x1="'+x+'" y1="'+yHi+'" x2="'+x+'" y2="'+yLo+'" stroke="'+col+'" stroke-width="1"/>';
+      svg+='<rect x="'+(x-bw/2)+'" y="'+yO+'" width="'+bw+'" height="'+Math.max(1,yC-yO)+'" fill="'+col+'"/>';
+      var vh=(r.volume||0)/vmax*46;
+      svg+='<rect x="'+(x-bw/2)+'" y="'+(H+6+(46-vh))+'" width="'+bw+'" height="'+vh+'" fill="'+col+'" opacity="0.7"/>';
+    }});
+    svg+='</svg>';
+    box.innerHTML=svg+'<p class="note">綠燭=收≥開 · 紅燭=收&lt;開 · 底部柱=成交量 · 來源：Yahoo（延遲）</p>';
+  }}
+  function renderVPVR(rows){{
+    var box=document.getElementById("vpvr");if(!box)return;
+    if(!rows.length){{box.innerHTML='<p class="note">無數據</p>';return}}
+    var lo=1e15,hi=0;rows.forEach(function(r){{lo=Math.min(lo,r.close);hi=Math.max(hi,r.close)}});
+    var N=22,span=(hi-lo)||1,buckets=[];for(var i=0;i<N;i++)buckets.push(0);
+    rows.forEach(function(r){{var b=Math.min(N-1,Math.floor((r.close-lo)/span*N));buckets[b]+=(r.volume||0)}});
+    var vmax=1;pct=0;var poc=0;buckets.forEach(function(v,i){{if(v>vmax)vmax=v;if(v>buckets[poc])poc=i}});
+    var W=560,rowH=13;
+    var svg='<svg width="100%" viewBox="0 0 '+W+' '+(N*rowH+6)+'">';
+    buckets.forEach(function(v,i){{
+      var w=v/vmax*(W-170);
+      var price=(lo+span*((i+0.5)/N)).toFixed(2);
+      var near=Math.abs(i-poc)<=2;
+      svg+='<rect x="0" y="'+(i*rowH+2)+'" width="'+Math.max(2,w)+'" height="'+(rowH-3)+'" fill="'+(i===poc?"#1d4ed8":near?"#3b82f6":"#cbd5e1")+'"/>';
+      svg+='<text x="'+(W-160)+'" y="'+(i*rowH+12)+'" font-size="10" fill="#5a6678">'+price+'</text>';
+      svg+='<text x="'+(W-80)+'" y="'+(i*rowH+12)+'" font-size="10" fill="#8a94a6">'+(v/1e6).toFixed(1)+'M</text>';
+    }});
+    svg+='</svg>';
+    box.innerHTML=svg+'<p class="note">深藍=POC 最大成交量價位 · 近藍=Value Area（近似：收市價分桶）</p>';
+  }}
+  function fillPriceKPIs(rows){{
+    if(!rows.length)return;
+    var last=rows[rows.length-1],prev=rows.length>1?rows[rows.length-2]:null;
+    var k1=document.getElementById("kpi-close");
+    if(k1)k1.innerHTML=last.close+((prev&&prev.close)?'<div class="s">'+((last.close>=prev.close?"+":"")+((last.close-prev.close)/prev.close*100).toFixed(2)+"%</div>"):"");
+    var k2=document.getElementById("kpi-mcap");
+    if(k2&&SHARES_M>0)k2.innerHTML=(last.close*SHARES_M/100).toFixed(1)+"億"+'<div class="s">'+SHARES_M+"M股×"+last.close+"</div>";
+  }}
+  function loadPrice(days){{
+    fetch("/api/v1/stocks/"+CODE+"/price?days="+days).then(function(r){{return r.json()}}).then(function(j){{
+      var rows=(j.prices||[]).filter(function(r){{return r.close!=null}});
+      ALLROWS=rows;fillPriceKPIs(rows);renderCandles(rows);renderVPVR(rows);
+    }}).catch(function(e){{var b=document.getElementById("candles");if(b)b.textContent="價格載入失敗: "+e}});
+  }}
+  document.addEventListener("click",function(ev){{
+    var t=ev.target;
+    if(t&&t.dataset&&t.dataset.px){{
+      var seg=document.getElementById("pxseg");if(seg)Array.prototype.forEach.call(seg.children,function(s){{s.classList.remove("on")}});
+      t.classList.add("on");loadPrice(parseInt(t.dataset.px,10));
+    }}
+  }});
 
-    # ---- 18. AI report draft (async fetch on expand) ----
-    cards.append(
-        _card(
-            "⑱ AI 報告初稿",
-            f"<button onclick='const d=this.closest(\".cardbody\");fetch(`/api/v1/stocks/{normalized}/report-draft`).then(r=>r.text()).then(t=>{{d.querySelector(\".draftbox\").textContent=t}})'>載入初稿</button>"
-            "<pre class='draftbox'>點擊載入 — 20-30 頁骨架（事實+分析位）</pre>",
-            open_=False,
-            wide=True,
-        )
-    )
+  function renderRainbow(){{
+    var box=document.getElementById("rainbow");if(!box)return;
+    var dates=RB.dates,brokers=RB.brokers,n=dates.length;
+    if(!n){{box.innerHTML='<p class="note">持久化快照累積中</p>';return}}
+    var W=1300,H=230,step=n>1?(W/(n-1)):W;
+    var series=brokers.map(function(b){{return []}});
+    var totals=[];
+    for(var i=0;i<n;i++){{
+      var running=0;
+      brokers.forEach(function(b,bi){{
+        var v=(RB.values[b.id]&&RB.values[b.id][i]!=null)?RB.values[b.id][i]:0;
+        series[bi].push([running,running+v]);running+=v;
+      }});
+      totals.push(running);
+    }}
+    var top=Math.max.apply(null,totals.concat([1]))*1.1;
+    var svg='<svg width="100%" viewBox="0 0 '+W+' '+(H+26)+'" preserveAspectRatio="none">';
+    brokers.forEach(function(b,bi){{
+      var col=COLORS[bi%COLORS.length],d="";
+      series[bi].forEach(function(seg,i){{d+=(i===0?"M":"L")+(i*step)+","+(H-seg[1]/top*H)}});
+      for(var i=n-1;i>=0;i--){{d+=" L"+(i*step)+","+(H-series[bi][i][0]/top*H)}}
+      svg+='<path d="'+d+' Z" fill="'+col+'" opacity="0.82"/>';
+    }});
+    dates.forEach(function(dt,i){{
+      svg+='<text x="'+(i*step)+'" y="'+(H+18)+'" font-size="9.5" fill="#8a94a6">'+dt.slice(5)+'</text>';
+      svg+='<line x1="'+(i*step)+'" y1="0" x2="'+(i*step)+'" y2="'+H+'" stroke="#eef2f8"/>';
+    }});
+    svg+='</svg>';
+    box.innerHTML=svg;
+    var lg=document.getElementById("rblegend");
+    if(lg)lg.innerHTML=brokers.map(function(b,bi){{
+      var last=(RB.values[b.id]&&RB.values[b.id][n-1]!=null)?RB.values[b.id][n-1]:"—";
+      return '<span><i style="background:'+COLORS[bi%COLORS.length]+'"></i>'+esc(b.name.slice(0,28))+" "+last+"%</span>";
+    }}).join("");
+  }}
 
-    # ---- 19-20. Research context + raw previews ----
-    cards.append(
-        _card(
-            "⑲ 研究包下載（AI 用）",
-            f"<div class='pills'><a class='pill' href='/api/v1/stocks/{normalized}/research-context?format=json'>研究包 JSON</a>"
-            f"<a class='pill' href='/api/v1/stocks/{normalized}/research-context?format=markdown'>研究包 Markdown</a>"
-            f"<a class='pill' href='/api/v1/stocks/{normalized}/report-draft'>報告初稿 MD</a>"
-            f"<a class='pill' href='/api/v1/stocks/{normalized}/intelligence-events'>事件全量 JSON</a>"
-            f"<a class='pill' href='/api/v1/intermediary-graph?start_date={start}&end_date={end}'>中介圖譜 JSON</a></div>",
-            open_=False,
-        )
-    )
-    cards.append(
-        _card(
-            "⑳ 原始預覽",
-            f"<div class='pills'><a class='pill' href='/full?code={normalized}'>完整 /full 產品（原始預覽+全表）</a>"
-            f"<a class='pill' href='/console?code={normalized}'>Console</a></div>",
-            open_=False,
-        )
-    )
+  renderRainbow();
+  loadPrice(260);
+}})();
+</script></body></html>"""
 
-    # ---- 21. Provenance & coverage ----
-    cards.append(
-        _card(
-            "㉑ 溯源與覆蓋聲明",
-            "<div class='pills'><span class='pill'>official = 官方申報原行</span><span class='pill'>extracted = 官方文件抽取</span>"
-            "<span class='pill'>缺口 2025-12-25→2026-07-21 = DEFERRED（私人途徑待導入）</span></div>"
-            "<p class='note'>缺失=缺失，永不插值；每項事實帶 source_document / source_url。</p>",
-            open_=False,
-        )
-    )
-
-    # ---- 22. Downloads hub ----
-    cards.append(
-        _card(
-            "㉒ 下載中心",
-            "<div class='pills'>"
-            f"<a class='pill' href='/download/holdings/csv?code={normalized}'>Holdings CSV</a>"
-            f"<a class='pill' href='/download/changes/csv?code={normalized}'>Changes CSV</a>"
-            f"<a class='pill' href='/download/big_changes/csv?code={normalized}'>Big Changes CSV</a>"
-            f"<a class='pill' href='/download/concentration/csv?code={normalized}'>Concentration CSV</a>"
-            f"<a class='pill' href='/download/announcements/csv?code={normalized}'>Announcements CSV</a>"
-            f"<a class='pill' href='/download/price_history/csv?code={normalized}'>Price CSV</a>"
-            "</div>",
-            open_=False,
-        )
-    )
-
-    import re as _re
-    cells = "".join(f"<div class='cell' id='sec{i}'>{c}</div>" for i, c in enumerate(cards))
-    titles = []
-    for c in cards:
-        m = _re.search(r"<summary>(.*?)(<span class='sumnote'>|</summary>)", c)
-        titles.append(_re.sub(r"<[^>]+>", "", m.group(0)).replace("<span class='sumnote'>", "").strip() if m else f"部件 {len(titles)+1}")
-    jumps = "".join(f"<a href='#sec{i}'>{esc(t[:16])}</a> " for i, t in enumerate(titles))
-    numbered = cells
-    kpi_html_final = kpi_html
-    job_panel = (
-        "<h2>Deep Refresh <span class='h2note'>admin key — job 完成後重載此頁</span></h2>"
-        + _JOB_PANEL_SCRIPT.replace("__CODE__", normalized)
-        .replace("__START5Y__", (end - timedelta(days=365 * 5)).isoformat())
-        .replace("__END__", end.isoformat())
-    )
-    terminal_js = _TERMINAL_JS.replace("__CODE__", normalized)
-    page = f"""<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{normalized} · Intelligence Terminal</title>
-{terminal_js}
-<style>
-*{{box-sizing:border-box}}
-body{{margin:0;background:#eef2f7;color:#1e293b;font-family:-apple-system,'Segoe UI','Microsoft JhengHei','PingFang TC',sans-serif}}
-.wrap{{max-width:1360px;margin:0 auto;padding:20px 24px 48px}}
-header.top{{background:linear-gradient(120deg,#0f2557,#1d4ed8 70%,#2563eb);color:#fff;border-radius:14px;padding:24px 28px;margin-bottom:16px;box-shadow:0 6px 18px rgba(29,78,216,.18)}}
-header.top h1{{margin:0;font-size:26px;font-weight:800}}
-header.top .sub{{font-size:12.5px;opacity:.85;margin-top:5px}}
-header.top form{{margin-top:14px;display:flex;gap:8px}}
-header.top input{{border:none;border-radius:7px;padding:9px 12px;font-size:14px;width:170px}}
-header.top button{{background:#fff;color:#1d4ed8;border:none;border-radius:7px;padding:9px 18px;font-weight:700;cursor:pointer}}
-nav.links{{margin:0 0 14px;font-size:13px}}
-nav.links a{{color:#1d4ed8;text-decoration:none;margin-right:16px;font-weight:600}}
-.kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:16px}}
-.kpi{{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:13px 16px;box-shadow:0 1px 3px rgba(15,23,42,.05)}}
-.kpi-label{{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.5px}}
-.kpi-value{{font-size:23px;font-weight:800;color:#0f172a;margin-top:3px;font-variant-numeric:tabular-nums}}
-.kpi-sub{{font-size:11px;color:#94a3b8;margin-top:2px}}
-.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:16px}}
-.cell{{scroll-margin-top:14px}}
-.jumps{{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:2}}
-.jumps a{{color:#1d4ed8;text-decoration:none;margin-right:10px;font-weight:600}}
-.card{{background:#fff;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 3px rgba(15,23,42,.05)}}
-.card.wide{{grid-column:1/-1}}
-.card summary{{cursor:pointer;padding:13px 18px;font-weight:700;font-size:14px;color:#0f172a;border-bottom:1px solid #eef2f7;list-style:none}}
-.card summary::before{{content:'▸ ';color:#94a3b8}}
-.card[open] summary::before{{content:'▾ '}}
-.sumnote{{font-size:11px;color:#94a3b8;font-weight:400;margin-left:8px}}
-.cardbody{{padding:10px 18px 16px}}
-table{{width:100%;border-collapse:collapse;font-size:12.8px}}
-th{{text-align:left;color:#64748b;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #e2e8f0;padding:6px 8px}}
-td{{border-bottom:1px solid #f1f5f9;padding:6px 8px;vertical-align:top}}
-tbody tr:hover{{background:#f8fafc}}
-.num{{text-align:right;font-variant-numeric:tabular-nums}}
-.up{{color:#16a34a;font-weight:700}}
-.down{{color:#dc2626;font-weight:700}}
-.bartrack{{position:relative;background:#eef2f7;border-radius:999px;height:14px;min-width:120px}}
-.barfill{{height:14px;border-radius:999px}}
-.barlabel{{position:absolute;right:8px;top:-1px;font-size:11px;color:#334155;font-weight:600}}
-.pill{{display:inline-block;background:#eff6ff;color:#1d4ed8;padding:3px 10px;margin:3px 4px 3px 0;border-radius:999px;font-size:12px;text-decoration:none}}
-.pill b{{font-weight:800}}
-.badge{{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600}}
-.badge.official{{background:#dbeafe;color:#1e40af}}.badge.extracted{{background:#f1f5f9;color:#475569}}
-.badge.partial{{background:#fef3c7;color:#92400e}}.badge.complete{{background:#dcfce7;color:#166534}}
-.warnbox{{background:#fef3c7;color:#92400e;border-radius:8px;padding:10px 14px;font-size:13px}}
-.note{{color:#64748b;font-size:12px;margin:8px 0 0}}
-.tag{{color:#94a3b8;font-size:11px}}
-.empty{{color:#94a3b8}}
-.spark{{display:block;margin:4px 0}}
-.draftbox{{max-height:420px;overflow:auto;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap}}
-h2{{font-size:15px}}.h2note{{font-size:12px;color:#64748b;font-weight:400}}
-.card button{{background:#1d4ed8;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12.5px;font-weight:600}}
-#adminkey{{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;font-size:13px;width:280px}}
-</style></head><body><div class="wrap">
-<header class="top"><h1>{normalized} · Intelligence Terminal</h1><div class="sub">22 個部件 · persisted 證據快取唯讀 · 窗口 {start} → {end} · 後端數據源不變 · 缺口 2025-12-25→2026-07-21 已標籤</div>
-<form method="get" action="/terminal"><input name="code" value="{esc(normalized)}" placeholder="輸入股票代號"><button>切換</button></form></header>
-<nav class="links"><a href="/?code={normalized}">快總覽</a><a href="/full?code={normalized}">完整即時產品</a><a href="/console?code={normalized}">Console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a></nav>
-<div class="kpis">{kpi_html_final}</div>
-<div class="jumps">{jumps}</div>
-<div class="grid">{numbered}</div>
-{job_panel}
-{terminal_js.replace('__CODE__', normalized)}
-</div></body></html>"""
-    return HTMLResponse(page)
-
-
+    return HTMLResponse(html)
