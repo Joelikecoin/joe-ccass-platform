@@ -404,6 +404,14 @@ Polish notes (non-blocking): 覆蓋快照 KPI shows 0 — `available_dates` retu
 - Commits: `7d1d76d` (fast overview + /full split) + accessor fix; deploys `dep-danktu740ujc73c9m3og` line LIVE. Portal tests 24/24 green.
 - **Backfill relaunched on the new container** (runner + supervisor detached on Machine A; queue file /tmp/job_queue.txt, results /tmp/job_results.txt): remaining 19 windows draining automatically; supervisor relaunches the runner if it dies; done windows auto-skipped.
 
+### ⭐ MORNING DECISION QUEUE（Joe 3 項待決——開 session 先過呢關）
+
+1. **做 D 槽合併** — 任務書 docs/TASK_D_MERGE_C.md（hash 核實→搬 MT4/WeChat→DiskGenius GUI→驗證）
+2. **做 A5 實裝** — outputs/mockup_a5.html 設計接真數據上 /terminal（管道現成）
+3. **合併 Webb 17GB（David_Webb_CCASS_Research_Pack）** — 背景跑 2-4 小時零 token、佔 D: ~20GB
+   → 2007→2026 十九年完整彩虹/歷史、全市場 3,070 隻股（我哋獨有）
+   ※ 交叉依賴：Webb 導入腳本 SRC 指住 D:\ — 若同日做 D 槽合併，先更新腳本路徑去 H: 副本
+
 ### SHUTDOWN HANDOFF 2026-09-20 01:30 HKT (superseded by the section above — kept for the Turso state snapshot)
 
 Backfill runners were stopped cleanly. **Turso state at shutdown (verified):** DI — 00388=108, 01810=230, 02020=89 (2021-04-20→2026-05-15), 02318=1307 (2021-01-05→2026-09-15), 00256=11 (2022-01-05→2022-06-10); announcements — 00388=274, 00941=196, 02020=117, 02318=551; share_capital_history — 02020=25 only.
