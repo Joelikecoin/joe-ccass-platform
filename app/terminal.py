@@ -89,6 +89,10 @@ def _fmt_shares(value) -> str:
         return "—"
 
 
+def _fmt(value) -> str:
+    return _fmt_shares(value)
+
+
 async def _gather(*coros):
     results = await asyncio.gather(*coros, return_exceptions=True)
     return [r if not isinstance(r, Exception) else None for r in results]
@@ -203,6 +207,10 @@ async def terminal(
     end_date: date | None = Query(default=None),
     flow: int = Query(default=30, ge=7, le=1825),
 ):
+    try:
+        flow = int(flow)
+    except (TypeError, ValueError):
+        flow = 30
     normalized = (code or "").strip()
     from ccass_core.normalize import normalize_stock_code
 
