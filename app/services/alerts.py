@@ -38,9 +38,12 @@ class AlertsService:
         for event in events:
             if event.event_type == DI_EVENT_TYPE and event.counterparty:
                 di_series.setdefault(event.counterparty, []).append(event)
+        streak_threshold = 3
         for counterparty, series in di_series.items():
             series.sort(key=lambda e: e.announce_date)
             previous: int | None = None
+            prev_pct: float | None = None
+            directions: list[str] = []  # chained, unknown excluded
             for event in series:
                 present = event.shares_after
                 if present is not None and previous is not None:
@@ -67,8 +70,63 @@ class AlertsService:
                         "source_document": event.source_document,
                         "source_url": event.source_url,
                     })
+
+                # v1 rule: 5% disclosure-line crossings (both ways)
+                if start <= event.announce_date <= end and event.percentage is not None and prev_pct is not None:
+                    crossed_up = prev_pct < 5 <= event.percentage
+                    crossed_down = prev_pct >= 5 > event.percentage
+                    if crossed_up or crossed_down:
+                        alerts.append({
+                            "type": "filing_threshold_cross",
+                            "severity": "notable",
+                            "date": event.announce_date.isoformat(),
+                            "title": f"{counterparty} {'升至' if crossed_up else '跌穿'} 5% 申報線（{prev_pct:.2f}% → {event.percentage:.2f}%）",
+                            "facts": {"counterparty": counterparty, "previous_percentage": prev_pct, "percentage": event.percentage},
+                            "confidence": event.confidence,
+                            "source_document": event.source_document,
+                            "source_url": event.source_url,
+                        })
+
+                # v1 rule: new filer — first-ever disclosure inside the window
+                if start <= event.announce_date <= end and previous is None and present is not None and len(series) >= 2:
+                    alerts.append({
+                        "type": "new_filer",
+                        "severity": "info",
+                        "date": event.announce_date.isoformat(),
+                        "title": f"{counterparty} 首次出現申報（現持 {present:,}）",
+                        "facts": {"counterparty": counterparty, "present_balance": present},
+                        "confidence": event.confidence,
+                        "source_document": event.source_document,
+                        "source_url": event.source_url,
+                    })
+
                 if present is not None:
                     previous = present
+                if direction in ("增持", "減持"):
+                    directions.append(direction)
+                if event.percentage is not None:
+                    prev_pct = event.percentage
+
+            # v1 rule: sustained direction streak (trailing same-direction run)
+            if directions:
+                trailing_kind = directions[-1]
+                run = 0
+                for d in reversed(directions):
+                    if d == trailing_kind:
+                        run += 1
+                    else:
+                        break
+                if run >= streak_threshold and trailing_kind in ("增持", "減持"):
+                    alerts.append({
+                        "type": "direction_streak",
+                        "severity": "notable",
+                        "date": series[-1].announce_date.isoformat(),
+                        "title": f"{counterparty} 連續 {run} 次{trailing_kind} — {'持續收貨模式' if trailing_kind == '增持' else '持續減持模式'}",
+                        "facts": {"counterparty": counterparty, "streak": run, "direction": trailing_kind},
+                        "confidence": "derived",
+                        "source_document": "chained DION series",
+                        "source_url": series[-1].source_url,
+                    })
 
         # Share-capital + results events: surface any inside the window.
         for event in events:
