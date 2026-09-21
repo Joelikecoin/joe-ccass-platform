@@ -493,4 +493,11 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 - A5 design finalized awaiting Joe verification; real-data wiring of /terminal follows A5 exactly (pipelines ready).
 - 覆蓋快照 KPI 顯示 0 = available_dates 簽名需檢查（minor bug listed）。
 
+### QUEUED TASK 2026-09-22: D 槽併入 C 槽（Joe 指定聽日處理）
+
+機器維護任務：D 槽（500GB）併入 C 槽。完整任務書：`docs/TASK_D_MERGE_C.md`
+（分割區排列、每個 D: 項目處置、WeChat 兩處設定、DiskGenius 步驟、重啟後驗證、
+Webb 導入腳本路徑交叉依賴警告——全部已記錄）。注意：Webb 17GB 導入工程
+（SRC 指住 D:）要喺 D 槽刪除前更新路徑去 H: 副本。
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
