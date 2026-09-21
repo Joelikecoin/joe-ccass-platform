@@ -459,4 +459,15 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 10. **Round-4 notes digested 2026-09-19 + RTSS addendum (evening)**
 9. **Round-4 notes digested 2026-09-19 + RTSS addendum (evening)** → `docs_reference_evidence/latest_reference_updates/2026-09-19_FRIEND_ROUND4_DIGEST_RTSS_TAPE_WARM_TURSO.md`. Key takeaways: (a) friend's warm cache is shallow (summaries, history-date unconfirmed) — our Turso/archive warm path already serves dated full history; (b) **Longbridge tape is today-only — any tape/爆量 history must be captured daily or it is lost forever (Phase-1 candidate, Evidence-Cache pattern); 爆量訊號已證實冇超額報酬（616 樣本 p=0.600）— future screener must be labelled 報時+累積, not buy signal**; (c) **RTSS 搜股系統 = separate future project** (own stack: longport+libsql+streamlit, private repo) — reads from our data layer, never built inside this platform (§2 governance); (d) **CCASS middle-gap data = Joe's Drive folder; DT = DisclosureTracker 財技網站; gap data ETA ~days (2026-09-19)** — build the labelled import path when it lands; DT's six 財技事件 types (配股/供股/全購/合股/拆股/CB) map 1:1 onto our Phase-1 event_type; (e) `15092026 原webbsite係點拎DATA.md` re-uploaded 2026-09-19 (was empty) — four-role data-flow map; **rule adopted: sibling systems (RTSS/monitors) read Turso directly, the Render API serves humans/external queries**.
 
+### WRAP-UP COMPLETED FROM HOME MACHINE 2026-09-22 (company session ran out of tokens mid-wrap-up; all work was pushed and is now verified from here)
+
+**Home-machine verification of the company session's work (all PASS):**
+- LIVE deploy = `7c1b9f6` (Monitor v1 percentage-through-event-layer); authority HEAD `851d25e` is docs-only on top — functionally identical, no redeploy needed.
+- **Monitor v1 alerts LIVE-verified from home: 02318 30d = 33 alerts / 22 notable**, Traditional Chinese titles with official provenance (BlackRock 增持 4,014,113 股 → CS20260918E00041).
+- **Turso verified: share_capital_history 02318=60 / 00941=61 / 02020=25** — the last item-1 FAIL (share-capital persistence) is now RESOLVED by the company session's per-year windowed jobs. Item 1 CLOSED.
+- DI totals verified: 00388=108 / 01810=230 / 02020=89 / 02318=1307 / 00256=28 / 08283=7 / 00397=11 (00397 thin — spot-check middle windows for transport-fail vs genuine-zero when convenient).
+- Repo fully synced at `851d25e`; both machines see identical state.
+
+**Current honest remaining (unchanged from §8 above):** ① enrichment awaiting DT gap data ② fundamentals per-issuer insurer depth (v4 page-targeting) ③ doc-entities parser depth ④ Monitor depth rules iteration ⑤ 00397 DI middle-window spot-check ⑥ tape 日內捕捉架構（設計先行）.
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
