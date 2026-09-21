@@ -16,7 +16,7 @@ env:
 jobs:
   accumulate:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 350
     steps:
       - name: Wake the free-tier service
         run: |
