@@ -59,7 +59,10 @@ jobs:
               echo "  -> $FINAL"
             }
             run_job "/admin/disclosure-interests/job?stock_code=$CODE&start_date=2021-01-01&end_date=2026-09-30"
-            run_job "/admin/announcements/job?stock_code=$CODE&start_date=2021-01-01&end_date=2026-09-30"
+            for AW in "2021-01-01 2022-12-31" "2023-01-01 2024-12-31" "2025-01-01 2026-09-30"; do
+              set -- $AW
+              run_job "/admin/announcements/job?stock_code=$CODE&start_date=$1&end_date=$2"
+            done
             run_job "/admin/fundamentals/job?stock_code=$CODE"
             run_job "/admin/intelligence-events/job?stock_code=$CODE&start_date=2021-01-01&end_date=2026-09-30"
           done
