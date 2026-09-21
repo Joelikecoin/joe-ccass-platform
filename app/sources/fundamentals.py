@@ -66,7 +66,7 @@ def _reporting_period(announcement_date: date, kind: str, title: str) -> str:
     return f"{announcement_date.year - 1 if announcement_date.month <= 6 else announcement_date.year}-FY"
 
 
-def _first_number(text: str, labels: tuple[str, ...]) -> float | None:
+def _first_number(text: str, labels: tuple[str, ...], *, min_abs: float = 10.0) -> float | None:
     candidates: list[float] = []
     for label in labels:
         matches = re.finditer(rf"{re.escape(label)}{LABEL_QUALIFIER_RE}((?:\(|\-)?\d[\d,]*(?:\.\d+)?\)?)", text, re.I)
@@ -74,7 +74,7 @@ def _first_number(text: str, labels: tuple[str, ...]) -> float | None:
             token = match.group(1).replace(",", "").replace("(", "-").replace(")", "")
             try:
                 value = float(token)
-                if abs(value) >= 10:
+                if abs(value) >= min_abs:
                     candidates.append(value)
             except ValueError:
                 continue
@@ -116,8 +116,14 @@ def parse_fundamental_pdf(*, stock_code: str, reporting_period: str, announcemen
         "equity": _first_number(text, ("Total equity attributable to owners of the parent", "Equity attributable to shareholders of the parent company", "Equity attributable to shareholders", "Total equity")),
         "operating_cash_flow": _first_number(text, ("Net cash generated from operating activities", "Net cash inflow from operating activities", "Net cash from operating activities")),
         "shares_outstanding": _first_number(text, ("Number of shares in issue", "Shares in issue", "issued shares")),
+        "gross_profit": _first_number(text, ("Gross profit",)),
+        "operating_profit": _first_number(text, ("Operating profit", "Profit from operations")),
+        "total_assets": _first_number(text, ("Total assets",)),
+        "total_liabilities": _first_number(text, ("Total liabilities",)),
+        "earnings_per_share": _first_number(text, ("Basic earnings per share", "Earnings per share", "Basic EPS"), min_abs=0.0),
+        "dividend_per_share": _first_number(text, ("Dividend per share", "Interim dividend per share", "Dividends per share"), min_abs=0.0),
     }
-    parser_method = "pypdf-labelled-financial-statement-v3"
+    parser_method = "pypdf-labelled-financial-statement-v4"
     if scale_note:
         parser_method += f"; {scale_note}"
     # Wrong-scale cross-check: revenue and net assets live on different

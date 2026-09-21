@@ -98,13 +98,17 @@ async def _gather(*coros):
     return [r if not isinstance(r, Exception) else None for r in results]
 
 
-def _build_rainbow_series(snapshot_repo, normalized: str, top_n: int = 12) -> dict:
-    """Walk persisted snapshots chronologically; per date, each top broker's
-    share of CCASS. Grows as the daily snapshot accumulation lands."""
+def _build_rainbow_series(snapshot_repo, normalized: str, top_n: int = 12, *, as_of: date | None = None) -> dict:
+    """Walk persisted snapshots chronologically within the last year; per
+    date, each top broker's share of CCASS. Grows as the daily snapshot
+    accumulation lands."""
+    floor = (as_of or date.today()) - timedelta(days=365)
     dates: list[str] = []
     snapshots: list[dict] = []
     snap = snapshot_repo.latest(normalized)
     while snap is not None and len(dates) < 40:
+        if snap.snapshot_date < floor:
+            break
         dates.insert(0, snap.snapshot_date.isoformat())
         holdings = {h.participant_id: h for h in snap.holdings}
         total = sum(h.shares for h in snap.holdings) or 1
@@ -268,7 +272,7 @@ async def terminal(
                 changes.append((pid, -old, 0, -1))
 
     transfer_pairs = _transfer_pairs(changes)
-    rainbow = _build_rainbow_series(snapshot_repo, normalized)
+    rainbow = _build_rainbow_series(snapshot_repo, normalized, as_of=end)
     flows = _flow_summary(timelines, flow, end)
 
     # ---- 轉倉偵測 rows ----
@@ -351,10 +355,31 @@ async def terminal(
     ocf = _by_period("operating_cash_flow")
     equity = _by_period("equity")
     cash = _by_period("cash")
+    debt = _by_period("debt")
+    net_assets = _by_period("net_assets")
+    shares_out = _by_period("shares_outstanding")
+
+    def _ratio(num_map: dict, den_map: dict) -> dict:
+        out: dict[str, str] = {}
+        for p in periods:
+            n, d = num_map.get(p), den_map.get(p)
+            out[p] = f"{n / d * 100:.2f}%" if (n is not None and d not in (None, 0)) else "—"
+        return out
+
+    margin = _ratio(profit, revenue)
+    roe = _ratio(profit, equity)
+    nav_ps = {p: (round(equity.get(p) * 1e6 / s, 2) if (equity.get(p) is not None and s not in (None, 0)) else "—") for p, s in shares_out.items()}
+    eps = {p: (round(profit.get(p) * 1e6 / s, 3) if (profit.get(p) is not None and s not in (None, 0)) else "—") for p, s in shares_out.items()}
+    netdebt = {p: ((debt.get(p) - cash.get(p)) if (debt.get(p) is not None and cash.get(p) is not None) else None) for p in periods}
+
     def _cells(field_map: dict) -> str:
         return "".join(f"<td class='num'>{_fmt(field_map.get(p)) if field_map.get(p) is not None else '—'}</td>" for p in periods)
+    def _cells_raw(field_map: dict) -> str:
+        return "".join(f"<td class='num'>{field_map.get(p)}</td>" for p in periods)
     is_rows = "".join(f"<tr><td>{label}</td>{_cells(m)}</tr>" for label, m in (("收入", revenue), ("純利", profit), ("經營現金流", ocf)))
-    bs_rows = "".join(f"<tr><td>{label}</td>{_cells(m)}</tr>" for label, m in (("股東權益", equity), ("現金及等價物", cash)))
+    is_rows += "".join(f"<tr><td>{label}</td>{_cells_raw(m)}</tr>" for label, m in (("純利率", margin), ("每股盈利", eps)))
+    bs_rows = "".join(f"<tr><td>{label}</td>{_cells(m)}</tr>" for label, m in (("淨資產", net_assets), ("股東權益", equity), ("現金及等價物", cash), ("借貸總額", debt), ("淨負債(借貸−現金)", netdebt)))
+    bs_rows += "".join(f"<tr><td>{label}</td>{_cells_raw(m)}</tr>" for label, m in (("每股淨值", nav_ps), ("ROE", roe)))
     is_note = "" if f_rows else "<p class='note'>無持久化業績 — 觸發 /admin/fundamentals/job</p>"
 
     # ---- 相關人物 ----
@@ -437,11 +462,11 @@ async def terminal(
 
 <div class="card"><h3>⑭ 資產負債表 <span>· 深度解析（v4 目標）</span></h3>
 <table><tr><th>項目</th>{''.join(f'<th>{_esc(p)}</th>' for p in periods)}</tr>{bs_rows}</table>
-<p class="note">⚠️ 資產/負債明細 = v4 解析工程（年報綜合資產負債表頁）</p></div>
+<p class="note">現有欄位：淨資產/股東權益/現金/借貸 · 總資產/存貨/應收明細 = v4 解析工程（年報綜合資產負債表頁）</p></div>
 
 <div class="card"><h3>⑭b 損益表 <span>· 官方業績文件抽取</span></h3>
 <table><tr><th>項目</th>{''.join(f'<th>{_esc(p)}</th>' for p in periods)}</tr>{is_rows}</table>{is_note}
-<p class="note">v3 已有收入/純利/OCF · 毛利/ROE/每股 = v4 工程</p></div>
+<p class="note">真實欄位計算：純利率/ROE/每股盈利/每股淨值由現有欄位推導 · 毛利/股息明細 = v4 解析工程</p></div>
 
 <div class="card"><h3>⑩ 相關人物 <span>· DION 大戶 + 文件抽取實體</span></h3>
 <table><tr><th>人物 / 機構</th><th>角色</th><th>關聯</th></tr>{person_rows}</table>
@@ -480,11 +505,17 @@ async def terminal(
   function renderCandles(rows){{
     var box=document.getElementById("candles");if(!box)return;
     if(!rows.length){{box.innerHTML='<p class="note">無價格數據</p>';return}}
-    var W=1300,H=200,lo=1e15,hi=0,vmax=1;
+    var W=1300,AX=78,H=200,lo=1e15,hi=0,vmax=1;
     rows.forEach(function(r){{lo=Math.min(lo,(r.low!=null?r.low:r.close));hi=Math.max(hi,(r.high!=null?r.high:r.close));vmax=Math.max(vmax,r.volume||0)}});
     var pad=(hi-lo)*0.06||1;lo-=pad;hi+=pad;
-    var step=W/rows.length,bw=Math.max(1.5,step*0.6);
+    var plotW=W-AX;
+    var step=plotW/rows.length,bw=Math.max(1.5,step*0.6);
     var svg='<svg width="100%" viewBox="0 0 '+W+' '+(H+54)+'" preserveAspectRatio="none">';
+    for(var g=0;g<=4;g++){{
+      var pv=lo+(hi-lo)*g/4,py=H-(pv-lo)/(hi-lo)*H;
+      svg+='<line x1="0" y1="'+py+'" x2="'+plotW+'" y2="'+py+'" stroke="#eef2f8" stroke-width="1"/>';
+      svg+='<text x="'+(plotW+6)+'" y="'+(py+4)+'" font-size="10.5" fill="#5a6678">'+pv.toFixed(2)+'</text>';
+    }}
     rows.forEach(function(r,i){{
       var x=i*step+step/2;
       var hiV=(r.high!=null?r.high:r.close),loV=(r.low!=null?r.low:r.close);
@@ -546,7 +577,7 @@ async def terminal(
     var box=document.getElementById("rainbow");if(!box)return;
     var dates=RB.dates,brokers=RB.brokers,n=dates.length;
     if(!n){{box.innerHTML='<p class="note">持久化快照累積中</p>';return}}
-    var W=1300,H=230,step=n>1?(W/(n-1)):W;
+    var W=1300,AX2=64,H=230,step=n>1?((W-AX2)/(n-1)):W;
     var series=brokers.map(function(b){{return []}});
     var totals=[];
     for(var i=0;i<n;i++){{
@@ -569,12 +600,17 @@ async def terminal(
       svg+='<text x="'+(i*step)+'" y="'+(H+18)+'" font-size="9.5" fill="#8a94a6">'+dt.slice(5)+'</text>';
       svg+='<line x1="'+(i*step)+'" y1="0" x2="'+(i*step)+'" y2="'+H+'" stroke="#eef2f8"/>';
     }});
+    for(var gp=0;gp<=4;gp++){{var pv=top*gp/4,py=H-pv/top*H;
+      svg+='<text x="'+(W-AX2+8)+'" y="'+(py+4)+'" font-size="10" fill="#5a6678">'+pv.toFixed(1)+'%</text>';
+      svg+='<line x1="0" y1="'+py+'" x2="'+(W-AX2)+'" y2="'+py+'" stroke="#eef2f8" stroke-width="1"/>';
+    }}
     svg+='</svg>';
     box.innerHTML=svg;
     var lg=document.getElementById("rblegend");
     if(lg)lg.innerHTML=brokers.map(function(b,bi){{
-      var last=(RB.values[b.id]&&RB.values[b.id][n-1]!=null)?RB.values[b.id][n-1]:"—";
-      return '<span><i style="background:'+COLORS[bi%COLORS.length]+'"></i>'+esc(b.name.slice(0,28))+" "+last+"%</span>";
+      var last=(RB.values[b.id]&&RB.values[b.id][n-1]!=null)?RB.values[b.id][n-1]:null;
+      var pctTxt=(last!=null)?(" "+last.toFixed(2)+"%"):"";
+      return '<span><i style="background:'+COLORS[bi%COLORS.length]+'"></i>'+esc(b.name.slice(0,26))+pctTxt+"</span>";
     }}).join("");
   }}
 

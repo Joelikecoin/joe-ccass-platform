@@ -588,6 +588,12 @@ class FundamentalRow(BaseModel):
     equity: float | None = None
     operating_cash_flow: float | None = None
     shares_outstanding: float | None = None
+    gross_profit: float | None = None
+    operating_profit: float | None = None
+    total_assets: float | None = None
+    total_liabilities: float | None = None
+    earnings_per_share: float | None = None
+    dividend_per_share: float | None = None
     currency: str | None = None
     unit: str | None = None
     source_document: str
