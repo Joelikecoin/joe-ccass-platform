@@ -1,20 +1,22 @@
 name: daily-accumulation
 
-# Evidence-cache accumulation: a rotating 13-stock slice of the watchlist
-# gets DI + announcements + fundamentals + intelligence-events rebuilt each
-# day (full 52-stock coverage every ~4 days). Runs after the CCASS snapshot.
+# Evidence-cache accumulation, GitHub-Actions-orchestrated: a rotating
+# 13-stock slice of the watchlist (full coverage every ~4 days) runs
+# DI -> announcements -> fundamentals -> intelligence-events jobs per stock.
+# The Render container only ever runs ONE small job at a time.
 on:
   schedule:
-    - cron: "45 0 * * 1-5" # 08:45 HKT weekdays, after the snapshot workflow
+    - cron: "45 0 * * 1-5" # 08:45 HKT weekdays, after the CCASS snapshot
   workflow_dispatch: {}
 
 env:
   BASE_URL: https://joe-ccass-api.onrender.com
+  WATCHLIST: "01449 02497 01871 01582 01927 01941 01433 01843 02455 01615 01284 02129 01407 01545 01650 01955 02263 01455 01960 01793 01947 02347 02457 01832 01156 06162 01869 00550 08232 03321 01613 08483 09978 02503 08201 06610 01536 08283 08121 08496 01323 00033 01592 06939 00256 00397 08178 02699 08611 01676 01417 01657"
 
 jobs:
   accumulate:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
     steps:
       - name: Wake the free-tier service
         run: |
@@ -27,26 +29,38 @@ jobs:
           echo "service did not warm up"
           exit 1
 
-      - name: Trigger the accumulation job (13-stock slice)
-        id: trigger
+      - name: Accumulate the daily 13-stock slice
         run: |
-          RESP=$(curl -s -X POST "$BASE_URL/admin/accumulation/job?key=${{ secrets.API_KEY }}")
-          echo "trigger: $RESP"
-          JOB=$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id',''))")
-          if [ -z "$JOB" ]; then echo "no job_id returned"; exit 1; fi
-          echo "job_id=$JOB" >> "$GITHUB_OUTPUT"
-
-      - name: Poll to completion
-        run: |
-          for i in $(seq 1 90); do
-            BODY=$(curl -s "$BASE_URL/admin/accumulation/job/${{ steps.trigger.outputs.job_id }}?key=${{ secrets.API_KEY }}")
-            STATE=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))")
-            echo "poll $i: $(echo "$BODY" | head -c 400)"
-            case "$STATE" in
-              running) sleep 30 ;;
-              error) echo "accumulation job failed"; exit 1 ;;
-              *) echo "terminal state: $STATE"; exit 0 ;;
-            esac
+          KEYQ="${{ secrets.API_KEY }}"
+          DOY=$(date +%j)
+          ROT=$(( DOY % 4 ))
+          START=$(( ROT * 13 ))
+          CODES=($WATCHLIST)
+          SLICE=("${CODES[@]:$START:13}")
+          echo "today slice (${#SLICE[@]}): ${SLICE[@]}"
+          for CODE in "${SLICE[@]}"; do
+            echo "== $CODE =="
+            run_job() {
+              PATHQ="$1"
+              RESP=$(curl -s --max-time 30 -X POST "$BASE_URL${PATHQ}&key=$KEYQ")
+              JOB=$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id',''))" 2>/dev/null)
+              if [ -z "$JOB" ]; then echo "  TRIGGER_FAILED: $RESP"; return; fi
+              STATUS_PATH="${PATHQ%%\?*}/job/$JOB"
+              FINAL="timeout"
+              for i in $(seq 1 15); do
+                sleep 20
+                BODY=$(curl -s --max-time 30 "$BASE_URL$STATUS_PATH?key=$KEYQ")
+                STATE=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" 2>/dev/null)
+                case "$STATE" in
+                  running|"") continue ;;
+                  *) FINAL="$STATE"; break ;;
+                esac
+              done
+              echo "  -> $FINAL"
+            }
+            run_job "/admin/disclosure-interests/job?stock_code=$CODE&start_date=2021-01-01&end_date=2026-09-30"
+            run_job "/admin/announcements/job?stock_code=$CODE&start_date=2021-01-01&end_date=2026-09-30"
+            run_job "/admin/fundamentals/job?stock_code=$CODE"
+            run_job "/admin/intelligence-events/job?stock_code=$CODE&start_date=2021-01-01&end_date=2026-09-30"
           done
-          echo "job still running after the polling window"
-          exit 1
+          echo "slice complete"
