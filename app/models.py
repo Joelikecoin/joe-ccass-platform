@@ -551,6 +551,7 @@ class IntelligenceEventRow(BaseModel):
     placing_agent: str | None = None
     adviser: str | None = None
     entity_name: str | None = None
+    percentage: float | None = None
     source_document: str
     source_url: str
     confidence: Literal["official", "extracted", "derived"] = "derived"

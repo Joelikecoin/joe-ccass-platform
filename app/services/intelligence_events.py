@@ -75,6 +75,7 @@ class IntelligenceEventsService:
                         announce_date=row.event_date,
                         shares_after=row.present_balance,
                         price=row.average_price,
+                        percentage=row.percentage,
                         counterparty=row.filer,
                         source_document=row.filing_id,
                         source_url=row.source_url,

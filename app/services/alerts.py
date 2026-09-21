@@ -72,7 +72,8 @@ class AlertsService:
                     })
 
                 # v1 rule: 5% disclosure-line crossings (both ways)
-                if start <= event.announce_date <= end and event.percentage is not None and prev_pct is not None:
+                event_pct = getattr(event, "percentage", None)
+                if start <= event.announce_date <= end and event_pct is not None and prev_pct is not None:
                     crossed_up = prev_pct < 5 <= event.percentage
                     crossed_down = prev_pct >= 5 > event.percentage
                     if crossed_up or crossed_down:
@@ -80,8 +81,8 @@ class AlertsService:
                             "type": "filing_threshold_cross",
                             "severity": "notable",
                             "date": event.announce_date.isoformat(),
-                            "title": f"{counterparty} {'升至' if crossed_up else '跌穿'} 5% 申報線（{prev_pct:.2f}% → {event.percentage:.2f}%）",
-                            "facts": {"counterparty": counterparty, "previous_percentage": prev_pct, "percentage": event.percentage},
+                            "title": f"{counterparty} {'升至' if crossed_up else '跌穿'} 5% 申報線（{prev_pct:.2f}% → {event_pct:.2f}%）",
+                            "facts": {"counterparty": counterparty, "previous_percentage": prev_pct, "percentage": event_pct},
                             "confidence": event.confidence,
                             "source_document": event.source_document,
                             "source_url": event.source_url,
@@ -104,8 +105,8 @@ class AlertsService:
                     previous = present
                 if direction in ("增持", "減持"):
                     directions.append(direction)
-                if event.percentage is not None:
-                    prev_pct = event.percentage
+                if getattr(event, "percentage", None) is not None:
+                    prev_pct = getattr(event, "percentage", None)
 
             # v1 rule: sustained direction streak (trailing same-direction run)
             if directions:
