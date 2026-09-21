@@ -42,6 +42,21 @@ class AccumulationService:
         self.events_service = events_service
         self.watchlist = watchlist or tuple(daily_watchlist())
 
+    @staticmethod
+    def _run_step_blocking(step_name, code, start, end, disclosure, announcements, fundamentals, events):
+        import asyncio as _asyncio
+
+        async def _job():
+            if step_name == "di":
+                return await disclosure.get_disclosures(code, start_date=start, end_date=end)
+            if step_name == "announcements":
+                return await announcements.get_announcements(code, start_date=start, end_date=end)
+            if step_name == "fundamentals":
+                return await fundamentals.get_fundamentals(code)
+            return await events.get_events(code, start_date=start, end_date=end)
+
+        return _asyncio.run(_job())
+
     def today_slice(self, count: int = DEFAULT_SLICE_SIZE, *, day_index: int | None = None) -> list[str]:
         if not self.watchlist:
             return []
@@ -69,14 +84,19 @@ class AccumulationService:
 
         for index, code in enumerate(codes):
             outcome = StockOutcome(code=code)
-            for step_name, coroutine in (
-                ("di", disclosure.get_disclosures(code, start_date=start, end_date=end)),
-                ("announcements", announcements.get_announcements(code, start_date=start, end_date=end)),
-                ("fundamentals", fundamentals.get_fundamentals(code)),
-                ("events", events.get_events(code, start_date=start, end_date=end)),
-            ):
+            for step_name in ("di", "announcements", "fundamentals", "events"):
+                # Each step runs in its own thread + event loop: the persisted
+                # stores make blocking libsql-HTTP calls that would otherwise
+                # freeze the shared loop and take the whole container down.
                 try:
-                    await asyncio.wait_for(coroutine, timeout=per_step_budget)
+                    await asyncio.wait_for(
+                        asyncio.to_thread(
+                            self._run_step_blocking,
+                            step_name, code, start, end,
+                            disclosure, announcements, fundamentals, events,
+                        ),
+                        timeout=per_step_budget,
+                    )
                     outcome.steps[step_name] = "ok"
                 except asyncio.TimeoutError:
                     outcome.steps[step_name] = "timeout"
