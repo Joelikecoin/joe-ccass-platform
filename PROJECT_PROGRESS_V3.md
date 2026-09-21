@@ -477,7 +477,7 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 - Schema VERIFIED identical to the Webb archive: atDate, stockCode, issueID, ccassID, partID, holding (March 2026 alone = 1,354,540 rows; ~10-11M rows total).
 - Sample extracted at workspace gap_peek folder.
 - **IMPORT PLAN (awaiting Joe go):** (1) merge into local canonical SQLite (format-compatible, offline) then (2) evidence-stock rows into Turso with source=gap_pack provenance labels then (3) rainbow/concentration charts gain the gap period (continuous 2021-2026). Turso free-tier note: import evidence stocks fully; other stocks stay in local canonical.
-- Zcode docs relocated by Joe: Drive joe-ccass-platform/docs_Zcode folder (keep mirroring docs there too).
+- Zcode docs relocated by Joe: Drive joe-ccass-platform/Zcode_Workspace folder (renamed from docs_Zcode, 2026-09-22) (keep mirroring docs there too).
 
 ### RAINBOW PERF NOTE + SESSION CLOSE 2026-09-22 (home machine)
 
