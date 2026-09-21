@@ -93,6 +93,7 @@ from app.services.ownership_timeline import OwnershipTimelineService, get_owners
 from app.services.accumulation import AccumulationService
 from app.services.price_history import get_price_history_service
 from app.services.research_context import ResearchContextService, get_research_context_service
+from app.services.alerts import AlertsService
 from app.models import OwnershipTimelineResponse
 from app.services.announcements import AnnouncementsService, get_announcements_service
 from app.services.corporate_timeline import build_corporate_timeline
@@ -3221,6 +3222,16 @@ async def get_intermediary_graph(
     if start_date > end_date:
         raise PlatformError("INVALID_SCHEMA", "start_date must not be after end_date.", status_code=400)
     return JSONResponse(service.repository.load_graph(start_date=start_date, end_date=end_date))
+
+
+@app.get("/api/v1/stocks/{stock_code}/alerts", tags=["monitor"])
+async def get_stock_alerts(
+    stock_code: str,
+    days: int = Query(default=7, ge=1, le=60),
+    end_date: date | None = Query(default=None),
+):
+    service = AlertsService(get_intelligence_events_service())
+    return JSONResponse(await service.get_alerts(stock_code, days=days, end_date=end_date))
 
 
 @app.get("/api/v1/stocks/{stock_code}/research-context", tags=["research"])
