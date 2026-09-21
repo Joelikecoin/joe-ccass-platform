@@ -470,4 +470,13 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 
 **Current honest remaining (unchanged from §8 above):** ① enrichment awaiting DT gap data ② fundamentals per-issuer insurer depth (v4 page-targeting) ③ doc-entities parser depth ④ Monitor depth rules iteration ⑤ 00397 DI middle-window spot-check ⑥ tape 日內捕捉架構（設計先行）.
 
+### GAP DATA ARRIVED 2026-09-22 (Joe's private channel - verified, schema-compatible)
+
+- Zip (61.4MB) uploaded by Joe to the Drive research pack (two identical copies: David_Webb_CCASS_Research_Pack and Webb_Site HK_Pack122025-072026), filename drive-download-20260921T133916Z-1-001.zip.
+- Contents: participants.csv (61KB, partID-ccassID-partName) + ccass_holdings_2025-12.csv.gz through ccass_holdings_2026-07.csv.gz (8 monthly gz).
+- Schema VERIFIED identical to the Webb archive: atDate, stockCode, issueID, ccassID, partID, holding (March 2026 alone = 1,354,540 rows; ~10-11M rows total).
+- Sample extracted at workspace gap_peek folder.
+- **IMPORT PLAN (awaiting Joe go):** (1) merge into local canonical SQLite (format-compatible, offline) then (2) evidence-stock rows into Turso with source=gap_pack provenance labels then (3) rainbow/concentration charts gain the gap period (continuous 2021-2026). Turso free-tier note: import evidence stocks fully; other stocks stay in local canonical.
+- Zcode docs relocated by Joe: Drive joe-ccass-platform/docs_Zcode folder (keep mirroring docs there too).
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
