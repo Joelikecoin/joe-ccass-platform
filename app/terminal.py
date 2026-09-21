@@ -99,22 +99,38 @@ async def _gather(*coros):
 
 
 def _build_rainbow_series(snapshot_repo, normalized: str, top_n: int = 12, *, as_of: date | None = None) -> dict:
-    """Walk persisted snapshots chronologically within the last year; per
-    date, each top broker's share of CCASS. Grows as the daily snapshot
-    accumulation lands."""
+    """Batched rainbow build: two SQL reads (snapshots + holdings) instead of
+    the per-date previous() walk — each walk step was a Turso HTTP round trip
+    and blew the 60s edge limit once gap-period snapshots landed."""
     floor = (as_of or date.today()) - timedelta(days=365)
-    dates: list[str] = []
+    with snapshot_repo._connect() as connection:
+        snap_rows = connection.execute(
+            "SELECT id, snapshot_date FROM ccass_snapshots WHERE stock_code=? AND snapshot_date>=? ORDER BY snapshot_date",
+            (normalized, floor.isoformat()),
+        ).fetchall()
+        if not snap_rows:
+            return {"dates": [], "brokers": [], "values": {}}
+        chosen = snap_rows[-40:]
+        ids = [str(r[0]) for r in chosen]
+        holder_rows = connection.execute(
+            "SELECT snapshot_id, participant_id, participant_name, shares FROM ccass_holdings WHERE snapshot_id IN ("
+            + ",".join("?" for _ in ids) + ")",
+            ids,
+        ).fetchall()
+    by_snap: dict[int, dict[str, object]] = {r[0]: {} for r in chosen}
+    dates = [r[1] for r in chosen]
+    for sid, pid, pname, shares in holder_rows:
+        by_snap.setdefault(sid, {})[pid] = (pname, shares)
     snapshots: list[dict] = []
-    snap = snapshot_repo.latest(normalized)
-    while snap is not None and len(dates) < 40:
-        if snap.snapshot_date < floor:
-            break
-        dates.insert(0, snap.snapshot_date.isoformat())
-        holdings = {h.participant_id: h for h in snap.holdings}
-        total = sum(h.shares for h in snap.holdings) or 1
-        snapshots.append({"date": snap.snapshot_date.isoformat(), "total": total, "holdings": holdings})
-        snap = snapshot_repo.previous(normalized, before_date=snap.snapshot_date)
-    if len(dates) < 1:
+    for r in chosen:
+        sid = r[0]
+        day_map = by_snap.get(sid, {})
+        holdings = {}
+        for pid, (pname, shares) in day_map.items():
+            holdings[pid] = type("H", (), {"participant_id": pid, "participant_name": pname, "shares": shares})()
+        total = sum(h.shares for h in holdings.values()) or 1
+        snapshots.append({"date": r[1], "total": total, "holdings": holdings})
+    if not snapshots:
         return {"dates": [], "brokers": [], "values": {}}
     latest = snapshots[-1]["holdings"]
     top_ids = [pid for pid, _ in sorted(latest.items(), key=lambda kv: kv[1].shares, reverse=True)[:top_n]]
@@ -122,9 +138,7 @@ def _build_rainbow_series(snapshot_repo, normalized: str, top_n: int = 12, *, as
     for pid in top_ids:
         for snap in reversed(snapshots):
             if pid in snap["holdings"]:
-                names[pid] = getattr(snap["holdings"][pid], "participant_name", None) or getattr(
-                    snap["holdings"][pid], "participant", None
-                ) or pid
+                names[pid] = snap["holdings"][pid].participant_name or pid
                 break
         else:
             names[pid] = pid
@@ -132,9 +146,8 @@ def _build_rainbow_series(snapshot_repo, normalized: str, top_n: int = 12, *, as
     values: dict[str, list[float]] = {pid: [] for pid in top_ids}
     for snap in snapshots:
         total = snap["total"]
-        day_map = snap["holdings"]
         for pid in top_ids:
-            h = day_map.get(pid)
+            h = snap["holdings"].get(pid)
             values[pid].append(round(h.shares / total * 100, 2) if h else 0.0)
     return {"dates": dates, "brokers": brokers, "values": values}
 
