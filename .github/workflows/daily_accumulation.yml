@@ -45,7 +45,7 @@ jobs:
               RESP=$(curl -s --max-time 30 -X POST "$BASE_URL${PATHQ}&key=$KEYQ")
               JOB=$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id',''))" 2>/dev/null)
               if [ -z "$JOB" ]; then echo "  TRIGGER_FAILED: $RESP"; return; fi
-              STATUS_PATH="${PATHQ%%\?*}/job/$JOB"
+              STATUS_PATH="${PATHQ%%\?*}/$JOB"
               FINAL="timeout"
               for i in $(seq 1 15); do
                 sleep 20
