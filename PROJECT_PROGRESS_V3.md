@@ -486,4 +486,11 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 - Gap-pack import: 8 evidence stocks COMPLETE in Turso (~120,924 rows, source-labelled, provenance row created). Remaining DI spot-check: 00397 middle windows.
 - Repo fully synced (authority = main = eb8fd06+); Drive mirrors refreshed (V3 + mockup_a5).
 
+### NIGHT CLOSE 2026-09-22 (Joe sleeping) — resume points
+
+- Webb 17GB dump = MySQL DATA-ONLY dump (no CREATE TABLE, backtick+multi-row INSERTs, MySQL escapes). A streaming importer was drafted at workspace `import_webb_stream.py` (home machine) but NOT yet run/tested — needs a clean pass first (some scaffolding/dead code from iteration). Tables of interest: holdings (issueID,partID,holding,atDate — verified from dump tuples), participants, bigchanges, dailylog, quotes (1994→! 價格歷史金礦), specialdays/calendar/shortnames/issuedshares; SKIP parthold (duplicate ordering). Gap-period overlap 2025-12→12-24 enables cross-validation with gap_pack.
+- Gap pack already imported into local gap_canonical.sqlite (9.54M rows verified) + Turso evidence stocks (8 stocks ~120,924 rows). Remaining Turso import: none pending for evidence stocks.
+- A5 design finalized awaiting Joe verification; real-data wiring of /terminal follows A5 exactly (pipelines ready).
+- 覆蓋快照 KPI 顯示 0 = available_dates 簽名需檢查（minor bug listed）。
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
