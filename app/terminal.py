@@ -406,7 +406,7 @@ async def terminal(
 
     html = f"""<!DOCTYPE html><html lang="zh-HK"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{normalized} · Intelligence Terminal</title><style>{_A5_CSS}</style></head><body><div class="wrap">
-<div class="topbar"><div class="logo">J</div><div><h1>{normalized} · Intelligence Terminal</h1><div class="sub">A5 設計 · DT 式彩虹堆疊 · 陰陽燭 · 全組件 · 缺口已標籤</div></div>
+<div class="topbar"><div class="logo">J</div><div><h1>{normalized} · Intelligence Terminal</h1><div class="sub">A5 設計 · DT 式彩虹堆疊 · 陰陽燭 · 全組件 · 缺口期已由 gap_pack 導入（證據股）</div></div>
 <form method="get" action="/terminal"><input name="code" value="{_esc(normalized)}"><button class="btn">切換</button></form>
 <div class="nav"><a href="/?code={normalized}">快總覽</a><a href="/full?code={normalized}">完整產品</a><a href="/console?code={normalized}">Console</a><a href="/api/v1/stocks/{normalized}/research-context?format=markdown">研究包 MD</a><a href="/api/v1/stocks/{normalized}/report-draft">報告初稿</a></div></div>
 <div class="kpis">{_render_kpis(snapshot, timelines, fundamentals, "—")}</div>
@@ -489,7 +489,7 @@ async def terminal(
 
 <div class="card"><h3>㉑ 溯源與覆蓋 <span>· fail-loud</span></h3>
 <span class="chip">official = 官方申報原行</span><span class="chip">extracted = 官方文件抽取</span>
-<p class="note">CCASS 缺口 2025-12-25→2026-07-21 DEFERRED（私人途徑待導入）· 缺失永不插值 · 每日快照+累積由 GitHub Actions 排程</p></div>
+<p class="note">CCASS 缺口期已導入 gap_pack（證據股 2025-12→2026-07 完整）· 缺失永不插值 · 每日快照+累積由 GitHub Actions 排程</p></div>
 </div></div>
 <script>
 (function(){{
