@@ -479,4 +479,11 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 - **IMPORT PLAN (awaiting Joe go):** (1) merge into local canonical SQLite (format-compatible, offline) then (2) evidence-stock rows into Turso with source=gap_pack provenance labels then (3) rainbow/concentration charts gain the gap period (continuous 2021-2026). Turso free-tier note: import evidence stocks fully; other stocks stay in local canonical.
 - Zcode docs relocated by Joe: Drive joe-ccass-platform/docs_Zcode folder (keep mirroring docs there too).
 
+### RAINBOW PERF NOTE + SESSION CLOSE 2026-09-22 (home machine)
+
+- Company machine's cancelled session had already pushed Monitor v1 (live-verified) — nothing was lost.
+- Rainbow batched-SQL fix (df27331) is DEPLOYED LIVE (dep-daolepqd…): /terminal back from 502-timeout to working (warm ~19.8s). Perf polish (server-side rainbow precompute, the intelligence-snapshot pattern) = deferred backlog item per Joe (可以先不處理彩虹圖).
+- Gap-pack import: 8 evidence stocks COMPLETE in Turso (~120,924 rows, source-labelled, provenance row created). Remaining DI spot-check: 00397 middle windows.
+- Repo fully synced (authority = main = eb8fd06+); Drive mirrors refreshed (V3 + mockup_a5).
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
