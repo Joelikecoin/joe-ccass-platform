@@ -2227,10 +2227,11 @@ async def _run_snapshot_job(job_id: str, selected: tuple[str, ...] | None, dry_r
 
     try:
         result = await run_daily_snapshot(selected, dry_run=dry_run, job_id=job_id, progress=progress)
-    except Exception:
+    except Exception as exc:
         _update_snapshot_job(
             job_id,
             state="error",
+            error=f"{type(exc).__name__}: {exc}"[:300],
             elapsed_s=round(time.monotonic() - started, 3),
             current_code=None,
         )
