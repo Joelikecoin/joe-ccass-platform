@@ -42,7 +42,7 @@ jobs:
             echo "== $CODE =="
             run_job() {
               PATHQ="$1"
-              RESP=$(curl -s --max-time 30 -X POST "$BASE_URL${PATHQ}&key=$KEYQ")
+              RESP=$(curl -s --max-time 30 -X POST "$BASE_URL${PATHQ}&key=$KEYQ" || true)
               JOB=$(echo "$RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('job_id',''))" 2>/dev/null)
               if [ -z "$JOB" ]; then echo "  TRIGGER_FAILED: $RESP"; return; fi
               STATUS_PATH="${PATHQ%%\?*}/$JOB"
