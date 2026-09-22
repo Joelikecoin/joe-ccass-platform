@@ -6,7 +6,8 @@ name: daily-accumulation
 # The Render container only ever runs ONE small job at a time.
 on:
   schedule:
-    - cron: "45 0 * * 1-5" # 08:45 HKT weekdays, after the CCASS snapshot
+    - cron: "45 0 * * 1-5"  # 08:45 HKT cohort 1 (first 6 of the day-block)
+    - cron: "45 6 * * 1-5"  # 14:45 HKT cohort 2 (next 6)
   workflow_dispatch: {}
 
 env:
@@ -33,10 +34,13 @@ jobs:
         run: |
           KEYQ="${{ secrets.API_KEY }}"
           DOY=$(date +%j)
-          ROT=$(( DOY % 4 ))
-          START=$(( ROT * 13 ))
+          HOUR=$(date -u +%H)
+          ROT=$(( DOY % 5 ))
+          BASE=$(( ROT * 12 ))
+          if [ "$HOUR" -ge 6 ] && [ "$HOUR" -lt 9 ]; then OFFSET=$BASE; else OFFSET=$(( BASE + 6 )); fi
           CODES=($WATCHLIST)
-          SLICE=("${CODES[@]:$START:13}")
+          SLICE=("${CODES[@]:$OFFSET:6}")
+          echo "cohort offset $OFFSET (block $ROT)"
           echo "today slice (${#SLICE[@]}): ${SLICE[@]}"
           for CODE in "${SLICE[@]}"; do
             echo "== $CODE =="
