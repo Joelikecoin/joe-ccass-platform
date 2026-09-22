@@ -233,6 +233,7 @@ async def prepare_report(
     _progress(progress, 15, ui_text(locale, "progress_validated_stock_code"))
     gateway_response = None
     source_trace = None
+    _post_gate_t = None
     try:
         _progress(progress, 30, ui_text(locale, "progress_fetching_source"))
         gateway_getter = getattr(service, "get_stock_gateway_response", None)
@@ -477,7 +478,7 @@ async def prepare_report(
     # dedicated research surfaces can hydrate it separately.
     _p0_inner_stage("COMPUTE_ANALYSIS_END", _an_t, completed=True, status="returned")
     _p0_inner_stage("WORKFLOW_BUILD_END", _wf_t, completed=True, status="returned")
-    _p0_inner_stage("PREPARE_POST_GATEWAY_END", _post_gate_t, completed=True, status="prepared_stages_returned")
+    _p0_inner_stage("PREPARE_POST_GATEWAY_END", _post_gate_t or time.perf_counter(), completed=True, status="prepared_stages_returned")
     _progress(progress, 85, ui_text(locale, "progress_rendering_report"))
     _md_t = time.perf_counter(); _p0_inner_stage("MARKDOWN_BUILD_START", _md_t, status="started")
     markdown = build_markdown_report(
