@@ -49,3 +49,20 @@ DST（`D:\webbsite_full.sqlite`）改放 C: 或外置。**執行 Webb 導入前�
 ## 管理員權限
 
 需要嘅指令用 `Start-Process -Verb RunAs` 包裝執行。
+
+## ✅ 進度更新 2026-09-22 深夜
+
+步驟 1-3 已由 ZCode 完成：
+- ✅ D:\WEBBSITE_CCASS_EXTRACT 已刪（hash 核實兩邊一致）
+- ✅ MT4 + MT File 已搬去 C:\Users\Joe Lau\Documents\
+- ✅ xwechat_files 已搬去 C:\Users\Joe Lau\xwechat_files + registry FileSavePath 及 .ini 已改 C:
+- ✅ ProgramData（Quark 影片快取 19.5MB）已刪
+- ✅ 回收桶已清
+
+**淨低（Joe 手動）：**
+1. 開 DiskGenius（管理員）：P4 Recovery 搬去碟尾 → 刪除 D: 分割區 → C: 擴充至碟尾 → 保存更改 → PreOS 重啟
+2. 重啟後：reagentc /info 確認 WinRE（斷咗就 /disable 再 /enable）
+3. 開 WeChat 登入驗證 + MT4 開一次驗證
+4. 叫 ZCode 做最終 partition 驗證
+
+**決定：A5 實裝暫緩**（Joe 考慮更好介面方向中）。
