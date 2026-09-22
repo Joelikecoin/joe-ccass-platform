@@ -17,6 +17,7 @@ jobs:
     steps:
       - name: Wake the free-tier service
         run: |
+          set +e
           for i in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health" || true)
             echo "warm attempt $i: $code"
@@ -37,6 +38,7 @@ jobs:
 
       - name: Poll to completion
         run: |
+          set +e
           for i in $(seq 1 60); do
             BODY=$(curl -s --max-time 30 "$BASE_URL/admin/longbridge/snapshot_job/${{ steps.trigger.outputs.job_id }}?key=${{ secrets.API_KEY }}" || true)
             STATE=$(echo "$BODY" | python3 -c "import json,sys; print(json.load(sys.stdin).get('state',''))" || true)

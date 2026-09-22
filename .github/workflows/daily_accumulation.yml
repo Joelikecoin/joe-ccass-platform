@@ -21,6 +21,7 @@ jobs:
     steps:
       - name: Wake the free-tier service
         run: |
+          set +e
           for i in $(seq 1 12); do
             code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL/health" || true)
             echo "warm attempt $i: $code"
@@ -32,6 +33,7 @@ jobs:
 
       - name: Accumulate the daily 13-stock slice
         run: |
+          set +e
           KEYQ="${{ secrets.API_KEY }}"
           DOY=$(date +%j)
           HOUR=$(date -u +%H)
