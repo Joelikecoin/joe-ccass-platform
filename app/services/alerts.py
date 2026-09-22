@@ -156,6 +156,37 @@ class AlertsService:
                     "source_url": event.source_url,
                 })
 
+        # v2 rule: cumulative net flow per counterparty inside the window —
+        # many small same-direction moves add up even when each is small.
+        net_flow: dict[str, int] = {}
+        for counterparty, series in di_series.items():
+            series.sort(key=lambda e: e.announce_date)
+            previous: int | None = None
+            window_net = 0
+            for event in series:
+                present = event.shares_after
+                if present is not None and previous is not None:
+                    if start <= event.announce_date <= end:
+                        window_net += present - previous
+                if present is not None:
+                    previous = present
+            if window_net != 0:
+                net_flow[counterparty] = window_net
+        for counterparty, net in sorted(net_flow.items(), key=lambda kv: abs(kv[1]), reverse=True)[:5]:
+            if abs(net) < LARGE_DI_CHANGE_SHARES:
+                continue
+            direction = "淨增持" if net > 0 else "淨減持"
+            alerts.append({
+                "type": "net_flow",
+                "severity": "notable",
+                "date": end.isoformat(),
+                "title": f"{counterparty} 窗口內{direction} {abs(net):,} 股（累計申報差）",
+                "facts": {"counterparty": counterparty, "net_shares": net},
+                "confidence": "derived",
+                "source_document": "chained DION series",
+                "source_url": "",
+            })
+
         alerts.sort(key=lambda a: a["date"], reverse=True)
         notable = sum(1 for a in alerts if a["severity"] == "notable")
         return {

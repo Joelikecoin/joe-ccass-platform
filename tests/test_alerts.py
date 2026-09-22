@@ -49,7 +49,7 @@ async def test_alerts_chain_balances_and_flag_window_movements():
     service = AlertsService(_FakeEvents(events))
     result = await service.get_alerts("02318", days=7, end_date=today)
 
-    assert result["alert_count"] == 3  # 1 DI in-window + share capital + results
+    assert result["alert_count"] == 4  # 1 DI + share capital + results + BlackRock net-flow (10M+6M = 淨增持 16M, notable)
     di_alerts = [a for a in result["alerts"] if a["type"] == "di_movement"]
     assert len(di_alerts) == 1
     newest = di_alerts[0]
