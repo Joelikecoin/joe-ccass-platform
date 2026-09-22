@@ -508,4 +508,18 @@ Original 12-item list (2026-09-19 evening handoff, company machine): 1 share-cap
 Webb 導入腳本路徑交叉依賴警告——全部已記錄）。注意：Webb 17GB 導入工程
 （SRC 指住 D:）要喺 D 槽刪除前更新路徑去 H: 副本。
 
+### 🏆 WEBB 17GB FULLY IMPORTED 2026-09-22 night — 19-YEAR PARTICIPANT DATABASE BUILT
+
+`import_webb_stream.py` (clean rewrite) completed: **webbsite_full.sqlite = 258,775,694 rows** —
+holdings 229,978,760 (2007→2025-12 daily participant holdings, ALL stocks),
+dailylog 9,657,064, bigchanges 2,180,130, quotes 16,895,563 (1994→ price history!),
+participants 1,746, + calendar/oldnames/pquotes/sehkmonthend/shortnames/specialdays.
+Located at C:/Users/Joe Lau/.zcode/workspace/default/webbsite_full.sqlite (~20GB).
+Parthold (duplicate ordering) skipped by design.
+**THE 19-YEAR RAINBOW DATA SOURCE IS READY**: webbsite_full (2007→2025-12) + gap_canonical (2025-12→2026-07) = continuous.
+Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS holdings.csv`
+(in the CCASS schema folder on Drive) or the issue/stockListings tables (enigma schema, not in this dump).
+
+**WAITING FOR JOE'S GO (2026-09-23 morning decision):** ① A5 實裝（skip per Joe's latest）② 資產負債表 v4 ③ 異動盤捕捉架構 ④ DT gap 數據導入路徑 ⑤ Monitor depth iteration. The rainbow real-data wiring uses webbsite_full + gap_canonical directly (both local, both complete).
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
