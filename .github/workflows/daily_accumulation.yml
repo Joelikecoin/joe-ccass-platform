@@ -39,7 +39,7 @@ jobs:
           HOUR=$(date -u +%H)
           ROT=$(( DOY % 5 ))
           BASE=$(( ROT * 12 ))
-          if [ "$HOUR" -ge 6 ] && [ "$HOUR" -lt 9 ]; then OFFSET=$BASE; else OFFSET=$(( BASE + 6 )); fi
+          if [ "$HOUR" -lt 3 ]; then OFFSET=$BASE; else OFFSET=$(( BASE + 6 )); fi  # 00:45 UTC run = cohort 1, 06:45 UTC run = cohort 2
           CODES=($WATCHLIST)
           SLICE=("${CODES[@]:$OFFSET:6}")
           echo "cohort offset $OFFSET (block $ROT)"
