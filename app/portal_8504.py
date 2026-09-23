@@ -2214,7 +2214,7 @@ async def _temporary_token_proof(x_cross_source_proof: str | None = Header(defau
         except Exception as exc:
             stages.append({"stage_name":name,"status":"FAIL","rows_seen":0,"rows_written":0,"error_type":type(exc).__name__,"sanitized_error_message":str(exc)[:180]}); raise
     try:
-        response=await stage("source_read", lambda: get_ccass_service().get_holdings("06182", limit=15))
+        response=await stage("source_read", lambda: get_ccass_service().get_stock_data("06182", holdings_limit=15))
         canonical=await stage("canonical_build", lambda: __import__('app.storage.cross_source',fromlist=['adapt_ccass_response']).adapt_ccass_response(response))
         repository=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=repository.records()
         first=repository.put_many(canonical); after=repository.records(); stages.append({"stage_name":"turso_write","status":"PASS","rows_seen":len(canonical),"rows_written":first})
