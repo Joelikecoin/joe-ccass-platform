@@ -83,6 +83,13 @@ Provide or authorize the Render deployment path/credential, confirm the intended
 
 ## 2026-09-23 — Long-run readiness evidence
 
+## 2026-09-23 — Canonical persistence hardening
+
+- Deployed commit `8a37e7ad78921399328d701558a594886607d38b` adds idempotent canonical writes for validated live CCASS responses and source lineage for CCASS/stock-event records.
+- Fixed the libsql row adapter mapping required for non-empty Turso canonical read-back.
+- Local targeted regression suite passed: 28 tests.
+- Production authenticated sample and Turso row-count/read-back evidence are still blocked because the authorized runtime does not expose the service API key or a Render shell; no secret was requested or printed.
+
 - Relevant Cross-Source/portal/API/persistence tests: 43 passed.
 - Full repository run: 580 passed, 5 unrelated pre-existing failures; no Cross-Source failure.
 - API and portal route registries both contain all five Cross-Source routes; live unauthenticated access returns expected 401.

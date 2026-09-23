@@ -56,6 +56,13 @@ Next gate: obtain owner authorization for a separate deployment/API integration 
 
 ## 2026-09-23 — Long-run autonomous readiness batch
 
+## 2026-09-23 — Canonical persistence and lineage hardening
+
+- Fixed libsql tuple-row mapping so non-empty Turso reads expose stable column keys; Cross-Source reads no longer depend on `dict(row)` compatibility.
+- CCASS and stock-event adapters now persist deterministic `EvidenceRef` lineage (source, native identifier, retrieval/observed timestamps, parser version).
+- Live CCASS persistence now writes canonical security/entity/relationship records idempotently alongside the existing validated snapshot write.
+- Targeted Cross-Source, history and Turso regression tests: 28 passed locally. Commit `8a37e7ad78921399328d701558a594886607d38b` deployed to Render; authenticated production sample invocation remains blocked by unavailable API-key execution context.
+
 - Cross-Source/portal/API/persistence regression: 43 passed.
 - Full repository suite after installing declared local `respx` test dependency: 580 passed, 5 pre-existing unrelated failures (Streamlit/deployment compatibility and route-listing compatibility); no Cross-Source failures.
 - Local API and production portal both expose all five Cross-Source routes. Live unauthenticated route behavior remains correctly protected with HTTP 401.
