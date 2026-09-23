@@ -49,12 +49,20 @@ async def run_job(store:JobStore,jid:str):
         from app.storage.history import NormalizedSnapshotRepository
         response=await get_ccass_service().get_stock_data("06182",holdings_limit=15); store.record_stage(jid,"source_read","PASS",rows_seen=len(response.holdings)); store.record_stage(jid,"source_normalize","PASS",rows_seen=len(response.holdings)); store.update(jid,current_stage="source_read",progress=15,checkpoint=json.dumps({"passed":["source_read","source_normalize"]}))
         canonical=adapt_ccass_response(response); store.record_stage(jid,"canonical_build","PASS",rows_seen=len(canonical)); store.update(jid,current_stage="canonical_build",progress=25)
-        repo=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=len(repo.records()); repo.put_many(canonical); after=len(repo.records()); store.record_stage(jid,"turso_write","PASS",rows_seen=len(canonical),rows_after=after,rows_written=max(0,after-before)); repo.put_many(canonical); final=len(repo.records()); store.record_stage(jid,"second_run_idempotency","PASS",rows_after=final,rows_written=max(0,final-after),duplicate_count=max(0,final-after)); rows=repo.records(); scoped=[r for r in rows if "06182" in str(r.get("record_id",""))]; lineage=[r for r in scoped if "source_reference" in str(r.get("payload_json",""))]; store.record_stage(jid,"turso_readback","PASS",rows_seen=len(scoped)); store.record_stage(jid,"lineage_readback","PASS",lineage_count=len(lineage)); store.record_stage(jid,"evidence_chain","PASS",evidence_count=len(lineage))
+        def persist_and_read():
+            repo=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=len(repo.records()); repo.put_many(canonical); after=len(repo.records()); repo.put_many(canonical); final=len(repo.records()); rows=repo.records(); scoped=[r for r in rows if "06182" in str(r.get("record_id",""))]; lineage=[r for r in scoped if "source_reference" in str(r.get("payload_json",""))]; return before,after,final,scoped,lineage
+        before,after,final,scoped,lineage=await asyncio.to_thread(persist_and_read)
+        store.record_stage(jid,"turso_write","PASS",rows_seen=len(canonical),rows_after=after,rows_written=max(0,after-before)); store.record_stage(jid,"second_run_idempotency","PASS",rows_after=final,rows_written=max(0,final-after),duplicate_count=max(0,final-after)); store.record_stage(jid,"turso_readback","PASS",rows_seen=len(scoped)); store.record_stage(jid,"lineage_readback","PASS",lineage_count=len(lineage)); store.record_stage(jid,"evidence_chain","PASS",evidence_count=len(lineage))
         summary={"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":before,"canonical_rows_after":after,"canonical_rows_written":max(0,after-before),"second_run_rows_written":max(0,final-after),"duplicate_count":max(0,final-after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage),"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":final==after,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage)}
         store.update(jid,status="COMPLETED",current_stage="final_validation",progress=100,completed_at=datetime.now(UTC).isoformat(),checkpoint=json.dumps({"passed":list(STAGES)}),result_summary=json.dumps(summary))
     except Exception as exc:
         store.update(jid,status="FAILED",failed_stage=store.get(jid).get("current_stage"),sanitized_error=f"{type(exc).__name__}: {str(exc)[:180]}")
 
-_tasks={}
+_tasks={}; _acceptance_semaphore=None
 def start_job(store,job_type):
-    jid=store.create(job_type); _tasks[jid]=asyncio.create_task(run_job(store,jid)); return jid
+    global _acceptance_semaphore
+    jid=store.create(job_type)
+    if _acceptance_semaphore is None: _acceptance_semaphore=asyncio.Semaphore(1)
+    async def bounded():
+        async with _acceptance_semaphore: await run_job(store,jid)
+    _tasks[jid]=asyncio.create_task(bounded()); return jid
