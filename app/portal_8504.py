@@ -2265,7 +2265,7 @@ def _job_auth(key):
     return bool(key and (key == get_settings().api_key or key == os.getenv("JOB_RUNNER_AUTOMATION_TOKEN")))
 async def _start_job(job_type: str = "CROSS_SOURCE_PRODUCTION_ACCEPTANCE", x_api_key: str | None = Header(default=None)):
     if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
-    if job_type not in {"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","ENTITY_RESOLUTION_PRODUCTION_ACCEPTANCE"}: return JSONResponse({"detail":"UNSUPPORTED_JOB_TYPE"},status_code=400)
+    if job_type not in {"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","ENTITY_RESOLUTION_PRODUCTION_ACCEPTANCE","EVENT_PRODUCTION_ACCEPTANCE"}: return JSONResponse({"detail":"UNSUPPORTED_JOB_TYPE"},status_code=400)
     return {"job_id": start_job(_job_store,job_type),"status":"QUEUED","job_type":job_type}
 async def _job_status(job_id: str, x_api_key: str | None = Header(default=None)):
     if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
