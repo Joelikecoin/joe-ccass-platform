@@ -1,0 +1,246 @@
+{
+  "service_id": "srv-dads94740ujc73cpdktg",
+  "audit_deploy_id": "dep-dapmsum7bikc73833c30",
+  "audit_commit": "fed38f85570d316b9ea37544235e126fcde932f3",
+  "result": "FAIL",
+  "checks": [
+    {
+      "timestamp": "2026-09-23T06:16:40.94286373Z",
+      "check": "API_KEY_runtime",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:16:40.942910932Z",
+      "check": "TURSO_DATABASE_URL_runtime",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:16:40.942914942Z",
+      "check": "TURSO_AUTH_TOKEN_runtime",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:05.850889856Z",
+      "check": "local_health",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:06.199169031Z",
+      "check": "public_health",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:07.650504669Z",
+      "check": "openapi",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:07.650533211Z",
+      "check": "cross_source_routes",
+      "pass": true,
+      "route_count": 5
+    },
+    {
+      "timestamp": "2026-09-23T06:17:07.956738889Z",
+      "check": "unauthenticated_rejected",
+      "pass": true,
+      "http_status": 401
+    },
+    {
+      "timestamp": "2026-09-23T06:17:08.724951747Z",
+      "check": "turso_connection",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:08.878701702Z",
+      "check": "cross_source_table_exists_before_api",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.034900751Z",
+      "check": "cross_source_schema",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.344572783Z",
+      "check": "canonical_records_readback",
+      "pass": false,
+      "row_count": 0,
+      "total": 0,
+      "bounded_sample": false
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.344592864Z",
+      "check": "canonical_entity",
+      "pass": false,
+      "count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.344599224Z",
+      "check": "canonical_security",
+      "pass": false,
+      "count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.344604604Z",
+      "check": "canonical_relationship",
+      "pass": false,
+      "count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.344610245Z",
+      "check": "canonical_event",
+      "pass": false,
+      "count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:09.504632094Z",
+      "check": "canonical_repeat_read",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:10.106342448Z",
+      "check": "real_snapshot_readback",
+      "pass": true,
+      "row_count": 103
+    },
+    {
+      "timestamp": "2026-09-23T06:17:10.106390811Z",
+      "check": "snapshot_source_lineage",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:10.285766649Z",
+      "check": "authenticated_interval",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:13.240423908Z",
+      "check": "authenticated_timeline",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:16.089402784Z",
+      "check": "public_runtime_consistency_timeline",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:19.006107369Z",
+      "check": "authenticated_sequence",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:21.891060461Z",
+      "check": "public_runtime_consistency_sequence",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:24.916820482Z",
+      "check": "authenticated_evidence",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:27.943413893Z",
+      "check": "public_runtime_consistency_evidence",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:30.812166483Z",
+      "check": "authenticated_entity",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.705585421Z",
+      "check": "public_runtime_consistency_entity",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862455075Z",
+      "check": "authenticated_fingerprint",
+      "pass": true,
+      "http_status": 200
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862627463Z",
+      "check": "evidence_db_readback_consistency",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862633474Z",
+      "check": "evidence_total_consistency",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862636434Z",
+      "check": "entity_real_matches",
+      "pass": false
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862639234Z",
+      "check": "timeline_real_events",
+      "pass": false,
+      "count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862642024Z",
+      "check": "sequence_real_matches",
+      "pass": false
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862644794Z",
+      "check": "canonical_source_lineage",
+      "pass": false
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862647415Z",
+      "check": "timeline_evidence_lineage",
+      "pass": false
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862650155Z",
+      "check": "interval_result",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:33.862652885Z",
+      "check": "fingerprint_real_result",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:34.043316448Z",
+      "check": "cross_source_table_exists_after_api",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:34.206059538Z",
+      "check": "cross_source_schema_after_api",
+      "pass": true
+    },
+    {
+      "timestamp": "2026-09-23T06:17:34.555137398Z",
+      "check": "canonical_records_after_api",
+      "pass": false,
+      "row_count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:34.555154149Z",
+      "check": "persisted_count_consistency",
+      "pass": true,
+      "row_count": 0
+    },
+    {
+      "timestamp": "2026-09-23T06:17:34.555157409Z",
+      "check": "audit_finished",
+      "pass": true,
+      "passed_count": 31,
+      "total": 42
+    }
+  ]
+}
