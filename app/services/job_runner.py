@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 STAGES=("source_read","source_normalize","canonical_build","turso_write","turso_readback","second_run_idempotency","lineage_readback","evidence_chain","entity_acceptance","event_acceptance","sequence_acceptance","fingerprint_acceptance","cleanup","final_validation")
+STAGE_REGISTRY={name:{"stage_version":name+"-v1","retry_limit":3} for name in STAGES}
+STAGE_REGISTRY.update({name:{"stage_version":name+"-v1","retry_limit":3} for name in ("entity_source_discovery","entity_normalization","entity_resolution","entity_false_merge_safety","entity_cross_stock_query","event_source_discovery","event_normalization","event_dedup","event_timeline","sequence_build","sequence_query","interval_calculation","fingerprint_build","fingerprint_compare","historical_ccass_discovery","historical_ccass_normalize","historical_ccass_canonical_write","historical_ccass_validation")})
 MAX_STAGE_RETRIES=3
 CODE_VERSION=os.getenv("RENDER_GIT_COMMIT", "local")
 STATUSES={"QUEUED","RUNNING","BLOCKED","FAILED","COMPLETED","CANCELLED"}
@@ -45,6 +47,12 @@ class JobStore:
     def stage_passed(self,jid,stage):
         with self._connect() as c:
             return c.execute("SELECT 1 FROM acceptance_runs WHERE acceptance_run_id=? AND stage_name=? AND stage_status IN ('PASS','DATA_NOT_AVAILABLE')",(jid,stage)).fetchone() is not None
+    def invalidate_stage(self,jid,stage):
+        with self._connect() as c:
+            c.execute("UPDATE acceptance_runs SET stage_status='PENDING', result_json='{}', updated_at=? WHERE acceptance_run_id=? AND stage_name=?",(datetime.now(UTC).isoformat(),jid,stage)); c.commit()
+    def invalidate_from_stage(self,jid,stage):
+        if stage not in STAGES: raise ValueError("unknown stage")
+        for name in STAGES[STAGES.index(stage):]: self.invalidate_stage(jid,name)
 
 async def run_job(store:JobStore,jid:str):
     job=store.get(jid); store.update(jid,status="RUNNING",started_at=job["started_at"] or datetime.now(UTC).isoformat())
