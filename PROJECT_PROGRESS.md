@@ -30,3 +30,11 @@ Next gate: obtain owner authorization for a separate deployment/API integration 
 - Live health and OpenAPI remain HTTP 200, but live OpenAPI has no Cross-Source routes.
 - Deployment was not attempted because Render CLI/credential and deployment branch authorization are unavailable; production DB and restart persistence cannot be verified.
 - Acceptance is blocked at deployment access, not by the local 19-test MVP integration.
+
+## 2026-09-23 — Scoped commit and push
+
+- Committed only the staged Cross-Source implementation, tests, and acceptance/progress documents: `422ef6710529e9dce521219f0da1ffc30af35c98`.
+- Push succeeded to `origin/codex/cross-source-v1-production-acceptance`.
+- Push to the existing tracked deployment ref was rejected as non-fast-forward because the remote ref contains 53 commits absent locally; no force push or unrelated merge was performed.
+- Render CLI/API credential and production DB credentials are missing. Live `/health` and `/openapi.json` remain HTTP 200, but Cross-Source routes are absent from live OpenAPI.
+- Production acceptance remains blocked at deployment/runtime access; local relevant tests remain 19 passed.

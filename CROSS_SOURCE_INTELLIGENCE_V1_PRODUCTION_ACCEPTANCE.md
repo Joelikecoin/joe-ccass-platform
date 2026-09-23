@@ -54,3 +54,12 @@ Issued-share denominator, HKEX holiday calendar, historical aliases and source-s
 ## Required Owner action
 
 Provide or authorize the Render deployment path/credential, confirm the intended deployment branch or commit, and authorize production read-only DB/API acceptance. Then deploy the scoped current changes, verify the deployed SHA, run live route/sample/drill-down checks, and record restart persistence evidence.
+
+## 2026-09-23 — Scoped commit and deployment gate update
+
+- Scoped Cross-Source commit: `422ef6710529e9dce521219f0da1ffc30af35c98` (`feat: integrate cross-source intelligence routes and persistence`).
+- The commit was pushed successfully to `origin/codex/cross-source-v1-production-acceptance`.
+- The tracked historical deployment branch rejected a non-fast-forward push because it contains 53 commits absent locally; no force push or unrelated merge was performed.
+- Render CLI, `RENDER_API_KEY`, service credentials, and production database credentials remain unavailable in this runtime.
+- Live health remains HTTP 200, but live OpenAPI still has no Cross-Source routes; deployed SHA remains unverified.
+- Final gate remains `PRODUCTION_ACCEPTANCE_PASS=NO` pending deployment of commit `422ef6710529e9dce521219f0da1ffc30af35c98` through the authorized Render path.
