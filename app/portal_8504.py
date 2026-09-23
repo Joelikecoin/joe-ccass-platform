@@ -113,6 +113,7 @@ from app.services.changes import get_changes_service
 from app.services.concentration import get_concentration_service
 from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
+from app.storage.cross_source import CrossSourceRepository
 from app.streamlit_ui import (
     build_download_artifacts,
     build_section_csv_artifact,
@@ -2232,6 +2233,21 @@ app.add_api_route(
     tags=["cross-source"],
 )
 get_settings()
+
+async def _temporary_06182_canonical_proof():
+    response = await get_ccass_service().get_holdings("06182", limit=15)
+    repository = CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path))
+    rows = repository.records()
+    scoped = [row for row in rows if row.get("record_id", "").endswith(":06182") or "06182" in row.get("record_id", "") or row.get("record_id") == "security:06182"]
+    kinds = {row["record_kind"] for row in scoped}
+    lineage = sum(1 for row in scoped if "source_reference" in row.get("payload_json", ""))
+    return {"status": "PASS" if scoped and lineage else "FAIL", "row_count": len(scoped), "kinds": sorted(kinds), "lineage_rows": lineage}
+
+app.add_api_route(
+    "/internal/access-migration/06182-canonical-proof",
+    _temporary_06182_canonical_proof,
+    methods=["POST"], dependencies=[Depends(verify_api_key)], tags=["internal"],
+)
 
 
 app.add_api_route(
