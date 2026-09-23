@@ -2192,6 +2192,44 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
 app = FastAPI(title=APP_TITLE_EN, version="8504")
 
+
+@app.post("/internal/access-migration/turso-proof", dependencies=[Depends(verify_api_key)])
+async def turso_write_proof() -> dict[str, object]:
+    """One-shot, isolated Turso write/read/delete proof; never handles real records."""
+    table = "codex_access_migration_proof"
+    test_key = f"ACCESS_MIGRATION_PROOF:{uuid.uuid4().hex}"
+    value = "ACCESS_MIGRATION_PROOF"
+    repository = NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)
+    connection = repository._connect()
+    try:
+        connection.execute(
+            f"CREATE TABLE IF NOT EXISTS {table} (test_key TEXT PRIMARY KEY, test_value TEXT NOT NULL)"
+        )
+        connection.execute(
+            f"INSERT INTO {table}(test_key, test_value) VALUES (?, ?)", (test_key, value)
+        )
+        connection.commit()
+        row = connection.execute(
+            f"SELECT test_key, test_value FROM {table} WHERE test_key = ?", (test_key,)
+        ).fetchone()
+        readback = row is not None and row[0] == test_key and row[1] == value
+        connection.execute(f"DELETE FROM {table} WHERE test_key = ?", (test_key,))
+        connection.commit()
+        deleted = connection.execute(
+            f"SELECT test_key FROM {table} WHERE test_key = ?", (test_key,)
+        ).fetchone() is None
+        connection.execute(f"DROP TABLE IF EXISTS {table}")
+        connection.commit()
+        return {
+            "result": "PASS" if readback and deleted else "FAIL",
+            "write": True,
+            "readback": readback,
+            "cleaned": deleted,
+            "test_key_prefix": "ACCESS_MIGRATION_PROOF",
+        }
+    finally:
+        connection.close()
+
 # The Render production entrypoint is this portal app rather than ``app.api``.
 # Register the already-tested Cross-Source handlers on the actual production
 # application without duplicating their implementation or changing behavior.
