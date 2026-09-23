@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import asyncio, json, sqlite3, uuid
+import asyncio, json, sqlite3, uuid, os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -10,28 +10,34 @@ STATUSES={"QUEUED","RUNNING","BLOCKED","FAILED","COMPLETED","CANCELLED"}
 class JobStore:
     def __init__(self,path:Path):
         self.path=path.with_name(path.stem+"_jobs.sqlite3"); self.path.parent.mkdir(parents=True,exist_ok=True)
-        with sqlite3.connect(self.path) as c:
+        with self._connect() as c:
             c.execute("CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, job_type TEXT NOT NULL, status TEXT NOT NULL, current_stage TEXT, progress INTEGER NOT NULL, started_at TEXT, updated_at TEXT NOT NULL, completed_at TEXT, failed_stage TEXT, sanitized_error TEXT, checkpoint TEXT NOT NULL, result_summary TEXT NOT NULL)")
             c.execute("CREATE TABLE IF NOT EXISTS acceptance_runs (acceptance_run_id TEXT NOT NULL, job_id TEXT NOT NULL, job_type TEXT NOT NULL, stock_code TEXT NOT NULL, stage_name TEXT NOT NULL, stage_status TEXT NOT NULL, started_at TEXT, completed_at TEXT, rows_seen INTEGER, rows_written INTEGER, rows_after INTEGER, duplicate_count INTEGER, evidence_count INTEGER, lineage_count INTEGER, failed_stage TEXT, error_type TEXT, sanitized_error TEXT, result_json TEXT NOT NULL, source_refs TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (acceptance_run_id, stage_name))")
+    def _connect(self):
+        if os.getenv("TURSO_DATABASE_URL") and os.getenv("TURSO_AUTH_TOKEN"):
+            from app.storage.history import _LibsqlConnection
+            import libsql
+            return _LibsqlConnection(libsql.connect(database=os.environ["TURSO_DATABASE_URL"], auth_token=os.environ["TURSO_AUTH_TOKEN"]))
+        return sqlite3.connect(self.path)
     def create(self,job_type):
         jid=str(uuid.uuid4()); now=datetime.now(UTC).isoformat(); ck=json.dumps({"passed":[]})
-        with sqlite3.connect(self.path) as c:c.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",(jid,job_type,"QUEUED",None,0,None,now,None,None,None,ck,"{}"))
+        with self._connect() as c:c.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",(jid,job_type,"QUEUED",None,0,None,now,None,None,None,ck,"{}")); c.commit()
         return jid
     def get(self,jid):
-        with sqlite3.connect(self.path) as c:
+        with self._connect() as c:
             c.row_factory=sqlite3.Row; r=c.execute("SELECT * FROM jobs WHERE job_id=?",(jid,)).fetchone(); return dict(r) if r else None
     def update(self,jid,**kw):
         kw["updated_at"]=datetime.now(UTC).isoformat(); sets=",".join(f"{k}=?" for k in kw); vals=list(kw.values())+[jid]
-        with sqlite3.connect(self.path) as c:c.execute(f"UPDATE jobs SET {sets} WHERE job_id=?",vals)
+        with self._connect() as c:c.execute(f"UPDATE jobs SET {sets} WHERE job_id=?",vals); c.commit()
     def record_stage(self,jid,stage,status,**data):
         now=datetime.now(UTC).isoformat(); vals={k:None for k in ("rows_seen","rows_written","rows_after","duplicate_count","evidence_count","lineage_count","failed_stage","error_type","sanitized_error")}; vals.update(data)
-        with sqlite3.connect(self.path) as c:c.execute("INSERT OR REPLACE INTO acceptance_runs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(jid,jid,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","06182",stage,status,now,now,vals["rows_seen"],vals["rows_written"],vals["rows_after"],vals["duplicate_count"],vals["evidence_count"],vals["lineage_count"],vals["failed_stage"],vals["error_type"],vals["sanitized_error"],json.dumps(data,default=str),"[]",now,now))
+        with self._connect() as c:c.execute("INSERT OR REPLACE INTO acceptance_runs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(jid,jid,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","06182",stage,status,now,now,vals["rows_seen"],vals["rows_written"],vals["rows_after"],vals["duplicate_count"],vals["evidence_count"],vals["lineage_count"],vals["failed_stage"],vals["error_type"],vals["sanitized_error"],json.dumps(data,default=str),"[]",now,now)); c.commit()
     def acceptance_stages(self,jid):
-        with sqlite3.connect(self.path) as c:
+        with self._connect() as c:
             c.row_factory=sqlite3.Row
             return [dict(r) for r in c.execute("SELECT * FROM acceptance_runs WHERE acceptance_run_id=? ORDER BY created_at",(jid,)).fetchall()]
     def stage_passed(self,jid,stage):
-        with sqlite3.connect(self.path) as c:
+        with self._connect() as c:
             return c.execute("SELECT 1 FROM acceptance_runs WHERE acceptance_run_id=? AND stage_name=? AND stage_status IN ('PASS','DATA_NOT_AVAILABLE')",(jid,stage)).fetchone() is not None
 
 async def run_job(store:JobStore,jid:str):
