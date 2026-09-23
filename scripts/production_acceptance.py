@@ -39,13 +39,17 @@ def request(path, *, payload=None, authenticated=True, local=False):
         headers["X-API-Key"] = os.getenv("API_KEY", "")
     req = urllib.request.Request(base + path, headers=headers,
                                  data=None if payload is None else json.dumps(payload).encode())
-    try:
-        with urllib.request.build_opener(NoRedirect()).open(req, timeout=25) as response:
-            return response.status, json.load(response)
-    except urllib.error.HTTPError as exc:
-        return exc.code, {}
-    except Exception:
-        return 0, {}
+    for attempt in range(3):
+        try:
+            with urllib.request.build_opener(NoRedirect()).open(req, timeout=25) as response:
+                return response.status, json.load(response)
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+        except Exception:
+            status = 0
+        if status not in (0, 502, 503, 504) or attempt == 2:
+            return status, {}
+        time.sleep(3)
 
 
 def rows(connection, sql, args=()):
@@ -164,6 +168,19 @@ def run():
         body = responses.get("fingerprint", {})
         emit("fingerprint_real_result", body.get("matched") == equal and body.get("score") == len(equal) / 2 and body.get("label") == "RESEARCH_PRIOR")
     if connection is not None:
+        try:
+            after_tables = {r["name"] for r in rows(connection, "SELECT name FROM sqlite_master WHERE type='table'")}
+            exists = "cross_source_records" in after_tables
+            emit("cross_source_table_exists_after_api", exists)
+            if exists:
+                columns = {r["name"] for r in rows(connection, "PRAGMA table_info(cross_source_records)")}
+                emit("cross_source_schema_after_api", {"record_id", "record_kind", "source_id", "payload_json", "evidence_state", "created_at"} <= columns)
+                count = rows(connection, "SELECT count(*) AS n FROM cross_source_records")[0]["n"]
+                again = rows(connection, "SELECT count(*) AS n FROM cross_source_records")[0]["n"]
+                emit("canonical_records_after_api", count > 0, row_count=count)
+                emit("persisted_count_consistency", count == again, row_count=count)
+        except Exception:
+            emit("database_post_api_read", False)
         connection.close()
     emit("audit_finished", True, passed_count=sum(RESULTS.values()), total=len(RESULTS))
 
