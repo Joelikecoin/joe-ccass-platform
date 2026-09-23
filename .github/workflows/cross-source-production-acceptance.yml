@@ -1,0 +1,25 @@
+name: Cross-Source Production Acceptance
+on:
+  workflow_dispatch:
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start and poll durable job
+        env:
+          JOB_TOKEN: ${{ secrets.JOB_RUNNER_AUTOMATION_TOKEN }}
+          API_BASE: https://joe-ccass-api.onrender.com
+        run: |
+          set -euo pipefail
+          body=$(curl -fsS -X POST "$API_BASE/internal/jobs/start" -H "X-API-Key: $JOB_TOKEN")
+          job_id=$(python -c 'import json,sys; print(json.load(sys.stdin)["job_id"])' <<< "$body")
+          echo "job_id=$job_id"
+          for i in $(seq 1 120); do
+            state=$(curl -fsS "$API_BASE/internal/jobs/$job_id" -H "X-API-Key: $JOB_TOKEN")
+            echo "$state" | python -c 'import json,sys; d=json.load(sys.stdin); print({k:d.get(k) for k in ("status","current_stage","progress","failed_stage","result_summary")})'
+            status=$(echo "$state" | python -c 'import json,sys; print(json.load(sys.stdin)["status"])')
+            [ "$status" = COMPLETED ] && exit 0
+            [ "$status" = FAILED ] && exit 1
+            sleep 15
+          done
+          exit 2

@@ -2261,20 +2261,22 @@ app.add_api_route(
 get_settings()
 
 _job_store = JobStore(get_settings().ccass_sqlite_path)
+def _job_auth(key):
+    return bool(key and (key == get_settings().api_key or key == os.getenv("JOB_RUNNER_AUTOMATION_TOKEN")))
 async def _start_job(x_api_key: str | None = Header(default=None)):
-    if get_settings().api_key and x_api_key != get_settings().api_key: return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
+    if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
     return {"job_id": start_job(_job_store,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE"),"status":"QUEUED"}
 async def _job_status(job_id: str, x_api_key: str | None = Header(default=None)):
-    if get_settings().api_key and x_api_key != get_settings().api_key: return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
+    if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
     job=_job_store.get(job_id); return job or JSONResponse({"detail":"NOT_FOUND"},status_code=404)
 async def _job_resume(job_id: str, x_api_key: str | None = Header(default=None)):
-    if get_settings().api_key and x_api_key != get_settings().api_key: return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
+    if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
     job=_job_store.get(job_id)
     if not job:return JSONResponse({"detail":"NOT_FOUND"},status_code=404)
     if job["status"] in {"FAILED","BLOCKED"}: asyncio.create_task(run_job(_job_store,job_id))
     return _job_store.get(job_id)
 async def _job_cancel(job_id: str, x_api_key: str | None = Header(default=None)):
-    if get_settings().api_key and x_api_key != get_settings().api_key: return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
+    if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
     _job_store.update(job_id,status="CANCELLED"); return _job_store.get(job_id)
 app.add_api_route("/internal/jobs/start",_start_job,methods=["POST"],tags=["internal-jobs"])
 app.add_api_route("/internal/jobs/{job_id}",_job_status,methods=["GET"],tags=["internal-jobs"])
