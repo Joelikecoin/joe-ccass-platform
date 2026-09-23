@@ -2205,18 +2205,6 @@ app.add_api_route(
     tags=["cross-source"],
 )
 
-async def _temporary_token_proof(x_cross_source_proof: str | None = Header(default=None)):
-    if not x_cross_source_proof or x_cross_source_proof != os.getenv("CROSS_SOURCE_PROOF_TOKEN"):
-        return JSONResponse({"detail": "Not found"}, status_code=404)
-    response = await get_ccass_service().get_holdings("06182", limit=15)
-    repository = CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path))
-    from app.storage.cross_source import adapt_ccass_response
-    canonical = adapt_ccass_response(response)
-    before = repository.records(); first = repository.put_many(canonical); after = repository.records(); second = repository.put_many(canonical); final = repository.records()
-    scoped = [row for row in final if "06182" in str(row.get("record_id", ""))]
-    lineage = [row for row in scoped if "source_reference" in str(row.get("payload_json", ""))]
-    return {"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":len(before),"canonical_rows_written":first,"canonical_rows_after":len(after),"second_run_rows_written":second,"duplicate_count":len(final)-len(after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage) and len(lineage)==len(scoped),"entity_count":sum(r["record_kind"]=="entity" for r in scoped),"event_count":0,"sequence_count":0,"fingerprint_result_count":0,"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":second==0,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage)}
-app.add_api_route("/internal/cross-source-proof", _temporary_token_proof, methods=["POST"], tags=["internal"])
 
 
 
