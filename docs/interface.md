@@ -9,12 +9,21 @@
 
 ## 0. 角色與邊界
 
+> 分工全貌見 `docs/ROLES.md`（憲章 v1.0，2026-09-22 正式採納）。本節只列接口權責。
+
+**角色：** ZCode = Implementation Engineer；GPT = Architect + Research Lead + QA；Joe = 業主/唯一整合者。
+
 | | ZCode（工程側） | GPT（研究側） |
 |---|---|---|
-| 負責 | 前端、後端、DB、API、MCP、部署、數據管道 | 教材研究、股票分析、財技框架、案例、證據鏈 |
+| 負責 | 前端、後端、DB、API、MCP、部署、數據管道、Production Evidence | 教材研究、股票分析、財技框架、案例、證據鏈、規格與合約起草、QA |
 | 不得修改 | 研究邏輯、分析框架、判斷規則、輸出定義 | 平台代碼、DB、API、部署 |
 | 取數方式 | — | 只透過平台 API / 匯出數據 |
 | 跨區請求 | 一律經業主審批，不得直接派對方執行 | 同左 |
+
+**本文件權責劃分：**
+- **§1–4（Current Platform Facts / Production Reality）**：ZCode 核實及擁有最終事實認定權。
+- **§5（Target Research Contract / Research Requirements）**：GPT 起草，包括研究所需欄位、schema、數據口徑及 acceptance criteria。
+- 兩者有差異時，明確標記為 **`GAP / CONFLICT`**，任何一方不得自行修改另一方定義；由 Joe 決定是否開工程任務。
 
 ---
 
@@ -116,6 +125,7 @@
 | 版本 | 日期 | 變更 | 批准 |
 |---|---|---|---|
 | v0.1 | 2026-09-22 | 初版：口徑 + 端點總覽 + 缺口清單 | 待業主 |
+| v0.1.1 | 2026-09-22 | §0 加入憲章 v1.0 權責劃分（Facts vs Target Contract、GAP/CONFLICT 規則）；新增 docs/ROLES.md | Joe 已批（憲章 v1.0） |
 
 ---
 

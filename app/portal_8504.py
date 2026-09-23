@@ -2236,6 +2236,11 @@ async def _run_snapshot_job(job_id: str, selected: tuple[str, ...] | None, dry_r
             current_code=None,
         )
         return
+    sample_errors = [
+        str(r.get("error_message") or r.get("error") or r)[:160]
+        for r in (result.get("results") or [])
+        if isinstance(r, dict) and r.get("status") not in ("COMPLETE", None)
+    ][:5]
     _update_snapshot_job(
         job_id,
         state=result.get("status", "error"),
@@ -2244,6 +2249,7 @@ async def _run_snapshot_job(job_id: str, selected: tuple[str, ...] | None, dry_r
         failed=result.get("failed", 0),
         skipped=result.get("skipped", 0),
         current_code=result.get("current_code"),
+        sample_errors=sample_errors,
         elapsed_s=result.get("elapsed_s", round(time.monotonic() - started, 3)),
     )
 
