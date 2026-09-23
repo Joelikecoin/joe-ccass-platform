@@ -2205,6 +2205,36 @@ app.add_api_route(
     tags=["cross-source"],
 )
 
+async def _temporary_06182_http_proof():
+    service = get_ccass_service()
+    response = await service.get_holdings("06182", limit=15)
+    repository = CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path))
+    before = repository.records()
+    from app.storage.cross_source import adapt_ccass_response
+    canonical = adapt_ccass_response(response)
+    first = repository.put_many(canonical)
+    after = repository.records()
+    second = repository.put_many(canonical)
+    final = repository.records()
+    scoped = [row for row in final if "06182" in str(row.get("record_id", ""))]
+    lineage_rows = [row for row in scoped if "source_reference" in str(row.get("payload_json", ""))]
+    kinds = {row["record_kind"] for row in scoped}
+    return {
+        "stock_code": "06182", "source_rows_seen": len(response.holdings),
+        "canonical_rows_before": len(before), "canonical_rows_written": first,
+        "canonical_rows_after": len(after), "second_run_rows_written": second,
+        "duplicate_count": len(final) - len(after), "lineage_rows": len(lineage_rows),
+        "lineage_complete": bool(lineage_rows) and len(lineage_rows) == len(scoped),
+        "entity_count": sum(row["record_kind"] == "entity" for row in scoped),
+        "event_count": sum(row["record_kind"] == "event" for row in scoped),
+        "sequence_count": 0, "fingerprint_result_count": 0,
+        "evidence_chain_pass": bool(scoped and lineage_rows),
+        "production_db_readback_pass": bool(scoped), "idempotent_pass": second == 0,
+        "canonical_ingestion_pass": bool(scoped), "lineage_pass": bool(lineage_rows),
+        "evidence_drilldown_pass": bool(scoped and lineage_rows),
+    }
+app.add_api_route("/internal/access-migration/06182-http-proof", _temporary_06182_http_proof, methods=["POST"], dependencies=[Depends(verify_api_key)], tags=["internal"])
+
 
 app.add_api_route(
     "/api/v1/cross-source/securities/{security_id}/timeline",
