@@ -97,7 +97,7 @@ async def run_event_job(store:JobStore,jid:str):
         from app.config import get_settings
         from app.storage.cross_source import CrossSourceRepository, adapt_stock_events_response
         from app.storage.history import NormalizedSnapshotRepository
-        response=await get_stock_events_service().get_stock_events("06182")
+        response=await asyncio.to_thread(lambda: asyncio.run(get_stock_events_service().get_stock_events("06182")))
         events=adapt_stock_events_response(response)
         repo=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=len(repo.records()); repo.put_many(events); after=len(repo.records()); repo.put_many(events); final=len(repo.records()); rows=[r for r in repo.records() if r.get("record_kind")=="event" and "06182" in str(r.get("record_id",""))]
         if not events:
