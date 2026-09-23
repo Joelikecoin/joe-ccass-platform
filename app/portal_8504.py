@@ -2204,6 +2204,19 @@ app.add_api_route(
     dependencies=[Depends(verify_api_key)],
     tags=["cross-source"],
 )
+
+@app.on_event("startup")
+async def _run_06182_proof_once():
+    async def runner():
+        await asyncio.sleep(12)
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=45) as client:
+                response = await client.post("http://127.0.0.1:10000/internal/access-migration/06182-canonical-proof", headers={"X-API-Key": os.getenv("API_KEY", "")})
+            print("CANONICAL_06182_PROOF " + json.dumps(response.json(), separators=(",", ":")), flush=True)
+        except Exception as exc:
+            print("CANONICAL_06182_PROOF {\"status\":\"ERROR\",\"type\":\"%s\"}" % type(exc).__name__, flush=True)
+    asyncio.create_task(runner())
 app.add_api_route(
     "/api/v1/cross-source/securities/{security_id}/timeline",
     cross_source_timeline,
