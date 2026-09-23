@@ -46,3 +46,10 @@ Next gate: obtain owner authorization for a separate deployment/API integration 
 - Deployment-only fix `c2ca889a2f477c786b71b9610d25b38263c5ab8b` registered the existing five handlers on the actual portal entrypoint; 27 local tests passed including portal regression tests.
 - Deploy `dep-dapm22c9v7es7393mkkg` reached `live`; live health/OpenAPI are HTTP 200 and OpenAPI now lists all five Cross-Source routes.
 - Authenticated production data samples and DB read-back remain pending due unavailable service API key/Turso credentials in this runtime.
+
+## 2026-09-23 — Authenticated acceptance closure
+
+- Production runtime metadata confirms service `joe-ccass-api` and Turso persistence evidence in historical Render logs (`LB_TURSO_PERSIST_START`/`LB_TURSO_PERSIST_END`).
+- Required secret references are known: GitHub Actions `secrets.API_KEY`; application `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. Secret values are absent from this runtime and were not extracted from logs or hardcoded.
+- Live Cross-Source routes are deployed and authentication-protected; unauthenticated interval request returned HTTP 401 as expected.
+- Authenticated real-source samples and production DB read-only schema/read-back remain the only unresolved acceptance gates.

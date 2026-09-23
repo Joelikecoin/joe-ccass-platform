@@ -72,3 +72,11 @@ Provide or authorize the Render deployment path/credential, confirm the intended
 - `https://joe-ccass-api.onrender.com/openapi.json` returned HTTP 200 and exposes all five Cross-Source routes: entity securities, timeline, sequence, interval, and fingerprint.
 - The production entrypoint is `app.portal_8504:app`; the route registration was added there without changing the Cross-Source core, persistence model, or research rules.
 - Production DB runtime selection and authenticated real-source queries remain pending because this acceptance runtime cannot read the service's secret API key or Turso credentials. No production database mutation was attempted.
+
+## 2026-09-23 — Authenticated acceptance closure
+
+- Runtime secret inspection: `API_KEY`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `DATABASE_URL`, `LIBSQL_URL`, `LIBSQL_AUTH_TOKEN`, and `RENDER_API_KEY` are not present in this execution environment.
+- GitHub workflow references the production API secret as `secrets.API_KEY`; no value is exposed. Application persistence code uses `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` for libSQL/Turso, while historical Render logs show successful `LB_TURSO_PERSIST_START`/`LB_TURSO_PERSIST_END` events.
+- Live Cross-Source routes are present and protected: unauthenticated interval request returned HTTP 401 `AUTH_FAILED`; no authentication bypass was attempted.
+- Authenticated entity, timeline, sequence, interval, fingerprint, evidence drill-down, and read-only DB schema/read-back checks cannot be completed without the production API key and Turso credentials.
+- `PRODUCTION_ACCEPTANCE_PASS=NO` remains an access-gated result; no code, schema, or deployment change was made for this closure.
