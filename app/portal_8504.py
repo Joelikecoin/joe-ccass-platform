@@ -2205,28 +2205,6 @@ app.add_api_route(
     tags=["cross-source"],
 )
 
-async def _temporary_06182_proof():
-    response = await get_ccass_service().get_holdings("06182", limit=15)
-    repository = CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path))
-    rows = repository.records()
-    scoped = [row for row in rows if "06182" in str(row.get("record_id", ""))]
-    lineage = sum("source_reference" in str(row.get("payload_json", "")) for row in scoped)
-    return {"status": "PASS" if scoped and lineage else "FAIL", "row_count": len(scoped), "lineage_rows": lineage, "kinds": sorted({row["record_kind"] for row in scoped})}
-
-app.add_api_route("/internal/access-migration/06182-canonical-proof", _temporary_06182_proof, methods=["POST"], dependencies=[Depends(verify_api_key)], tags=["internal"])
-
-@app.on_event("startup")
-async def _run_06182_proof_once():
-    async def runner():
-        await asyncio.sleep(12)
-        try:
-            import httpx
-            async with httpx.AsyncClient(timeout=60) as client:
-                result = await client.post("http://127.0.0.1:10000/internal/access-migration/06182-canonical-proof", headers={"X-API-Key": os.getenv("API_KEY", "")})
-            print("CANONICAL_06182_PROOF " + json.dumps(result.json(), separators=(",", ":")), flush=True)
-        except Exception as exc:
-            print("CANONICAL_06182_PROOF {\"status\":\"ERROR\",\"type\":\"%s\"}" % type(exc).__name__, flush=True)
-    asyncio.create_task(runner())
 
 app.add_api_route(
     "/api/v1/cross-source/securities/{security_id}/timeline",
