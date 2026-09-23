@@ -63,3 +63,12 @@ Provide or authorize the Render deployment path/credential, confirm the intended
 - Render CLI, `RENDER_API_KEY`, service credentials, and production database credentials remain unavailable in this runtime.
 - Live health remains HTTP 200, but live OpenAPI still has no Cross-Source routes; deployed SHA remains unverified.
 - Final gate remains `PRODUCTION_ACCEPTANCE_PASS=NO` pending deployment of commit `422ef6710529e9dce521219f0da1ffc30af35c98` through the authorized Render path.
+
+## 2026-09-23 — Production acceptance deployment completed
+
+- Render service: `joe-ccass-api` (`srv-dads94740ujc73cpdktg`), production branch `openhands/p0-runtime-api-key-fingerprint-proof`, auto-deploy disabled.
+- Deployment `dep-dapm22c9v7es7393mkkg` reached `live` at `2026-09-23T05:19:45Z` with deployed commit `c2ca889a2f477c786b71b9610d25b38263c5ab8b`.
+- `https://joe-ccass-api.onrender.com/health` returned HTTP 200.
+- `https://joe-ccass-api.onrender.com/openapi.json` returned HTTP 200 and exposes all five Cross-Source routes: entity securities, timeline, sequence, interval, and fingerprint.
+- The production entrypoint is `app.portal_8504:app`; the route registration was added there without changing the Cross-Source core, persistence model, or research rules.
+- Production DB runtime selection and authenticated real-source queries remain pending because this acceptance runtime cannot read the service's secret API key or Turso credentials. No production database mutation was attempted.

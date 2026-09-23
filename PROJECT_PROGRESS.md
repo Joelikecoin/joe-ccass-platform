@@ -38,3 +38,11 @@ Next gate: obtain owner authorization for a separate deployment/API integration 
 - Push to the existing tracked deployment ref was rejected as non-fast-forward because the remote ref contains 53 commits absent locally; no force push or unrelated merge was performed.
 - Render CLI/API credential and production DB credentials are missing. Live `/health` and `/openapi.json` remain HTTP 200, but Cross-Source routes are absent from live OpenAPI.
 - Production acceptance remains blocked at deployment/runtime access; local relevant tests remain 19 passed.
+
+## 2026-09-23 — Production route deployment
+
+- Render service `joe-ccass-api` was explicitly deployed through the authorized Render MCP path because auto-deploy is disabled.
+- First deployment of `78216a2681b78eda23c3d1ee2721bf9ba048c292` was live but did not expose routes because Render starts `app.portal_8504:app`, while the handlers were initially registered only on `app.api:app`.
+- Deployment-only fix `c2ca889a2f477c786b71b9610d25b38263c5ab8b` registered the existing five handlers on the actual portal entrypoint; 27 local tests passed including portal regression tests.
+- Deploy `dep-dapm22c9v7es7393mkkg` reached `live`; live health/OpenAPI are HTTP 200 and OpenAPI now lists all five Cross-Source routes.
+- Authenticated production data samples and DB read-back remain pending due unavailable service API key/Turso credentials in this runtime.
