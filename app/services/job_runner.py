@@ -26,6 +26,13 @@ class JobStore:
     def record_stage(self,jid,stage,status,**data):
         now=datetime.now(UTC).isoformat(); vals={k:None for k in ("rows_seen","rows_written","rows_after","duplicate_count","evidence_count","lineage_count","failed_stage","error_type","sanitized_error")}; vals.update(data)
         with sqlite3.connect(self.path) as c:c.execute("INSERT OR REPLACE INTO acceptance_runs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(jid,jid,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","06182",stage,status,now,now,vals["rows_seen"],vals["rows_written"],vals["rows_after"],vals["duplicate_count"],vals["evidence_count"],vals["lineage_count"],vals["failed_stage"],vals["error_type"],vals["sanitized_error"],json.dumps(data,default=str),"[]",now,now))
+    def acceptance_stages(self,jid):
+        with sqlite3.connect(self.path) as c:
+            c.row_factory=sqlite3.Row
+            return [dict(r) for r in c.execute("SELECT * FROM acceptance_runs WHERE acceptance_run_id=? ORDER BY created_at",(jid,)).fetchall()]
+    def stage_passed(self,jid,stage):
+        with sqlite3.connect(self.path) as c:
+            return c.execute("SELECT 1 FROM acceptance_runs WHERE acceptance_run_id=? AND stage_name=? AND stage_status IN ('PASS','DATA_NOT_AVAILABLE')",(jid,stage)).fetchone() is not None
 
 async def run_job(store:JobStore,jid:str):
     job=store.get(jid); store.update(jid,status="RUNNING",started_at=job["started_at"] or datetime.now(UTC).isoformat())
