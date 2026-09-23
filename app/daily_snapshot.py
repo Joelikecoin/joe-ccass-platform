@@ -183,7 +183,7 @@ async def run_daily_snapshot(
                 error = None
                 break
             except Exception as exc:
-                error = type(exc).__name__
+                error = f"{type(exc).__name__}: {exc}"[:200]
                 if attempt == 0:
                     await asyncio.sleep(1.0)
         item = {
