@@ -124,7 +124,15 @@ from app.streamlit_ui import (
 from ccass_core.collector import SnapshotStore
 from ccass_core.normalize import normalize_stock_code
 
-from app.api import get_concentration_evidence, verify_api_key
+from app.api import (
+    cross_source_entity_securities,
+    cross_source_fingerprint,
+    cross_source_interval,
+    cross_source_sequence,
+    cross_source_timeline,
+    get_concentration_evidence,
+    verify_api_key,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -2183,6 +2191,45 @@ def _render_page(bundle: Portal8504Bundle) -> str:
 
 
 app = FastAPI(title=APP_TITLE_EN, version="8504")
+
+# The Render production entrypoint is this portal app rather than ``app.api``.
+# Register the already-tested Cross-Source handlers on the actual production
+# application without duplicating their implementation or changing behavior.
+app.add_api_route(
+    "/api/v1/cross-source/entities/{entity_id}/securities",
+    cross_source_entity_securities,
+    methods=["GET"],
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+app.add_api_route(
+    "/api/v1/cross-source/securities/{security_id}/timeline",
+    cross_source_timeline,
+    methods=["GET"],
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+app.add_api_route(
+    "/api/v1/cross-source/securities/{security_id}/sequence",
+    cross_source_sequence,
+    methods=["GET"],
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+app.add_api_route(
+    "/api/v1/cross-source/interval",
+    cross_source_interval,
+    methods=["GET"],
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+app.add_api_route(
+    "/api/v1/cross-source/fingerprint",
+    cross_source_fingerprint,
+    methods=["POST"],
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
 get_settings()
 
 
