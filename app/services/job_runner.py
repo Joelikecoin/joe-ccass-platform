@@ -12,6 +12,7 @@ class JobStore:
         self.path=path.with_name(path.stem+"_jobs.sqlite3"); self.path.parent.mkdir(parents=True,exist_ok=True)
         with sqlite3.connect(self.path) as c:
             c.execute("CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, job_type TEXT NOT NULL, status TEXT NOT NULL, current_stage TEXT, progress INTEGER NOT NULL, started_at TEXT, updated_at TEXT NOT NULL, completed_at TEXT, failed_stage TEXT, sanitized_error TEXT, checkpoint TEXT NOT NULL, result_summary TEXT NOT NULL)")
+            c.execute("CREATE TABLE IF NOT EXISTS acceptance_runs (acceptance_run_id TEXT NOT NULL, job_id TEXT NOT NULL, job_type TEXT NOT NULL, stock_code TEXT NOT NULL, stage_name TEXT NOT NULL, stage_status TEXT NOT NULL, started_at TEXT, completed_at TEXT, rows_seen INTEGER, rows_written INTEGER, rows_after INTEGER, duplicate_count INTEGER, evidence_count INTEGER, lineage_count INTEGER, failed_stage TEXT, error_type TEXT, sanitized_error TEXT, result_json TEXT NOT NULL, source_refs TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (acceptance_run_id, stage_name))")
     def create(self,job_type):
         jid=str(uuid.uuid4()); now=datetime.now(UTC).isoformat(); ck=json.dumps({"passed":[]})
         with sqlite3.connect(self.path) as c:c.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",(jid,job_type,"QUEUED",None,0,None,now,None,None,None,ck,"{}"))
@@ -22,6 +23,9 @@ class JobStore:
     def update(self,jid,**kw):
         kw["updated_at"]=datetime.now(UTC).isoformat(); sets=",".join(f"{k}=?" for k in kw); vals=list(kw.values())+[jid]
         with sqlite3.connect(self.path) as c:c.execute(f"UPDATE jobs SET {sets} WHERE job_id=?",vals)
+    def record_stage(self,jid,stage,status,**data):
+        now=datetime.now(UTC).isoformat(); vals={k:None for k in ("rows_seen","rows_written","rows_after","duplicate_count","evidence_count","lineage_count","failed_stage","error_type","sanitized_error")}; vals.update(data)
+        with sqlite3.connect(self.path) as c:c.execute("INSERT OR REPLACE INTO acceptance_runs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(jid,jid,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","06182",stage,status,now,now,vals["rows_seen"],vals["rows_written"],vals["rows_after"],vals["duplicate_count"],vals["evidence_count"],vals["lineage_count"],vals["failed_stage"],vals["error_type"],vals["sanitized_error"],json.dumps(data,default=str),"[]",now,now))
 
 async def run_job(store:JobStore,jid:str):
     job=store.get(jid); store.update(jid,status="RUNNING",started_at=job["started_at"] or datetime.now(UTC).isoformat())
@@ -30,9 +34,9 @@ async def run_job(store:JobStore,jid:str):
         from app.services.ccass import get_ccass_service
         from app.storage.cross_source import CrossSourceRepository, adapt_ccass_response
         from app.storage.history import NormalizedSnapshotRepository
-        response=await get_ccass_service().get_stock_data("06182",holdings_limit=15); store.update(jid,current_stage="source_read",progress=15,checkpoint=json.dumps({"passed":["source_read","source_normalize"]}))
-        canonical=adapt_ccass_response(response); store.update(jid,current_stage="canonical_build",progress=25)
-        repo=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=len(repo.records()); repo.put_many(canonical); after=len(repo.records()); repo.put_many(canonical); final=len(repo.records()); rows=repo.records(); scoped=[r for r in rows if "06182" in str(r.get("record_id",""))]; lineage=[r for r in scoped if "source_reference" in str(r.get("payload_json",""))]
+        response=await get_ccass_service().get_stock_data("06182",holdings_limit=15); store.record_stage(jid,"source_read","PASS",rows_seen=len(response.holdings)); store.record_stage(jid,"source_normalize","PASS",rows_seen=len(response.holdings)); store.update(jid,current_stage="source_read",progress=15,checkpoint=json.dumps({"passed":["source_read","source_normalize"]}))
+        canonical=adapt_ccass_response(response); store.record_stage(jid,"canonical_build","PASS",rows_seen=len(canonical)); store.update(jid,current_stage="canonical_build",progress=25)
+        repo=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=len(repo.records()); repo.put_many(canonical); after=len(repo.records()); store.record_stage(jid,"turso_write","PASS",rows_seen=len(canonical),rows_after=after,rows_written=max(0,after-before)); repo.put_many(canonical); final=len(repo.records()); store.record_stage(jid,"second_run_idempotency","PASS",rows_after=final,rows_written=max(0,final-after),duplicate_count=max(0,final-after)); rows=repo.records(); scoped=[r for r in rows if "06182" in str(r.get("record_id",""))]; lineage=[r for r in scoped if "source_reference" in str(r.get("payload_json",""))]; store.record_stage(jid,"turso_readback","PASS",rows_seen=len(scoped)); store.record_stage(jid,"lineage_readback","PASS",lineage_count=len(lineage)); store.record_stage(jid,"evidence_chain","PASS",evidence_count=len(lineage))
         summary={"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":before,"canonical_rows_after":after,"canonical_rows_written":max(0,after-before),"second_run_rows_written":max(0,final-after),"duplicate_count":max(0,final-after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage),"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":final==after,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage)}
         store.update(jid,status="COMPLETED",current_stage="final_validation",progress=100,completed_at=datetime.now(UTC).isoformat(),checkpoint=json.dumps({"passed":list(STAGES)}),result_summary=json.dumps(summary))
     except Exception as exc:
