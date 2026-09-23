@@ -41,6 +41,12 @@ class _LibsqlRow:
     def __len__(self) -> int:
         return len(self._values)
 
+    def keys(self):
+        return self._columns
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._columns
+
 
 class _LibsqlCursor:
     def __init__(self, cursor) -> None:

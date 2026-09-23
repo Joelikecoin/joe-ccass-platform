@@ -75,7 +75,11 @@ class CrossSourceRepository:
                 rows = connection.execute("SELECT * FROM cross_source_records WHERE record_kind = ? ORDER BY created_at, record_id", (record_kind,)).fetchall()
             else:
                 rows = connection.execute("SELECT * FROM cross_source_records ORDER BY created_at, record_id").fetchall()
-        return [dict(row) for row in rows]
+        output = []
+        for row in rows:
+            keys = row.keys() if hasattr(row, "keys") else ()
+            output.append({key: row[key] for key in keys})
+        return output
 
     def load_engine(self) -> CrossSourceIntelligence:
         entities: list[EntityRecord] = []; securities: list[SecurityRecord] = []
@@ -110,13 +114,21 @@ def _restore(value):
 def adapt_ccass_response(response) -> list[dict[str, object]]:
     """Convert existing holdings response into canonical source records."""
     metadata = response.metadata
+    retrieved_at = metadata.fetched_at.isoformat()
+    source_reference = metadata.source_url
+    security_lineage = (EvidenceRef(source_id=metadata.source_name,
+                                     source_reference=source_reference,
+                                     source_native_id=str(metadata.issue_id),
+                                     retrieved_at=retrieved_at,
+                                     observed_at=metadata.holdings_date.isoformat() if metadata.holdings_date else None,
+                                     parser_version="ccass-response-v1"),)
     security_id = f"security:{metadata.code}"
     records: list[dict[str, object]] = [{
         "record_id": security_id, "record_kind": "security", "source_id": metadata.source_name,
         "source_date": metadata.holdings_date, "evidence_state": "SUPPORTED",
         "payload": {"security_id": security_id, "market": "HK", "stock_code": metadata.code,
                     "issue_id": str(metadata.issue_id), "listed_class": None, "canonical_name": metadata.name,
-                    "valid_from": None, "valid_to": None, "source_mappings": ()},
+                    "valid_from": None, "valid_to": None, "source_mappings": security_lineage},
     }]
     for row in response.holdings:
         entity_id = f"participant:{row.participant_id}"
@@ -125,14 +137,14 @@ def adapt_ccass_response(response) -> list[dict[str, object]]:
                         "payload": {"entity_id": entity_id, "entity_type": "PARTICIPANT", "canonical_name": row.participant,
                                     "source_id": metadata.source_name, "source_native_id": row.participant_id,
                                     "valid_from": metadata.holdings_date, "valid_to": None, "observed_at": metadata.holdings_date,
-                                    "confidence": "EXACT", "status": "ACTIVE", "lineage": ()}})
+                                    "confidence": "EXACT", "status": "ACTIVE", "lineage": security_lineage}})
         relationship_id = f"holding:{metadata.code}:{metadata.holdings_date}:{row.participant_id}"
         records.append({"record_id": relationship_id, "record_kind": "relationship", "source_id": metadata.source_name,
                         "source_date": metadata.holdings_date, "evidence_state": "SUPPORTED",
                         "payload": {"relationship_id": relationship_id, "from_entity_id": entity_id, "to_entity_id": security_id,
                                     "relationship_type": "PARTICIPANT_HOLDING", "valid_from": metadata.holdings_date,
                                     "valid_to": None, "observed_at": metadata.holdings_date, "confidence": "EXACT",
-                                    "evidence_state": "SUPPORTED", "lineage": ()}})
+                                    "evidence_state": "SUPPORTED", "lineage": security_lineage}})
     return records
 
 
@@ -145,6 +157,12 @@ def adapt_stock_events_response(response) -> list[dict[str, object]]:
         if not isinstance(row.event_date, date) or not str(row.title).strip():
             continue
         event_id = row.event_id or f"{code}:{row.event_date}:{row.title}"
+        source_reference = row.event_details_url or row.link or response.metadata.source_url or row.source
+        lineage = (EvidenceRef(source_id=row.source, source_reference=source_reference,
+                               source_native_id=str(row.event_id) if row.event_id else event_id,
+                               retrieved_at=response.metadata.fetched_at.isoformat(),
+                               observed_at=row.event_date.isoformat(),
+                               parser_version="stock-events-v1"),)
         output.append({
             "record_id": event_id,
             "record_kind": "event",
@@ -157,7 +175,7 @@ def adapt_stock_events_response(response) -> list[dict[str, object]]:
                 "announcement_date": row.event_date, "effective_date": None,
                 "completion_date": None, "settlement_date": None, "holdings_date": None,
                 "trade_date": None, "source_observed_at": response.metadata.fetched_at.date(),
-                "evidence_state": "SUPPORTED", "lineage": (),
+                "evidence_state": "SUPPORTED", "lineage": lineage,
             },
         })
     return output

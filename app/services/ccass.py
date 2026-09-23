@@ -43,6 +43,7 @@ from app.services.price_history import get_price_history_service
 from app.services.stock_events import get_stock_events_service
 from app.services.concentration import get_concentration_service
 from app.services.changes import get_changes_service
+from app.storage.cross_source import CrossSourceRepository, adapt_ccass_response
 from app.services.big_changes import get_big_changes_service
 from app.services.holdings_lkg import (
     FreshnessStatus,
@@ -848,6 +849,9 @@ class CcassService:
                 parser_version=definition.parser_version,
             )
             self.lkg_repository.save(snapshot)
+            CrossSourceRepository(self.lkg_repository).put_many(
+                adapt_ccass_response(gateway_response.normalized_response)
+            )
         except Exception as error:
             return structured_warning(
                 "LKG_PERSISTENCE_ERROR",
