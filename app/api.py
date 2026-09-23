@@ -45,12 +45,14 @@ from app.services.share_capital_history import ShareCapitalHistoryService, get_s
 from app.services.disclosure_interests import DisclosureInterestsService, get_disclosure_interests_service
 from app.services.fundamentals import FundamentalsService, get_fundamentals_service
 from app.services.document_entities import DocumentEntitiesService, get_document_entities_service
+from app.services.cross_source_intelligence import CrossSourceIntelligence, EvidenceState
 from app.services.historical_intelligence import (
     HistoricalIntelligenceResponse,
     get_historical_intelligence,
 )
 from app.sources.registry import SourceRegistry, build_source_registry
 from app.storage.history import NormalizedSnapshotRepository
+from app.storage.cross_source import CrossSourceRepository
 from app.streamlit_ui import build_section_csv_artifact
 from ccass_core.big_changes_report import build_big_changes_markdown_report
 from ccass_core.ai_read_model import AIReadModelV0_1
@@ -102,6 +104,12 @@ def get_snapshot_repository(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> NormalizedSnapshotRepository:
     return NormalizedSnapshotRepository(settings.ccass_sqlite_path)
+
+
+def get_cross_source_repository(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> CrossSourceRepository:
+    return CrossSourceRepository(NormalizedSnapshotRepository(settings.ccass_sqlite_path))
 
 
 @app.exception_handler(PlatformError)
@@ -761,6 +769,80 @@ async def get_source_status(
         "source_count": len(sources),
         "sources": sources,
     }
+
+
+@app.get(
+    "/api/v1/cross-source/entities/{entity_id}/securities",
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+async def cross_source_entity_securities(
+    entity_id: str,
+    as_of: date | None = Query(default=None),
+    repository: CrossSourceRepository = Depends(get_cross_source_repository),
+) -> dict[str, object]:
+    securities = repository.load_engine().cross_stock_search(entity_id, as_of=as_of)
+    return {"entity_id": entity_id, "as_of": as_of, "evidence_state": EvidenceState.SUPPORTED.value if securities else EvidenceState.UNKNOWN.value, "securities": [s.__dict__ for s in securities]}
+
+
+@app.get(
+    "/api/v1/cross-source/securities/{security_id}/timeline",
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+async def cross_source_timeline(
+    security_id: str,
+    start_date: date,
+    end_date: date,
+    repository: CrossSourceRepository = Depends(get_cross_source_repository),
+) -> dict[str, object]:
+    result = repository.load_engine().unified_timeline(security_id=security_id, start=start_date, end=end_date)
+    return {"security_id": security_id, "evidence_state": result.evidence_state.value, "duplicate_event_ids": result.duplicate_event_ids, "events": [e.__dict__ for e in result.events]}
+
+
+@app.get(
+    "/api/v1/cross-source/securities/{security_id}/sequence",
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+async def cross_source_sequence(
+    security_id: str,
+    event_types: str,
+    start_date: date,
+    end_date: date,
+    max_gap_days: int = Query(default=30, ge=0, le=3650),
+    repository: CrossSourceRepository = Depends(get_cross_source_repository),
+) -> dict[str, object]:
+    types = tuple(item.strip() for item in event_types.split(",") if item.strip())
+    result = repository.load_engine().sequence_search(security_id=security_id, predicates=[lambda event, kind=kind: event.event_type == kind for kind in types], start=start_date, end=end_date, max_gap_days=max_gap_days)
+    return {"security_id": security_id, "evidence_state": result.evidence_state.value, "matched_event_ids": result.matched_event_ids, "missing_predicates": result.missing_predicates}
+
+
+@app.get(
+    "/api/v1/cross-source/interval",
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+async def cross_source_interval(
+    anchor: date,
+    before: int = Query(default=5, ge=0, le=3650),
+    after: int = Query(default=5, ge=0, le=3650),
+    calendar: str = Query(default="calendar"),
+) -> dict[str, object]:
+    result = CrossSourceIntelligence.interval(anchor=anchor, before=before, after=after, calendar=calendar)
+    return {"anchor": result.anchor, "start": result.start, "end": result.end, "calendar": result.calendar, "included_dates": result.included_dates, "evidence_state": result.evidence_state.value}
+
+
+@app.post(
+    "/api/v1/cross-source/fingerprint",
+    dependencies=[Depends(verify_api_key)],
+    tags=["cross-source"],
+)
+async def cross_source_fingerprint(payload: dict[str, object]) -> dict[str, object]:
+    left = payload.get("left") if isinstance(payload.get("left"), dict) else {}
+    right = payload.get("right") if isinstance(payload.get("right"), dict) else {}
+    result = CrossSourceIntelligence.fingerprint_compare(left, right)
+    return {"matched": result.matched, "unmatched_left": result.unmatched_left, "unmatched_right": result.unmatched_right, "unknown": result.unknown, "score": result.score, "label": result.label, "evidence_state": result.evidence_state.value}
 
 
 def _snapshot_top_ids(snapshot: HistoricalSnapshot, *, count: int = 8) -> list[str]:
