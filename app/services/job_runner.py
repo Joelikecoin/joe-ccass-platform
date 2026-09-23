@@ -5,6 +5,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 STAGES=("source_read","source_normalize","canonical_build","turso_write","turso_readback","second_run_idempotency","lineage_readback","evidence_chain","entity_acceptance","event_acceptance","sequence_acceptance","fingerprint_acceptance","cleanup","final_validation")
+MAX_STAGE_RETRIES=3
+CODE_VERSION=os.getenv("RENDER_GIT_COMMIT", "local")
 STATUSES={"QUEUED","RUNNING","BLOCKED","FAILED","COMPLETED","CANCELLED"}
 
 class JobStore:
@@ -13,6 +15,9 @@ class JobStore:
         with self._connect() as c:
             c.execute("CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, job_type TEXT NOT NULL, status TEXT NOT NULL, current_stage TEXT, progress INTEGER NOT NULL, started_at TEXT, updated_at TEXT NOT NULL, completed_at TEXT, failed_stage TEXT, sanitized_error TEXT, checkpoint TEXT NOT NULL, result_summary TEXT NOT NULL)")
             c.execute("CREATE TABLE IF NOT EXISTS acceptance_runs (acceptance_run_id TEXT NOT NULL, job_id TEXT NOT NULL, job_type TEXT NOT NULL, stock_code TEXT NOT NULL, stage_name TEXT NOT NULL, stage_status TEXT NOT NULL, started_at TEXT, completed_at TEXT, rows_seen INTEGER, rows_written INTEGER, rows_after INTEGER, duplicate_count INTEGER, evidence_count INTEGER, lineage_count INTEGER, failed_stage TEXT, error_type TEXT, sanitized_error TEXT, result_json TEXT NOT NULL, source_refs TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (acceptance_run_id, stage_name))")
+            for col in ("code_version TEXT", "stage_version TEXT", "retry_count INTEGER DEFAULT 0", "last_attempt_at TEXT", "next_retry_at TEXT"):
+                try: c.execute(f"ALTER TABLE acceptance_runs ADD COLUMN {col}")
+                except Exception: pass
     def _connect(self):
         if os.getenv("TURSO_DATABASE_URL") and os.getenv("TURSO_AUTH_TOKEN"):
             from app.storage.history import _LibsqlConnection
@@ -31,7 +36,8 @@ class JobStore:
         with self._connect() as c:c.execute(f"UPDATE jobs SET {sets} WHERE job_id=?",vals); c.commit()
     def record_stage(self,jid,stage,status,**data):
         now=datetime.now(UTC).isoformat(); vals={k:None for k in ("rows_seen","rows_written","rows_after","duplicate_count","evidence_count","lineage_count","failed_stage","error_type","sanitized_error")}; vals.update(data)
-        with self._connect() as c:c.execute("INSERT OR REPLACE INTO acceptance_runs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(jid,jid,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","06182",stage,status,now,now,vals["rows_seen"],vals["rows_written"],vals["rows_after"],vals["duplicate_count"],vals["evidence_count"],vals["lineage_count"],vals["failed_stage"],vals["error_type"],vals["sanitized_error"],json.dumps(data,default=str),"[]",now,now)); c.commit()
+        with self._connect() as c:
+            c.execute("INSERT OR REPLACE INTO acceptance_runs (acceptance_run_id,job_id,job_type,stock_code,stage_name,stage_status,started_at,completed_at,rows_seen,rows_written,rows_after,duplicate_count,evidence_count,lineage_count,failed_stage,error_type,sanitized_error,result_json,source_refs,created_at,updated_at,code_version,stage_version,retry_count,last_attempt_at,next_retry_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",(jid,jid,"CROSS_SOURCE_PRODUCTION_ACCEPTANCE","06182",stage,status,now,now,vals["rows_seen"],vals["rows_written"],vals["rows_after"],vals["duplicate_count"],vals["evidence_count"],vals["lineage_count"],vals["failed_stage"],vals["error_type"],vals["sanitized_error"],json.dumps(data,default=str),"[]",now,now,CODE_VERSION,stage+"-v1",data.get("retry_count",0),now,data.get("next_retry_at"))); c.commit()
     def acceptance_stages(self,jid):
         with self._connect() as c:
             c.row_factory=sqlite3.Row
@@ -53,7 +59,8 @@ async def run_job(store:JobStore,jid:str):
             repo=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=len(repo.records()); repo.put_many(canonical); after=len(repo.records()); repo.put_many(canonical); final=len(repo.records()); rows=repo.records(); scoped=[r for r in rows if "06182" in str(r.get("record_id",""))]; lineage=[r for r in scoped if "source_reference" in str(r.get("payload_json",""))]; return before,after,final,scoped,lineage
         before,after,final,scoped,lineage=await asyncio.to_thread(persist_and_read)
         store.record_stage(jid,"turso_write","PASS",rows_seen=len(canonical),rows_after=after,rows_written=max(0,after-before)); store.record_stage(jid,"second_run_idempotency","PASS",rows_after=final,rows_written=max(0,final-after),duplicate_count=max(0,final-after)); store.record_stage(jid,"turso_readback","PASS",rows_seen=len(scoped)); store.record_stage(jid,"lineage_readback","PASS",lineage_count=len(lineage)); store.record_stage(jid,"evidence_chain","PASS",evidence_count=len(lineage))
-        summary={"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":before,"canonical_rows_after":after,"canonical_rows_written":max(0,after-before),"second_run_rows_written":max(0,final-after),"duplicate_count":max(0,final-after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage),"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":final==after,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage)}
+        field_match=bool(response.metadata.code=="06182" and scoped and all(str(row.get("payload_json","")).find("06182")>=0 for row in scoped if row["record_kind"] in {"security","relationship"}))
+        summary={"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":before,"canonical_rows_after":after,"canonical_rows_written":max(0,after-before),"second_run_rows_written":max(0,final-after),"duplicate_count":max(0,final-after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage),"field_match_pass":field_match,"production_canonical_chain_pass":bool(response.holdings and scoped and field_match and lineage),"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":final==after,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage)}
         store.update(jid,status="COMPLETED",current_stage="final_validation",progress=100,completed_at=datetime.now(UTC).isoformat(),checkpoint=json.dumps({"passed":list(STAGES)}),result_summary=json.dumps(summary))
     except Exception as exc:
         store.update(jid,status="FAILED",failed_stage=store.get(jid).get("current_stage"),sanitized_error=f"{type(exc).__name__}: {str(exc)[:180]}")
