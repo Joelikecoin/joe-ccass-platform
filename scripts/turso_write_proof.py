@@ -5,7 +5,7 @@ import time
 import urllib.request
 
 base = "http://127.0.0.1:" + os.getenv("PORT", "10000")
-for attempt in range(30):
+for attempt in range(90):
     request = urllib.request.Request(
         base + "/internal/access-migration/turso-proof",
         method="POST",
@@ -24,7 +24,7 @@ for attempt in range(30):
             }), flush=True)
             break
     except Exception as exc:
-        if attempt == 29:
+        if attempt == 89:
             print("TURSO_ACCESS_MIGRATION_PROOF " + json.dumps({
                 "status": 0, "result": "ERROR", "exception_type": type(exc).__name__
             }), flush=True)
