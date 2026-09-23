@@ -80,3 +80,12 @@ Provide or authorize the Render deployment path/credential, confirm the intended
 - Live Cross-Source routes are present and protected: unauthenticated interval request returned HTTP 401 `AUTH_FAILED`; no authentication bypass was attempted.
 - Authenticated entity, timeline, sequence, interval, fingerprint, evidence drill-down, and read-only DB schema/read-back checks cannot be completed without the production API key and Turso credentials.
 - `PRODUCTION_ACCEPTANCE_PASS=NO` remains an access-gated result; no code, schema, or deployment change was made for this closure.
+
+## 2026-09-23 — Long-run readiness evidence
+
+- Relevant Cross-Source/portal/API/persistence tests: 43 passed.
+- Full repository run: 580 passed, 5 unrelated pre-existing failures; no Cross-Source failure.
+- API and portal route registries both contain all five Cross-Source routes; live unauthenticated access returns expected 401.
+- Source-to-canonical, participant, event, lineage, persistence and migration readiness audits are documented in `CROSS_SOURCE_V1_LONG_RUN_STATUS.md`.
+- Next-stage real-stock validation checklist is prepared in `CROSS_SOURCE_V1_NEXT_STAGE_READINESS.md` and has not been executed.
+- Production acceptance remains blocked only on authenticated API key and read-only Turso credentials.

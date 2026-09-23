@@ -53,3 +53,12 @@ Next gate: obtain owner authorization for a separate deployment/API integration 
 - Required secret references are known: GitHub Actions `secrets.API_KEY`; application `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. Secret values are absent from this runtime and were not extracted from logs or hardcoded.
 - Live Cross-Source routes are deployed and authentication-protected; unauthenticated interval request returned HTTP 401 as expected.
 - Authenticated real-source samples and production DB read-only schema/read-back remain the only unresolved acceptance gates.
+
+## 2026-09-23 — Long-run autonomous readiness batch
+
+- Cross-Source/portal/API/persistence regression: 43 passed.
+- Full repository suite after installing declared local `respx` test dependency: 580 passed, 5 pre-existing unrelated failures (Streamlit/deployment compatibility and route-listing compatibility); no Cross-Source failures.
+- Local API and production portal both expose all five Cross-Source routes. Live unauthenticated route behavior remains correctly protected with HTTP 401.
+- Source adapter, participant identity, event mapping, historical lineage, idempotent persistence, migration readiness and missing-data behavior were audited.
+- Added `CROSS_SOURCE_V1_LONG_RUN_STATUS.md` and `CROSS_SOURCE_V1_NEXT_STAGE_READINESS.md`.
+- Track A authenticated API/DB gates remain blocked solely by unavailable secret-bearing execution context; no secret was exposed and no auth bypass was attempted.
