@@ -2207,12 +2207,23 @@ app.add_api_route(
 async def _temporary_token_proof(x_cross_source_proof: str | None = Header(default=None)):
     if x_cross_source_proof != os.getenv("CROSS_SOURCE_PROOF_TOKEN"):
         return JSONResponse({"detail":"Not found"}, status_code=404)
-    response = await get_ccass_service().get_holdings("06182", limit=15)
-    repository = CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path))
-    from app.storage.cross_source import adapt_ccass_response
-    canonical = adapt_ccass_response(response); before=repository.records(); first=repository.put_many(canonical); after=repository.records(); second=repository.put_many(canonical); final=repository.records()
-    scoped=[row for row in final if "06182" in str(row.get("record_id",""))]; lineage=[row for row in scoped if "source_reference" in str(row.get("payload_json",""))]
-    return {"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":len(before),"canonical_rows_written":first,"canonical_rows_after":len(after),"second_run_rows_written":second,"duplicate_count":len(final)-len(after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage) and len(lineage)==len(scoped),"entity_count":sum(r["record_kind"]=="entity" for r in scoped),"event_count":0,"sequence_count":0,"fingerprint_result_count":0,"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":second==0,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage)}
+    stages=[]; response=None; repository=None; canonical=[]; before=[]; after=[]; final=[]
+    async def stage(name, fn):
+        try:
+            value=fn(); value=await value if hasattr(value,"__await__") else value; stages.append({"stage_name":name,"status":"PASS","rows_seen":0,"rows_written":0}); return value
+        except Exception as exc:
+            stages.append({"stage_name":name,"status":"FAIL","rows_seen":0,"rows_written":0,"error_type":type(exc).__name__,"sanitized_error_message":str(exc)[:180]}); raise
+    try:
+        response=await stage("source_read", lambda: get_ccass_service().get_holdings("06182", limit=15))
+        canonical=await stage("canonical_build", lambda: __import__('app.storage.cross_source',fromlist=['adapt_ccass_response']).adapt_ccass_response(response))
+        repository=CrossSourceRepository(NormalizedSnapshotRepository(get_settings().ccass_sqlite_path)); before=repository.records()
+        first=repository.put_many(canonical); after=repository.records(); stages.append({"stage_name":"turso_write","status":"PASS","rows_seen":len(canonical),"rows_written":first})
+        second=repository.put_many(canonical); final=repository.records(); stages.append({"stage_name":"second_run_idempotency","status":"PASS","rows_seen":len(final),"rows_written":second})
+        scoped=[row for row in final if "06182" in str(row.get("record_id",""))]; lineage=[row for row in scoped if "source_reference" in str(row.get("payload_json",""))]
+        stages += [{"stage_name":"turso_readback","status":"PASS","rows_seen":len(scoped),"rows_written":0},{"stage_name":"lineage_readback","status":"PASS" if lineage else "FAIL","rows_seen":len(lineage),"rows_written":0},{"stage_name":"evidence_chain","status":"PASS" if scoped and lineage else "FAIL","rows_seen":len(scoped),"rows_written":0}]
+        return {"stock_code":"06182","source_rows_seen":len(response.holdings),"canonical_rows_before":len(before),"canonical_rows_written":first,"canonical_rows_after":len(after),"second_run_rows_written":second,"duplicate_count":len(final)-len(after),"lineage_rows":len(lineage),"lineage_complete":bool(lineage) and len(lineage)==len(scoped),"entity_count":sum(r["record_kind"]=="entity" for r in scoped),"event_count":0,"sequence_count":0,"fingerprint_result_count":0,"evidence_chain_pass":bool(scoped and lineage),"production_db_readback_pass":bool(scoped),"idempotent_pass":second==0,"canonical_ingestion_pass":bool(scoped),"lineage_pass":bool(lineage),"evidence_drilldown_pass":bool(scoped and lineage),"stages":stages}
+    except Exception:
+        return JSONResponse({"status":"FAIL","failed_stage":next((s["stage_name"] for s in stages if s["status"]=="FAIL"),"unknown"),"stages":stages},status_code=200)
 app.add_api_route("/internal/cross-source-proof", _temporary_token_proof, methods=["POST"], tags=["internal"])
 
 
