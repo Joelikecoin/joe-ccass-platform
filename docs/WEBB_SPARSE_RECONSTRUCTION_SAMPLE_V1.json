@@ -1,0 +1,19 @@
+{
+  "source": "webbsite_full.sqlite/holdings",
+  "issue_id": "1088",
+  "canonical_security_id": "security:00005",
+  "stock_code_mapping": "shortnames issue 1088 -> 0005 valid 2004-02-02 onward",
+  "as_of": "2013-03-19",
+  "source_changes_seen": 336413,
+  "active_participant_rows": 518,
+  "zero_position_count": 88,
+  "duplicate_change_keys": 0,
+  "conflicting_change_keys": 0,
+  "verified_sample": {
+    "source_part_id": "4",
+    "share_quantity": 370000,
+    "last_change_date": "2013-03-19"
+  },
+  "method": "latest changed holding per partID through as_of; zero means inactive; unchanged values carried forward",
+  "verified_at_utc": "2026-09-24T10:31:07.442674+00:00"
+}

@@ -1,5 +1,7 @@
 # CCASS_2007_2026_FULL_HISTORICAL_ENGINEERING_V1
 
+> Audit correction (2026-09-24): the earlier four-row canonical proof misread the Webb `holdings` column order and is invalidated. Use the corrected V2 bridge acceptance and V2 coverage matrix for current status. Earlier blocks remain as historical handoff records.
+
 ## ZCode merged-data forensics
 
 An existing participant-level merge is present in the authoritative Research Store and is evidenced by the persisted ingestion record `CCASS_GAP_20251201_20260731_V1`:
@@ -48,7 +50,7 @@ SHARE_QUANTITY_MATCH=YES
 HOLDINGS_DATE_MATCH=YES
 SECURITY_ID_MATCH=YES
 DUPLICATE_COUNT=0
-HISTORICAL_IDEMPOTENT_PASS=YES
+HISTORICAL_IDEMPOTENT_PASS=UNVERIFIED_FOR_FULL_BACKFILL
 
 The same late-period participant identity and canonical security are preserved between 2025-12-01 and 2026-07-31. No beneficial-owner inference was made.
 
@@ -77,28 +79,28 @@ AGGREGATE_EARLIEST_DATE=2007-06-26
 AGGREGATE_LATEST_DATE=2025-12-24
 PARTICIPANT_DETAIL_SOURCE_FOUND=YES
 CONFIRMED_PARTICIPANT_SOURCE_COUNT=3
-EARLIEST_PARTICIPANT_DATE=2007-07-04
+EARLIEST_PARTICIPANT_DATE=2007-06-26
 LATEST_PARTICIPANT_DATE=2026-07-31
-PARTICIPANT_YEARS_FULL=2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025
-PARTICIPANT_YEARS_PARTIAL=2026
+PARTICIPANT_YEARS_FULL=
+PARTICIPANT_YEARS_PARTIAL=2007-2026; year presence verified, complete daily state reconstruction pending
 PARTICIPANT_YEARS_NOT_FOUND=
 PARTICIPANT_YEARS_UNVERIFIED=
-SECURITY_IDENTITY_MAPPING_PASS=YES
-PARTICIPANT_IDENTITY_MAPPING_PASS=YES_SOURCE_ID_PRESERVED
+SECURITY_IDENTITY_MAPPING_PASS=PARTIAL; 00005 issue 1088 verified; global mapping not verified
+PARTICIPANT_IDENTITY_MAPPING_PASS=PARTIAL_SOURCE_SCOPED; cross-source canonical IDs unresolved
 MULTI_SOURCE_STITCHING_PASS=YES_LOCAL_PROOF
 OVERLAP_VALIDATION_PASS=PARTIAL_NO_INDEPENDENT_OVERLAP_SOURCE
 SOURCE_CONFLICT_COUNT=0
 2025_2026_BRIDGE_PASS=YES_PACK_CONTINUITY
-PARTICIPANT_CANONICAL_CHAIN_PASS=YES
-PARTICIPANT_MULTI_ERA_PROOF_PASS=YES
-PARTICIPANT_MULTI_ERA_SAMPLE_COUNT=8
+PARTICIPANT_CANONICAL_CHAIN_PASS=PREVIOUS_PROOF_INVALIDATED; CORRECTED_SAMPLE_BRIDGE_PERSISTED
+PARTICIPANT_MULTI_ERA_PROOF_PASS=PREVIOUS_PROOF_INVALIDATED; CORRECTED_SAMPLE_BRIDGE_PERSISTED
+PARTICIPANT_MULTI_ERA_SAMPLE_COUNT=4_LOCAL_CANONICAL_PROOF_PLUS_5_BRIDGE_SAMPLES
 PARTICIPANT_MULTI_ERA_SAMPLE_RANGE=2007-07-04;2008-01-15;2013-01-28;2017-03-14;2020-07-22;2024-01-02;2025-12-01;2026-07-31
 HISTORICAL_CURRENT_PARTICIPANT_BRIDGE_PASS=NO_CURRENT_PRODUCTION_HOLDINGS_ROUTE
-FULL_19Y_PARTICIPANT_BACKFILL_READY=NO_CURRENT_PRODUCTION_BRIDGE_ROUTE_AND_2026_PARTIAL
+FULL_19Y_PARTICIPANT_BACKFILL_READY=NO_SPARSE_RECONSTRUCTION_AND_GLOBAL_MAPPING_PENDING
 STAGED_FULL_BACKFILL_STARTED=NO
 BACKFILL_COMPLETED_BATCHES=0
 BACKFILL_LAST_COMPLETED_DATE=
-BACKFILL_NEXT_BATCH=Blocked until participant coverage for 2013-2024 and current-production participant bridge are verified
+BACKFILL_NEXT_BATCH=2007-2010 after sparse-state reconstruction and global identity gates pass
 BACKFILL_RAW_ROWS=0
 BACKFILL_CANONICAL_ROWS=0
 BACKFILL_READBACK_ROWS=0
@@ -107,7 +109,7 @@ BACKFILL_UNRESOLVED_PARTICIPANT_COUNT=0
 BACKFILL_SOURCE_CONFLICT_COUNT=0
 BACKFILL_ROW_RECONCILIATION_PASS=NOT_STARTED
 HISTORICAL_LINEAGE_PASS=YES
-HISTORICAL_IDEMPOTENT_PASS=YES
+HISTORICAL_IDEMPOTENT_PASS=UNVERIFIED_FOR_FULL_BACKFILL
 HISTORICAL_RESEARCH_SURFACES_PASS=PARTIAL
 COMBINED_TEST_COUNT=615
 COMBINED_TEST_PASS_COUNT=607
@@ -122,8 +124,8 @@ BLOCKED_TRACKS=full 19-year participant backfill
 CURRENT_TRACK=source coverage and bridge validation
 CURRENT_STAGE=pre-backfill readiness gate
 REMAINING_BLOCKERS=Current production participant holdings endpoint is not exposed; 2026 coverage is partial through 2026-07-31; Research Store remains read-only for this package.
-NEXT_EXECUTABLE_STAGE=Locate participant-level 2013-2024 source or archive, then validate non-destructive overlaps and current bridge.
-NEXT_BOTTLENECK=Post-2012 participant-level source discovery and a current-production participant holdings readback.
+NEXT_EXECUTABLE_STAGE=Implement and validate sparse holding-state reconstruction with global identity mapping before staged backfill.
+NEXT_BOTTLENECK=Global issue/participant identity coverage and sparse historical state reconstruction.
 
 
 ## Asset preservation addendum (2026-09-24)
@@ -140,10 +142,31 @@ HISTORICAL_CURRENT_PARTICIPANT_BRIDGE_PASS=NO_CURRENT_PRODUCTION_HOLDINGS_ROUTE
 FULL_19Y_PARTICIPANT_BACKFILL_READY=NO
 STAGED_BACKFILL_STARTED=NO
 HISTORICAL_LINEAGE_PASS=YES
-HISTORICAL_IDEMPOTENT_PASS=YES
+HISTORICAL_IDEMPOTENT_PASS=UNVERIFIED_FOR_FULL_BACKFILL
 RESEARCH_STORE_MUTATED=NO
 OWNER_CHAT_CONTINUATION_REQUIRED=NO
 OWNER_ACTION_REQUIRED=YES_CURRENT_PRODUCTION_PARTICIPANT_READBACK_ROUTE
 REMAINING_BLOCKERS=Current production participant holdings readback route unavailable; SQLite quick_check for 10.8GB source requires an unbounded verification window.
 NEXT_EXECUTABLE_STAGE=Expose or identify durable read-only current participant holdings service, then run bridge proof before staged backfill.
 
+
+## Current bridge verification and coverage correction (2026-09-24)
+
+The earlier year-level matrix proved changed-holding rows existed in each year; it did not prove full daily snapshots. Webb documents `holdings` as a sparse change table. The V2 matrix therefore marks each year PARTIAL pending state reconstruction. Earlier rows for issue IDs 4, 5, and 6 had incorrectly inherited code 00017; those code cells are now blank until point-in-time mappings are verified.
+
+Production Turso and the deployed concentration evidence endpoint both returned 445 persisted Longbridge participant rows for 00005 on 2026-09-17. The read-only internal adapter matched all participant IDs and share quantities and retained the provenance reference. Webb shortnames maps issue 1088 to code 0005 across the 2007 and 2013 sample dates; the gap package contains 00005 rows on 2025-12-01 and 2026-07-31. These five sampled eras establish a source-backed security bridge. Participant IDs remain source scoped. See CURRENT_PRODUCTION_HOLDINGS_BRIDGE_ACCEPTANCE_V2.json. V1 was superseded after its Webb column-order error was found.
+
+CURRENT_PRODUCTION_HOLDINGS_READBACK_PASS=YES
+HISTORICAL_CURRENT_PARTICIPANT_BRIDGE_PASS=YES_SAMPLE_LEVEL
+PARTICIPANT_COVERAGE_MATRIX_PASS=YES_HONEST_PARTIAL_CLASSIFICATION
+SOURCE_INTEGRITY_CHECK_1=ok
+FULL_QUICK_CHECK_DEFERRED=YES
+FULL_19Y_PARTICIPANT_BACKFILL_READY=NO
+STAGED_BACKFILL_STARTED=NO
+RESEARCH_STORE_MUTATED=NO
+
+CORRECTED_WEBB_HOLDINGS_COLUMN_ORDER=c1:partID;c2:issueID;c3:holding;c4:atDate
+PREVIOUS_FOUR_SAMPLE_CANONICAL_PROOF=INVALIDATED_PENDING_CORRECTED_REBUILD
+WEBB_ISSUE_DIRECTORY_COVERAGE=3861/3861
+WEBB_PARTICIPANT_DIRECTORY_COVERAGE=1236/1236
+WEBB_RECONSTRUCTED_SAMPLE=issue1088:2013-03-19:518_active_participants:0_duplicate_keys

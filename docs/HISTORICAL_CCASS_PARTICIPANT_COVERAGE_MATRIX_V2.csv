@@ -1,0 +1,21 @@
+year,coverage_class,participant_rows_present,source,sample_date,source_issue_id,source_participant_id,sample_holding,point_in_time_stock_code,daily_snapshot_reconstruction_complete,evidence_limit
+2007,PARTIAL,YES,webbsite_full.sqlite/holdings,2007-07-04,1,3,499,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2008,PARTIAL,YES,webbsite_full.sqlite/holdings,2008-01-15,1,3,11000,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2009,PARTIAL,YES,webbsite_full.sqlite/holdings,2009-01-02,1,3,626293,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2010,PARTIAL,YES,webbsite_full.sqlite/holdings,2010-01-04,1,3,495341,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2011,PARTIAL,YES,webbsite_full.sqlite/holdings,2011-01-03,1,3,133052,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2012,PARTIAL,YES,webbsite_full.sqlite/holdings,2012-01-03,1,3,1343289,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2013,PARTIAL,YES,webbsite_full.sqlite/holdings,2013-01-28,1,4,178000,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2014,PARTIAL,YES,webbsite_full.sqlite/holdings,2014-01-03,1,4,1631937,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2015,PARTIAL,YES,webbsite_full.sqlite/holdings,2015-01-02,1,4,849204,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2016,PARTIAL,YES,webbsite_full.sqlite/holdings,2016-01-06,1,6,1945550,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2017,PARTIAL,YES,webbsite_full.sqlite/holdings,2017-03-14,1,5,2000,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2018,PARTIAL,YES,webbsite_full.sqlite/holdings,2018-04-19,1,5,5000,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2019,PARTIAL,YES,webbsite_full.sqlite/holdings,2019-01-02,1,6,1385549,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2020,PARTIAL,YES,webbsite_full.sqlite/holdings,2020-07-22,1,5,11000,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2021,PARTIAL,YES,webbsite_full.sqlite/holdings,2021-01-05,1,6,1493371,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2022,PARTIAL,YES,webbsite_full.sqlite/holdings,2022-01-04,1,6,1099081,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2023,PARTIAL,YES,webbsite_full.sqlite/holdings,2023-01-10,1,6,1107081,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2024,PARTIAL,YES,webbsite_full.sqlite/holdings,2024-01-02,1,6,1008077,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2025,PARTIAL,YES,webbsite_full.sqlite/holdings,2025-02-17,1,5,9000,00004,NO,One changed-holding row verifies source year presence; c1=partID c2=issueID. Complete daily state requires reconstruction.
+2026,PARTIAL,YES,Research Store gap pack + production Longbridge,2026-07-31,,A00003:1323,1440877399,00005,NO,Gap pack covers through 2026-07-31; separate production snapshot at 2026-09-17

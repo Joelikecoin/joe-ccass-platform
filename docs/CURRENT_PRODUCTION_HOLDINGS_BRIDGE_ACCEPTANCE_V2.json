@@ -1,0 +1,99 @@
+{
+  "work_package": "CURRENT_PRODUCTION_HOLDINGS_BRIDGE_AND_BACKFILL_START_V1",
+  "verified_at_utc": "2026-09-24T10:28:17.512377+00:00",
+  "current_readback": {
+    "stock_code": "00005",
+    "holdings_date": "2026-09-17",
+    "canonical_security_id": "security:00005",
+    "source": "production Turso ccass_snapshots/ccass_holdings/raw_provenance",
+    "api_route": "/api/v1/stocks/00005/concentration/evidence?snapshot_date=2026-09-17",
+    "participant_rows": 445,
+    "api_db_full_field_match": true,
+    "sample": {
+      "canonical_security_id": "security:00005",
+      "hk_stock_code": "00005",
+      "holdings_date": "2026-09-17",
+      "source_participant_id": "C00019",
+      "canonical_participant_id": null,
+      "participant_name": "香港上海汇丰银行",
+      "share_quantity": 1642265160,
+      "source_reference": "longbridge://broker_holding_detail/00005",
+      "source_id": "longbridge",
+      "provenance_sha256": "043322604d8deabe821db1c5d2fc5ea6a5b7125544d483bfd7fd52d3d34d8987"
+    }
+  },
+  "point_in_time_listing": {
+    "issue_id": "1088",
+    "name": "HSBC HOLDINGS",
+    "valid_from": "2004-02-02",
+    "valid_to": null,
+    "native_stock_code": "0005",
+    "normalized_stock_code": "00005",
+    "source": "webbsite_full.sqlite/shortnames"
+  },
+  "historical_samples": [
+    {
+      "source": "webbsite_full.sqlite/holdings",
+      "canonical_security_id": "security:00005",
+      "source_issue_id": "1088",
+      "source_part_id": "3",
+      "source_ccass_id": "B01077",
+      "source_participant_name": "MACQUARIE CAPITAL SECURITIES LTD",
+      "canonical_participant_id": null,
+      "share_quantity": 1464,
+      "holdings_date": "2007-06-26",
+      "source_reference": "webbsite_full.sqlite:holdings:issueID=1088;partID=3;atDate=2007-06-26",
+      "row_semantics": "sparse changed holding; not a full daily snapshot"
+    },
+    {
+      "source": "webbsite_full.sqlite/holdings",
+      "canonical_security_id": "security:00005",
+      "source_issue_id": "1088",
+      "source_part_id": "4",
+      "source_ccass_id": "B01078",
+      "source_participant_name": "STANDARD CHARTERED SECURITIES",
+      "canonical_participant_id": null,
+      "share_quantity": 370000,
+      "holdings_date": "2013-03-19",
+      "source_reference": "webbsite_full.sqlite:holdings:issueID=1088;partID=4;atDate=2013-03-19",
+      "row_semantics": "sparse changed holding; not a full daily snapshot"
+    }
+  ],
+  "gap_samples": [
+    {
+      "source": "Research Store/ccass_historical_holdings",
+      "canonical_security_id": "security:00005",
+      "holdings_date": "2025-12-01",
+      "source_ccass_id": "A00003",
+      "source_part_id": "1323",
+      "source_participant_id": "A00003:1323",
+      "canonical_participant_id": null,
+      "share_quantity": 1460566727,
+      "source_reference": "ccass_holdings_2025-12.csv.gz",
+      "source_sha256": "F85926B2B67A76CD8D0AE8B3DCAA592F2834ADB65154F1D0BF0347088C8ECE46"
+    },
+    {
+      "source": "Research Store/ccass_historical_holdings",
+      "canonical_security_id": "security:00005",
+      "holdings_date": "2026-07-31",
+      "source_ccass_id": "A00003",
+      "source_part_id": "1323",
+      "source_participant_id": "A00003:1323",
+      "canonical_participant_id": null,
+      "share_quantity": 1440877399,
+      "source_reference": "ccass_holdings_2026-07.csv.gz",
+      "source_sha256": "55D970628AEFC338FB694618DBFF11A42F1F7579AADE808760EE0015135A098D"
+    }
+  ],
+  "participant_identity_rule": "Source participant IDs remain source scoped; no beneficial owner or cross-source participant equality inferred.",
+  "historical_source_semantics": "Webb holdings c1=partID, c2=issueID, c3=holding, c4=atDate; table stores changed holdings only.",
+  "bridge_sample_pass": true,
+  "full_19y_backfill_ready": false,
+  "readiness_blockers": [
+    "Webb sparse change rows require full state reconstruction and validation before bulk backfill",
+    "Cross-source issue and participant mappings are not globally verified",
+    "Yearly samples establish presence, not full daily coverage"
+  ],
+  "evidence_version": 2,
+  "supersedes": "CURRENT_PRODUCTION_HOLDINGS_BRIDGE_ACCEPTANCE_V1.json"
+}

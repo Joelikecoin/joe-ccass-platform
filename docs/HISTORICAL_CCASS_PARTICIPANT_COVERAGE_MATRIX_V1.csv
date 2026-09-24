@@ -1,21 +1,21 @@
-"year","status","source_id","sample_date","security_code","participant_detail","share_quantity","evidence"
-"2007","PARTICIPANT_CONFIRMED","ccass_raw_2007_2012","2007-07-04","00017","YES","YES","bounded raw holdings proof; issue 3 mapped to 00017"
-"2008","PARTICIPANT_CONFIRMED","ccass_raw_2007_2012","","00017","YES","YES","bounded raw holdings proof; issue 3 mapped to 00017"
-"2009","PARTICIPANT_CONFIRMED","ccass_raw_2007_2012","","00017","YES","YES","bounded raw holdings proof; issue 3 mapped to 00017"
-"2010","PARTICIPANT_CONFIRMED","ccass_raw_2007_2012","","00017","YES","YES","bounded raw holdings proof; issue 3 mapped to 00017"
-"2011","PARTICIPANT_CONFIRMED","ccass_raw_2007_2012","","00017","YES","YES","bounded raw holdings proof; issue 3 mapped to 00017"
-"2012","PARTICIPANT_CONFIRMED","ccass_raw_2007_2012","2012-01-03","00017","YES","YES","bounded raw holdings proof; issue 3 mapped to 00017"
-"2013","PARTICIPANT_CONFIRMED","webbsite_full_local","2013-01-28","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2014","PARTICIPANT_CONFIRMED","webbsite_full_local","2014-01-03","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2015","PARTICIPANT_CONFIRMED","webbsite_full_local","2015-01-02","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2016","PARTICIPANT_CONFIRMED","webbsite_full_local","2016-01-06","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2017","PARTICIPANT_CONFIRMED","webbsite_full_local","2017-03-14","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2018","PARTICIPANT_CONFIRMED","webbsite_full_local","2018-04-19","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2019","PARTICIPANT_CONFIRMED","webbsite_full_local","2019-01-02","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2020","PARTICIPANT_CONFIRMED","webbsite_full_local","2020-07-22","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2021","PARTICIPANT_CONFIRMED","webbsite_full_local","2021-01-05","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2022","PARTICIPANT_CONFIRMED","webbsite_full_local","2022-01-04","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2023","PARTICIPANT_CONFIRMED","webbsite_full_local","2023-01-10","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2024","PARTICIPANT_CONFIRMED","webbsite_full_local","2024-01-02","00017","YES","YES","webbsite_full.sqlite holdings c1=issueID,c2=partID,c3=holding,c4=atDate; local participant row recovered"
-"2025","PARTICIPANT_CONFIRMED","owner_pack_2025_2026","2025-12-01","00017","YES","YES","Research Store ingestion manifest and source rows"
-"2026","PARTICIPANT_CONFIRMED","owner_pack_2025_2026","2026-07-31","00017","YES","YES","Research Store ingestion manifest and source rows"
+year,status,source_id,sample_date,security_code,participant_detail,share_quantity,evidence
+2007,PARTICIPANT_CONFIRMED,webbsite_full_local,2007-07-04,00004,YES,YES,Webb sparse change row: issueID=1;partID=3;holding=499;atDate=2007-07-04;code 0004 verified from shortnames for issue 1
+2008,PARTICIPANT_CONFIRMED,webbsite_full_local,2008-01-15,00004,YES,YES,Webb sparse change row: issueID=1;partID=3;holding=11000;atDate=2008-01-15;code 0004 verified from shortnames for issue 1
+2009,PARTICIPANT_CONFIRMED,webbsite_full_local,2009-01-02,00004,YES,YES,Webb sparse change row: issueID=1;partID=3;holding=626293;atDate=2009-01-02;code 0004 verified from shortnames for issue 1
+2010,PARTICIPANT_CONFIRMED,webbsite_full_local,2010-01-04,00004,YES,YES,Webb sparse change row: issueID=1;partID=3;holding=495341;atDate=2010-01-04;code 0004 verified from shortnames for issue 1
+2011,PARTICIPANT_CONFIRMED,webbsite_full_local,2011-01-03,00004,YES,YES,Webb sparse change row: issueID=1;partID=3;holding=133052;atDate=2011-01-03;code 0004 verified from shortnames for issue 1
+2012,PARTICIPANT_CONFIRMED,webbsite_full_local,2012-01-03,00004,YES,YES,Webb sparse change row: issueID=1;partID=3;holding=1343289;atDate=2012-01-03;code 0004 verified from shortnames for issue 1
+2013,PARTICIPANT_CONFIRMED,webbsite_full_local,2013-01-28,00004,YES,YES,Webb sparse change row: issueID=1;partID=4;holding=178000;atDate=2013-01-28;code 0004 verified from shortnames for issue 1
+2014,PARTICIPANT_CONFIRMED,webbsite_full_local,2014-01-03,00004,YES,YES,Webb sparse change row: issueID=1;partID=4;holding=1631937;atDate=2014-01-03;code 0004 verified from shortnames for issue 1
+2015,PARTICIPANT_CONFIRMED,webbsite_full_local,2015-01-02,00004,YES,YES,Webb sparse change row: issueID=1;partID=4;holding=849204;atDate=2015-01-02;code 0004 verified from shortnames for issue 1
+2016,PARTICIPANT_CONFIRMED,webbsite_full_local,2016-01-06,00004,YES,YES,Webb sparse change row: issueID=1;partID=6;holding=1945550;atDate=2016-01-06;code 0004 verified from shortnames for issue 1
+2017,PARTICIPANT_CONFIRMED,webbsite_full_local,2017-03-14,00004,YES,YES,Webb sparse change row: issueID=1;partID=5;holding=2000;atDate=2017-03-14;code 0004 verified from shortnames for issue 1
+2018,PARTICIPANT_CONFIRMED,webbsite_full_local,2018-04-19,00004,YES,YES,Webb sparse change row: issueID=1;partID=5;holding=5000;atDate=2018-04-19;code 0004 verified from shortnames for issue 1
+2019,PARTICIPANT_CONFIRMED,webbsite_full_local,2019-01-02,00004,YES,YES,Webb sparse change row: issueID=1;partID=6;holding=1385549;atDate=2019-01-02;code 0004 verified from shortnames for issue 1
+2020,PARTICIPANT_CONFIRMED,webbsite_full_local,2020-07-22,00004,YES,YES,Webb sparse change row: issueID=1;partID=5;holding=11000;atDate=2020-07-22;code 0004 verified from shortnames for issue 1
+2021,PARTICIPANT_CONFIRMED,webbsite_full_local,2021-01-05,00004,YES,YES,Webb sparse change row: issueID=1;partID=6;holding=1493371;atDate=2021-01-05;code 0004 verified from shortnames for issue 1
+2022,PARTICIPANT_CONFIRMED,webbsite_full_local,2022-01-04,00004,YES,YES,Webb sparse change row: issueID=1;partID=6;holding=1099081;atDate=2022-01-04;code 0004 verified from shortnames for issue 1
+2023,PARTICIPANT_CONFIRMED,webbsite_full_local,2023-01-10,00004,YES,YES,Webb sparse change row: issueID=1;partID=6;holding=1107081;atDate=2023-01-10;code 0004 verified from shortnames for issue 1
+2024,PARTICIPANT_CONFIRMED,webbsite_full_local,2024-01-02,00004,YES,YES,Webb sparse change row: issueID=1;partID=6;holding=1008077;atDate=2024-01-02;code 0004 verified from shortnames for issue 1
+2025,PARTICIPANT_CONFIRMED,webbsite_full_local,2025-02-17,00004,YES,YES,Webb sparse change row: issueID=1;partID=5;holding=9000;atDate=2025-02-17;code 0004 verified from shortnames for issue 1
+2026,PARTICIPANT_CONFIRMED,owner_pack_2025_2026,2026-07-31,00005,YES,YES,Research Store gap row for 00005; 2026 coverage through July only
