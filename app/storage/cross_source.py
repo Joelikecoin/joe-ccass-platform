@@ -44,6 +44,16 @@ class CrossSourceRepository:
                     PRIMARY KEY (record_kind, record_id)
                 )"""
             )
+            connection.execute(
+                """CREATE TABLE IF NOT EXISTS cross_source_derivations (
+                    derivation_kind TEXT NOT NULL,
+                    derivation_key TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    lineage_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (derivation_kind, derivation_key)
+                )"""
+            )
             connection.commit()
 
     def put(self, *, record_id: str, record_kind: str, source_id: str, payload: object,
@@ -80,6 +90,29 @@ class CrossSourceRepository:
             keys = row.keys() if hasattr(row, "keys") else ()
             output.append({key: row[key] for key in keys})
         return output
+
+    def put_derivation(self, *, derivation_kind: str, derivation_key: str,
+                       payload: object, lineage: Iterable[EvidenceRef] = ()) -> bool:
+        """Persist a deterministic derived result without replacing history."""
+        with self.snapshot_repository._connect() as connection:
+            cur = connection.execute(
+                """INSERT OR IGNORE INTO cross_source_derivations
+                (derivation_kind, derivation_key, payload_json, lineage_json)
+                VALUES (?, ?, ?, ?)""",
+                (derivation_kind, derivation_key, _json(payload), _json(list(lineage))),
+            )
+            connection.commit()
+            return cur.rowcount == 1
+
+    def derivations(self, derivation_kind: str | None = None) -> list[dict[str, object]]:
+        with self.snapshot_repository._connect() as connection:
+            sql = "SELECT * FROM cross_source_derivations"
+            args: tuple[object, ...] = ()
+            if derivation_kind:
+                sql += " WHERE derivation_kind=?"; args = (derivation_kind,)
+            sql += " ORDER BY created_at, derivation_key"
+            rows = connection.execute(sql, args).fetchall()
+        return [{key: row[key] for key in row.keys()} for row in rows]
 
     def load_engine(self) -> CrossSourceIntelligence:
         entities: list[EntityRecord] = []; securities: list[SecurityRecord] = []

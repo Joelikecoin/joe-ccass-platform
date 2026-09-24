@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import io
 import json
 from datetime import date
@@ -814,7 +815,15 @@ async def cross_source_sequence(
     repository: CrossSourceRepository = Depends(get_cross_source_repository),
 ) -> dict[str, object]:
     types = tuple(item.strip() for item in event_types.split(",") if item.strip())
-    result = repository.load_engine().sequence_search(security_id=security_id, predicates=[lambda event, kind=kind: event.event_type == kind for kind in types], start=start_date, end=end_date, max_gap_days=max_gap_days)
+    engine = repository.load_engine()
+    result = engine.sequence_search(security_id=security_id, predicates=[lambda event, kind=kind: event.event_type == kind for kind in types], start=start_date, end=end_date, max_gap_days=max_gap_days)
+    key = hashlib.sha256(json.dumps([security_id, types, start_date.isoformat(), end_date.isoformat(), max_gap_days, result.matched_event_ids], sort_keys=True).encode()).hexdigest()
+    repository.put_derivation(
+        derivation_kind="sequence",
+        derivation_key=key,
+        payload={"security_id": security_id, "event_types": types, "start_date": start_date, "end_date": end_date, "max_gap_days": max_gap_days, "matched_event_ids": result.matched_event_ids, "missing_predicates": result.missing_predicates, "evidence_state": result.evidence_state.value, "date_semantics": [{"event_id": e.event_id, "event_type": e.event_type, "event_date": e.effective_date or e.completion_date or e.announcement_date or e.holdings_date or e.trade_date} for e in engine.events if e.event_id in result.matched_event_ids]},
+        lineage=result.lineage,
+    )
     return {"security_id": security_id, "evidence_state": result.evidence_state.value, "matched_event_ids": result.matched_event_ids, "missing_predicates": result.missing_predicates}
 
 
@@ -828,8 +837,11 @@ async def cross_source_interval(
     before: int = Query(default=5, ge=0, le=3650),
     after: int = Query(default=5, ge=0, le=3650),
     calendar: str = Query(default="calendar"),
+    repository: CrossSourceRepository = Depends(get_cross_source_repository),
 ) -> dict[str, object]:
     result = CrossSourceIntelligence.interval(anchor=anchor, before=before, after=after, calendar=calendar)
+    key = hashlib.sha256(json.dumps([anchor.isoformat(), before, after, calendar], sort_keys=True).encode()).hexdigest()
+    repository.put_derivation(derivation_kind="interval", derivation_key=key, payload={"anchor": anchor, "before": before, "after": after, "calendar": calendar, "included_dates": result.included_dates, "evidence_state": result.evidence_state.value})
     return {"anchor": result.anchor, "start": result.start, "end": result.end, "calendar": result.calendar, "included_dates": result.included_dates, "evidence_state": result.evidence_state.value}
 
 
@@ -838,10 +850,12 @@ async def cross_source_interval(
     dependencies=[Depends(verify_api_key)],
     tags=["cross-source"],
 )
-async def cross_source_fingerprint(payload: dict[str, object]) -> dict[str, object]:
+async def cross_source_fingerprint(payload: dict[str, object], repository: CrossSourceRepository = Depends(get_cross_source_repository)) -> dict[str, object]:
     left = payload.get("left") if isinstance(payload.get("left"), dict) else {}
     right = payload.get("right") if isinstance(payload.get("right"), dict) else {}
     result = CrossSourceIntelligence.fingerprint_compare(left, right)
+    key = hashlib.sha256(json.dumps([left, right], sort_keys=True, default=str).encode()).hexdigest()
+    repository.put_derivation(derivation_kind="fingerprint", derivation_key=key, payload={"matched": result.matched, "unmatched_left": result.unmatched_left, "unmatched_right": result.unmatched_right, "unknown": result.unknown, "score": result.score, "label": result.label, "evidence_state": result.evidence_state.value})
     return {"matched": result.matched, "unmatched_left": result.unmatched_left, "unmatched_right": result.unmatched_right, "unknown": result.unknown, "score": result.score, "label": result.label, "evidence_state": result.evidence_state.value}
 
 
