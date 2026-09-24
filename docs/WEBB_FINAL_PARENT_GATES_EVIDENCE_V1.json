@@ -1,0 +1,502 @@
+{
+  "bounded_idempotency": {
+    "deterministic_key": [
+      "source_issue_id",
+      "source_participant_id",
+      "holdings_date"
+    ],
+    "duplicate_key_count": 0,
+    "first_write_rows": 76,
+    "idempotent_repeat_additional_rows": 0,
+    "pass": true,
+    "quarantine_sample_rows": 1,
+    "sample_input_rows": 76,
+    "unique_rows": 76
+  },
+  "gates": {
+    "global_anomaly_lineage_pass": false,
+    "global_idempotency_pass": true,
+    "global_lineage_pass": true,
+    "global_row_reconciliation_pass": false,
+    "historical_current_bridge_final_pass": true,
+    "historical_research_surfaces_pass": true,
+    "quarantine_count_semantics_pass": false,
+    "source_layering_2026_pass": true
+  },
+  "generated_at": "2026-09-24T17:52:13.762677+00:00",
+  "historical_current_bridge": {
+    "pass": true,
+    "securities": [
+      "00003",
+      "00005",
+      "00006"
+    ],
+    "validated_security_count": 3
+  },
+  "historical_research_surfaces": {
+    "anomaly": {
+      "data_quality_warning": "SOURCE_ANOMALY",
+      "holdings_date": "2014-09-18",
+      "pass": true,
+      "position_status": "UNKNOWN_SOURCE_ANOMALY",
+      "source_issue_id": "1",
+      "source_participant_id": "28"
+    },
+    "era_evidence": [
+      {
+        "batch": 1,
+        "broker_fingerprint_input_rows": 100,
+        "broker_history_rows": 100,
+        "concentration_total_shares": 649742124,
+        "cross_stock_participant_issue_count_on_date": 1207,
+        "date": "2007-06-26",
+        "era": "early",
+        "holdings_by_stock_date_rows": 10,
+        "issue": "1",
+        "participant_change_rows": 99,
+        "participant_history_rows": 100,
+        "timeline_date_count": 870,
+        "timeline_max": "2010-12-31",
+        "timeline_min": "2007-06-26",
+        "top_10_input_count": 10,
+        "top_5_input_count": 5
+      },
+      {
+        "batch": 4,
+        "broker_fingerprint_input_rows": 100,
+        "broker_history_rows": 100,
+        "concentration_total_shares": 733938167,
+        "cross_stock_participant_issue_count_on_date": 334,
+        "date": "2020-01-02",
+        "era": "middle",
+        "holdings_by_stock_date_rows": 10,
+        "issue": "1",
+        "participant_change_rows": 99,
+        "participant_history_rows": 100,
+        "timeline_date_count": 982,
+        "timeline_max": "2022-12-30",
+        "timeline_min": "2019-01-02",
+        "top_10_input_count": 10,
+        "top_5_input_count": 5
+      },
+      {
+        "batch": 6,
+        "broker_fingerprint_input_rows": 100,
+        "broker_history_rows": 100,
+        "concentration_total_shares": 1497683443,
+        "cross_stock_participant_issue_count_on_date": 309,
+        "date": "2025-01-02",
+        "era": "late",
+        "holdings_by_stock_date_rows": 10,
+        "issue": "1",
+        "participant_change_rows": 99,
+        "participant_history_rows": 100,
+        "timeline_date_count": 242,
+        "timeline_max": "2025-12-23",
+        "timeline_min": "2025-01-02",
+        "top_10_input_count": 10,
+        "top_5_input_count": 5
+      }
+    ],
+    "pass": true,
+    "surfaces": {
+      "broker_fingerprint_inputs": true,
+      "broker_history": true,
+      "concentration_inputs": true,
+      "cross_stock_participant_search": true,
+      "historical_ccass_timeline": true,
+      "holdings_by_stock_date": true,
+      "participant_changes": true,
+      "participant_holding_history": true,
+      "top_10_inputs": true,
+      "top_5_inputs": true
+    }
+  },
+  "lineage_drilldown": {
+    "samples": [
+      {
+        "era": "early",
+        "holdings_date": "2007-06-26",
+        "lineage_reference": "webbsite_full.sqlite:holdings:rowid=10255;issueID=1;partID=10;atDate=2007-06-26",
+        "position_status": "VALID",
+        "source_drilldown_match": true,
+        "source_issue_id": "1",
+        "source_participant_id": "10",
+        "source_record_reference_matches_lineage": true
+      },
+      {
+        "era": "middle",
+        "holdings_date": "2020-01-02",
+        "lineage_reference": "webbsite_full.sqlite:holdings:rowid=13039;issueID=1;partID=10;atDate=2020-01-02",
+        "position_status": "VALID",
+        "source_drilldown_match": true,
+        "source_issue_id": "1",
+        "source_participant_id": "10",
+        "source_record_reference_matches_lineage": true
+      },
+      {
+        "era": "late",
+        "holdings_date": "2025-01-02",
+        "lineage_reference": "webbsite_full.sqlite:holdings:rowid=295024;issueID=1;partID=1077;atDate=2025-01-02",
+        "position_status": "VALID",
+        "source_drilldown_match": true,
+        "source_issue_id": "1",
+        "source_participant_id": "1077",
+        "source_record_reference_matches_lineage": true
+      },
+      {
+        "era": "quarantine",
+        "holdings_date": "2014-09-18",
+        "lineage_reference": "webbsite_full.sqlite:holdings:rowid=35946;issueID=1;partID=28;atDate=2014-09-18",
+        "position_status": "UNKNOWN_SOURCE_ANOMALY",
+        "source_drilldown_match": true,
+        "source_issue_id": "1",
+        "source_participant_id": "28",
+        "source_record_reference_matches_lineage": true
+      }
+    ],
+    "staged_row_lineage_pass": true
+  },
+  "persisted_batch_evidence": {
+    "all_persisted_canonical_rows": 87495417,
+    "all_persisted_quarantined_source_event_rows": 56,
+    "all_persisted_source_rows": 87495417,
+    "batch_1_canonical_rows": 38525367,
+    "batch_1_month_file_count": 48,
+    "batch_1_quarantined_source_event_rows": 34,
+    "batch_1_source_rows": 38525367,
+    "batches_2_7_canonical_rows": 48970050,
+    "batches_2_7_quarantined_source_event_rows": 22,
+    "batches_2_7_source_rows": 48970050,
+    "batches_2_7_year_file_count": 16,
+    "canonical_negative_count": 0,
+    "conflict_count": 0,
+    "duplicate_count": 0
+  },
+  "quarantine_reconciliation": {
+    "actual_all_staged_canonical_quarantined_source_event_rows": 56,
+    "affected_position_state_count": 1372,
+    "found_rows_preserve_unknown_null_warning_and_lineage": true,
+    "frozen_source_negative_observations": 34,
+    "frozen_source_negative_observations_by_era": {
+      "2007_2010": 12,
+      "2011_2025": 22
+    },
+    "merged_quarantine_window_count": 83,
+    "missing_original_negative_observation_count": 36,
+    "missing_original_negative_observations": [
+      {
+        "absolute_holding": "-4000",
+        "batch": 3,
+        "change_date": "2015-05-06",
+        "issue_id": "11212",
+        "part_id": "172",
+        "source_rowid": "182904629"
+      },
+      {
+        "absolute_holding": "-1744000",
+        "batch": 3,
+        "change_date": "2016-11-28",
+        "issue_id": "11279",
+        "part_id": "103",
+        "source_rowid": "183104138"
+      },
+      {
+        "absolute_holding": "-43810000",
+        "batch": 3,
+        "change_date": "2016-01-19",
+        "issue_id": "12487",
+        "part_id": "236",
+        "source_rowid": "188864420"
+      },
+      {
+        "absolute_holding": "-44660000",
+        "batch": 3,
+        "change_date": "2016-01-21",
+        "issue_id": "12487",
+        "part_id": "236",
+        "source_rowid": "188864421"
+      },
+      {
+        "absolute_holding": "-1000",
+        "batch": 3,
+        "change_date": "2015-04-14",
+        "issue_id": "12521",
+        "part_id": "114",
+        "source_rowid": "189303167"
+      },
+      {
+        "absolute_holding": "-3833",
+        "batch": 2,
+        "change_date": "2014-12-03",
+        "issue_id": "12688",
+        "part_id": "111",
+        "source_rowid": "190068550"
+      },
+      {
+        "absolute_holding": "-1000",
+        "batch": 5,
+        "change_date": "2023-04-14",
+        "issue_id": "13620",
+        "part_id": "1370",
+        "source_rowid": "193536122"
+      },
+      {
+        "absolute_holding": "-100000",
+        "batch": 4,
+        "change_date": "2020-08-20",
+        "issue_id": "14145",
+        "part_id": "145",
+        "source_rowid": "194507888"
+      },
+      {
+        "absolute_holding": "-202800000",
+        "batch": 3,
+        "change_date": "2017-03-29",
+        "issue_id": "20854",
+        "part_id": "179",
+        "source_rowid": "200096567"
+      },
+      {
+        "absolute_holding": "-13000",
+        "batch": 3,
+        "change_date": "2018-07-20",
+        "issue_id": "21603",
+        "part_id": "150",
+        "source_rowid": "200769098"
+      },
+      {
+        "absolute_holding": "-10000",
+        "batch": 3,
+        "change_date": "2017-03-30",
+        "issue_id": "22501",
+        "part_id": "185",
+        "source_rowid": "202423283"
+      },
+      {
+        "absolute_holding": "-30000",
+        "batch": 4,
+        "change_date": "2022-07-12",
+        "issue_id": "24973",
+        "part_id": "132",
+        "source_rowid": "203717638"
+      },
+      {
+        "absolute_holding": "-500",
+        "batch": 6,
+        "change_date": "2025-04-17",
+        "issue_id": "25453",
+        "part_id": "62",
+        "source_rowid": "205974458"
+      },
+      {
+        "absolute_holding": "-1295800",
+        "batch": 3,
+        "change_date": "2018-03-05",
+        "issue_id": "25800",
+        "part_id": "70",
+        "source_rowid": "206990227"
+      },
+      {
+        "absolute_holding": "-5000",
+        "batch": 3,
+        "change_date": "2018-06-06",
+        "issue_id": "26467",
+        "part_id": "102",
+        "source_rowid": "208522025"
+      },
+      {
+        "absolute_holding": "-200000",
+        "batch": 4,
+        "change_date": "2022-06-10",
+        "issue_id": "26953",
+        "part_id": "155",
+        "source_rowid": "211929980"
+      },
+      {
+        "absolute_holding": "-76000",
+        "batch": 2,
+        "change_date": "2011-04-08",
+        "issue_id": "2720",
+        "part_id": "298",
+        "source_rowid": "77150241"
+      },
+      {
+        "absolute_holding": "-1916400",
+        "batch": 4,
+        "change_date": "2019-12-23",
+        "issue_id": "27922",
+        "part_id": "423",
+        "source_rowid": "214943436"
+      },
+      {
+        "absolute_holding": "-3907200",
+        "batch": 4,
+        "change_date": "2019-12-31",
+        "issue_id": "27922",
+        "part_id": "423",
+        "source_rowid": "214943440"
+      },
+      {
+        "absolute_holding": "-2344108",
+        "batch": 3,
+        "change_date": "2015-04-08",
+        "issue_id": "2857",
+        "part_id": "267",
+        "source_rowid": "80758571"
+      },
+      {
+        "absolute_holding": "-2000",
+        "batch": 4,
+        "change_date": "2021-01-19",
+        "issue_id": "29903",
+        "part_id": "114",
+        "source_rowid": "222496638"
+      },
+      {
+        "absolute_holding": "-1000",
+        "batch": 4,
+        "change_date": "2021-02-03",
+        "issue_id": "30432",
+        "part_id": "119",
+        "source_rowid": "223962936"
+      },
+      {
+        "absolute_holding": "-500",
+        "batch": 4,
+        "change_date": "2021-03-08",
+        "issue_id": "30578",
+        "part_id": "380",
+        "source_rowid": "224555658"
+      },
+      {
+        "absolute_holding": "-500000",
+        "batch": 2,
+        "change_date": "2012-03-02",
+        "issue_id": "3142",
+        "part_id": "88",
+        "source_rowid": "87817811"
+      },
+      {
+        "absolute_holding": "-243739",
+        "batch": 2,
+        "change_date": "2014-10-16",
+        "issue_id": "3371",
+        "part_id": "292",
+        "source_rowid": "94032728"
+      },
+      {
+        "absolute_holding": "-30624000",
+        "batch": 6,
+        "change_date": "2025-10-24",
+        "issue_id": "34915",
+        "part_id": "108",
+        "source_rowid": "228547890"
+      },
+      {
+        "absolute_holding": "-547000",
+        "batch": 5,
+        "change_date": "2024-06-24",
+        "issue_id": "35305",
+        "part_id": "83",
+        "source_rowid": "228882231"
+      },
+      {
+        "absolute_holding": "-12000",
+        "batch": 2,
+        "change_date": "2011-01-03",
+        "issue_id": "3550",
+        "part_id": "353",
+        "source_rowid": "105274404"
+      },
+      {
+        "absolute_holding": "-417806",
+        "batch": 4,
+        "change_date": "2021-09-03",
+        "issue_id": "4398",
+        "part_id": "1077",
+        "source_rowid": "109435238"
+      },
+      {
+        "absolute_holding": "-10000",
+        "batch": 3,
+        "change_date": "2017-12-07",
+        "issue_id": "4711",
+        "part_id": "119",
+        "source_rowid": "122684156"
+      },
+      {
+        "absolute_holding": "-2000",
+        "batch": 2,
+        "change_date": "2012-05-08",
+        "issue_id": "5462",
+        "part_id": "131",
+        "source_rowid": "154387103"
+      },
+      {
+        "absolute_holding": "-2000",
+        "batch": 2,
+        "change_date": "2012-05-14",
+        "issue_id": "5462",
+        "part_id": "131",
+        "source_rowid": "154387105"
+      },
+      {
+        "absolute_holding": "-2000",
+        "batch": 2,
+        "change_date": "2011-09-08",
+        "issue_id": "7014",
+        "part_id": "144",
+        "source_rowid": "172901024"
+      },
+      {
+        "absolute_holding": "-1",
+        "batch": 4,
+        "change_date": "2022-09-30",
+        "issue_id": "7284",
+        "part_id": "495",
+        "source_rowid": "175771984"
+      },
+      {
+        "absolute_holding": "-16000",
+        "batch": 2,
+        "change_date": "2012-02-17",
+        "issue_id": "7284",
+        "part_id": "83",
+        "source_rowid": "175711844"
+      },
+      {
+        "absolute_holding": "-1130000",
+        "batch": 2,
+        "change_date": "2014-08-27",
+        "issue_id": "9244",
+        "part_id": "236",
+        "source_rowid": "177056600"
+      }
+    ],
+    "negative_observations_expected_by_era": {
+      "2007_2010": 34,
+      "2011_2025": 58
+    },
+    "negative_observations_found_by_era": {
+      "2007_2010": 34,
+      "2011_2025": 22
+    },
+    "pass": false,
+    "raw_negative_count": 92,
+    "reported_2011_2026_canonical_quarantined_state_count": 22,
+    "semantics": {
+      "1372": "issue trading-date position states falling inside the 83 quarantine windows; not source event rows",
+      "22": "UNKNOWN_SOURCE_ANOMALY source-event rows in the frozen 2011-2026 staging databases only",
+      "56": "UNKNOWN_SOURCE_ANOMALY source-event rows across Batch 1 and frozen Batches 2-7",
+      "83": "overlapping or adjacent anomaly intervals merged per issue and participant",
+      "92": "source-native negative holding observations in the original audited Webb source"
+    }
+  },
+  "source_layering_2026": {
+    "current_production_2026": "AVAILABLE_ON_VERIFIED_SEPTEMBER_2026_SNAPSHOTS",
+    "frozen_webb_source_2026": "NO_AVAILABLE_ROWS",
+    "gap_package_2026": "AVAILABLE_THROUGH_2026-07-31",
+    "pass": true
+  }
+}

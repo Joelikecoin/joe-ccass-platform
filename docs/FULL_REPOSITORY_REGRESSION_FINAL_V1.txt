@@ -1,0 +1,341 @@
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 34%]
+..........F............................................................. [ 46%]
+........................................................................ [ 57%]
+..................................................F..................... [ 69%]
+........................................................................ [ 80%]
+.......F..................F........F.....F...........FF................. [ 92%]
+..................................................                       [100%]
+================================== FAILURES ===================================
+_________ test_streamlit_cloud_files_and_hkex_compliance_notice_exist _________
+
+    def test_streamlit_cloud_files_and_hkex_compliance_notice_exist():
+        requirements = Path("requirements.txt").read_text(encoding="utf-8")
+        config = Path(".streamlit/config.toml").read_text(encoding="utf-8")
+        readme = Path("README.md").read_text(encoding="utf-8")
+        schedule_script = Path("scripts/install_collector_task.ps1").read_text(encoding="utf-8")
+    
+>       assert "streamlit>=1.40,<2" in requirements
+E       AssertionError: assert 'streamlit>=1.40,<2' in 'beautifulsoup4>=4.12,<5\npypdf>=6,<7\nfastapi>=0.115,<1\nfastmcp>=2.0,<3\nhttpx>=0.27,<1\nlibsql>=0.1,<1\npsycopg[bin...=1.40,<1.50\nyfinance>=0.2,<2\nuvicorn[standard]>=0.34,<1\ntzdata\npandas-market-calendars>=5,<6\nplaywright==1.51.0\n'
+
+tests\test_deployment_files.py:10: AssertionError
+_________ test_portal_runtime_registers_concentration_evidence_route __________
+
+tmp_path = WindowsPath('C:/Users/Joe Lau/.zcode/workspace/default/joe-ccass-platform/work/.pytest-tmp/pytest-of-Joe Lau/pytest-35/test_portal_runtime_registers_0')
+current_response = CcassResponse(schema_version=1, metadata=SourceMetadata(code='01592', name='TEST FIXTURE �X GOLDEN STOCK', issue_id=159...concentration=None, price_history=None, announcements=None, stock_events=None, capital_information=None, officers=None)
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345DCA2BD0>
+
+    def test_portal_runtime_registers_concentration_evidence_route(tmp_path, current_response, monkeypatch):
+        holdings = [
+            current_response.holdings[0].model_copy(
+                update={
+                    "rank": rank,
+                    "participant_id": f"P{rank:04d}",
+                    "participant": f"Participant {rank}",
+                    "shares": 500 - (rank % 7),
+                }
+            )
+            for rank in range(1, 445)
+        ]
+        response = current_response.model_copy(
+            update={
+                "metadata": current_response.metadata.model_copy(
+                    update={"code": "00005", "holdings_date": date(2026, 9, 11), "source_name": "Longbridge"}
+                ),
+                "holdings": holdings,
+                "holdings_summary": current_response.holdings_summary.model_copy(
+                    update={"issued_shares": 250_000, "participant_count": 444}
+                ),
+            }
+        )
+        repository = NormalizedSnapshotRepository(tmp_path / "portal-evidence.db")
+        repository.save_response(response, source_id="longbridge", parser_version="test")
+        monkeypatch.setattr("app.api.get_settings", lambda: Settings(api_key="test"))
+        def fail_write(*args, **kwargs):
+            raise AssertionError("evidence route must not write")
+    
+        repository.save_response = fail_write
+        portal_app.dependency_overrides[get_snapshot_repository] = lambda: repository
+        client = TestClient(portal_app)
+        try:
+            result = client.get(
+                "/api/v1/stocks/00005/concentration/evidence",
+                params={"snapshot_date": "2026-09-11"},
+                headers={"X-API-Key": "test"},
+            )
+            production_route = next(
+                item for item in portal_app.routes if item.path.endswith("/concentration/evidence")
+            )
+        finally:
+            portal_app.dependency_overrides.pop(get_snapshot_repository, None)
+    
+        assert result.status_code == 200
+        payload = result.json()
+        assert payload["stock_code"] == "00005"
+        assert payload["snapshot_date"] == "2026-09-11"
+        assert payload["source_id"] == "longbridge"
+        assert payload["participant_count"] == 444
+        assert len(payload["participants"]) == 444
+        dependency_callables = {
+            dependency.call
+            for dependency in production_route.dependant.dependencies
+        }
+        assert verify_api_key in dependency_callables
+>       assert all(route.path != "/internal/acceptance/concentration-evidence" for route in portal_app.routes)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_portal_concentration_evidence.py:67: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+.0 = <list_iterator object at 0x000002345A1A60B0>
+
+>   assert all(route.path != "/internal/acceptance/concentration-evidence" for route in portal_app.routes)
+               ^^^^^^^^^^
+E   AttributeError: '_IncludedRouter' object has no attribute 'path'
+
+tests\test_portal_concentration_evidence.py:67: AttributeError
+__ test_get_settings_anchors_ccass_sqlite_path_to_repo_root_when_cwd_changes __
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345DCA1220>
+
+    def test_get_settings_anchors_ccass_sqlite_path_to_repo_root_when_cwd_changes(
+        monkeypatch,
+    ):
+        monkeypatch.chdir(Path.cwd() / "work")
+        monkeypatch.delenv("CCASS_SQLITE_PATH", raising=False)
+        get_settings.cache_clear()
+    
+        settings = get_settings()
+        expected_path = STREAMLIT_APP_PATH.parent / "data" / "ccass_snapshots.db"
+    
+        assert settings.ccass_sqlite_path == expected_path
+        assert settings.ccass_sqlite_path.exists()
+        repository = NormalizedSnapshotRepository(settings.ccass_sqlite_path)
+>       assert repository.available_dates("01592", include_partial=True)
+E       AssertionError: assert ()
+E        +  where () = available_dates('01592', include_partial=True)
+E        +    where available_dates = <app.storage.history.NormalizedSnapshotRepository object at 0x000002345DCA1B50>.available_dates
+
+C:\Users\Joe Lau\.zcode\workspace\default\joe-ccass-platform\tests\test_streamlit_ui.py:455: AssertionError
+___________ test_streamlit_data_quality_surface_renders_empty_state ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345BD0C080>
+previous_response = CcassResponse(schema_version=1, metadata=SourceMetadata(code='01592', name='TEST FIXTURE �X GOLDEN STOCK', issue_id=159...concentration=None, price_history=None, announcements=None, stock_events=None, capital_information=None, officers=None)
+
+    def test_streamlit_data_quality_surface_renders_empty_state(monkeypatch, previous_response):
+        import app.services.ccass as ccass_service
+        import app.streamlit_ui as streamlit_ui
+    
+        service = SuccessfulService(previous_response)
+        monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+        monkeypatch.setattr(streamlit_ui, 'get_stock_events_service', lambda: EmptyStockEventsService(_stock_events_response()))
+    
+        app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
+        app.text_input[0].input('1592')
+        app.button[0].click().run(timeout=120)
+    
+        assert not app.exception
+        assert any(translate_text(APP_LOCALE, 'ui.data_quality_heading') in block.value for block in app.markdown)
+        assert any(translate_text(APP_LOCALE, 'ui.data_quality_help_caption') in block.value for block in app.caption)
+        assert any(translate_text(APP_LOCALE, 'ui.officers_unavailable') in block.value for block in app.markdown)
+>       assert any("Stock events source is pending approval" in block.value for block in app.warning)
+E       assert False
+E        +  where False = any(<generator object test_streamlit_data_quality_surface_renders_empty_state.<locals>.<genexpr> at 0x000002345C31B030>)
+
+tests\test_streamlit_ui.py:805: AssertionError
+---------------------------- Captured stderr call -----------------------------
+2026-09-25 01:50:35.707 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+------------------------------ Captured log call ------------------------------
+WARNING  streamlit.runtime.scriptrunner_utils.script_run_context:script_run_context.py:278 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+______________ test_streamlit_research_workflow_summary_renders _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345F733200>
+current_response = CcassResponse(schema_version=1, metadata=SourceMetadata(code='01592', name='TEST FIXTURE �X GOLDEN STOCK', issue_id=159...concentration=None, price_history=None, announcements=None, stock_events=None, capital_information=None, officers=None)
+
+    def test_streamlit_research_workflow_summary_renders(monkeypatch, current_response):
+        import app.services.ccass as ccass_service
+    
+        service = SuccessfulService(current_response)
+        monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+    
+        prepared = asyncio.run(
+            prepare_report(
+                '1592',
+                holdings_limit=20,
+                big_change_threshold=500,
+                service=service,
+                locale=DEFAULT_LOCALE,
+            )
+        )
+    
+        markdown = build_research_workflow_summary_markdown(prepared.workflow, locale=DEFAULT_LOCALE)
+    
+        assert translate_text(DEFAULT_LOCALE, 'ui.research_workflow_heading') in markdown
+>       assert translate_text(DEFAULT_LOCALE, 'ui.research_workflow_state_ready') in markdown
+E       AssertionError: assert '�w�N��' in '### ��s�u�@�y�{\n���ثe��s�u�@���q���Ѭy�{���A�B�|�ܤ��~��ƻP context readiness�C\n\n*Research workflow created for 01592. Research context is n...ABLE |\n| �~��Ѧ� | DATA NOT AVAILABLE |\n| �s�A�װѦ� | DATA NOT AVAILABLE |\n| �ӷ��Ѧ� | DATA NOT AVAILABLE |\n| ĵ�i�K�n | �S��ĵ�i�C |'
+E        +  where '�w�N��' = translate_text('zh_HK', 'ui.research_workflow_state_ready')
+
+tests\test_streamlit_ui.py:1054: AssertionError
+_______ test_streamlit_price_history_surface_renders_unavailable_state ________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345BA1DE20>
+current_response = CcassResponse(schema_version=1, metadata=SourceMetadata(code='01592', name='TEST FIXTURE �X GOLDEN STOCK', issue_id=159...concentration=None, price_history=None, announcements=None, stock_events=None, capital_information=None, officers=None)
+
+    def test_streamlit_price_history_surface_renders_unavailable_state(monkeypatch, current_response):
+        import app.services.ccass as ccass_service
+    
+        service = SuccessfulService(current_response)
+        monkeypatch.setattr(ccass_service, 'get_ccass_service', lambda: service)
+    
+        app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
+        app.text_input[0].input('1592')
+        app.button[0].click().run(timeout=120)
+    
+        assert not app.exception
+        assert any(translate_text(APP_LOCALE, 'report.section.price_history') in block.value for block in app.markdown)
+>       assert any(translate_text(APP_LOCALE, 'report.price_history.unavailable') in block.value for block in app.markdown)
+E       assert False
+E        +  where False = any(<generator object test_streamlit_price_history_surface_renders_unavailable_state.<locals>.<genexpr> at 0x000002345C287680>)
+
+tests\test_streamlit_ui.py:1202: AssertionError
+---------------------------- Captured stderr call -----------------------------
+2026-09-25 01:50:38.158 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+------------------------------ Captured log call ------------------------------
+WARNING  streamlit.runtime.scriptrunner_utils.script_run_context:script_run_context.py:278 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+_____ test_streamlit_downloads_surface_renders_combined_csv_and_workbook ______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345C3FDF10>
+current_response = CcassResponse(schema_version=1, metadata=SourceMetadata(code='01592', name='TEST FIXTURE �X GOLDEN STOCK', issue_id=159...concentration=None, price_history=None, announcements=None, stock_events=None, capital_information=None, officers=None)
+
+    def test_streamlit_downloads_surface_renders_combined_csv_and_workbook(monkeypatch, current_response):
+        import app.services.ccass as ccass_service
+    
+        service = SuccessfulService(current_response)
+        monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+    
+        app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
+        app.text_input[0].input("1592")
+        app.button[0].click().run(timeout=120)
+    
+        assert not app.exception
+        download_expander = next(
+            block for block in app.expander if block.label == translate_text(APP_LOCALE, "ui.report_detail_download_copy")
+        )
+        assert any(translate_text(APP_LOCALE, "ui.downloads_heading") in block.value for block in download_expander.markdown)
+        assert any(translate_text(APP_LOCALE, "ui.downloads_workflow_caption") in block.value for block in download_expander.caption)
+        assert any(translate_text(APP_LOCALE, "ui.downloads_caption") in block.value for block in download_expander.caption)
+>       download_labels = [button.label for button in app.download_button]
+                                                      ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'AppTest' object has no attribute 'download_button'
+
+tests\test_streamlit_ui.py:1545: AttributeError
+---------------------------- Captured stderr call -----------------------------
+2026-09-25 01:50:39.529 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+------------------------------ Captured log call ------------------------------
+WARNING  streamlit.runtime.scriptrunner_utils.script_run_context:script_run_context.py:278 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+___________ test_streamlit_locale_switch_rerenders_without_refetch ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x000002345C403800>
+current_response = CcassResponse(schema_version=1, metadata=SourceMetadata(code='01592', name='TEST FIXTURE �X GOLDEN STOCK', issue_id=159...concentration=None, price_history=None, announcements=None, stock_events=None, capital_information=None, officers=None)
+
+    def test_streamlit_locale_switch_rerenders_without_refetch(monkeypatch, current_response):
+        import app.services.ccass as ccass_service
+    
+        service = SuccessfulService(current_response)
+        monkeypatch.setattr(ccass_service, "get_ccass_service", lambda: service)
+    
+        app = AppTest.from_file(STREAMLIT_APP_PATH).run(timeout=120)
+        app.text_input[0].input("1592")
+        app.button[0].click().run(timeout=120)
+    
+        assert len(service.calls) == 1
+        assert any(translate_text(APP_LOCALE, "ui.raw_previews_heading") in block.value for block in app.markdown)
+        assert any(translate_text(APP_LOCALE, "ui.chart_help_heading") in block.value for block in app.markdown)
+        assert any(translate_text(APP_LOCALE, "report.section.concentration_history") in block.value for block in app.markdown)
+        assert any(translate_text(APP_LOCALE, "report.section.price_history") in block.value for block in app.markdown)
+    
+        language_selector = next(
+            widget for widget in app.selectbox if widget.label == translate_text(APP_LOCALE, "ui.sidebar_language")
+        )
+        language_selector.select("zh_HK").run(timeout=120)
+    
+        assert len(service.calls) == 1
+        assert any(translate_text(DEFAULT_LOCALE, 'ui.sidebar_query_input_caption') in block.value for block in app.caption)
+        assert any(translate_text(DEFAULT_LOCALE, "report.section.fetch_summary") in block.value for block in app.markdown)
+        assert any(translate_text(DEFAULT_LOCALE, 'ui.chart_help_heading') in block.value for block in app.markdown)
+        assert any(translate_text(DEFAULT_LOCALE, 'ui.chart_help_surface_caption') in block.value for block in app.caption)
+>       assert any(button.label == translate_text(DEFAULT_LOCALE, "ui.downloads_download_combined_csv") for button in app.download_button)
+                                                                                                                      ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: 'AppTest' object has no attribute 'download_button'
+
+tests\test_streamlit_ui.py:1583: AttributeError
+---------------------------- Captured stderr call -----------------------------
+2026-09-25 01:50:39.793 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+------------------------------ Captured log call ------------------------------
+WARNING  streamlit.runtime.scriptrunner_utils.script_run_context:script_run_context.py:278 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+============================== warnings summary ===============================
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\fastapi\testclient.py:1
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar.py:65
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar.py:65: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    ONE_HOUR = pd.Timedelta("1h")
+
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\pandas_market_calendars\market_calendar.py:100
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\pandas_market_calendars\market_calendar.py:100
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\pandas_market_calendars\market_calendar.py:100
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\pandas_market_calendars\market_calendar.py:100
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\pandas_market_calendars\market_calendar.py:100
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\pandas_market_calendars\market_calendar.py:100: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    return pd.Timedelta(days=day_offset, hours=t.hour, minutes=t.minute, seconds=t.second)
+
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\fastmcp\server\auth\providers\jwt.py:10
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\fastmcp\server\auth\providers\jwt.py:10: AuthlibDeprecationWarning: authlib.jose module is deprecated, please use joserfc instead.
+  It will be compatible before version 2.0.0.
+    from authlib.jose import JsonWebKey, JsonWebToken
+
+..\..\..\..\AppData\Roaming\Python\Python312\site-packages\authlib\integrations\httpx_client\assertion_client.py:5
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\authlib\integrations\httpx_client\assertion_client.py:5: AuthlibDeprecationWarning: The httpx module is deprecated; please use httpx2 instead.
+    from ._compat import httpx2
+
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar_xhkg.py:337: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    lunar_new_years_eve = (chinese_lunar_new_year_dates - pd.Timedelta(days=1))[
+
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar_xhkg.py:342: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    lunar_new_year_2 = chinese_lunar_new_year_dates + pd.Timedelta(days=1)
+
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar_xhkg.py:343: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    lunar_new_year_3 = chinese_lunar_new_year_dates + pd.Timedelta(days=2)
+
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar_xhkg.py:344: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    lunar_new_year_4 = (chinese_lunar_new_year_dates + pd.Timedelta(days=3))[
+
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar_xhkg.py:363: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    easter_monday = EasterMonday.dates(years[0], years[-1] + 1)
+
+tests/test_daily_snapshot.py::test_daily_snapshot_holiday_skips_all_source_calls
+  C:\Users\Joe Lau\AppData\Roaming\Python\Python312\site-packages\exchange_calendars\exchange_calendar_xhkg.py:436: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+    lunar_new_years_eve = (chinese_lunar_new_year_dates - pd.Timedelta(days=1))[
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_deployment_files.py::test_streamlit_cloud_files_and_hkex_compliance_notice_exist
+FAILED tests/test_portal_concentration_evidence.py::test_portal_runtime_registers_concentration_evidence_route
+FAILED tests/test_streamlit_ui.py::test_get_settings_anchors_ccass_sqlite_path_to_repo_root_when_cwd_changes
+FAILED tests/test_streamlit_ui.py::test_streamlit_data_quality_surface_renders_empty_state
+FAILED tests/test_streamlit_ui.py::test_streamlit_research_workflow_summary_renders
+FAILED tests/test_streamlit_ui.py::test_streamlit_price_history_surface_renders_unavailable_state
+FAILED tests/test_streamlit_ui.py::test_streamlit_downloads_surface_renders_combined_csv_and_workbook
+FAILED tests/test_streamlit_ui.py::test_streamlit_locale_switch_rerenders_without_refetch
+8 failed, 618 passed, 19 warnings in 280.64s (0:04:40)

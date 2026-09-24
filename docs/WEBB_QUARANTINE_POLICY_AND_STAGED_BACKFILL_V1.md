@@ -246,3 +246,16 @@ NEW_REGRESSION_COUNT = 0_FOCUSED_TESTS
 PRE_EXISTING_FAILURE_COUNT = 8_BASELINE
 RESEARCH_STORE_MUTATED = NO
 REMAINING_BLOCKERS = Parent-batch idempotency, research-surface, bridge, and full regression gates remain.
+
+## Final parent-gate acceptance
+
+The remaining bounded gates were executed on 2026-09-25. Idempotency, all ten
+historical research surfaces, the three-security historical/current bridge,
+2026 source layering, staged-row lineage, and the no-new-regression test gate
+passed. Production acceptance remains closed because the combined persisted
+batch evidence totals 87,495,417 rows, while the frozen 48,970,050-row handoff
+denominator covers Batches 2-7 only. Batch 1 and Batches 2-7 also use different
+source hashes, and 36 original post-2010 negative observations are absent from
+the frozen-source staging. See
+`WEBB_QUARANTINE_POLICY_AND_STAGED_BACKFILL_FINAL_ACCEPTANCE_V1.md` and
+`WEBB_FINAL_PARENT_GATES_EVIDENCE_V1.json` for the complete reconciliation.
