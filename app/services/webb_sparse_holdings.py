@@ -6,11 +6,75 @@ Webb writes a row only when an absolute participant holding changes.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from datetime import date
 from sqlite3 import Connection
 
 WEBB_CHANGE_KEY = ("issue_id", "part_id", "change_date")
+VALID_POSITION_STATUS = "VALID"
+UNKNOWN_SOURCE_ANOMALY_STATUS = "UNKNOWN_SOURCE_ANOMALY"
+OUT_OF_RANGE_STATUS = "OUT_OF_RANGE"
+NO_OBSERVATION_YET_STATUS = "NO_OBSERVATION_YET"
+
+
+def _quarantine_for(
+    issue_id: str,
+    part_id: str,
+    effective: date,
+    quarantine_windows: Iterable[Mapping[str, object]] | None,
+) -> list[Mapping[str, object]]:
+    if quarantine_windows is None:
+        return []
+    matches: list[Mapping[str, object]] = []
+    for window in quarantine_windows:
+        if str(window.get("issueID")) != str(issue_id) or str(window.get("partID")) != str(part_id):
+            continue
+        start = date.fromisoformat(str(window["quarantine_valid_from"]))
+        end = date.fromisoformat(str(window["quarantine_valid_to"]))
+        if start <= effective <= end:
+            matches.append(window)
+    return matches
+
+
+def _state_rows(
+    issue_id: str,
+    state: Mapping[str, tuple[str, int, int]],
+    cutoff: str,
+    quarantine_windows: Iterable[Mapping[str, object]] | None,
+) -> tuple[list[dict[str, object]], int]:
+    rows: list[dict[str, object]] = []
+    unknown_count = 0
+    effective = date.fromisoformat(cutoff)
+    for part_id, (change_date, holding, rowid) in state.items():
+        matches = _quarantine_for(str(issue_id), part_id, effective, quarantine_windows)
+        if matches:
+            unknown_count += 1
+            row = {
+                "source_issue_id": str(issue_id), "source_part_id": part_id,
+                "share_quantity": None, "last_change_date": change_date,
+                "holdings_date": cutoff, "source_rowid": rowid,
+                "position_status": UNKNOWN_SOURCE_ANOMALY_STATUS,
+                "anomaly_ids": [str(item["anomaly_id"]) for item in matches],
+                "quarantine_valid_from": min(str(item["quarantine_valid_from"]) for item in matches),
+                "quarantine_valid_to": max(str(item["quarantine_valid_to"]) for item in matches),
+                "data_quality_status": "SOURCE_ANOMALY",
+            }
+            rows.append(row)
+        elif holding > 0:
+            row = {
+                "source_issue_id": str(issue_id), "source_part_id": part_id,
+                "share_quantity": holding, "last_change_date": change_date,
+                "holdings_date": cutoff, "source_rowid": rowid,
+                "position_status": VALID_POSITION_STATUS,
+                "anomaly_ids": [], "quarantine_valid_from": None,
+                "quarantine_valid_to": None, "data_quality_status": "OK",
+            }
+            if quarantine_windows is None:
+                for key in ("position_status", "anomaly_ids", "quarantine_valid_from", "quarantine_valid_to", "data_quality_status"):
+                    row.pop(key, None)
+            rows.append(row)
+    rows.sort(key=_participant_sort_key)
+    return rows, unknown_count
 
 
 def _participant_sort_key(row: dict[str, object]) -> tuple[int, int | str, str]:
@@ -50,13 +114,15 @@ def resolve_issue_snapshot_date(
 
 
 def reconstruct_issue_at(
-    connection: Connection, issue_id: str, as_of: date, *, resolve_source_date: bool = True
+    connection: Connection, issue_id: str, as_of: date, *, resolve_source_date: bool = True,
+    quarantine_windows: Iterable[Mapping[str, object]] | None = None,
 ) -> dict[str, object]:
     """Carry each participant's latest source value forward through ``as_of``.
 
     The source stores changed holdings only. A zero value ends that participant's
     active position; absence of a change on a date does not mean zero.
     """
+    quarantine_windows = list(quarantine_windows) if quarantine_windows is not None else None
     effective = (
         resolve_issue_snapshot_date(connection, str(issue_id), as_of)
         if resolve_source_date else as_of
@@ -65,11 +131,12 @@ def reconstruct_issue_at(
         return {
             "issue_id": str(issue_id), "requested_date": as_of.isoformat(),
             "holdings_date": None, "position_semantics": "no source snapshot on or before date",
+                "position_status": OUT_OF_RANGE_STATUS,
             "natural_change_key": WEBB_CHANGE_KEY, "source_changes_seen": 0,
             "participant_rows": [], "active_participant_count": 0,
             "active_share_total": 0, "zero_position_count": 0,
             "negative_value_count": 0, "duplicate_change_keys": 0,
-            "conflicting_change_keys": 0,
+            "conflicting_change_keys": 0, "unknown_source_anomaly_count": 0,
         }
     cutoff = effective.isoformat()
     latest: dict[str, tuple[str, int, int]] = {}
@@ -89,37 +156,36 @@ def reconstruct_issue_at(
                 conflicts += 1
             continue
         latest[part_id] = (change_date, holding, rowid)
-    rows = [
-        {"source_issue_id": issue_id, "source_part_id": part_id,
-         "share_quantity": holding, "last_change_date": change_date,
-         "holdings_date": cutoff, "source_rowid": rowid}
-        for part_id, (change_date, holding, rowid) in latest.items()
-        if holding > 0
-    ]
-    rows.sort(key=_participant_sort_key)
+    rows, unknown_count = _state_rows(
+        str(issue_id), latest, cutoff, quarantine_windows
+    )
     return {
         "issue_id": str(issue_id),
         "requested_date": as_of.isoformat(),
         "holdings_date": cutoff,
         "position_semantics": "latest absolute holding at or before date",
+        "position_status": VALID_POSITION_STATUS,
         "natural_change_key": WEBB_CHANGE_KEY,
         "source_changes_seen": changes_seen,
         "participant_rows": rows,
-        "active_participant_count": len(rows),
-        "active_share_total": sum(int(row["share_quantity"]) for row in rows),
+        "active_participant_count": sum(row.get("position_status", VALID_POSITION_STATUS) == VALID_POSITION_STATUS for row in rows),
+        "active_share_total": sum(int(row["share_quantity"]) for row in rows if row["share_quantity"] is not None),
         "zero_position_count": sum(holding == 0 for _, holding, _ in latest.values()),
         "negative_value_count": negative_values,
         "duplicate_change_keys": duplicate_keys,
         "conflicting_change_keys": conflicts,
+        "unknown_source_anomaly_count": unknown_count,
     }
 
 
 def reconstruct_issue_dates(
     connection: Connection, issue_id: str, dates: Iterable[date], *,
     resolve_source_dates: bool = True,
+    quarantine_windows: Iterable[Mapping[str, object]] | None = None,
 ) -> list[dict[str, object]]:
     """Reconstruct several dates in one ordered pass over an issue's changes."""
     requested = sorted(set(dates))
+    quarantine_windows = list(quarantine_windows) if quarantine_windows is not None else None
     if not requested:
         return []
     if resolve_source_dates:
@@ -160,11 +226,12 @@ def reconstruct_issue_dates(
             output.append({
                 "issue_id": str(issue_id), "requested_date": requested_date.isoformat(),
                 "holdings_date": None, "position_semantics": "no source snapshot on or before date",
+                "position_status": OUT_OF_RANGE_STATUS,
                 "natural_change_key": WEBB_CHANGE_KEY, "source_changes_seen": 0,
                 "participant_rows": [], "active_participant_count": 0,
                 "active_share_total": 0, "zero_position_count": 0,
                 "negative_value_count": 0, "duplicate_change_keys": 0,
-                "conflicting_change_keys": 0,
+                "conflicting_change_keys": 0, "unknown_source_anomaly_count": 0,
             })
             continue
         cutoff = effective_date.isoformat()
@@ -180,24 +247,23 @@ def reconstruct_issue_dates(
             seen_keys.add(key)
             negative_values += holding < 0
             state[part_id] = (change_date, holding, rowid)
-        rows = [
-            {"source_issue_id": str(issue_id), "source_part_id": part_id,
-             "share_quantity": holding, "last_change_date": change_date,
-             "holdings_date": cutoff, "source_rowid": rowid}
-            for part_id, (change_date, holding, rowid) in state.items() if holding > 0
-        ]
-        rows.sort(key=_participant_sort_key)
+        rows, unknown_count = _state_rows(
+            str(issue_id), state, cutoff, quarantine_windows
+        )
         output.append({
             "issue_id": str(issue_id), "requested_date": requested_date.isoformat(),
             "holdings_date": cutoff,
             "position_semantics": "latest absolute holding at or before date",
+            "position_status": VALID_POSITION_STATUS,
             "natural_change_key": WEBB_CHANGE_KEY, "source_changes_seen": cursor,
-            "participant_rows": rows, "active_participant_count": len(rows),
-            "active_share_total": sum(int(row["share_quantity"]) for row in rows),
+            "participant_rows": rows,
+            "active_participant_count": sum(row.get("position_status", VALID_POSITION_STATUS) == VALID_POSITION_STATUS for row in rows),
+            "active_share_total": sum(int(row["share_quantity"]) for row in rows if row["share_quantity"] is not None),
             "zero_position_count": sum(value == 0 for _, value, _ in state.values()),
             "negative_value_count": negative_values,
             "duplicate_change_keys": duplicate_keys,
             "conflicting_change_keys": conflicts,
+            "unknown_source_anomaly_count": unknown_count,
         })
     return output
 

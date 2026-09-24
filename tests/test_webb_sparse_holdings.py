@@ -2,6 +2,7 @@ import sqlite3
 from datetime import date
 
 from app.services.webb_sparse_holdings import (
+    UNKNOWN_SOURCE_ANOMALY_STATUS,
     compare_with_reference_query,
     reconstruct_issue_at,
     reconstruct_issue_dates,
@@ -113,3 +114,85 @@ def test_dates_outside_source_range_do_not_extrapolate():
     after = reconstruct_issue_at(connection, "7", date(2020, 1, 4))
     assert before["holdings_date"] is None and before["participant_rows"] == []
     assert after["holdings_date"] is None and after["participant_rows"] == []
+
+
+def _quarantine_schema(connection):
+    connection.execute("CREATE TABLE quarantine_windows (issueID TEXT, partID TEXT, anomaly_id TEXT, quarantine_valid_from TEXT, quarantine_valid_to TEXT)")
+
+
+def test_negative_mid_sequence_is_unknown_and_never_zero():
+    connection = sqlite3.connect(":memory:")
+    _schema(connection)
+    connection.executemany("INSERT INTO dailylog VALUES (?,?)", [
+        ("2020-01-01", "7"), ("2020-01-02", "7"), ("2020-01-03", "7"),
+    ])
+    connection.executemany("INSERT INTO holdings VALUES (?,?,?,?)", [
+        ("1", "7", "100", "2020-01-01"),
+        ("1", "7", "-20", "2020-01-02"),
+    ])
+    windows = [{"issueID": "7", "partID": "1", "anomaly_id": "a1",
+                "quarantine_valid_from": "2020-01-02", "quarantine_valid_to": "2020-01-03"}]
+    result = reconstruct_issue_at(connection, "7", date(2020, 1, 3), quarantine_windows=windows)
+    row = result["participant_rows"][0]
+    assert row["position_status"] == UNKNOWN_SOURCE_ANOMALY_STATUS
+    assert row["share_quantity"] is None
+    assert result["active_share_total"] == 0
+    assert result["unknown_source_anomaly_count"] == 1
+
+
+def test_negative_first_observation_and_repeated_negative_are_unknown():
+    connection = sqlite3.connect(":memory:")
+    _schema(connection)
+    connection.executemany("INSERT INTO dailylog VALUES (?,?)", [
+        ("2020-01-01", "7"), ("2020-01-02", "7"), ("2020-01-03", "7"),
+    ])
+    connection.executemany("INSERT INTO holdings VALUES (?,?,?,?)", [
+        ("1", "7", "-20", "2020-01-01"), ("1", "7", "-20", "2020-01-02"),
+        ("1", "7", "50", "2020-01-03"),
+    ])
+    windows = [{"issueID": "7", "partID": "1", "anomaly_id": "a1",
+                "quarantine_valid_from": "2020-01-01", "quarantine_valid_to": "2020-01-02"}]
+    first = reconstruct_issue_at(connection, "7", date(2020, 1, 1), quarantine_windows=windows)
+    repeated = reconstruct_issue_at(connection, "7", date(2020, 1, 2), quarantine_windows=windows)
+    assert first["participant_rows"][0]["share_quantity"] is None
+    assert repeated["participant_rows"][0]["share_quantity"] is None
+
+
+def test_negative_to_zero_and_negative_to_positive_close_quarantine():
+    connection = sqlite3.connect(":memory:")
+    _schema(connection)
+    connection.executemany("INSERT INTO dailylog VALUES (?,?)", [
+        ("2020-01-01", "7"), ("2020-01-02", "7"), ("2020-01-03", "7"),
+        ("2020-01-04", "7"),
+    ])
+    connection.executemany("INSERT INTO holdings VALUES (?,?,?,?)", [
+        ("1", "7", "100", "2020-01-01"), ("1", "7", "-20", "2020-01-02"),
+        ("1", "7", "0", "2020-01-03"), ("2", "7", "-10", "2020-01-02"),
+        ("2", "7", "50", "2020-01-03"),
+    ])
+    windows = [
+        {"issueID": "7", "partID": "1", "anomaly_id": "a1", "quarantine_valid_from": "2020-01-02", "quarantine_valid_to": "2020-01-02"},
+        {"issueID": "7", "partID": "2", "anomaly_id": "a2", "quarantine_valid_from": "2020-01-02", "quarantine_valid_to": "2020-01-02"},
+    ]
+    result = reconstruct_issue_at(connection, "7", date(2020, 1, 3), quarantine_windows=windows)
+    rows = {row["source_part_id"]: row for row in result["participant_rows"]}
+    assert "1" not in rows
+    assert rows["2"]["position_status"] == "VALID" and rows["2"]["share_quantity"] == 50
+
+
+def test_open_ended_quarantine_and_idempotent_anomaly_rows():
+    connection = sqlite3.connect(":memory:")
+    _schema(connection)
+    connection.executemany("INSERT INTO dailylog VALUES (?,?)", [
+        ("2020-01-01", "7"), ("2020-01-02", "7"), ("2020-01-03", "7"),
+    ])
+    connection.execute("INSERT INTO holdings VALUES (?,?,?,?)", ("1", "7", "-20", "2020-01-01"))
+    windows = [{"issueID": "7", "partID": "1", "anomaly_id": "a1",
+                "quarantine_valid_from": "2020-01-01", "quarantine_valid_to": "2020-01-03"}]
+    result = reconstruct_issue_at(connection, "7", date(2020, 1, 3), quarantine_windows=windows)
+    assert result["participant_rows"][0]["share_quantity"] is None
+    connection.execute("CREATE TABLE anomaly_rows (anomaly_id TEXT PRIMARY KEY, share_quantity INTEGER, position_status TEXT)")
+    value = ("a1", None, UNKNOWN_SOURCE_ANOMALY_STATUS)
+    connection.execute("INSERT OR IGNORE INTO anomaly_rows VALUES (?,?,?)", value)
+    connection.execute("INSERT OR IGNORE INTO anomaly_rows VALUES (?,?,?)", value)
+    assert connection.execute("SELECT COUNT(*) FROM anomaly_rows").fetchone()[0] == 1
