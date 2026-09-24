@@ -135,6 +135,9 @@ async def run_entity_job(store:JobStore,jid:str):
 
 async def run_event_job(store:JobStore,jid:str):
     try:
+        # Persist execution state before the external source call so a durable
+        # queued record cannot mask a running or source-blocked Event job.
+        store.update(jid,status="RUNNING",current_stage="event_source_discovery",started_at=store.get(jid).get("started_at") or datetime.now(UTC).isoformat())
         from app.services.stock_events import get_stock_events_service
         from app.config import get_settings
         from app.storage.cross_source import CrossSourceRepository, adapt_stock_events_response
