@@ -40,7 +40,12 @@ OWNER_ACTION_REQUIRED=YES
 COMPLETED_TRACKS=source inventory; durable mapping schema; unresolved-safety; bounded 2007 canonical/readback proof; versioned run metadata
 PARTIAL_TRACKS=multi-era proof; cross-era continuity
 BLOCKED_TRACKS=multi-era proof; cross-era continuity; full 19-year readiness
-MAPPING_STATUS=DATE_BOUNDED`nMAPPING_EVIDENCE_COUNT=3`nHISTORICAL_DATE_VALIDITY_PASS=YES for 2007 sample`nCANONICAL_SECURITY_ID_STABLE=YES`nSOURCE_REFERENCE_TRACEABLE=YES`nREMAINING_BLOCKERS=Four or more raw holdings eras are not yet available from the bounded local extraction; do not infer continuity.
+MAPPING_STATUS=DATE_BOUNDED
+MAPPING_EVIDENCE_COUNT=3
+HISTORICAL_DATE_VALIDITY_PASS=YES for 2007 sample
+CANONICAL_SECURITY_ID_STABLE=YES
+SOURCE_REFERENCE_TRACEABLE=YES
+REMAINING_BLOCKERS=Four or more raw holdings eras are not yet available from the bounded local extraction; do not infer continuity.
 NEXT_BOTTLENECK=Complete bounded extraction of real issue:3 holdings rows for 2012, 2017, 2022, and 2026/current, then execute identity-to-code readback proofs.
 
 
