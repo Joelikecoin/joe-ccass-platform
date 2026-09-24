@@ -29,8 +29,8 @@ CROSS_ERA_CONTINUITY_PASS=NO
 HISTORICAL_CANONICAL_CHAIN_PASS=YES_BOUNDED_LOCAL
 HISTORICAL_LINEAGE_PASS=YES_BOUNDED_LOCAL
 HISTORICAL_IDEMPOTENT_PASS=YES_BOUNDED_LOCAL
-FULL_REPOSITORY_TEST_COUNT=613
-FULL_REPOSITORY_TEST_PASS_COUNT=605
+FULL_REPOSITORY_TEST_COUNT=615
+FULL_REPOSITORY_TEST_PASS_COUNT=607
 FULL_REPOSITORY_TEST_FAIL_COUNT=8
 REGRESSION_FAILURE_COUNT=0
 PRE_EXISTING_FAILURE_COUNT=8
@@ -39,3 +39,4 @@ OWNER_CHAT_CONTINUATION_REQUIRED=NO
 OWNER_ACTION_REQUIRED=YES
 REMAINING_BLOCKERS=Authoritative Enigma/Webb evidence binding issue 3 to a canonical security and point-in-time HK code is not present in the accessible issue map; multi-era samples cannot be certified without that binding.
 NEXT_BOTTLENECK=Obtain or expose a source-backed Enigma security/listing history relation for issue 3, then run four or more real era samples and field-match/readback checks.
+
