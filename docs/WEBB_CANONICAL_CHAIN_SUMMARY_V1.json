@@ -1,0 +1,15 @@
+{
+  "canonical_rows": 1824,
+  "duplicate_count": 0,
+  "field_mismatch_groups": 0,
+  "idempotent_repeat_additional_rows": 0,
+  "lineage_coverage_rows": 1824,
+  "pass": true,
+  "readback_rows": 1824,
+  "source_change_rows_seen": 166422,
+  "source_id_only_participant_rows": 10,
+  "unresolved_security_case_count": 8,
+  "validated_date_count": 20,
+  "validated_security_count": 10,
+  "write_rows": 1824
+}

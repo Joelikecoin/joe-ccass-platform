@@ -1,0 +1,26 @@
+{
+  "broker_fingerprint_inputs": true,
+  "change_pair_count": 806,
+  "cross_stock_participant_search": true,
+  "historical_ccass_timeline": true,
+  "ownership_percentage": "UNKNOWN_DENOMINATOR_NOT_STAGED",
+  "participant_changes": true,
+  "participant_holding_history": true,
+  "participant_holdings_by_date": true,
+  "pass": true,
+  "sample_cross_stock_participant": [
+    "ccass:C00048",
+    10
+  ],
+  "sample_holdings_group": [
+    "webb:issue:1240",
+    "2010-07-07",
+    126
+  ],
+  "sample_participant_history": [
+    "ccass:C00041",
+    14
+  ],
+  "timeline_date_count": 14,
+  "top_participant_concentration_inputs": true
+}

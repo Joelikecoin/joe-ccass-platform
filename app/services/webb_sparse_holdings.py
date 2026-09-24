@@ -33,10 +33,18 @@ def _ordered_changes(connection: Connection, issue_id: str, cutoff: str):
 def resolve_issue_snapshot_date(
     connection: Connection, issue_id: str, requested_date: date
 ) -> date | None:
-    """Resolve to Webb's latest dailylog date at or before the request."""
+    """Resolve within the issue's source range; reject past/future extrapolation."""
+    bounds = connection.execute(
+        "SELECT MIN(c1), MAX(c1) FROM dailylog WHERE c2 = ?", (str(issue_id),)
+    ).fetchone()
+    if not bounds or not bounds[0] or not bounds[1]:
+        return None
+    requested = requested_date.isoformat()
+    if requested < str(bounds[0]) or requested > str(bounds[1]):
+        return None
     row = connection.execute(
         "SELECT MAX(c1) FROM dailylog WHERE c2 = ? AND c1 <= ?",
-        (str(issue_id), requested_date.isoformat()),
+        (str(issue_id), requested),
     ).fetchone()
     return date.fromisoformat(str(row[0])) if row and row[0] else None
 
@@ -122,9 +130,17 @@ def reconstruct_issue_dates(
             )
         ]
         effective_dates: list[date | None] = []
+        source_min = daily_dates[0] if daily_dates else None
+        source_max_row = connection.execute(
+            "SELECT MAX(c1) FROM dailylog WHERE c2 = ?", (str(issue_id),)
+        ).fetchone()
+        source_max = date.fromisoformat(str(source_max_row[0])) if source_max_row and source_max_row[0] else None
         daily_cursor = 0
         latest_daily: date | None = None
         for requested_date in requested:
+            if source_min is None or source_max is None or requested_date < source_min or requested_date > source_max:
+                effective_dates.append(None)
+                continue
             while daily_cursor < len(daily_dates) and daily_dates[daily_cursor] <= requested_date:
                 latest_daily = daily_dates[daily_cursor]
                 daily_cursor += 1
@@ -218,12 +234,23 @@ def compare_with_reference_query(
     engine = [(str(row["source_part_id"]), int(row["share_quantity"]),
                str(row["last_change_date"])) for row in rebuilt["participant_rows"]]
     reference = reference_issue_at(connection, issue_id, as_of)
+    engine_map = {row[0]: row[1] for row in engine}
+    reference_map = {row[0]: row[1] for row in reference}
+    missing = sorted(set(reference_map) - set(engine_map), key=lambda value: (int(value), value))
+    extra = sorted(set(engine_map) - set(reference_map), key=lambda value: (int(value), value))
+    share_mismatches = sorted(
+        part_id for part_id in set(engine_map) & set(reference_map)
+        if engine_map[part_id] != reference_map[part_id]
+    )
     return {
         "issue_id": str(issue_id), "holdings_date": as_of.isoformat(),
         "engine_rows": len(engine), "reference_rows": len(reference),
         "engine_share_total": sum(row[1] for row in engine),
         "reference_share_total": sum(row[1] for row in reference),
         "rows_match": engine == reference,
+        "missing_participant_count": len(missing),
+        "extra_participant_count": len(extra),
+        "share_mismatch_count": len(share_mismatches),
         "duplicate_change_keys": rebuilt["duplicate_change_keys"],
         "conflicting_change_keys": rebuilt["conflicting_change_keys"],
         "negative_value_count": rebuilt["negative_value_count"],

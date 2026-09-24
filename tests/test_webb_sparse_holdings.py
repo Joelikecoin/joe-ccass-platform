@@ -61,7 +61,9 @@ def test_engine_matches_independent_reference_query():
         ("2", "7", "50", "2020-01-02"),
         ("1", "7", "0", "2020-01-03"),
     ])
-    connection.execute("INSERT INTO dailylog VALUES (?,?)", ("2020-01-03", "7"))
+    connection.executemany("INSERT INTO dailylog VALUES (?,?)", [
+        ("2020-01-03", "7"), ("2020-01-06", "7"),
+    ])
     comparison = compare_with_reference_query(connection, "7", date(2020, 1, 3))
     assert comparison["rows_match"] is True
     assert comparison["engine_rows"] == comparison["reference_rows"] == 1
@@ -72,8 +74,42 @@ def test_requested_non_trading_date_resolves_to_last_dailylog_date():
     connection = sqlite3.connect(":memory:")
     _schema(connection)
     connection.execute("INSERT INTO holdings VALUES (?,?,?,?)", ("1", "7", "100", "2020-01-03"))
-    connection.execute("INSERT INTO dailylog VALUES (?,?)", ("2020-01-03", "7"))
+    connection.executemany(
+        "INSERT INTO dailylog VALUES (?,?)",
+        [("2020-01-03", "7"), ("2020-01-06", "7")],
+    )
     assert resolve_issue_snapshot_date(connection, "7", date(2020, 1, 5)) == date(2020, 1, 3)
     result = reconstruct_issue_at(connection, "7", date(2020, 1, 5))
     assert result["requested_date"] == "2020-01-05"
     assert result["holdings_date"] == "2020-01-03"
+
+
+def test_first_observation_zero_close_and_reentry_boundaries():
+    connection = sqlite3.connect(":memory:")
+    _schema(connection)
+    connection.executemany("INSERT INTO dailylog VALUES (?,?)", [
+        ("2020-01-01", "7"), ("2020-01-02", "7"), ("2020-01-03", "7"),
+        ("2020-01-04", "7"), ("2020-01-05", "7"),
+    ])
+    connection.executemany("INSERT INTO holdings VALUES (?,?,?,?)", [
+        ("1", "7", "100", "2020-01-02"),
+        ("1", "7", "0", "2020-01-04"),
+        ("1", "7", "75", "2020-01-05"),
+    ])
+    results = reconstruct_issue_dates(connection, "7", [
+        date(2020, 1, 1), date(2020, 1, 2), date(2020, 1, 3),
+        date(2020, 1, 4), date(2020, 1, 5),
+    ])
+    assert [result["active_share_total"] for result in results] == [0, 100, 100, 0, 75]
+    assert [result["active_participant_count"] for result in results] == [0, 1, 1, 0, 1]
+
+
+def test_dates_outside_source_range_do_not_extrapolate():
+    connection = sqlite3.connect(":memory:")
+    _schema(connection)
+    connection.execute("INSERT INTO dailylog VALUES (?,?)", ("2020-01-03", "7"))
+    connection.execute("INSERT INTO holdings VALUES (?,?,?,?)", ("1", "7", "100", "2020-01-03"))
+    before = reconstruct_issue_at(connection, "7", date(2020, 1, 2))
+    after = reconstruct_issue_at(connection, "7", date(2020, 1, 4))
+    assert before["holdings_date"] is None and before["participant_rows"] == []
+    assert after["holdings_date"] is None and after["participant_rows"] == []

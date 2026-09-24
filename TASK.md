@@ -25,6 +25,15 @@
 - Current Branch：`main`
 - Current Repository HEAD：`7c40dceb47e65b70903e7c46553f69a812864b66`
 
+### Research infrastructure work package — 2026-09-24
+
+- `WEBB_FULL_CORPUS_VALIDATION_AND_HISTORICAL_BACKFILL_V1`：corpus validation completed; staged full backfill blocked by 92 source-native negative absolute holdings.
+- Evidence：30 securities / 60 stratified cases passed with zero row, participant, or share mismatches; full 229,978,760-row quality scan completed; canonical acceptance chain and three-security historical/current bridge passed.
+- Regression：focused historical suite 6 passed; full repository suite 614 passed and 8 pre-existing/environmental failures; 0 new regressions.
+- Safety：Research Store not mutated; evidence checkpointed to the dedicated H: historical CCASS acceptance area with SHA-256 manifest verification.
+- Next executable stage：forensically resolve or formally quarantine the 92 negative source rows with evidence, then rerun the data-quality and readiness gates.
+- Full report：[`docs/WEBB_FULL_CORPUS_VALIDATION_AND_HISTORICAL_BACKFILL_V1.md`](docs/WEBB_FULL_CORPUS_VALIDATION_AND_HISTORICAL_BACKFILL_V1.md)
+
 ## Status rules
 
 - `[ ]` pending

@@ -1,0 +1,21 @@
+year,issue_count,source_date_count,reconstructable_issue_count,identity_mapped_issue_count,participant_count,classification,participant_count_semantics
+2007,1279,129,1279,707,472,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2008,1325,243,1325,746,551,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2009,1379,249,1379,787,563,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2010,1459,249,1459,844,594,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2011,1544,247,1544,898,635,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2012,1589,247,1589,920,648,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2013,1678,245,1678,975,661,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2014,1788,248,1788,1055,661,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2015,1909,247,1909,1147,693,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2016,2026,247,2026,1232,722,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2017,2382,247,2382,1556,811,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2018,2578,246,2578,1720,820,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2019,2734,246,2734,1862,830,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2020,2871,248,2871,1999,818,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2021,2939,247,2939,2077,783,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2022,2964,246,2964,2071,772,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2023,3013,243,3013,2136,707,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2024,3061,246,3061,2208,684,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2025,3167,243,3167,2336,716,IDENTITY_PARTIAL,distinct participants with a recorded change in year
+2026,3062,141,3062,3062,588,RECONSTRUCTABLE_PARTIAL,gap package participants; available 2026-01-02..2026-07-31
