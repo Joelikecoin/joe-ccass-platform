@@ -200,3 +200,11 @@ LAST_MATERIALIZED_CHILD = 2013 (partial materialization preserved)
 LAST_VALIDATED_CHILD = 2012
 CURRENT_STAGING_SIZE_GB = 17.8_APPROX
 NEXT_EXECUTABLE_STAGE = Resume 2013 materialization from the preserved BATCH_2 target, validate 2013, then process 2014.
+
+SOURCE_FREEZE_STATUS = FAIL
+SOURCE_STABILITY_BLOCKER = YES
+SOURCE_ROW_COUNT_2013_OBSERVATIONS = 659886,673930,712218
+SOURCE_LAST_WRITE_TIME_OBSERVED = 2026-09-25T00:41:31
+BATCH_2_2013 = NEEDS_HUMAN_SOURCE_FREEZE
+REMAINING_BLOCKERS = Source SQLite is being modified concurrently; freeze the source and reverify SHA-256 before resuming.
+NEXT_BOTTLENECK = Establish an immutable source snapshot or stop the concurrent writer, then restart only the failed 2013 year checkpoint.
