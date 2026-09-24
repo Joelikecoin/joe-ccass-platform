@@ -40,6 +40,15 @@ class DoctorLocalStore:
                 payload_json TEXT NOT NULL, lineage_json TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (artifact_kind, artifact_key))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS identity_mappings (
+                source_system TEXT NOT NULL, source_issue_id TEXT NOT NULL,
+                canonical_security_id TEXT, hk_stock_code TEXT,
+                security_name TEXT, valid_from TEXT, valid_to TEXT,
+                mapping_status TEXT NOT NULL, mapping_confidence TEXT NOT NULL,
+                source_reference TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (source_system, source_issue_id, valid_from, valid_to))""")
+            db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS identity_mappings_natural_key
+                ON identity_mappings(source_system, source_issue_id, COALESCE(valid_from, ''), COALESCE(valid_to, ''))""")
 
     def put(self, kind: str, key: str, payload: Mapping[str, object], lineage: Sequence[EvidenceRef] = ()) -> bool:
         with sqlite3.connect(self.path) as db:
@@ -61,6 +70,27 @@ class DoctorLocalStore:
             if kind:
                 return int(db.execute("SELECT COUNT(*) FROM doctor_artifacts WHERE artifact_kind=?", (kind,)).fetchone()[0])
             return int(db.execute("SELECT COUNT(*) FROM doctor_artifacts").fetchone()[0])
+
+    def put_identity_mapping(self, mapping: Mapping[str, object]) -> bool:
+        required = ("source_system", "source_issue_id", "mapping_status", "mapping_confidence", "source_reference")
+        missing = [key for key in required if not str(mapping.get(key, "")).strip()]
+        if missing:
+            raise ValueError(f"identity mapping missing required fields: {missing}")
+        if mapping["mapping_status"] not in {"EXACT", "DATE_BOUNDED", "AMBIGUOUS", "UNRESOLVED"}:
+            raise ValueError("unsupported identity mapping status")
+        with sqlite3.connect(self.path) as db:
+            cur = db.execute("""INSERT OR IGNORE INTO identity_mappings
+                (source_system,source_issue_id,canonical_security_id,hk_stock_code,security_name,valid_from,valid_to,mapping_status,mapping_confidence,source_reference)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""", tuple(mapping.get(k) for k in (
+                    "source_system", "source_issue_id", "canonical_security_id", "hk_stock_code", "security_name",
+                    "valid_from", "valid_to", "mapping_status", "mapping_confidence", "source_reference")))
+            return cur.rowcount == 1
+
+    def get_identity_mapping(self, source_system: str, source_issue_id: str) -> list[dict[str, object]]:
+        with sqlite3.connect(self.path) as db:
+            db.row_factory = sqlite3.Row
+            rows = db.execute("SELECT source_system,source_issue_id,canonical_security_id,hk_stock_code,security_name,valid_from,valid_to,mapping_status,mapping_confidence,source_reference FROM identity_mappings WHERE source_system=? AND source_issue_id=? ORDER BY valid_from", (source_system, source_issue_id)).fetchall()
+        return [dict(row) for row in rows]
 
 
 def persist_sequence(store: DoctorLocalStore, *, security_id: str, result: SequenceResult, lineage: Sequence[EvidenceRef] = ()) -> str:
