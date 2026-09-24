@@ -524,4 +524,15 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 
 **WAITING FOR JOE'S GO (2026-09-23 morning decision):** ① A5 實裝（skip per Joe's latest）② 資產負債表 v4 ③ 異動盤捕捉架構 ④ DT gap 數據導入路徑 ⑤ Monitor depth iteration. The rainbow real-data wiring uses webbsite_full + gap_canonical directly (both local, both complete).
 
+### NIGHT CLOSE 2026-09-22 02:30 HKT (home machine, Joe sleeping) — TOMORROW: A5 實裝 on company machine
+
+**WEBB 17GB IMPORT STATUS = PAUSED MID-RUN (clean restart tomorrow, ~40-60 min machine time):**
+- Root causes found tonight: (a) the dump is MySQL data-only format (no CREATE TABLE) — needs the custom stream parser (now built: `import_webb_stream.py` clean rewrite, per-line processing, 20k-row flushes, parthold skipped); (b) multiple concurrent import runs contaminated webbsite_full.sqlite (locked writes, lost batches) — ALWAYS single-runner; (c) the live API's ~60s edge limit (known).
+- The clean importer PROVEN working before timeout: captured 8,200 萬+ holdings rows at 20.5% file progress (bigchanges 218萬 ✓ dailylog 966萬 ✓ complete).
+- **TOMORROW FIRST ACTION:** delete partial `workspace/default/webbsite_full.sqlite`, rerun `import_webb_stream.py` (background ~40-60 min), then verify: holdings 行數 (expect ~4 億+), 02318 issue 3606/34320 coverage, quotes 1,690萬+.
+- **THEN the merge is COMPLETE**: gap_canonical (2025-12→2026-07) + webbsite_full (2007→2025-12) = continuous 19-year participant history. Rainbow real-data wiring next (both DBs local and complete).
+- Launcher: `webb_import_task.bat` (workspace) 或直接 `python import_webb_stream.py`（路徑已寫死喺腳本內，雲端 H: 源 ✓）。
+
+**OTHER STATUS:** A5 實裝 = 暫緩等 Joe 介面決定 ✓（已記錄）。D 槽 DiskGenius = Joe 手動 pending。缺口期完成後：DEFERRED_DATA_GAP 標籤更新為 CLOSED（證據股）。
+
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
