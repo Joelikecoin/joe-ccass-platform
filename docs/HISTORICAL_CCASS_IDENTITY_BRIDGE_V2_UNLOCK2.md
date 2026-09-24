@@ -33,7 +33,7 @@ FULL_REPOSITORY_TEST_FAIL_COUNT=8
 REGRESSION_FAILURE_COUNT=0
 PRE_EXISTING_FAILURE_COUNT=8
 ENVIRONMENTAL_FAILURE_COUNT=0
-PASS_FLAGS_DB_DERIVED=PARTIAL; bounded historical flags are DB-derived, identity flags remain unresolved because no source mapping row exists
+PASS_FLAGS_DB_DERIVED=PARTIAL; mapping and 2007 identity flags are DB/source-derived, multi-era flags remain pending
 FULL_19Y_BACKFILL_READY=NO
 OWNER_CHAT_CONTINUATION_REQUIRED=NO
 OWNER_ACTION_REQUIRED=YES
@@ -42,4 +42,5 @@ PARTIAL_TRACKS=multi-era proof; cross-era continuity
 BLOCKED_TRACKS=multi-era proof; cross-era continuity; full 19-year readiness
 MAPPING_STATUS=DATE_BOUNDED`nMAPPING_EVIDENCE_COUNT=3`nHISTORICAL_DATE_VALIDITY_PASS=YES for 2007 sample`nCANONICAL_SECURITY_ID_STABLE=YES`nSOURCE_REFERENCE_TRACEABLE=YES`nREMAINING_BLOCKERS=Four or more raw holdings eras are not yet available from the bounded local extraction; do not infer continuity.
 NEXT_BOTTLENECK=Complete bounded extraction of real issue:3 holdings rows for 2012, 2017, 2022, and 2026/current, then execute identity-to-code readback proofs.
+
 
