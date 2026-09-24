@@ -3,7 +3,7 @@ from datetime import date
 from app.services.cross_source_intelligence import EvidenceRef, EvidenceState, EventRecord, CrossSourceIntelligence
 from app.services.job_runner import JobStore, STAGE_REGISTRY
 from app.services.doctor_local_engineering import (
-    DoctorLocalStore, build_fingerprint, build_historical_ccass_rows, build_interval,
+    DoctorLocalStore, build_fingerprint, build_historical_ccass_rows, build_historical_ccass_issue_rows, build_interval,
     field_match_historical, normalize_ccass_code, persist_fingerprint,
     persist_historical_ccass, persist_interval, persist_sequence, query_sequence,
 )
@@ -102,6 +102,11 @@ def test_historical_schema_mapping():
 
 def test_historical_normalization():
     assert normalize_ccass_code("0388") == "00388" and normalize_ccass_code(1211) == "01211"
+
+
+def test_historical_raw_issue_mapping_preserves_unresolved_security_identity():
+    row = build_historical_ccass_issue_rows([{"trade_date": "2007-07-04", "issue_id": 3, "participant_id": 1, "holding": 499}], source_id="webb-ccass-sql", source_reference="ccassData.sql")[0]
+    assert row["source_issue_id"] == "3" and row["normalized_security_code"] is None and row["natural_key"] == "2007-07-04|issue:3|1"
 
 
 def test_historical_field_match():

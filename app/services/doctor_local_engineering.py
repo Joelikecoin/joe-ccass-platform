@@ -125,6 +125,23 @@ def build_historical_ccass_rows(rows: Iterable[Mapping[str, object]], *, source_
     return output
 
 
+def build_historical_ccass_issue_rows(rows: Iterable[Mapping[str, object]], *, source_id: str, source_reference: str) -> list[dict[str, object]]:
+    """Build canonical rows from Webb raw ``(issue_id, participant_id, holding, date)``.
+
+    An Enigma issue-to-HK-code mapping is required before a normalized HK code
+    can be asserted, so the raw issue identity is retained explicitly and the
+    normalized field remains ``None`` rather than being guessed.
+    """
+    output: list[dict[str, object]] = []
+    for row in rows:
+        issue_id = str(row["issue_id"]).strip()
+        participant = str(row["participant_id"]).strip()
+        trade_date = str(row["trade_date"])
+        key = f"{trade_date}|issue:{issue_id}|{participant}"
+        output.append({"natural_key": key, "trade_date": trade_date, "source_security_code": None, "source_issue_id": issue_id, "normalized_security_code": None, "participant_id": participant, "holding": row["holding"], "source_id": source_id, "source_reference": source_reference})
+    return output
+
+
 def persist_historical_ccass(store: DoctorLocalStore, rows: Iterable[Mapping[str, object]]) -> int:
     count = 0
     for row in rows:
