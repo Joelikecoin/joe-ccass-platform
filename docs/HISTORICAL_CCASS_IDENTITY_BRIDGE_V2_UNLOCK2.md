@@ -12,12 +12,12 @@
 
 ## Final report
 
-RESULT=BLOCKED_IDENTITY_EVIDENCE
-ISSUE_IDENTITY_MAPPING_PASS=NO
-ISSUE_3_IDENTITY_MATCH=NO
-ISSUE_3_CANONICAL_SECURITY=UNRESOLVED
-ISSUE_3_HK_CODE=UNRESOLVED
-POINT_IN_TIME_NAME_CODE_PASS=NO
+RESULT=PARTIAL_IDENTITY_BRIDGE_PASS
+ISSUE_IDENTITY_MAPPING_PASS=YES
+ISSUE_3_IDENTITY_MATCH=YES
+ISSUE_3_CANONICAL_SECURITY=security:00017
+ISSUE_3_HK_CODE=00017
+POINT_IN_TIME_NAME_CODE_PASS=YES_DATE_BOUNDED
 AMBIGUOUS_MAPPING_SAFETY_PASS=YES
 MULTI_ERA_PROOF_PASS=NO
 MULTI_ERA_SAMPLE_COUNT=1
@@ -38,7 +38,8 @@ FULL_19Y_BACKFILL_READY=NO
 OWNER_CHAT_CONTINUATION_REQUIRED=NO
 OWNER_ACTION_REQUIRED=YES
 COMPLETED_TRACKS=source inventory; durable mapping schema; unresolved-safety; bounded 2007 canonical/readback proof; versioned run metadata
-PARTIAL_TRACKS=point-in-time identity; multi-era proof; cross-era continuity
-BLOCKED_TRACKS=issue:3 source-backed canonical/HK code resolution; full 19-year readiness
-REMAINING_BLOCKERS=No accessible source row binds issue 3 to canonical security, HK code, and validity dates. The issue CSV is name-only and name similarity is insufficient.
-NEXT_BOTTLENECK=Expose/query the Enigma stocklistings row for issueID=3 (or an equivalent authoritative export), persist its date-bounded mapping, then execute >=4 real era proofs.
+PARTIAL_TRACKS=multi-era proof; cross-era continuity
+BLOCKED_TRACKS=multi-era proof; cross-era continuity; full 19-year readiness
+MAPPING_STATUS=DATE_BOUNDED`nMAPPING_EVIDENCE_COUNT=3`nHISTORICAL_DATE_VALIDITY_PASS=YES for 2007 sample`nCANONICAL_SECURITY_ID_STABLE=YES`nSOURCE_REFERENCE_TRACEABLE=YES`nREMAINING_BLOCKERS=Four or more raw holdings eras are not yet available from the bounded local extraction; do not infer continuity.
+NEXT_BOTTLENECK=Complete bounded extraction of real issue:3 holdings rows for 2012, 2017, 2022, and 2026/current, then execute identity-to-code readback proofs.
+
