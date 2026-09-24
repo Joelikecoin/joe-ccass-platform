@@ -17,6 +17,22 @@ class JobStore:
         with self._connect() as c:
             c.execute("CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, job_type TEXT NOT NULL, status TEXT NOT NULL, current_stage TEXT, progress INTEGER NOT NULL, started_at TEXT, updated_at TEXT NOT NULL, completed_at TEXT, failed_stage TEXT, sanitized_error TEXT, checkpoint TEXT NOT NULL, result_summary TEXT NOT NULL)")
             c.execute("CREATE TABLE IF NOT EXISTS acceptance_runs (acceptance_run_id TEXT NOT NULL, job_id TEXT NOT NULL, job_type TEXT NOT NULL, stock_code TEXT NOT NULL, stage_name TEXT NOT NULL, stage_status TEXT NOT NULL, started_at TEXT, completed_at TEXT, rows_seen INTEGER, rows_written INTEGER, rows_after INTEGER, duplicate_count INTEGER, evidence_count INTEGER, lineage_count INTEGER, failed_stage TEXT, error_type TEXT, sanitized_error TEXT, result_json TEXT NOT NULL, source_refs TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (acceptance_run_id, stage_name))")
+            c.execute("""CREATE TABLE IF NOT EXISTS field_match_evidence (
+                acceptance_run_id TEXT NOT NULL,
+                field_match_id TEXT NOT NULL,
+                record_kind TEXT NOT NULL,
+                source_record_id TEXT,
+                canonical_record_id TEXT,
+                fields_compared TEXT NOT NULL,
+                fields_matched TEXT NOT NULL,
+                fields_mismatched TEXT NOT NULL,
+                mismatch_details TEXT NOT NULL,
+                source_refs TEXT NOT NULL,
+                canonical_refs TEXT NOT NULL,
+                match_pass INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (acceptance_run_id, field_match_id)
+            )""")
             for col in ("code_version TEXT", "stage_version TEXT", "retry_count INTEGER DEFAULT 0", "last_attempt_at TEXT", "next_retry_at TEXT"):
                 try: c.execute(f"ALTER TABLE acceptance_runs ADD COLUMN {col}")
                 except Exception: pass
@@ -47,6 +63,32 @@ class JobStore:
     def stage_passed(self,jid,stage):
         with self._connect() as c:
             return c.execute("SELECT 1 FROM acceptance_runs WHERE acceptance_run_id=? AND stage_name=? AND stage_status IN ('PASS','DATA_NOT_AVAILABLE')",(jid,stage)).fetchone() is not None
+    def record_field_match(self, jid, evidence):
+        with self._connect() as c:
+            c.execute(
+                """INSERT OR REPLACE INTO field_match_evidence
+                (acceptance_run_id, field_match_id, record_kind, source_record_id,
+                 canonical_record_id, fields_compared, fields_matched,
+                 fields_mismatched, mismatch_details, source_refs, canonical_refs,
+                 match_pass, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (jid, evidence["field_match_id"], evidence["record_kind"],
+                 evidence.get("source_record_id"), evidence.get("canonical_record_id"),
+                 json.dumps(evidence["fields_compared"], sort_keys=True),
+                 json.dumps(evidence["fields_matched"], sort_keys=True),
+                 json.dumps(evidence["fields_mismatched"], sort_keys=True),
+                 json.dumps(evidence["mismatch_details"], sort_keys=True),
+                 json.dumps(evidence["source_refs"], sort_keys=True),
+                 json.dumps(evidence["canonical_refs"], sort_keys=True),
+                 int(bool(evidence["match_pass"])), datetime.now(UTC).isoformat()),
+            )
+            c.commit()
+
+    def field_match_evidence(self, jid):
+        with self._connect() as c:
+            c.row_factory = sqlite3.Row
+            return [dict(r) for r in c.execute(
+                "SELECT * FROM field_match_evidence WHERE acceptance_run_id=? ORDER BY field_match_id", (jid,)
+            ).fetchall()]
     def invalidate_stage(self,jid,stage):
         with self._connect() as c:
             c.execute("UPDATE acceptance_runs SET stage_status='PENDING', result_json='{}', updated_at=? WHERE acceptance_run_id=? AND stage_name=?",(datetime.now(UTC).isoformat(),jid,stage)); c.commit()
@@ -104,7 +146,41 @@ async def run_event_job(store:JobStore,jid:str):
             store.record_stage(jid,"event_source_discovery","DATA_NOT_AVAILABLE",rows_seen=0,result_json=json.dumps({"source_query_status":"SUCCESS","source_result_count":0})); store.update(jid,status="COMPLETED",current_stage="event_lineage",progress=100,completed_at=datetime.now(UTC).isoformat(),result_summary=json.dumps({"event_status":"DATA_NOT_AVAILABLE"})); return
         for stage in ("event_source_discovery","event_normalization","event_dedup","event_timeline","event_lineage"):
             store.record_stage(jid,stage,"PASS",rows_seen=len(events),rows_written=max(0,after-before),rows_after=len(rows),duplicate_count=max(0,final-after),lineage_count=len(rows),result_json=json.dumps({"event_count":len(rows),"date_semantics":"preserved"}))
-        store.update(jid,status="COMPLETED",current_stage="event_lineage",progress=100,completed_at=datetime.now(UTC).isoformat(),result_summary=json.dumps({"event_status":"PASS","event_count":len(rows),"duplicate_count":max(0,final-after)}))
+        canonical_by_id = {str(r["record_id"]): r for r in rows}
+        evidence_rows = []
+        for source_row in response.stock_events:
+            source_event_id = source_row.event_id or f"{response.metadata.code}:{source_row.event_date}:{source_row.title}"
+            canonical = canonical_by_id.get(str(source_event_id))
+            source_ref = source_row.event_details_url or source_row.link or response.metadata.source_url or source_row.source
+            payload = json.loads(canonical["payload_json"]) if canonical else {}
+            lineage = payload.get("lineage", [])
+            canonical_ref = lineage[0].get("source_reference") if lineage else None
+            expected_type = source_row.event_type or "UNCLASSIFIED"
+            checks = {
+                "stock_code": bool(canonical and payload.get("security_id") == f"security:{response.metadata.code}"),
+                "canonical_event_id": bool(canonical and payload.get("event_id") == source_event_id),
+                "event_type": bool(canonical and payload.get("event_type") == expected_type),
+                "event_date": bool(canonical and payload.get("announcement_date") == source_row.event_date.isoformat()),
+                "date_semantic": bool(canonical and payload.get("announcement_date") is not None),
+                "source_reference": bool(canonical_ref and canonical_ref == source_ref),
+                "source_id": bool(canonical and str(canonical.get("source_id")) == str(source_row.source)),
+                "entity_reference": bool(canonical and payload.get("security_id") == f"security:{response.metadata.code}"),
+            }
+            matched = [field for field, ok in checks.items() if ok]
+            mismatched = [field for field, ok in checks.items() if not ok]
+            evidence_rows.append({
+                "field_match_id": f"event:{source_event_id}", "record_kind": "event",
+                "source_record_id": source_event_id, "canonical_record_id": canonical.get("record_id") if canonical else None,
+                "fields_compared": list(checks), "fields_matched": matched, "fields_mismatched": mismatched,
+                "mismatch_details": {field: {"source": source_event_id, "canonical": canonical.get("record_id") if canonical else None} for field in mismatched},
+                "source_refs": [source_ref] if source_ref else [], "canonical_refs": [canonical_ref] if canonical_ref else [],
+                "match_pass": bool(canonical and not mismatched),
+            })
+        for evidence in evidence_rows:
+            store.record_field_match(jid, evidence)
+        field_match_pass = bool(evidence_rows) and all(e["match_pass"] for e in evidence_rows)
+        store.record_stage(jid, "event_acceptance", "PASS" if field_match_pass else "FAIL", rows_seen=len(evidence_rows), rows_after=len(evidence_rows), evidence_count=sum(e["match_pass"] for e in evidence_rows), lineage_count=sum(bool(e["canonical_refs"]) for e in evidence_rows), result_json=json.dumps({"field_match_pass": field_match_pass, "fields_compared": sorted({f for e in evidence_rows for f in e["fields_compared"]}), "fields_matched": sum(len(e["fields_matched"]) for e in evidence_rows), "fields_mismatched": sum(len(e["fields_mismatched"]) for e in evidence_rows)}))
+        store.update(jid,status="COMPLETED" if field_match_pass else "FAILED",current_stage="event_acceptance",progress=100 if field_match_pass else 95,completed_at=datetime.now(UTC).isoformat() if field_match_pass else None,result_summary=json.dumps({"event_status":"PASS" if field_match_pass else "FIELD_MATCH_FAILED","event_count":len(rows),"duplicate_count":max(0,final-after),"event_field_match_pass":field_match_pass,"field_match_evidence_count":len(evidence_rows)}))
     except Exception as exc:
         store.update(jid,status="FAILED",failed_stage=store.get(jid).get("current_stage"),sanitized_error=f"{type(exc).__name__}: {str(exc)[:180]}")
 
