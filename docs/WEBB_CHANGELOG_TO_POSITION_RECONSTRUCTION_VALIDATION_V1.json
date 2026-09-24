@@ -1,0 +1,65 @@
+{
+  "work_package": "WEBB_CHANGELOG_TO_POSITION_RECONSTRUCTION_V1",
+  "source_database": "C:\\Users\\Joe Lau\\.zcode\\workspace\\default\\webbsite_full.sqlite",
+  "source_table": "holdings",
+  "column_mapping": {
+    "c1": "partID",
+    "c2": "issueID",
+    "c3": "absolute holding after change",
+    "c4": "atDate"
+  },
+  "natural_change_key": ["issueID", "partID", "atDate"],
+  "application_order": ["atDate", "numeric partID", "partID", "source rowid tie breaker"],
+  "snapshot_date_rule": "latest dailylog date at or before requested date",
+  "zero_rule": "zero closes the participant position",
+  "missing_change_rule": "carry the last absolute holding forward",
+  "negative_value_rule": "count as invalid source value; never emit as active position",
+  "source_logic": "Webb choldings.asp selects max(atDate) per partID for the issue and date",
+  "directory_coverage": {
+    "observed_issue_ids": 3861,
+    "issue_ids_with_shortnames_entry": 3861,
+    "observed_participant_ids": 1236,
+    "participant_ids_with_directory_entry": 1236
+  },
+  "independent_reference_comparisons": [
+    {
+      "issue_id": "1",
+      "holdings_date": "2008-01-15",
+      "engine_rows": 334,
+      "reference_rows": 334,
+      "engine_share_total": 983968689,
+      "reference_share_total": 983968689,
+      "rows_match": true,
+      "duplicate_change_keys": 0,
+      "conflicting_change_keys": 0,
+      "negative_value_count": 0
+    },
+    {
+      "issue_id": "1088",
+      "holdings_date": "2013-03-19",
+      "engine_rows": 518,
+      "reference_rows": 518,
+      "engine_share_total": 5621367584,
+      "reference_share_total": 5621367584,
+      "rows_match": true,
+      "duplicate_change_keys": 0,
+      "conflicting_change_keys": 0,
+      "negative_value_count": 0
+    },
+    {
+      "issue_id": "348",
+      "holdings_date": "2025-12-24",
+      "engine_rows": 362,
+      "reference_rows": 362,
+      "engine_share_total": 9681669158,
+      "reference_share_total": 9681669158,
+      "rows_match": true,
+      "duplicate_change_keys": 0,
+      "conflicting_change_keys": 0,
+      "negative_value_count": 0
+    }
+  ],
+  "all_reference_comparisons_pass": true,
+  "source_mutated": false,
+  "research_store_mutated": false
+}
