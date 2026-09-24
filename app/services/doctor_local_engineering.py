@@ -49,6 +49,11 @@ class DoctorLocalStore:
                 PRIMARY KEY (source_system, source_issue_id, valid_from, valid_to))""")
             db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS identity_mappings_natural_key
                 ON identity_mappings(source_system, source_issue_id, COALESCE(valid_from, ''), COALESCE(valid_to, ''))""")
+            db.execute("""CREATE TABLE IF NOT EXISTS identity_mapping_runs (
+                run_id TEXT PRIMARY KEY, code_version TEXT NOT NULL, commit_sha TEXT NOT NULL,
+                schema_version TEXT NOT NULL, stage_version TEXT NOT NULL,
+                status TEXT NOT NULL, invalidated_from_stage TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)""")
 
     def put(self, kind: str, key: str, payload: Mapping[str, object], lineage: Sequence[EvidenceRef] = ()) -> bool:
         with sqlite3.connect(self.path) as db:
@@ -91,6 +96,16 @@ class DoctorLocalStore:
             db.row_factory = sqlite3.Row
             rows = db.execute("SELECT source_system,source_issue_id,canonical_security_id,hk_stock_code,security_name,valid_from,valid_to,mapping_status,mapping_confidence,source_reference FROM identity_mappings WHERE source_system=? AND source_issue_id=? ORDER BY valid_from", (source_system, source_issue_id)).fetchall()
         return [dict(row) for row in rows]
+
+    def record_identity_mapping_run(self, run_id: str, *, code_version: str, commit_sha: str,
+                                    schema_version: str, stage_version: str, status: str = "PASS",
+                                    invalidated_from_stage: str | None = None) -> bool:
+        with sqlite3.connect(self.path) as db:
+            cur = db.execute("""INSERT OR IGNORE INTO identity_mapping_runs
+                (run_id,code_version,commit_sha,schema_version,stage_version,status,invalidated_from_stage)
+                VALUES (?,?,?,?,?,?,?)""", (run_id, code_version, commit_sha, schema_version,
+                                                stage_version, status, invalidated_from_stage))
+            return cur.rowcount == 1
 
 
 def persist_sequence(store: DoctorLocalStore, *, security_id: str, result: SequenceResult, lineage: Sequence[EvidenceRef] = ()) -> str:
