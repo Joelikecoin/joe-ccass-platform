@@ -5,12 +5,14 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from webb_quarantine_staged_backfill_sql_v1 import _insert_select
+from webb_quarantine_staged_backfill_sql_v1 import _insert_select, SCHEMA, _load_lookup
 
 YEARS={2011:('2011-01-01','2012-01-01'),2012:('2012-01-01','2013-01-01'),2013:('2013-01-01','2014-01-01'),2014:('2014-01-01','2015-01-01'),2015:('2015-01-01','2016-01-01'),2016:('2016-01-01','2017-01-01'),2017:('2017-01-01','2018-01-01'),2018:('2018-01-01','2019-01-01'),2019:('2019-01-01','2020-01-01'),2020:('2020-01-01','2021-01-01'),2021:('2021-01-01','2022-01-01'),2022:('2022-01-01','2023-01-01'),2023:('2023-01-01','2024-01-01'),2024:('2024-01-01','2025-01-01'),2025:('2025-01-01','2026-01-01'),2026:('2026-01-01','2027-01-01')}
 def main():
-    a=argparse.ArgumentParser(); a.add_argument('--year',type=int,required=True); a.add_argument('--db',type=Path,required=True); a.add_argument('--source',type=Path,required=True); a.add_argument('--source-sha256',required=True); a.add_argument('--out-dir',type=Path,required=True); x=a.parse_args(); s,e=YEARS[x.year]; x.out_dir.mkdir(parents=True,exist_ok=True)
-    version=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(); c=sqlite3.connect(x.db); c.execute('ATTACH DATABASE ? AS source',(str(x.source.resolve()),));
+    a=argparse.ArgumentParser(); a.add_argument('--year',type=int,required=True); a.add_argument('--db',type=Path,required=True); a.add_argument('--source',type=Path,required=True); a.add_argument('--source-sha256',required=True); a.add_argument('--out-dir',type=Path,required=True); a.add_argument('--quarantine',type=Path); a.add_argument('--issue-identity',type=Path); a.add_argument('--participant-identity',type=Path); x=a.parse_args(); s,e=YEARS[x.year]; x.out_dir.mkdir(parents=True,exist_ok=True)
+    version=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(); c=sqlite3.connect(x.db); c.executescript(SCHEMA); c.execute('ATTACH DATABASE ? AS source',(str(x.source.resolve()),));
+    if x.quarantine and x.issue_identity and x.participant_identity and not c.execute("select count(*) from sqlite_master where type='table' and name='issue_identity'").fetchone()[0]:
+        _load_lookup(c, argparse.Namespace(quarantine=x.quarantine, issue_identity=x.issue_identity, participant_identity=x.participant_identity))
     c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='quarantine_windows'").fetchone()
     manifest=x.out_dir/f'YEAR_{x.year}_MANIFEST.json'; manifest.write_text(json.dumps({'year':x.year,'date_min':s,'date_max':e,'status':'MATERIALIZING','source_sha256':x.source_sha256,'code_version':version,'schema_version':'canonical-historical-quarantine-v1'},indent=2)+"\n")
     source_rows, source_neg = c.execute("select count(*),sum(cast(c3 as integer)<0) from source.holdings where c4>=? and c4<? and cast(c3 as integer)<>0",(s,e)).fetchone()
