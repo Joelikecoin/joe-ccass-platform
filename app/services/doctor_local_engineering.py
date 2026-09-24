@@ -200,3 +200,33 @@ def field_match_historical(left: Mapping[str, object], right: Mapping[str, objec
     matched = [f for f in fields if left.get(f) == right.get(f)]
     mismatched = [f for f in fields if left.get(f) != right.get(f)]
     return {"fields_compared": fields, "fields_matched": tuple(matched), "fields_mismatched": tuple(mismatched), "match_pass": not mismatched}
+
+
+def build_stitched_historical_rows(
+    rows: Iterable[Mapping[str, object]], *, source_system: str, source_reference: str,
+    canonical_security_id: str, hk_stock_code: object, security_name: str,
+    source_issue_id: object | None = None, ingested_at: str | None = None,
+) -> list[dict[str, object]]:
+    """Build provenance-preserving aggregate or participant historical rows.
+
+    ``participant_id`` and ``share_quantity`` remain nullable for aggregate
+    dailylog sources; callers must not promote those rows to participant-level
+    evidence when the source does not provide participant detail.
+    """
+    code = normalize_ccass_code(hk_stock_code)
+    output: list[dict[str, object]] = []
+    for row in rows:
+        trade_date = str(row["trade_date"])
+        participant = row.get("participant_id")
+        quantity = row.get("share_quantity", row.get("holding"))
+        source_record_id = str(row.get("source_record_id", f"{source_system}:{source_issue_id or ''}:{trade_date}:{participant or ''}"))
+        output.append({
+            "natural_key": f"{trade_date}|{code}|{participant or source_record_id}",
+            "source_system": source_system, "source_record_id": source_record_id,
+            "source_issue_id": str(source_issue_id) if source_issue_id is not None else None,
+            "canonical_security_id": canonical_security_id, "hk_stock_code": code,
+            "security_name": security_name, "holdings_date": trade_date,
+            "participant_identity": participant, "share_quantity": quantity,
+            "source_reference": source_reference, "ingested_at": ingested_at,
+        })
+    return output
