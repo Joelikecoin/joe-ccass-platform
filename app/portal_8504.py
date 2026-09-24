@@ -113,7 +113,7 @@ from app.services.changes import get_changes_service
 from app.services.concentration import get_concentration_service
 from app.sources.registry import GOOGLE_DRIVE_CSV_SOURCE_ID
 from app.storage.history import NormalizedSnapshotRepository
-from app.services.job_runner import JobStore, start_job, run_job
+from app.services.job_runner import JobStore, start_job, run_job, run_entity_job, run_event_job
 from app.storage.cross_source import CrossSourceRepository
 from app.streamlit_ui import (
     build_download_artifacts,
@@ -2274,7 +2274,13 @@ async def _job_resume(job_id: str, x_api_key: str | None = Header(default=None))
     if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
     job=_job_store.get(job_id)
     if not job:return JSONResponse({"detail":"NOT_FOUND"},status_code=404)
-    if job["status"] in {"FAILED","BLOCKED"}: asyncio.create_task(run_job(_job_store,job_id))
+    if job["status"] in {"FAILED","BLOCKED","QUEUED"}:
+        runner = (
+            run_entity_job if job["job_type"] == "ENTITY_RESOLUTION_PRODUCTION_ACCEPTANCE"
+            else run_event_job if job["job_type"] == "EVENT_PRODUCTION_ACCEPTANCE"
+            else run_job
+        )
+        asyncio.create_task(runner(_job_store, job_id))
     return _job_store.get(job_id)
 async def _job_cancel(job_id: str, x_api_key: str | None = Header(default=None)):
     if get_settings().api_key and not _job_auth(x_api_key): return JSONResponse({"detail":"AUTH_FAILED"},status_code=401)
