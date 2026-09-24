@@ -1,0 +1,126 @@
+# CCASS_2007_2026_FULL_HISTORICAL_ENGINEERING_V1
+
+## ZCode merged-data forensics
+
+An existing participant-level merge is present in the authoritative Research Store and is evidenced by the persisted ingestion record `CCASS_GAP_20251201_20260731_V1`:
+
+- path: `H:\...\08_DATA_ASSETS\research_store\research_store.sqlite`
+- table: `ccass_historical_holdings`
+- row count: 9,540,395
+- date range: 2025-12-01..2026-07-31
+- unique dates/securities/participants: 162 / 3,070 / 590
+- source ZIP SHA-256: `0681F59B2A2229CBFA2602819CF69B4A4C23AE1A3FF9CB595DE2FA3E5C4529EB`
+- duplicate keys before ingestion: 0
+- conflicting rows before ingestion: 0
+
+This is an existing prior merge. It was inspected read-only and not rewritten.
+
+## Owner pack
+
+The owner-provided ZIP was inspected by extracting only to a local temporary working directory. It contains eight monthly gzip files plus `participants.csv`. Actual rows are participant-level with fields `atDate, stockCode, issueID, ccassID, partID, holding`.
+
+OWNER_PACK_INSPECTED=YES
+OWNER_PACK_DATE_MIN=2025-12-01
+OWNER_PACK_DATE_MAX=2026-07-31
+OWNER_PACK_ROW_COUNT=9540395
+OWNER_PACK_PARTICIPANT_DETAIL=YES
+OWNER_PACK_UNIQUE_DATES=162
+OWNER_PACK_UNIQUE_SECURITIES=3070
+OWNER_PACK_UNIQUE_PARTICIPANTS=590
+OWNER_PACK_DUPLICATE_KEYS=0
+
+The owner’s earlier expected count was 9,540,387; the actual eight files and the persisted ingestion manifest both contain 9,540,395 rows. No rows were dropped to force the earlier number.
+
+## Participant canonical proof
+
+Four source-backed samples were normalized, written to a local append-only proof store, read back, and compared:
+
+- 2007-07-04, issue 3 / code 00017 / participant 1
+- 2008-01-15, issue 3 / code 00017 / participant 1
+- 2025-12-01, code 00017 / participant A00003:1323
+- 2026-07-31, code 00017 / participant A00003:1323
+
+PARTICIPANT_RAW_ROWS=4
+PARTICIPANT_CANONICAL_ROWS=4
+PARTICIPANT_READBACK_ROWS=4
+PARTICIPANT_ID_MATCH=YES
+SHARE_QUANTITY_MATCH=YES
+HOLDINGS_DATE_MATCH=YES
+SECURITY_ID_MATCH=YES
+DUPLICATE_COUNT=0
+HISTORICAL_IDEMPOTENT_PASS=YES
+
+The same late-period participant identity and canonical security are preserved between 2025-12-01 and 2026-07-31. No beneficial-owner inference was made.
+
+## Final report
+
+RESULT=PARTIAL_FULL_HISTORICAL_ENGINEERING
+EXECUTION_DURATION_CLASS=SINGLE_AUTONOMOUS_RUN
+LOCAL_HEAD=591315202b980638e034e8e1717ece88f5829f94
+REMOTE_HEAD=3654f8f3b3fe6c41f581f9c06c7c5ca7e494723f
+DEPLOYED_SHA=fda7639d7a5a443ae8ac621ea00d1749dd5833ce
+ZCODE_MERGED_DATA_FOUND=YES_EVIDENCE_BACKED
+ZCODE_MERGED_DATA_PATH=H:\...\08_DATA_ASSETS\research_store\research_store.sqlite
+ZCODE_MERGED_DATA_SCHEMA=ccass_historical_holdings + ccass_historical_ingestion
+ZCODE_MERGED_DATA_DATE_RANGE=2025-12-01..2026-07-31
+ZCODE_MERGED_DATA_ROW_COUNT=9540395
+ZCODE_MERGED_DATA_PARTICIPANT_LEVEL=YES
+OWNER_PACK_INSPECTED=YES
+OWNER_PACK_DATE_MIN=2025-12-01
+OWNER_PACK_DATE_MAX=2026-07-31
+OWNER_PACK_ROW_COUNT=9540395
+OWNER_PACK_PARTICIPANT_DETAIL=YES
+SOURCE_COUNT=4
+ARCHIVE_COUNT=4
+SCHEMA_COUNT=4
+AGGREGATE_EARLIEST_DATE=2007-06-26
+AGGREGATE_LATEST_DATE=2025-12-24
+PARTICIPANT_DETAIL_SOURCE_FOUND=YES
+CONFIRMED_PARTICIPANT_SOURCE_COUNT=2
+EARLIEST_PARTICIPANT_DATE=2007-07-04
+LATEST_PARTICIPANT_DATE=2026-07-31
+PARTICIPANT_YEARS_FULL=
+PARTICIPANT_YEARS_PARTIAL=2007,2008,2009,2010,2011,2012,2025,2026
+PARTICIPANT_YEARS_NOT_FOUND=2026 historical dates outside 2025-12..2026-07 pack
+PARTICIPANT_YEARS_UNVERIFIED=2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024
+SECURITY_IDENTITY_MAPPING_PASS=YES
+PARTICIPANT_IDENTITY_MAPPING_PASS=YES_SOURCE_ID_PRESERVED
+MULTI_SOURCE_STITCHING_PASS=YES_LOCAL_PROOF
+OVERLAP_VALIDATION_PASS=PARTIAL_NO_INDEPENDENT_OVERLAP_SOURCE
+SOURCE_CONFLICT_COUNT=0
+2025_2026_BRIDGE_PASS=YES_PACK_CONTINUITY
+PARTICIPANT_CANONICAL_CHAIN_PASS=YES
+PARTICIPANT_MULTI_ERA_PROOF_PASS=YES
+PARTICIPANT_MULTI_ERA_SAMPLE_COUNT=4
+PARTICIPANT_MULTI_ERA_SAMPLE_RANGE=2007-07-04;2008-01-15;2025-12-01;2026-07-31
+HISTORICAL_CURRENT_PARTICIPANT_BRIDGE_PASS=NO_CURRENT_PRODUCTION_HOLDINGS_ROUTE
+FULL_19Y_PARTICIPANT_BACKFILL_READY=NO
+STAGED_FULL_BACKFILL_STARTED=NO
+BACKFILL_COMPLETED_BATCHES=0
+BACKFILL_LAST_COMPLETED_DATE=
+BACKFILL_NEXT_BATCH=Blocked until participant coverage for 2013-2024 and current-production participant bridge are verified
+BACKFILL_RAW_ROWS=0
+BACKFILL_CANONICAL_ROWS=0
+BACKFILL_READBACK_ROWS=0
+BACKFILL_UNRESOLVED_SECURITY_COUNT=0
+BACKFILL_UNRESOLVED_PARTICIPANT_COUNT=0
+BACKFILL_SOURCE_CONFLICT_COUNT=0
+BACKFILL_ROW_RECONCILIATION_PASS=NOT_STARTED
+HISTORICAL_LINEAGE_PASS=YES
+HISTORICAL_IDEMPOTENT_PASS=YES
+HISTORICAL_RESEARCH_SURFACES_PASS=PARTIAL
+COMBINED_TEST_COUNT=29
+COMBINED_TEST_PASS_COUNT=29
+COMBINED_TEST_FAIL_COUNT=0
+PASS_FLAGS_DB_DERIVED=YES_FOR_EXISTING_INGESTION_AND_LOCAL_PROOF
+RESEARCH_STORE_MUTATED=NO
+OWNER_CHAT_CONTINUATION_REQUIRED=NO
+OWNER_ACTION_REQUIRED=NO
+COMPLETED_TRACKS=workspace recovery; ZCode merge forensics; owner pack inspection; participant source validation; identity reuse; local canonical chain; four-era participant proof; idempotency
+PARTIAL_TRACKS=source overlap validation; historical/current production bridge; participant coverage 2013-2024
+BLOCKED_TRACKS=full 19-year participant backfill
+CURRENT_TRACK=source coverage and bridge validation
+CURRENT_STAGE=pre-backfill readiness gate
+REMAINING_BLOCKERS=Participant-level historical coverage for 2013-2024 is not verified; current production participant holdings endpoint is not exposed; the existing Research Store merge is read-only for this package.
+NEXT_EXECUTABLE_STAGE=Locate participant-level 2013-2024 source or archive, then validate non-destructive overlaps and current bridge.
+NEXT_BOTTLENECK=Post-2012 participant-level source discovery and a current-production participant holdings readback.
