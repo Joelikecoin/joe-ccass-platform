@@ -103,7 +103,7 @@ The eight failures match the baseline categories: one dependency expectation, on
 - `FULL_REPOSITORY_REGRESSION_V1.txt`
 - `WEBB_FULL_CORPUS_ARTIFACT_MANIFEST_V1.csv`
 
-The 15 evidence artifacts were checkpointed to the dedicated H: historical CCASS acceptance directory. Local-to-H SHA-256 comparison found 0 mismatches; the per-file hashes are recorded in the artifact manifest.
+The 20 evidence artifacts were checkpointed to the dedicated H: historical CCASS acceptance directory. Local-to-H SHA-256 comparison found 0 mismatches; the per-file hashes are recorded in the artifact manifest.
 
 ## Final handoff
 
@@ -170,6 +170,6 @@ RESEARCH_STORE_MUTATED=NO
 OWNER_CHAT_CONTINUATION_REQUIRED=NO
 OWNER_ACTION_REQUIRED=NO
 
-REMAINING_BLOCKERS=92 source-native negative absolute holdings require evidence-backed anomaly semantics or correction policy
-NEXT_EXECUTABLE_STAGE=Forensically classify the 92 negative source rows, preserve every disposition, then rerun the corpus data-quality and readiness gates
+REMAINING_BLOCKERS=92 source-native negative absolute holdings are formally quarantined pending authoritative semantics or an approved lineage-preserving quarantine policy
+NEXT_EXECUTABLE_STAGE=Obtain authoritative semantics or approve the quarantine policy, then rerun the corpus data-quality and readiness gates
 ```
