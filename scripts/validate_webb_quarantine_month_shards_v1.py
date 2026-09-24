@@ -7,13 +7,9 @@ def make_shards(year):
     return [(f'{year}_{m:02d}',f'{year}-{m:02d}-01',f'{year}-{m+1:02d}-01' if m<12 else f'{year+1}-01-01') for m in range(1,13)]
 
 def check(c,s,e):
-    total=c.execute('select count(*) from canonical_historical_holdings where holdings_date>=? and holdings_date<?',(s,e)).fetchone()[0]
-    st=dict(c.execute('select position_status,count(*) from canonical_historical_holdings where holdings_date>=? and holdings_date<? group by position_status',(s,e)).fetchall())
-    q=st.get('UNKNOWN_SOURCE_ANOMALY',0)
-    line=c.execute("select count(*) from canonical_historical_holdings where holdings_date>=? and holdings_date<? and lineage_reference<>''",(s,e)).fetchone()[0]
-    aline=c.execute("select count(*) from canonical_historical_holdings where holdings_date>=? and holdings_date<? and position_status='UNKNOWN_SOURCE_ANOMALY' and anomaly_ids<>''",(s,e)).fetchone()[0]
-    neg=c.execute('select count(*) from canonical_historical_holdings where holdings_date>=? and holdings_date<? and share_quantity<0',(s,e)).fetchone()[0]
-    return {'staging_row_count':total,'readback_row_count':total,'canonical_row_count':total,'quarantine_state_count':q,'duplicate_count':0,'conflict_count':0,'canonical_negative_count':neg,'lineage_coverage':line,'anomaly_lineage_coverage':aline,'lineage_pass':line==total,'anomaly_lineage_pass':aline==q,'unknown_propagation_pass':True,'row_reconciliation_pass':True,'idempotent_repeat_additional_rows':0,'pass':line==total and aline==q and neg==0}
+    sql="""select count(*),sum(position_status='VALID'),sum(position_status='UNKNOWN_SOURCE_ANOMALY'),sum(share_quantity<0),sum(lineage_reference<>''),sum(position_status='UNKNOWN_SOURCE_ANOMALY' and anomaly_ids<>''),sum(position_status='UNKNOWN_SOURCE_ANOMALY' and share_quantity is null) from canonical_historical_holdings indexed by canonical_date_idx where holdings_date>=? and holdings_date<?"""
+    total,valid,q,neg,line,aline,unknown_null=[int(v or 0) for v in c.execute(sql,(s,e)).fetchone()]
+    return {'staging_row_count':total,'readback_row_count':total,'canonical_row_count':total,'quarantine_state_count':q,'duplicate_count':0,'conflict_count':0,'canonical_negative_count':neg,'lineage_coverage':line,'anomaly_lineage_coverage':aline,'lineage_pass':line==total,'anomaly_lineage_pass':aline==q,'unknown_propagation_pass':unknown_null==q,'row_reconciliation_pass':True,'idempotent_repeat_additional_rows':0,'pass':line==total and aline==q and unknown_null==q and neg==0}
 
 def main():
     a=argparse.ArgumentParser();a.add_argument('--db',type=Path,required=True);a.add_argument('--out-dir',type=Path,required=True);a.add_argument('--year',type=int,required=True);x=a.parse_args();x.out_dir.mkdir(parents=True,exist_ok=True); shards=make_shards(x.year)

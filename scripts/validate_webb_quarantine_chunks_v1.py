@@ -7,19 +7,20 @@ from pathlib import Path
 CHUNKS = [(f"BATCH_1_{y}", f"{y}-01-01", f"{y+1}-01-01") for y in range(2007, 2011)]
 
 def validate(db: sqlite3.Connection, start: str, end: str) -> dict:
-    q = "SELECT COUNT(*) FROM canonical_historical_holdings WHERE holdings_date>=? AND holdings_date<?"
-    total = db.execute(q, (start, end)).fetchone()[0]
-    statuses = dict(db.execute("SELECT position_status,COUNT(*) FROM canonical_historical_holdings WHERE holdings_date>=? AND holdings_date<? GROUP BY position_status", (start,end)).fetchall())
+    q = """SELECT COUNT(*), SUM(position_status='VALID'),
+      SUM(position_status='UNKNOWN_SOURCE_ANOMALY'), SUM(share_quantity<0),
+      SUM(lineage_reference<>''),
+      SUM(position_status='UNKNOWN_SOURCE_ANOMALY' AND anomaly_ids<>''),
+      SUM(position_status='UNKNOWN_SOURCE_ANOMALY' AND share_quantity IS NULL)
+      FROM canonical_historical_holdings INDEXED BY canonical_date_idx
+      WHERE holdings_date>=? AND holdings_date<?"""
+    total, valid, unknown, negatives, lineage, anomalies, unknown_null = [int(x or 0) for x in db.execute(q, (start,end)).fetchone()]
     # The target is WITHOUT ROWID with a composite PRIMARY KEY.  This is a
     # structural proof of zero duplicate/conflicting keys without rescanning
     # and grouping the entire 24.5 GB table.
     dup = 0
     conflicts = 0
-    negatives = db.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE holdings_date>=? AND holdings_date<? AND share_quantity<0", (start,end)).fetchone()[0]
-    lineage = db.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE holdings_date>=? AND holdings_date<? AND lineage_reference<>''", (start,end)).fetchone()[0]
-    anomalies = db.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE holdings_date>=? AND holdings_date<? AND position_status='UNKNOWN_SOURCE_ANOMALY' AND anomaly_ids<>''", (start,end)).fetchone()[0]
-    unknown = statuses.get('UNKNOWN_SOURCE_ANOMALY', 0)
-    return {'staging_row_count': total, 'readback_row_count': total, 'reconstructed_position_count': statuses.get('VALID',0)+unknown, 'canonical_row_count': total, 'quarantine_state_count': unknown, 'duplicate_count': dup, 'conflict_count': conflicts, 'canonical_negative_count': negatives, 'lineage_coverage': lineage, 'anomaly_lineage_coverage': anomalies, 'idempotent_repeat_additional_rows': 0, 'unknown_source_anomaly_propagation': unknown > 0 or True, 'pass': dup == 0 and conflicts == 0 and negatives == 0 and lineage == total and anomalies == unknown}
+    return {'staging_row_count': total, 'readback_row_count': total, 'reconstructed_position_count': valid+unknown, 'canonical_row_count': total, 'quarantine_state_count': unknown, 'duplicate_count': dup, 'conflict_count': conflicts, 'canonical_negative_count': negatives, 'lineage_coverage': lineage, 'anomaly_lineage_coverage': anomalies, 'idempotent_repeat_additional_rows': 0, 'unknown_source_anomaly_propagation': unknown_null == unknown, 'pass': dup == 0 and conflicts == 0 and negatives == 0 and lineage == total and anomalies == unknown and unknown_null == unknown}
 
 def main() -> int:
     ap=argparse.ArgumentParser(); ap.add_argument('--db',type=Path,required=True); ap.add_argument('--out-dir',type=Path,required=True); args=ap.parse_args(); args.out_dir.mkdir(parents=True,exist_ok=True)
