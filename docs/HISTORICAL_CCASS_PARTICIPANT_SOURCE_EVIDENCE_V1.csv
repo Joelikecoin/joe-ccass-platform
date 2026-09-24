@@ -1,0 +1,13 @@
+year,source_path,table,holdings_date,issue_or_security,participant,shares,row_count,evidence
+2013,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2013-01-28,issueID:4,partID:1,178000,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2014,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2014-01-03,issueID:4,partID:1,1631937,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2015,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2015-01-02,issueID:4,partID:1,849204,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2016,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2016-01-06,issueID:6,partID:1,1945550,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2017,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2017-03-14,issueID:5,partID:1,2000,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2018,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2018-04-19,issueID:5,partID:1,5000,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2019,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2019-01-02,issueID:6,partID:1,1385549,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2020,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2020-07-22,issueID:5,partID:1,11000,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2021,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2021-01-05,issueID:6,partID:1,1493371,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2022,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2022-01-04,issueID:6,partID:1,1099081,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2023,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2023-01-10,issueID:6,partID:1,1107081,229978760,local cursor scan; participant-level c1/c2/c3/c4
+2024,C:\Users\Joe Lau\.zcode\workspace\default\webbsite_full.sqlite,holdings,2024-01-02,issueID:6,partID:1,1008077,229978760,local cursor scan; participant-level c1/c2/c3/c4
