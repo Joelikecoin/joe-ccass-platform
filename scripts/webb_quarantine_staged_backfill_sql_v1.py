@@ -148,11 +148,13 @@ def main() -> int:
     parser.add_argument("--staging-dir", required=True, type=Path)
     parser.add_argument("--source-sha256", required=True)
     parser.add_argument("--max-batches", type=int, default=7)
+    parser.add_argument("--start-batch", type=int, default=1)
     args = parser.parse_args()
     args.staging_dir.mkdir(parents=True, exist_ok=True)
     version = _version()
     summaries: list[dict[str, object]] = []
-    for batch_id, start, end in BATCHES[: max(0, min(args.max_batches, len(BATCHES)))]:
+    selected = BATCHES[max(0, args.start_batch - 1): max(0, args.start_batch - 1) + max(0, args.max_batches)]
+    for batch_id, start, end in selected:
         target = args.staging_dir / f"webb_quarantine_{batch_id.lower()}.sqlite"
         database = sqlite3.connect(target)
         database.executescript(SCHEMA)
@@ -191,7 +193,7 @@ def main() -> int:
             raise
         finally:
             database.close()
-    overall = {"completed_batches": len(summaries), "batch_summaries": summaries, "source_sha256": args.source_sha256.upper(), "code_version": version, "pass": len(summaries) == min(args.max_batches, len(BATCHES)) and all(bool(item["pass"]) for item in summaries)}
+    overall = {"completed_batches": len(summaries), "batch_summaries": summaries, "source_sha256": args.source_sha256.upper(), "code_version": version, "pass": len(summaries) == len(selected) and all(bool(item["pass"]) for item in summaries)}
     (args.staging_dir / "WEBB_QUARANTINE_STAGED_BACKFILL_SQL_SUMMARY_V1.json").write_text(json.dumps(overall, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     print(json.dumps(overall, sort_keys=True))
     return 0 if overall["pass"] else 1
