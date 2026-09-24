@@ -1,0 +1,140 @@
+"""Offline-first durable engineering for the Doctor Intelligence package.
+
+This module deliberately stores derived acceptance artifacts in a separate
+SQLite file.  It does not write source-native or Research Store tables.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import sqlite3
+from dataclasses import dataclass
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Iterable, Mapping, Sequence
+
+from app.services.cross_source_intelligence import (
+    CrossSourceIntelligence,
+    EvidenceRef,
+    EvidenceState,
+    EventRecord,
+    FingerprintResult,
+    IntervalResult,
+    SequenceResult,
+)
+
+
+def _stable(value: object) -> str:
+    return json.dumps(value, sort_keys=True, default=str, separators=(",", ":"))
+
+
+class DoctorLocalStore:
+    """Append-only/idempotent store for local derived acceptance artifacts."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.path) as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS doctor_artifacts (
+                artifact_kind TEXT NOT NULL, artifact_key TEXT NOT NULL,
+                payload_json TEXT NOT NULL, lineage_json TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (artifact_kind, artifact_key))""")
+
+    def put(self, kind: str, key: str, payload: Mapping[str, object], lineage: Sequence[EvidenceRef] = ()) -> bool:
+        with sqlite3.connect(self.path) as db:
+            cur = db.execute(
+                "INSERT OR IGNORE INTO doctor_artifacts (artifact_kind,artifact_key,payload_json,lineage_json) VALUES (?,?,?,?)",
+                (kind, key, _stable(payload), _stable([r.__dict__ for r in lineage])),
+            )
+            return cur.rowcount == 1
+
+    def get(self, kind: str, key: str) -> dict[str, object] | None:
+        with sqlite3.connect(self.path) as db:
+            row = db.execute("SELECT payload_json,lineage_json FROM doctor_artifacts WHERE artifact_kind=? AND artifact_key=?", (kind, key)).fetchone()
+        if not row:
+            return None
+        return {"payload": json.loads(row[0]), "lineage": json.loads(row[1])}
+
+    def count(self, kind: str | None = None) -> int:
+        with sqlite3.connect(self.path) as db:
+            if kind:
+                return int(db.execute("SELECT COUNT(*) FROM doctor_artifacts WHERE artifact_kind=?", (kind,)).fetchone()[0])
+            return int(db.execute("SELECT COUNT(*) FROM doctor_artifacts").fetchone()[0])
+
+
+def persist_sequence(store: DoctorLocalStore, *, security_id: str, result: SequenceResult, lineage: Sequence[EvidenceRef] = ()) -> str:
+    key = hashlib.sha256(_stable([security_id, result.matched_event_ids, result.missing_predicates]).encode()).hexdigest()
+    store.put("sequence", key, {"security_id": security_id, "matched_event_ids": result.matched_event_ids, "missing_predicates": result.missing_predicates, "evidence_state": result.evidence_state.value}, lineage or result.lineage)
+    return key
+
+
+def query_sequence(store: DoctorLocalStore, key: str) -> dict[str, object] | None:
+    return store.get("sequence", key)
+
+
+def build_interval(*, anchor: date, before: int, after: int, date_semantic: str, calendar: str = "calendar", known_holidays: Iterable[date] | None = None) -> IntervalResult:
+    if date_semantic not in {"announcement", "effective", "completion", "settlement", "trade", "holdings", "event"}:
+        raise ValueError("unsupported date semantic")
+    if calendar == "calendar":
+        return CrossSourceIntelligence.interval(anchor=anchor, before=before, after=after, calendar=calendar)
+    if calendar != "trading":
+        raise ValueError("calendar must be calendar or trading")
+    holidays = set(known_holidays or ())
+    included = tuple(anchor + timedelta(days=i) for i in range(-before, after + 1) if (anchor + timedelta(days=i)).weekday() < 5 and (anchor + timedelta(days=i)) not in holidays)
+    if not included:
+        return IntervalResult(anchor, anchor, anchor, calendar, (), EvidenceState.UNKNOWN, ("trading_calendar",))
+    # Weekday filtering is useful but cannot certify exchange holidays without a calendar.
+    state = EvidenceState.SUPPORTED if known_holidays is not None else EvidenceState.UNKNOWN
+    missing = () if known_holidays is not None else ("exchange_holidays",)
+    return IntervalResult(anchor, included[0], included[-1], calendar, included, state, missing)
+
+
+def persist_interval(store: DoctorLocalStore, result: IntervalResult, *, date_semantic: str, lineage: Sequence[EvidenceRef] = ()) -> str:
+    key = hashlib.sha256(_stable([result.anchor, result.start, result.end, result.calendar, date_semantic, result.included_dates]).encode()).hexdigest()
+    store.put("interval", key, {"anchor": result.anchor, "start": result.start, "end": result.end, "calendar": result.calendar, "date_semantic": date_semantic, "included_dates": result.included_dates, "evidence_state": result.evidence_state.value, "missing_input_ids": result.missing_input_ids}, lineage)
+    return key
+
+
+def build_fingerprint(left: Mapping[str, object], right: Mapping[str, object], *, lineage: Sequence[EvidenceRef] = ()) -> FingerprintResult:
+    return CrossSourceIntelligence.fingerprint_compare(dict(left), dict(right), lineage=lineage)
+
+
+def persist_fingerprint(store: DoctorLocalStore, result: FingerprintResult) -> str:
+    key = hashlib.sha256(_stable([result.matched, result.unmatched_left, result.unmatched_right, result.unknown]).encode()).hexdigest()
+    store.put("fingerprint", key, {"matched": result.matched, "unmatched_left": result.unmatched_left, "unmatched_right": result.unmatched_right, "unknown": result.unknown, "score": result.score, "label": result.label, "evidence_state": result.evidence_state.value}, result.lineage)
+    return key
+
+
+def normalize_ccass_code(value: object) -> str:
+    raw = str(value).strip()
+    if not raw.isdigit() or len(raw) > 5:
+        raise ValueError(f"invalid HK security code: {value!r}")
+    return raw.zfill(5)
+
+
+def build_historical_ccass_rows(rows: Iterable[Mapping[str, object]], *, source_id: str, source_reference: str) -> list[dict[str, object]]:
+    output: list[dict[str, object]] = []
+    for row in rows:
+        code = normalize_ccass_code(row.get("security_code", row.get("stock_code")))
+        participant = str(row["participant_id"]).strip()
+        trade_date = str(row["trade_date"])
+        holding = row["holding"]
+        key = f"{trade_date}|{code}|{participant}"
+        output.append({"natural_key": key, "trade_date": trade_date, "source_security_code": str(row.get("security_code", row.get("stock_code"))), "normalized_security_code": code, "participant_id": participant, "holding": holding, "source_id": source_id, "source_reference": source_reference})
+    return output
+
+
+def persist_historical_ccass(store: DoctorLocalStore, rows: Iterable[Mapping[str, object]]) -> int:
+    count = 0
+    for row in rows:
+        key = str(row["natural_key"])
+        if store.put("historical_ccass", key, dict(row), ()): count += 1
+    return count
+
+
+def field_match_historical(left: Mapping[str, object], right: Mapping[str, object]) -> dict[str, object]:
+    fields = ("trade_date", "normalized_security_code", "participant_id", "holding")
+    matched = [f for f in fields if left.get(f) == right.get(f)]
+    mismatched = [f for f in fields if left.get(f) != right.get(f)]
+    return {"fields_compared": fields, "fields_matched": tuple(matched), "fields_mismatched": tuple(mismatched), "match_pass": not mismatched}
