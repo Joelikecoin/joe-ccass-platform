@@ -6,6 +6,12 @@
 - Webb ASP source defines the authoritative relationship as `stocklistings(issueID, stockCode, firstTradeDate, deListDate)` and uses `stockCodeThen(issueID, atDate)` for point-in-time code lookup (`ccass/bigchangespart.asp`, `ccass/chistory.asp`).
 - The accessible issue CSV contains no `stockCode`, `stocklistings`, canonical security ID, or validity dates for issue 3. External HKEX/HKEXnews evidence supplies the cross-source binding: the 2008 Annual Report identifies New World Development as stock code 00017, and the 2011/2012 Interim Report preserves the same listed identity.
 
+## External evidence references
+
+- HKEXnews 2008 Annual Report: https://www.hkexnews.hk/listedco/listconews/SEHK/2009/0423/LTN20090423560.pdf
+- HKEXnews Interim Report 2011/2012: https://www.hkexnews.hk/listedco/listconews/SEHK/2012/0316/LTN20120316584.pdf
+- HKEX DI notice identifying New World Development Co. Ltd., stock code 00017: https://di.hkex.com.hk/di/NSForm2.aspx?cid=0&cn=1&corpn=New+World+Development+Co.+Ltd.&ed=22%2F08%2F2024&fn=CS20240216E00386&lang=EN
+
 ## Persisted model
 
 `DoctorLocalStore` now persists the required identity fields, allowed statuses (`EXACT`, `DATE_BOUNDED`, `AMBIGUOUS`, `UNRESOLVED`), an idempotent natural key, and versioned mapping-run metadata (`code_version`, `commit_sha`, `schema_version`, `stage_version`, status/invalidation).
