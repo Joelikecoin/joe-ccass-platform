@@ -1,0 +1,42 @@
+[
+  {
+    "RULE_ID": "LUNA-CASE-PHEMEY-GO-COMPARISON-001",
+    "RULE_NAME": "Similar shell/GO framing is not sufficient to infer a common outcome",
+    "RULE_STATUS": "CASE_DERIVED",
+    "METHODOLOGY_ID": "PHEMEY_CASES",
+    "NAMESPACE": "PHEMEY_CASES",
+    "SOURCE_CASE_ID": [
+      "CASE-P1B-PHC-001",
+      "CASE-P1B-PHC-002",
+      "CASE-P1B-PHC-003"
+    ],
+    "SOURCE_LINEAGE": {
+      "SOURCE_ID": "DOCSRC-PHEMEY-CASES",
+      "SOURCE_HASH": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
+      "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_CASES__CASES.csv"
+    },
+    "SCOPE": "Only the three pilot cases represented in this source table; not a universal market rule.",
+    "PRECONDITIONS": [
+      "The source explicitly compares shell-listing or post-GO examples."
+    ],
+    "OBSERVATIONS": [
+      "sponsor/history used as screening clues",
+      "same labels as other selected source",
+      "different outcomes under similar framing"
+    ],
+    "LOGIC": "When similar framing is paired with different or unresolved outcome labels, preserve outcome uncertainty and require independent event evidence.",
+    "EXPECTED_INTERPRETATION": "Framing is a screening clue, not proof of control transition, operation, or future price behavior.",
+    "ALTERNATIVE_EXPLANATIONS": [
+      "The cases may be secondary summaries with incomplete outcome polarity.",
+      "The apparent similarity may hide different capital structures or timelines."
+    ],
+    "FALSIFICATION": "Primary evidence shows that the same framing consistently predicts the same outcome across independently documented cases.",
+    "KNOWN_LIMITATIONS": [
+      "Small sample",
+      "Secondary summaries",
+      "No T0/T1 dates",
+      "No CCASS or turnover evidence"
+    ],
+    "VALIDATION_STATUS": "UNTESTED"
+  }
+]

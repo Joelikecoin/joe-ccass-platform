@@ -1,0 +1,170 @@
+{
+  "batch_id": "LUNA-BATCH-001-PHEMEY",
+  "records": [
+    {
+      "CASE_ID": "CASE-P1B-PHC-001",
+      "STOCK_CODE": "1725;1735",
+      "STOCK_NAME": "as written",
+      "CASE_PERIOD": null,
+      "SOURCE_ID": "DOCSRC-PHEMEY-CASES",
+      "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_CASES__CASES.csv",
+      "SOURCE_SECTION": "lines 87-105",
+      "SOURCE_DATE": "2026-09-19",
+      "AS_OF_DATE": null,
+      "EVENTS": "sponsor/history used as screening clues",
+      "PEOPLE": null,
+      "CAPITAL_STRUCTURE": null,
+      "COST_EVIDENCE": null,
+      "CCASS_EVIDENCE": null,
+      "TURNOVER_EVIDENCE": null,
+      "TIMELINE_EVIDENCE": null,
+      "MARKET_CAP_EVIDENCE": null,
+      "FACTS": [
+        {
+          "kind": "FACT",
+          "value": "sponsor/history used as screening clues"
+        }
+      ],
+      "DERIVED_MEASURES": [],
+      "INFERENCES": [
+        {
+          "kind": "INFERENCE",
+          "value": "not proof"
+        }
+      ],
+      "HYPOTHESES": [],
+      "ORIGINAL_CONCLUSION": "not proof",
+      "SUBSEQUENT_EVENT": null,
+      "SUBSEQUENT_EVIDENCE": null,
+      "OUTCOME_STATUS": "UNRESOLVED",
+      "FALSIFICATION_CONDITION": "A primary filing or later event record that establishes a different event sequence or outcome would invalidate this source-level interpretation.",
+      "DATA_QUALITY_STATUS": "PARTIAL",
+      "EVIDENCE_REFS": [
+        {
+          "source_hash": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
+          "source_section": "lines 87-105",
+          "source_id": "DOCSRC-PHEMEY-CASES"
+        }
+      ],
+      "SOURCE_SUPPORT": "PARTIAL",
+      "UNKNOWN_FIELDS": [
+        "T0 date",
+        "T1 outcome",
+        "beneficial ownership",
+        "CCASS",
+        "turnover",
+        "capital structure"
+      ]
+    },
+    {
+      "CASE_ID": "CASE-P1B-PHC-002",
+      "STOCK_CODE": "1725;1735",
+      "STOCK_NAME": "as written",
+      "CASE_PERIOD": null,
+      "SOURCE_ID": "DOCSRC-PHEMEY-CASES",
+      "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_CASES__CASES.csv",
+      "SOURCE_SECTION": "lines 51-74",
+      "SOURCE_DATE": "2026-09-19",
+      "AS_OF_DATE": null,
+      "EVENTS": "same labels as other selected source",
+      "PEOPLE": null,
+      "CAPITAL_STRUCTURE": null,
+      "COST_EVIDENCE": null,
+      "CCASS_EVIDENCE": null,
+      "TURNOVER_EVIDENCE": null,
+      "TIMELINE_EVIDENCE": null,
+      "MARKET_CAP_EVIDENCE": null,
+      "FACTS": [
+        {
+          "kind": "FACT",
+          "value": "same labels as other selected source"
+        }
+      ],
+      "DERIVED_MEASURES": [],
+      "INFERENCES": [
+        {
+          "kind": "INFERENCE",
+          "value": "not proof"
+        }
+      ],
+      "HYPOTHESES": [],
+      "ORIGINAL_CONCLUSION": "not proof",
+      "SUBSEQUENT_EVENT": null,
+      "SUBSEQUENT_EVIDENCE": null,
+      "OUTCOME_STATUS": "UNRESOLVED",
+      "FALSIFICATION_CONDITION": "A primary filing or later event record that establishes a different event sequence or outcome would invalidate this source-level interpretation.",
+      "DATA_QUALITY_STATUS": "PARTIAL",
+      "EVIDENCE_REFS": [
+        {
+          "source_hash": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
+          "source_section": "lines 51-74",
+          "source_id": "DOCSRC-PHEMEY-CASES"
+        }
+      ],
+      "SOURCE_SUPPORT": "PARTIAL",
+      "UNKNOWN_FIELDS": [
+        "T0 date",
+        "T1 outcome",
+        "beneficial ownership",
+        "CCASS",
+        "turnover",
+        "capital structure"
+      ]
+    },
+    {
+      "CASE_ID": "CASE-P1B-PHC-003",
+      "STOCK_CODE": "1782;8446;8282",
+      "STOCK_NAME": "as written",
+      "CASE_PERIOD": null,
+      "SOURCE_ID": "DOCSRC-PHEMEY-CASES",
+      "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_CASES__CASES.csv",
+      "SOURCE_SECTION": "lines 144-167",
+      "SOURCE_DATE": "2026-09-19",
+      "AS_OF_DATE": null,
+      "EVENTS": "different outcomes under similar framing",
+      "PEOPLE": null,
+      "CAPITAL_STRUCTURE": null,
+      "COST_EVIDENCE": null,
+      "CCASS_EVIDENCE": null,
+      "TURNOVER_EVIDENCE": null,
+      "TIMELINE_EVIDENCE": null,
+      "MARKET_CAP_EVIDENCE": null,
+      "FACTS": [
+        {
+          "kind": "FACT",
+          "value": "different outcomes under similar framing"
+        }
+      ],
+      "DERIVED_MEASURES": [],
+      "INFERENCES": [
+        {
+          "kind": "INFERENCE",
+          "value": "no clear pattern"
+        }
+      ],
+      "HYPOTHESES": [],
+      "ORIGINAL_CONCLUSION": "no clear pattern",
+      "SUBSEQUENT_EVENT": null,
+      "SUBSEQUENT_EVIDENCE": null,
+      "OUTCOME_STATUS": "UNRESOLVED",
+      "FALSIFICATION_CONDITION": "A primary filing or later event record that establishes a different event sequence or outcome would invalidate this source-level interpretation.",
+      "DATA_QUALITY_STATUS": "PARTIAL",
+      "EVIDENCE_REFS": [
+        {
+          "source_hash": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
+          "source_section": "lines 144-167",
+          "source_id": "DOCSRC-PHEMEY-CASES"
+        }
+      ],
+      "SOURCE_SUPPORT": "PARTIAL",
+      "UNKNOWN_FIELDS": [
+        "T0 date",
+        "T1 outcome",
+        "beneficial ownership",
+        "CCASS",
+        "turnover",
+        "capital structure"
+      ]
+    }
+  ]
+}

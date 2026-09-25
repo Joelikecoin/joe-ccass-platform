@@ -1,0 +1,32 @@
+[
+  {
+    "CAPABILITY_ID": "CAP-CASE-UNCERTAINTY-001",
+    "CAPABILITY_NAME": "Named-stock case framing versus outcome evidence",
+    "DESCRIPTION": "Doctor can retain named-stock case observations while separating source facts, teacher interpretation, unknown outcomes, and falsification conditions.",
+    "BEFORE_STATE": "No durable case-level record was exposed to Luna/ZC.",
+    "AFTER_STATE": "Three named-stock cases are durably traceable, outcome-unresolved, and isolated from universal rule promotion.",
+    "SOURCE_CASES": [
+      "CASE-P1B-PHC-001",
+      "CASE-P1B-PHC-002",
+      "CASE-P1B-PHC-003"
+    ],
+    "SUPPORTING_RULES": [
+      "LUNA-CASE-PHEMEY-GO-COMPARISON-001"
+    ],
+    "CONTRADICTING_CASES": [],
+    "EVIDENCE_LINEAGE": {
+      "SOURCE_ID": "DOCSRC-PHEMEY-CASES",
+      "SOURCE_HASH": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612"
+    },
+    "CURRENT_STATUS": "CASE_DERIVED",
+    "KNOWN_LIMITATIONS": [
+      "Small sample",
+      "Secondary summaries",
+      "No T0/T1 dates",
+      "No CCASS or turnover evidence"
+    ],
+    "FALSIFICATION_CONDITIONS": [
+      "Primary evidence shows that the same framing consistently predicts the same outcome across independently documented cases."
+    ]
+  }
+]
