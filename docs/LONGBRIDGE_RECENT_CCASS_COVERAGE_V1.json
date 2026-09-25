@@ -1,0 +1,41 @@
+{
+  "work_package": "LONGBRIDGE_CCASS_ROLLING_WINDOW_EMERGENCY_CAPTURE_V1",
+  "mode": "READ_ONLY_PROBE_AND_EXISTING_PERSISTENCE_CHECK",
+  "source_system": "Longbridge",
+  "endpoint_surface_tested": "broker_holding_detail",
+  "authenticated_probe": {
+    "symbols": ["00003.HK", "00005.HK", "00006.HK"],
+    "result": "HTTP/MCP_SUCCESS_EMPTY_LIST",
+    "updated_at": "2026.09.24",
+    "rows_returned": 0,
+    "interpretation": "UNKNOWN_DATA_AVAILABILITY; EMPTY_RESPONSE_IS_NOT_ZERO_HOLDING"
+  },
+  "historical_date_enumeration": {
+    "available": false,
+    "reason": "Current adapter exposes broker_holding_detail, broker_holding periods and broker_holding_daily for one broker; no full-market historical-date enumeration endpoint is available."
+  },
+  "existing_persistent_layer": {
+    "path": "data/ccass_snapshots.db",
+    "source_id": "longbridge",
+    "earliest_persisted_date": "2026-09-09",
+    "latest_persisted_date": "2026-09-11",
+    "persisted_date_count": 3,
+    "snapshot_rows": 6,
+    "date_breakdown": {
+      "2026-09-09": 1,
+      "2026-09-10": 3,
+      "2026-09-11": 2
+    }
+  },
+  "new_capture": {
+    "dates_attempted": 0,
+    "dates_captured": 0,
+    "dates_partial": 0,
+    "dates_failed": 0,
+    "rows_captured": 0,
+    "raw_emergency_archive_created": false
+  },
+  "status": "BLOCKED_NO_ENUMERABLE_HISTORICAL_SURFACE",
+  "source_mutated": false,
+  "research_store_mutated": false
+}
