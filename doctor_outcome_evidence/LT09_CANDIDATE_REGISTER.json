@@ -1,0 +1,16 @@
+{
+  "TARGET_ID": "LT-09",
+  "CANDIDATES": [
+    {
+      "CASE_CANDIDATE_ID": "LT09-CAND-02318",
+      "STOCK_CODE": "02318",
+      "DION_SEQUENCE": "NO",
+      "T0_DATE": "NO",
+      "T1_PATH": "NO",
+      "DENOMINATOR": "NO",
+      "POINT_IN_TIME_SAFE": "NO",
+      "ELIGIBLE": "NO",
+      "REJECTION_REASON": "Actual local read-only database has zero CCASS snapshots, zero DION rows, and zero share-capital rows for 02318."
+    }
+  ]
+}

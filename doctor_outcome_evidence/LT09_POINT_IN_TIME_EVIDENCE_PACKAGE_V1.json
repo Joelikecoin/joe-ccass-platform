@@ -1,0 +1,63 @@
+{
+  "PACKAGE_ID": "LT09_POINT_IN_TIME_EVIDENCE_PACKAGE_V1",
+  "TARGET": {
+    "target_id": "LT-09",
+    "capability_id": "CAP-10",
+    "rule_family_id": "RF-10",
+    "claim_to_test": "持股停駐法定門檻微下方（29-30%區）後續出現 Non-GO 路徑（配股/CB/供股包銷入主）的比例顯著高於隨機持股群",
+    "required_case_characteristics": [
+      "filer持股序列顯示貼門檻停駐≥60日",
+      "其後24個月資本行動"
+    ],
+    "required_evidence": [
+      "DI持股序列",
+      "其後配股/供股/CB公告",
+      "控制權變動記錄"
+    ],
+    "t0_fields_required": [
+      "di_series(filer_id, pct, date)",
+      "threshold_hug_flag"
+    ],
+    "t1_outcome_fields_required": [
+      "subsequent_control_path_24m(nongo/go/none)"
+    ],
+    "support_condition": "停駐組Non-GO路徑比例顯著高於對照",
+    "contradiction_condition": "停駐組與隨機組後續路徑無差異",
+    "context_dependent_condition": "財務投資者長期持股停駐另計",
+    "falsification_trigger": "兩組路徑分佈無統計差異",
+    "minimum_case_count": null,
+    "priority": "HIGH"
+  },
+  "CASE_ID": "LT09-CAND-02318",
+  "STOCK_CODE": "02318",
+  "T0_DATE": null,
+  "T0_FACTS": [],
+  "T0_THRESHOLD_STATE": {
+    "THRESHOLD_VALUE": null,
+    "THRESHOLD_SOURCE": "authoritative target specifies 29-30% zone in claim; exact historical threshold context unavailable"
+  },
+  "T0_SOURCE_REFS": [],
+  "T1_START_DATE": null,
+  "T1_END_DATE": "2026-09-25",
+  "T1_EVIDENCE_ITEMS": [],
+  "T1_SOURCE_REFS": [],
+  "T0_T1_SOURCE_INDEPENDENCE": "UNASSESSABLE",
+  "DENOMINATOR_EFFECT_RISK": "UNKNOWN",
+  "CAPITAL_ACTION_CONFOUNDERS": "NOT_ASSESSED",
+  "POINT_IN_TIME_SAFE": false,
+  "EVIDENCE_LINEAGE_COMPLETE": false,
+  "DATA_QUALITY_STATUS": "MISSING_LOCAL_DATA",
+  "READY_FOR_CASE_VALIDATION": "NO",
+  "MISSING_EVIDENCE": [
+    "DION holding sequence",
+    "T0 date and publication date",
+    "exact threshold context",
+    "subsequent 24-month capital/control path",
+    "issued-share history"
+  ],
+  "KNOWN_LIMITATIONS": [
+    "Read-only local ccass_snapshots.db contains zero rows for 02318 in ccass_snapshots, disclosure_interests, and share_capital_history.",
+    "No nearby-date substitution was made."
+  ],
+  "GENERATED_AT": "2026-09-25T05:12:18.606832+00:00"
+}
