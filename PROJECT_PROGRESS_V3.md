@@ -546,3 +546,11 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 - Candidate B 精確凍結檔在公司電腦／可見 G: 不存在，逐自然鍵 A/B diff 仍為獨立 blocker；舊證據已保留為 superseded，沒有刪除。
 - 原始來源、雲端來源及 Research Store 均未修改。詳細證據：`docs/WEBB_AUTHORITATIVE_SOURCE_RECONCILIATION_AND_SELECTIVE_REBUILD_V1.md`。
 - 最終完整 regression：631 collected，626 passed，5 個既有 baseline failures，新增 regression 0；來源核對新增測試 5/5 passed。
+
+### CCASS EXTENSION BRIDGE VERIFICATION 2026-09-25
+
+- Owner pack ZIP 實測：9,540,395 rows、2025-12-01 至 2026-07-31、162 個觀察日、3,071 issue IDs、590 participants。
+- 自然鍵 `(issueID, partID, atDate)` 重複 0、conflict 0、negative 0、critical null 0；source ZIP hash `0681F59B...4529EB`。
+- Historical core 結束 2025-12-24；current Longbridge evidence 在 2026-09。extension-to-current 仍有明確 2026-08 至 current gap。
+- ZIP issueID namespace 未能直接與 Webb authoritative `shortnames.c1` 安全 join；exact overlap equivalence 暫列 `OVERLAP_UNVERIFIED`，未改動任何來源或 Research Store。
+- 詳細證據：`docs/CCASS_2025_12_TO_2026_07_EXTENSION_BRIDGE_VERIFICATION_V1.md`。
