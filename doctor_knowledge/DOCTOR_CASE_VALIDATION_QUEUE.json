@@ -1,0 +1,211 @@
+{
+  "QUEUE_ID": "LUNA-QUEUE-001-HIGH-VALUE-CASE-EXPANSION",
+  "CREATED_AT": "2026-09-25T04:46:14.262577+00:00",
+  "CASES": [
+    {
+      "CASE_ID": "CASE-P1B-PHI-001",
+      "STOCK_CODE": "1473",
+      "METHODOLOGY_ID": "PHEMEY_IPO",
+      "RULE_IDS": [],
+      "T0_DATE": null,
+      "T0_IDENTIFIABLE": "PARTIAL",
+      "T0_KNOWN_FACTS": "debt/clawback/offer period discussed",
+      "T0_ANALYSIS": "wait option stated",
+      "T0_HYPOTHESIS": "Source framing may identify a risk, transaction pattern, or control structure, but is not independently established.",
+      "T1_CLUES": null,
+      "SOURCE_CLAIMED_OUTCOME": null,
+      "VERIFIED_T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE_STATUS": "NO",
+      "MISSING_T1_EVIDENCE": [
+        "dated primary announcement or filing",
+        "event completion/settlement date",
+        "subsequent price/ownership/CCASS evidence",
+        "independent outcome record"
+      ],
+      "REQUIRED_EVIDENCE_DOMAINS": [
+        "corporate_action",
+        "ownership_control",
+        "capital_structure",
+        "market_outcome"
+      ],
+      "VALIDATION_QUESTION": "What happened after the stated T0 event, and does independent evidence support or contradict the source interpretation?",
+      "SUPPORT_CONDITION": "Independent dated evidence confirms the T0 event sequence and the claimed outcome.",
+      "CONTRADICTION_CONDITION": "Independent dated evidence shows a different event sequence, ownership structure, or outcome.",
+      "CONTEXT_DEPENDENT_CONDITION": "Outcome differs after controlling for capital structure, timing, or event-specific terms.",
+      "PRIORITY": "MEDIUM",
+      "OUTCOME_EVIDENCE_LAYER_REQUIRED": "YES",
+      "SOURCE_IDS": [
+        "SRC-V1-f272e658ffff2ce6"
+      ],
+      "EVIDENCE_LINEAGE": {
+        "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_IPO__CASES.csv",
+        "SOURCE_HASH": "302b24759075f919092e2056a19154a11a6b247d5707b6021618dff36d73d011",
+        "SOURCE_SECTION": "lines 48-56"
+      }
+    },
+    {
+      "CASE_ID": "CASE-P1B-PHI-002",
+      "STOCK_CODE": "9958",
+      "METHODOLOGY_ID": "PHEMEY_IPO",
+      "RULE_IDS": [],
+      "T0_DATE": null,
+      "T0_IDENTIFIABLE": "PARTIAL",
+      "T0_KNOWN_FACTS": "title and text frame trap/risk",
+      "T0_ANALYSIS": "not proof of general rule",
+      "T0_HYPOTHESIS": "Source framing may identify a risk, transaction pattern, or control structure, but is not independently established.",
+      "T1_CLUES": null,
+      "SOURCE_CLAIMED_OUTCOME": null,
+      "VERIFIED_T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE_STATUS": "NO",
+      "MISSING_T1_EVIDENCE": [
+        "dated primary announcement or filing",
+        "event completion/settlement date",
+        "subsequent price/ownership/CCASS evidence",
+        "independent outcome record"
+      ],
+      "REQUIRED_EVIDENCE_DOMAINS": [
+        "corporate_action",
+        "ownership_control",
+        "capital_structure",
+        "market_outcome"
+      ],
+      "VALIDATION_QUESTION": "What happened after the stated T0 event, and does independent evidence support or contradict the source interpretation?",
+      "SUPPORT_CONDITION": "Independent dated evidence confirms the T0 event sequence and the claimed outcome.",
+      "CONTRADICTION_CONDITION": "Independent dated evidence shows a different event sequence, ownership structure, or outcome.",
+      "CONTEXT_DEPENDENT_CONDITION": "Outcome differs after controlling for capital structure, timing, or event-specific terms.",
+      "PRIORITY": "MEDIUM",
+      "OUTCOME_EVIDENCE_LAYER_REQUIRED": "YES",
+      "SOURCE_IDS": [
+        "SRC-V1-f53974fa58e4ba1a"
+      ],
+      "EVIDENCE_LINEAGE": {
+        "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_IPO__CASES.csv",
+        "SOURCE_HASH": "302b24759075f919092e2056a19154a11a6b247d5707b6021618dff36d73d011",
+        "SOURCE_SECTION": "lines 49-58"
+      }
+    },
+    {
+      "CASE_ID": "CASE-P1B-ANHEI-001",
+      "STOCK_CODE": "01089;08260;03628",
+      "METHODOLOGY_ID": "BOOK_ANHEIJINRONG",
+      "RULE_IDS": [],
+      "T0_DATE": null,
+      "T0_IDENTIFIABLE": "PARTIAL",
+      "T0_KNOWN_FACTS": "examples listed under source framework",
+      "T0_ANALYSIS": "not a formula",
+      "T0_HYPOTHESIS": "Source framing may identify a risk, transaction pattern, or control structure, but is not independently established.",
+      "T1_CLUES": "YES",
+      "SOURCE_CLAIMED_OUTCOME": "not a formula",
+      "VERIFIED_T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE_STATUS": "NO",
+      "MISSING_T1_EVIDENCE": [
+        "dated primary announcement or filing",
+        "event completion/settlement date",
+        "subsequent price/ownership/CCASS evidence",
+        "independent outcome record"
+      ],
+      "REQUIRED_EVIDENCE_DOMAINS": [
+        "corporate_action",
+        "ownership_control",
+        "capital_structure",
+        "market_outcome"
+      ],
+      "VALIDATION_QUESTION": "What happened after the stated T0 event, and does independent evidence support or contradict the source interpretation?",
+      "SUPPORT_CONDITION": "Independent dated evidence confirms the T0 event sequence and the claimed outcome.",
+      "CONTRADICTION_CONDITION": "Independent dated evidence shows a different event sequence, ownership structure, or outcome.",
+      "CONTEXT_DEPENDENT_CONDITION": "Outcome differs after controlling for capital structure, timing, or event-specific terms.",
+      "PRIORITY": "HIGH",
+      "OUTCOME_EVIDENCE_LAYER_REQUIRED": "YES",
+      "SOURCE_IDS": [
+        "SRC-V1-f5e4ee5668de45d8"
+      ],
+      "EVIDENCE_LINEAGE": {
+        "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\BOOK_ANHEIJINRONG__CASES.csv",
+        "SOURCE_HASH": "4e5acbd579fba367ed2750a7c2b8dfd688d9c5d0ef672aa69448c982222f2eef",
+        "SOURCE_SECTION": "lines 820-960"
+      }
+    },
+    {
+      "CASE_ID": "CASE-P1B-KEGU-001",
+      "STOCK_CODE": "0439;2379;0711",
+      "METHODOLOGY_ID": "BOOK_KEGUCAIJI",
+      "RULE_IDS": [],
+      "T0_DATE": null,
+      "T0_IDENTIFIABLE": "PARTIAL",
+      "T0_KNOWN_FACTS": "examples listed under source framework",
+      "T0_ANALYSIS": "not verified",
+      "T0_HYPOTHESIS": "Source framing may identify a risk, transaction pattern, or control structure, but is not independently established.",
+      "T1_CLUES": "YES",
+      "SOURCE_CLAIMED_OUTCOME": "not verified",
+      "VERIFIED_T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE_STATUS": "NO",
+      "MISSING_T1_EVIDENCE": [
+        "dated primary announcement or filing",
+        "event completion/settlement date",
+        "subsequent price/ownership/CCASS evidence",
+        "independent outcome record"
+      ],
+      "REQUIRED_EVIDENCE_DOMAINS": [
+        "corporate_action",
+        "ownership_control",
+        "capital_structure",
+        "market_outcome"
+      ],
+      "VALIDATION_QUESTION": "What happened after the stated T0 event, and does independent evidence support or contradict the source interpretation?",
+      "SUPPORT_CONDITION": "Independent dated evidence confirms the T0 event sequence and the claimed outcome.",
+      "CONTRADICTION_CONDITION": "Independent dated evidence shows a different event sequence, ownership structure, or outcome.",
+      "CONTEXT_DEPENDENT_CONDITION": "Outcome differs after controlling for capital structure, timing, or event-specific terms.",
+      "PRIORITY": "HIGH",
+      "OUTCOME_EVIDENCE_LAYER_REQUIRED": "YES",
+      "SOURCE_IDS": [
+        "SRC-V1-989d63d2e64f3564"
+      ],
+      "EVIDENCE_LINEAGE": {
+        "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\BOOK_KEGUCAIJI__CASES.csv",
+        "SOURCE_HASH": "8068de1257600103e0d882d6919acad881eab1602196ee15e505d6aa770f7761",
+        "SOURCE_SECTION": "lines 834-904"
+      }
+    },
+    {
+      "CASE_ID": "CASE-P1B-YEZI-001",
+      "STOCK_CODE": "939;708;1701",
+      "METHODOLOGY_ID": "YEZI",
+      "RULE_IDS": [],
+      "T0_DATE": null,
+      "T0_IDENTIFIABLE": "PARTIAL",
+      "T0_KNOWN_FACTS": "source uses several transaction examples",
+      "T0_ANALYSIS": "not outcome proof",
+      "T0_HYPOTHESIS": "Source framing may identify a risk, transaction pattern, or control structure, but is not independently established.",
+      "T1_CLUES": "YES",
+      "SOURCE_CLAIMED_OUTCOME": "not outcome proof",
+      "VERIFIED_T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE_STATUS": "NO",
+      "MISSING_T1_EVIDENCE": [
+        "dated primary announcement or filing",
+        "event completion/settlement date",
+        "subsequent price/ownership/CCASS evidence",
+        "independent outcome record"
+      ],
+      "REQUIRED_EVIDENCE_DOMAINS": [
+        "corporate_action",
+        "ownership_control",
+        "capital_structure",
+        "market_outcome"
+      ],
+      "VALIDATION_QUESTION": "What happened after the stated T0 event, and does independent evidence support or contradict the source interpretation?",
+      "SUPPORT_CONDITION": "Independent dated evidence confirms the T0 event sequence and the claimed outcome.",
+      "CONTRADICTION_CONDITION": "Independent dated evidence shows a different event sequence, ownership structure, or outcome.",
+      "CONTEXT_DEPENDENT_CONDITION": "Outcome differs after controlling for capital structure, timing, or event-specific terms.",
+      "PRIORITY": "HIGH",
+      "OUTCOME_EVIDENCE_LAYER_REQUIRED": "YES",
+      "SOURCE_IDS": [
+        "SRC-V1-8fc802dcf66e912c"
+      ],
+      "EVIDENCE_LINEAGE": {
+        "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\YEZI__CASES.csv",
+        "SOURCE_HASH": "6039b4bc353f0b99b6f61f133ff692ba2c932f882382ad414cf210d8397cd3d6",
+        "SOURCE_SECTION": "lines 451-528"
+      }
+    }
+  ]
+}

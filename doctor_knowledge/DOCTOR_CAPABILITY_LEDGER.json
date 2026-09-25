@@ -4,7 +4,7 @@
     "CAPABILITY_NAME": "Named-stock case framing versus outcome evidence",
     "DESCRIPTION": "Doctor can retain named-stock case observations while separating source facts, teacher interpretation, unknown outcomes, and falsification conditions.",
     "BEFORE_STATE": "No durable case-level record was exposed to Luna/ZC.",
-    "AFTER_STATE": "Five named-stock references are durably classified as outcome-unresolved; Doctor now refuses to treat methodology summaries as independent T1 validation.",
+    "AFTER_STATE": "Five named-stock references are durably classified as outcome-unresolved; Doctor now refuses to treat methodology summaries as independent T1 validation. A durable queue now specifies the missing evidence domains and support/contradiction tests for five additional named-stock case groups.",
     "SOURCE_CASES": [
       "CASE-P1B-PHC-001",
       "CASE-P1B-PHC-002",
@@ -24,11 +24,13 @@
       "Secondary summaries",
       "No T0/T1 dates",
       "No CCASS or turnover evidence",
-      "Independent primary outcome evidence remains unavailable."
+      "Independent primary outcome evidence remains unavailable.",
+      "Queued cases have no independent T1 evidence in the exposed corpus."
     ],
     "FALSIFICATION_CONDITIONS": [
       "Primary evidence shows that the same framing consistently predicts the same outcome across independently documented cases.",
-      "Independent primary evidence later establishes consistent predictive power for the same framing."
+      "Independent primary evidence later establishes consistent predictive power for the same framing.",
+      "Queue evidence resolves a case with a contrary event sequence or outcome."
     ]
   }
 ]
