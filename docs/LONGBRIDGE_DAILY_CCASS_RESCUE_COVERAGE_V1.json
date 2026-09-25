@@ -1,0 +1,37 @@
+{
+  "work_package": "LONGBRIDGE_CCASS_DAILY_HISTORY_EMERGENCY_RESCUE_V2",
+  "probe_date": "2026-09-25",
+  "daily_surface": "broker_holding_daily",
+  "participant_directory_surface": "participants",
+  "stocks_probed": ["00003", "00005", "00006"],
+  "daily_capability_proof": {
+    "broker_holding_detail_success": true,
+    "broker_holding_detail_rows": 0,
+    "broker_holding_daily_queries": 4,
+    "broker_holding_daily_successful_empty_responses": 4,
+    "rows_returned": 0,
+    "earliest_daily_date_returned": null,
+    "latest_daily_date_returned": null,
+    "status": "NO_ROWS_IN_CURRENT_RUNTIME"
+  },
+  "existing_persisted_layer": {
+    "path": "data/ccass_snapshots.db",
+    "source": "longbridge",
+    "dates": ["2026-09-09", "2026-09-10", "2026-09-11"],
+    "snapshot_rows": 6
+  },
+  "august_gap": {
+    "start": "2026-08-01",
+    "end": "2026-09-08",
+    "rows": 0,
+    "stock_count": 0,
+    "status": "UNVERIFIED_NOT_ZERO"
+  },
+  "per_stock": [],
+  "raw_rescue_store": null,
+  "readback_verification": "PASS_FOR_EXISTING_PERSISTED_LAYER",
+  "production_data_mutated": false,
+  "historical_source_mutated": false,
+  "extension_source_mutated": false,
+  "status": "BLOCKED_DAILY_ENDPOINT_RETURNED_NO_ROWS"
+}

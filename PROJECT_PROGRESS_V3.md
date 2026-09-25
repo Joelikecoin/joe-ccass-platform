@@ -554,3 +554,9 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 - Historical core 結束 2025-12-24；current Longbridge evidence 在 2026-09。extension-to-current 仍有明確 2026-08 至 current gap。
 - ZIP issueID namespace 未能直接與 Webb authoritative `shortnames.c1` 安全 join；exact overlap equivalence 暫列 `OVERLAP_UNVERIFIED`，未改動任何來源或 Research Store。
 - 詳細證據：`docs/CCASS_2025_12_TO_2026_07_EXTENSION_BRIDGE_VERIFICATION_V1.md`。
+
+### LONGBRIDGE DAILY HISTORY EMERGENCY RESCUE V2 2026-09-25
+
+- authenticated `participants` directory 可讀，但 00003、00005、00006 的 `broker_holding_detail` 及 `broker_holding_daily` probes 均回傳 empty list。
+- 沒有把 empty response 當作 zero；August gap 維持 `UNVERIFIED_NOT_ZERO`，沒有新 rows 可建立 raw rescue archive。
+- 既有 Longbridge snapshots 2026-09-09 至 2026-09-11、6 rows 保持不變；完整證據：`docs/LONGBRIDGE_CCASS_DAILY_HISTORY_EMERGENCY_RESCUE_V2.md`。
