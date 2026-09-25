@@ -1780,9 +1780,415 @@ def _register_h9(store):
     ))
 
 
+# ============================================================ HILTON 急跌博反彈
+S_H10 = source(
+    "HILTON-CAIJI-DIPBOUNCE", "急跌博反彈_課程摘要", "急跌博反彈三必要條件(非莊家安排斬倉/跌幅70-90%+/極低市值)+一分鐘圖買盤回流；分拆上市沽壓補充(指數被動基金強制沽壓/2121案例)",
+    mtype="course_summary",
+)
+
+OBS_H10 = [
+    Observation(
+        observation_id="OBS-H10-001", methodology_id="HILTON", source_id=S_H10.source_id,
+        source_section="急跌的兩大來源", source_quote_or_paraphrase_reference="莊家散貨：利用昨日十元今日一元的錨定效應吸引散戶撈底，屬向下炒散貨方式，低位市值仍可能貼近合理殼價——莊家不因跌幅大而痛苦；被迫斬倉：大股東因孖展壓力被證券行不計價格強制沽貨，非莊家原先安排",
+        observation_statement="急跌兩大來源判別：(1)莊家主動散貨——錨定撈底陷阱，跌八九成但低位市值貼合理殼價正是其派貨區，不應撈 (2)被迫斬倉——非自願，目標尋找此類；大股東被斬令同系股票同日急跌、大戶被斬連累其戶口多股。停牌非必然全損：非莊家安排的急跌後停牌可為釐清事件，復牌可能反彈（非保證）。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="謎網2017-06-27同系十多隻單日跌50-90%的系統斬倉案例",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-H10-002", methodology_id="HILTON", source_id=S_H10.source_id,
+        source_section="三項必要條件+買入判斷", source_quote_or_paraphrase_reference="細價股最少跌約70%才開始計算，希望85%最好超過90%；主板市值約兩億以下理想一億以下、創板八千萬以下；所有急跌判斷要看一分鐘圖…待跌勢停住、成交由細轉大才代表新買盤進場；大多數個案不會完全還原，反彈至跌幅約一半位置通常已遇第一阻力",
+        observation_statement="急跌博反彈三必要條件+操作：(1)非莊家安排（目標=被迫斬倉）(2)跌幅：細價股≥70%起步、85%希望、>90%最好（85與90%的剩餘市值是倍數差）；大價股單日跌3-5成已極端 (3)市值極低（當時參考：主板≤1-2億/創板≤6-8千萬）。買入=一分鐘圖觀察成交縮細→停住→由細轉大（新買盤）；不追最低；離場=1-2倍即夠/跌幅一半阻力區/盤路信號，不等還原。理想個案一年僅三四次，細注參與。",
+        observation_type=ObservationType.TIMING_RULE,
+        supporting_evidence="1428耀才2014-12-18（確認大股東未沽→他人被斬→2.2買入兩日+50%）；1529/6111兩至四倍個案",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-H10-003", methodology_id="HILTON", source_id=S_H10.source_id,
+        source_section="分拆上市補充", source_quote_or_paraphrase_reference="指數成分股分拆出的子公司不會自動成為同一指數成分股，被動基金因此可能必須出售，令第一輪沽壓更明顯；2121以介紹上市分拆，沽壓後約一年三個月升約四倍",
+        observation_statement="分拆沽壓補充證據：被動基金強制沽壓——指數成分股分拆的子公司不自動入指數，被動基金必沽（中信電子案例：沽壓後估值一度僅5-6倍PE）。2121介紹上市沽壓後約15個月升約四倍。靚號碼（1469齊牌1/4/6/9）為加分非買入理由；同一系連續分拆均十倍（0015分拆1372）=有往績操盤者重點留意。",
+        observation_type=ObservationType.FACT_FROM_CASE,
+        supporting_evidence="被動資金機制+2121/中信電子/0015-1372案例",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+]
+
+CHAIN_H10_001 = EvidenceChain(
+    chain_id="CHAIN-H10-001", observation_id="OBS-H10-001",
+    input_facts=["急跌股需判別來源：莊家主動散貨 vs 被迫斬倉", "謎網2017-06-27：同系十多隻單日跌50-90%"],
+    temporal_order="系統斬倉在單日內完成；同系多股同日急跌=大股東系統被斬的指紋",
+    calculation_or_comparison="多股同日同步急跌的相關性↑=系統性斬倉；單股獨跌=需查莊家是否主動",
+    author_reasoning="莊家主動散貨的下跌其派貨區貼合理殼價，撈底者=派貨對象；被迫斬倉者莊家亦痛苦，復原動機真實",
+    author_conclusion="急跌博反彈只做被迫斬倉型；判別線索=同系多股同日急跌+大股東持股未減（1428確認法）",
+)
+
+CAND_H10 = [
+    RuleCandidate(
+        rule_candidate_id="CAND-HILTON-DIPBOUNCE-001", rule_family=RuleFamily.RISK_WINDOW,
+        methodology_id="HILTON", rule_name="急跌博反彈：被迫斬倉三條件+買盤回流確認",
+        description="僅針對非自願急跌（被迫斬倉）的短線反彈策略。三必要條件：(1)非莊家安排——判別線索：同系多股同日急跌/大股東持股未減 (2)跌幅：細價股≥70%（85-90%+理想）(3)市值極低（隨殼價環境更新）。進場=一分鐘圖成交縮→停→由細轉大；離場=1-2倍/跌幅一半阻力/盤路信號。理想個案一年約三四次，細注。",
+        preconditions=["標的出現急跌"],
+        required_inputs=["跌幅%（高點至現價）", "急跌後市值", "同系/同戶口股票同日表現", "分鐘級成交量序列"],
+        optional_inputs=["大股東DI（確認未沽）", "停牌/復牌狀態"],
+        trigger_conditions=["三條件同時成立+買盤回流形態"],
+        supporting_evidence=["OBS-H10-001", "OBS-H10-002"],
+        output_semantics="急跌分類：FORCED_LIQUIDATION_CANDIDATE / DELIBERATE_DISTRIBUTION(禁撈) + 進離場框架",
+        false_positive_conditions=["莊家主動散貨被誤判為斬倉（低位貼殼價恰是其派貨區）"],
+        false_negative_conditions=["分批斬倉無同日多股指紋"],
+        falsification_conditions=["符合三條件的樣本群其後反彈率/幅度不顯著高於隨機急跌股"],
+        origin_case_ids=["CASE-HILTON-1428", "CASE-HILTON-謎網2017", "CASE-HILTON-大發地產"],
+        origin_source_ids=[S_H10.source_id], origin_observation_ids=["OBS-H10-001", "OBS-H10-002"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+    RuleCandidate(
+        rule_candidate_id="CAND-HILTON-SPINOFF-PRESSURE-001", rule_family=RuleFamily.EVENT_SEQUENCE,
+        methodology_id="HILTON", rule_name="分拆沽壓：被動基金強制沽售為主要沽壓源（證據增補）",
+        description="【SAME_RULE_NEW_EVIDENCE】補強 CAND-HILTON-SPINOFF-PRESSURE-001：第一輪沽壓的最大來源除散戶無償沽售與基金主題不合外，明確加入被動基金強制沽售——指數成分股分拆的子公司不自動入指數（中信電子案例沽壓後估值一度5-6倍PE）。同一操盤者連續分拆均十倍（0015→1372）為重點留意線索。",
+        preconditions=["分拆上市完成"],
+        required_inputs=["母公司是否指數成分股", "分拆形式", "上市日期"],
+        optional_inputs=["操盤者分拆往績"],
+        trigger_conditions=["母公司屬指數成分股的分拆（被動沽壓加權）"],
+        supporting_evidence=["OBS-H10-003"],
+        output_semantics="沽壓強度分級（被動基金加權）+ 等待期",
+        false_positive_conditions=["子公司極快獲納入其他指數"],
+        false_negative_conditions=["沽壓被造市者提前承接"],
+        falsification_conditions=["指數成分股分拆與非成分股分拆的首輪沽壓深度無統計差異"],
+        origin_case_ids=["CASE-HILTON-2121", "CASE-HILTON-中信電子", "CASE-HILTON-0015-1372"],
+        origin_source_ids=[S_H10.source_id], origin_observation_ids=["OBS-H10-003"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.SAME_RULE_NEW_EVIDENCE,
+    ),
+]
+
+
+def _register_h10(store):
+    store.register_source(S_H10)
+    for o in OBS_H10:
+        store.add_observation(o)
+    store.add_observation(OBS_H10[0], CHAIN_H10_001)
+    for c in CAND_H10:
+        store.add_candidate(c)
+    store.mark_source_status(S_H10.source_id, "INGESTED")
+    store.save_checkpoint(IngestionCheckpoint(
+        source_id=S_H10.source_id,
+        processed_sections=["核心觀念", "老師重點", "操作流程", "重要案例", "注意事項", "本課總結"],
+        observation_ids=[o.observation_id for o in OBS_H10],
+        candidate_rule_ids=[c.rule_candidate_id for c in CAND_H10],
+        open_questions=["本檔與L5/L6重疊（同課程另一次記錄）——已按SAME_RULE_NEW_EVIDENCE處理，未重複建規則",
+                        "市值門檻（1-2億/6-8千萬）為課堂時點殼價參考"],
+        last_position="EOF",
+    ))
+
+
+# ============================================================ CHAU_HIN lesson 1
+Z_DIR = "細價股-財技軍火庫/大師股票投資課程-周顯/知識提煉-周顯大師股票投資課程"
+S_Z1 = source(
+    "CHAUHIN-COURSE-L1", "周顯大師股票投資課程-第1堂_課程知識摘要", "市場歷史/貨幣與資產價格背離/壞消息失效訊號/方法普及化衰減/槓桿前置條件",
+    mid="CHAU_HIN", loc=Z_DIR,
+)
+
+OBS_Z1 = [
+    Observation(
+        observation_id="OBS-Z1-001", methodology_id="CHAU_HIN", source_id=S_Z1.source_id,
+        source_section="判斷條件1/案例一", source_quote_or_paraphrase_reference="壞消息很多但市場跌不下去；一旦出現少量好消息反而快速上升——觀察市場對消息的反應，比消息標題本身更重要",
+        observation_statement="壞消息失效訊號：連續壞消息殺傷力遞減+好消息反應放大=流動性支撐的線索；分析單位是『消息+價格反應+資金環境』三合一，非消息本身。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="疫情/政治/貿易衝突期美QE下的市場承接案例",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-Z1-002", methodology_id="CHAU_HIN", source_id=S_Z1.source_id,
+        source_section="核心觀念3-4", source_quote_or_paraphrase_reference="生意環境差+資金成本低+市場大量資金→資金流向股票樓宇→實體經濟差但資產價格可升；經濟差≠股市必跌",
+        observation_statement="實體經濟與資產市場可長期背離：低息大量資金無實體出口→流入資產；分析次序=大勢→資金因素（貨幣供應/利率/流向）→港股外部關係（美元聯匯/美股+人民幣/中國貿易）→個股。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="救市後資產先行案例；低成本資金炒作資產的因果鏈",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-Z1-003", methodology_id="CHAU_HIN", source_id=S_Z1.source_id,
+        source_section="核心觀念1/例外6", source_quote_or_paraphrase_reference="財技炒股法普及後資訊優勢下降…不能假設過去的優勢永久存在",
+        observation_statement="方法衰減律：任何炒股方法隨參與者學習而優勢遞減；規則有效性須按當前市場環境重估，不可假設永久。（對本平台：Hilton規則亦是環境依賴，須持續驗證。）",
+        observation_type=ObservationType.RISK_WARNING,
+        supporting_evidence="老師自述財技法普及化過程",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-Z1-004", methodology_id="CHAU_HIN", source_id=S_Z1.source_id,
+        source_section="案例六", source_quote_or_paraphrase_reference="技術未到不應借孖展炒股；槓桿把原本判斷與風險控制同步放大",
+        observation_statement="槓桿前置條件：技術未成熟（基本交易+風險控制能力）不應使用孖展；槓桿不是獨立技巧，放大判斷也放大錯誤。",
+        observation_type=ObservationType.RISK_WARNING,
+        supporting_evidence="課堂對孖展提問的回應",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+]
+
+CAND_Z1 = [
+    RuleCandidate(
+        rule_candidate_id="CAND-CHAUHIN-BADNEWS-DECAY-001", rule_family=RuleFamily.EVENT_SEQUENCE,
+        methodology_id="CHAU_HIN", rule_name="壞消息失效=流動性支撐線索",
+        description="連續壞消息的價格殺傷力遞減、好消息反應放大→推斷流動性/貨幣支撐；大勢判斷以價格反應為準而非消息數量。此為大市層訊號，不直接適用個股。",
+        preconditions=["有消息流與價格序列"],
+        required_inputs=["壞消息序列及其後價格反應", "好消息反應幅度"],
+        optional_inputs=["貨幣供應/利率環境"],
+        trigger_conditions=["連續壞消息而市場不再新低"],
+        supporting_evidence=["OBS-Z1-001", "OBS-Z1-002"],
+        output_semantics="流動性支撐嫌疑標記（大市層）",
+        false_positive_conditions=["壞消息已被價格充分計價後的自然企穩"],
+        false_negative_conditions=["資金退潮初期消息反應仍鈍"],
+        falsification_conditions=["壞消息失效期後的市場表現與流動性指標無關"],
+        origin_case_ids=[],
+        origin_source_ids=[S_Z1.source_id], origin_observation_ids=["OBS-Z1-001"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+]
+
+
+def _register_z1(store):
+    store.register_source(S_Z1)
+    for o in OBS_Z1:
+        store.add_observation(o)
+    for c in CAND_Z1:
+        store.add_candidate(c)
+    store.mark_source_status(S_Z1.source_id, "INGESTED")
+    store.save_checkpoint(IngestionCheckpoint(
+        source_id=S_Z1.source_id,
+        processed_sections=["核心觀念", "判斷條件與邏輯", "老師重點", "操作流程", "重要案例", "例外與容易誤判情況", "注意事項", "本課總結"],
+        observation_ids=[o.observation_id for o in OBS_Z1],
+        candidate_rule_ids=[c.rule_candidate_id for c in CAND_Z1],
+        open_questions=["本課屬大勢框架課，CCASS/財技具體規則密度低——僅抽取方法級規則"],
+        last_position="EOF",
+    ))
+
+
+# ============================================================ CHAU_HIN lesson 2A
+S_Z2 = source(
+    "CHAUHIN-COURSE-L2A", "周顯大師股票投資課程-第2A堂_課程知識摘要", "供股結構分析九步；雙質數供股法(碎股減流通)；29.99%門檻追問；理論除權價僅參考；短期風險與中長期財技分開判斷；玩法生命周期",
+    mid="CHAU_HIN", loc=Z_DIR,
+)
+
+OBS_Z2 = [
+    Observation(
+        observation_id="OBS-Z2-001", methodology_id="CHAU_HIN", source_id=S_Z2.source_id,
+        source_section="核心觀念5", source_quote_or_paraphrase_reference="雙質數供股法：利用特定比例令部分持股者產生碎股…碎股較不方便直接沽出，可能減少部分貨源即時流出…只可以是其中一個動機，交易可同時存在多個平行目的",
+        observation_statement="雙質數供股法：質數比例供股令散戶產生碎股→碎股不便即時沽出→減少即時沽壓/貨源流出，屬中長期偏多財技因素。但一宗交易可有多個平行動機（集資/股權安排/碎股），不可單一解釋。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="課堂雙質數比例案例",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-Z2-002", methodology_id="CHAU_HIN", source_id=S_Z2.source_id,
+        source_section="核心觀念3/案例三", source_quote_or_paraphrase_reference="某主要股東持股29.99%——為甚麼不是30%？與GO/全面收購責任連結…看到接近重要門檻的精確數字→主動追問交易設計原因",
+        observation_statement="門檻精確數字追問法：股權停在29.99%（而非30%）=交易設計線索，聯結GO責任；習慣是見貼門檻精確數字即主動追問「為甚麼停在這裡」，從公告與交易結構找原因。（與Hilton 29.97%線索同構，跨方法論各自獨立記錄。）",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="29.99%案例（大型公司資本重組390億案例內）",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-Z2-003", methodology_id="CHAU_HIN", source_id=S_Z2.source_id,
+        source_section="判斷條件2,6/案例四", source_quote_or_paraphrase_reference="理論價只是參考，第二天實際開市價可以完全不同；供股公布後原持有人第一個策略是先處理持倉，不論高開低開平開…短期交易處理≠中長期財技結構判斷",
+        observation_statement="供股時間尺度分離：短期——供股公布後先處理持倉（不賭高開低開，高開不改寫風險規則）；中長期——碎股減流通等財技效果另行研究。理論除權價（舊股總值+新股按供股價÷總股數）僅參考，可與實際價格脫鈎。",
+        observation_type=ObservationType.TIMING_RULE,
+        supporting_evidence="復牌高開案例中老師仍先處理持倉",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-Z2-004", methodology_id="CHAU_HIN", source_id=S_Z2.source_id,
+        source_section="判斷條件4,7", source_quote_or_paraphrase_reference="股權重組要比較『前』與『後』：交易前主要股東→誰參與/沒參與→誰被攤薄→誰新增→最終百分比→是否靠近重要門檻",
+        observation_statement="股權前後對照法：股權重組分析必須比較交易前後的主要股東/參與者/被攤薄者/新增者/最終百分比/門檻接近度；再把人物角色放回事件脈絡。全部用公開資料（公告/招股書/公開股權）。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="九步供股分析流程",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+]
+
+CAND_Z2 = [
+    RuleCandidate(
+        rule_candidate_id="CAND-CHAUHIN-PRIME-RATIO-001", rule_family=RuleFamily.RIGHTS_ISSUE,
+        methodology_id="CHAU_HIN", rule_name="雙質數供股比例=碎股減流通的中長期偏多因素",
+        description="質數類供股比例製造碎股→碎股難即時沽出→減少即時沽壓與貨源流出；屬中長期財技偏好因素，須與短期供股風險（公布後先處理持倉）分開判斷；一宗交易多動機並存，碎股只是其中一個可能動機。",
+        preconditions=["供股公告已發布"],
+        required_inputs=["供股比例（是否質數/非整除）", "每手股數"],
+        optional_inputs=["集資用途", "股權安排"],
+        trigger_conditions=["供股比例與常見持股量非整除"],
+        supporting_evidence=["OBS-Z2-001", "OBS-Z2-003"],
+        output_semantics="碎股效應標記（中長期流通收縮線索）——不抵消短期風險處理",
+        false_positive_conditions=["比例非刻意（湊巧質數）"],
+        false_negative_conditions=["碎股經碎股交易市場流通"],
+        falsification_conditions=["質數比例與整除比例供股的其後沽壓/回報無統計差異"],
+        origin_case_ids=[],
+        origin_source_ids=[S_Z2.source_id], origin_observation_ids=["OBS-Z2-001"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.RULE_VARIANT,
+    ),
+    RuleCandidate(
+        rule_candidate_id="CAND-CHAUHIN-THRESHOLD-ASK-001", rule_family=RuleFamily.CONTROL_CHANGE,
+        methodology_id="CHAU_HIN", rule_name="門檻精確數字追問法（29.99%型）",
+        description="主要股東持股停在重要門檻的精確微下方（29.99% vs 30% GO線）→主動追問交易設計原因，從公告與結構找動機（避GO/避主要股東地位/避申報）。股權百分比是設計線索不是資料抄寫。",
+        preconditions=["有持股披露"],
+        required_inputs=["持股%精確值", "門檻列表（5/10/30/50/75）"],
+        trigger_conditions=["持股停駐門檻−ε精確值"],
+        supporting_evidence=["OBS-Z2-002"],
+        output_semantics="門檻追問標記 + 設計原因候選列表",
+        false_positive_conditions=["湊巧數字"],
+        false_negative_conditions=["多帳戶隱藏真實位置"],
+        falsification_conditions=["門檻停駐樣本的後續交易設計解釋率不顯著高於對照"],
+        origin_case_ids=["CASE-CHAUHIN-29.99"],
+        origin_source_ids=[S_Z2.source_id], origin_observation_ids=["OBS-Z2-002"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.RULE_VARIANT,
+    ),
+]
+
+
+def _register_z2(store):
+    store.register_source(S_Z2)
+    for o in OBS_Z2:
+        store.add_observation(o)
+    for c in CAND_Z2:
+        store.add_candidate(c)
+    store.mark_source_status(S_Z2.source_id, "INGESTED")
+    store.save_checkpoint(IngestionCheckpoint(
+        source_id=S_Z2.source_id,
+        processed_sections=["核心觀念", "判斷條件與邏輯", "老師重點", "操作流程", "重要案例", "例外與容易誤判情況", "注意事項", "本課總結"],
+        observation_ids=[o.observation_id for o in OBS_Z2],
+        candidate_rule_ids=[c.rule_candidate_id for c in CAND_Z2],
+        open_questions=["29.99%案例的具體公司名在逐字稿中辨識失真，僅存百分比事實",
+                        "CAND-CHAUHIN-THRESHOLD-ASK-001與Hilton CAND-HILTON-THRESHOLD-HUG-001同構——按方法論隔離各自記錄，未合併"],
+        last_position="EOF",
+    ))
+
+
+# ============================================================ IVAN_L 型絕地
+I_DIR = "細價股-財技軍火庫/L型絕地-Ivan/知識提煉-L型絕地"
+S_I1 = source(
+    "IVANL-LXING-COURSE", "L型絕地_課程知識摘要", "L型絕地選股條件(半新股/集資低/天生乾身/低市值)；絕地=時間磨走散戶(跌穿招股價+沉底半年至一年)；市值分段注碼(3/2/1億)；向下炒風險排除；炒高後階段性提高警覺(3/5-6/7-8億)",
+    mid="IVAN_L", loc=I_DIR, mtype="course_summary",
+)
+
+OBS_I1 = [
+    Observation(
+        observation_id="OBS-I1-001", methodology_id="IVAN_L", source_id=S_I1.source_id,
+        source_section="核心觀念2-3/判斷條件1-3", source_quote_or_paraphrase_reference="近期上市股票歷史較短、貨源結構易理解、可由招股文件及招股結果開始追溯；天生乾身：公開發售部分相對有限、大部分股份已集中於特定持有人；集資主板約1億以下較值得留意、約3,600萬屬很理想",
+        observation_statement="L型絕地選股前置：半新股優先（歷史短/貨源可追溯，只需招股文件+招股結果兩份文件起步）；『天生乾身』=IPO公開發售有限+大部分貨在相關人手上→免長時間收貨；集資額越低越符合（主板≈1億以下留意、3,600萬級理想）；主動少集資（可多集而少集）=不想街外貨過多的跡象。",
+        observation_type=ObservationType.CONDITION,
+        supporting_evidence="課堂篩選框架經驗值",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I1-002", methodology_id="IVAN_L", source_id=S_I1.source_id,
+        source_section="核心觀念5/操作流程Step4", source_quote_or_paraphrase_reference="絕地的本質是長時間把散戶磨走…上市後很快跌破招股價、長期未能重返、低位沉底約半年至一年…時間是莊家的重要武器",
+        observation_statement="絕地定義：非跌得多=絕地，而是上市後快速跌穿招股價→長期沉底半年至一年→散戶在無希望中逐步離場；L型只是外觀，必須有內在條件（背景/市值/貨源/時間），存在變種形態，不可純圖形機械判斷。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="典型形態五步描述",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I1-003", methodology_id="IVAN_L", source_id=S_I1.source_id,
+        source_section="判斷條件5/案例二四", source_quote_or_paraphrase_reference="3億以下開始留意；2-3億細注；1-2億視位置中注；1億以下視位置大注…市值越低若原條件仍成立注碼可相應提高；不是跌到某市值就必須買",
+        observation_statement="市值分段注碼（主板經驗區間）：>3億觀望；3億以下開始留意；2-3億細注；1-2億中注；1億以下大注。注碼按個人本金設計分級；前提=原篩選條件未破壞——條件改變時不可因『更便宜』機械加注。",
+        observation_type=ObservationType.CONDITION,
+        supporting_evidence="一萬元本金分段示範；2.5-2.8億低位→4.4億才炒起的案例（最低位不即時啟動）",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I1-004", methodology_id="IVAN_L", source_id=S_I1.source_id,
+        source_section="判斷條件7", source_quote_or_paraphrase_reference="本策略最怕的是標的仍有向下炒或進一步破壞股本價格結構的空間…剛上市已完成集資、短時間再向下財技的合理性相對較低；貨源高度集中時向下大量出貨亦需人承接",
+        observation_statement="向下炒風險排除邏輯：剛上市已完成集資→短期再向下財技合理性低；貨源高度集中→向下出貨需承接；極低市值→向下空間受限。風險非零——須主動檢查『向下條件』是否存在（印股空間/CB/供股歷史）。",
+        observation_type=ObservationType.RISK_WARNING,
+        supporting_evidence="排除條件的結構推理",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I1-005", methodology_id="IVAN_L", source_id=S_I1.source_id,
+        source_section="老師重點5", source_quote_or_paraphrase_reference="炒上去後逐級看待：約3億第一個重要區域；5-6億看莊家是否具備繼續推動能力；7-8億開始更重視街貨及是否散貨；約20億屬非常高炒作區需天時地利人和",
+        observation_statement="炒高後分級警覺（主板）：≈3億=第一重要區域；5-6億=驗證推動力；7-8億=重點轉向街貨/散貨監察；≈20億=超高區需多條件齊備。市值階段不同，風險假設不同——低位邏輯不可套用到高位。",
+        observation_type=ObservationType.TIMING_RULE,
+        supporting_evidence="市值階梯觀察重點",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I1-006", methodology_id="IVAN_L", source_id=S_I1.source_id,
+        source_section="判斷條件4", source_quote_or_paraphrase_reference="超額認購不是愈高愈好…幾百倍超額認購可能代表大量散戶參與，要留意背後究竟是甚麼人認購",
+        observation_statement="超額認購非單一判準：無超購可以、幾百倍超購=大量散戶參與嫌疑（街外貨結構複雜化）；須看認購者結構而非表面倍數。",
+        observation_type=ObservationType.CONDITION,
+        supporting_evidence="課堂對超購倍數的討論",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+]
+
+CHAIN_I1_003 = EvidenceChain(
+    chain_id="CHAIN-I1-003", observation_id="OBS-I1-003",
+    input_facts=["L型候選：半新股+天生乾身+集資低", "歷史案例低位≈2.5-2.8億、約4.4億才開始炒上"],
+    temporal_order="上市→跌穿招股價→沉底6-12月→市值分區逐步部署→其後於4.4億區啟動",
+    calculation_or_comparison="市值越低推動所需資金越少；分段注碼令大注集中在低市值區改善風險回報",
+    author_reasoning="不猜最低點；以市值為部署尺度、條件不變為加注前提",
+    author_conclusion="分段市值注碼法：3億留意→2-3億細注→1-2億中注→1億以下大注（條件未破壞時）",
+)
+
+CAND_I1 = [
+    RuleCandidate(
+        rule_candidate_id="CAND-IVANL-LXING-SCREEN-001", rule_family=RuleFamily.SHELL_VALUE,
+        methodology_id="IVAN_L", rule_name="L型絕地篩選器：半新股+天生乾身+集資低+絕地形態",
+        description="候選篩選四支柱：(1)半新股（1-3年內，貨源/人物可由招股文件+招股結果追溯）(2)天生乾身（公開發售有限、街貨低）(3)集資額低（主板≈1億以下；主動少集=保貨源集中）(4)絕地形態（快速跌穿招股價+沉底6-12月）。條件不足即不買；形態變種存在，不機械套圖。",
+        preconditions=["標的為近期上市股票"],
+        required_inputs=["上市日期", "集資額", "公開發售/配售結構", "招股結果認購結構", "上市後價格歷史（vs 招股價）"],
+        optional_inputs=["保薦人/人物往績", "超額認購倍數及結構"],
+        trigger_conditions=["四支柱初篩通過"],
+        supporting_evidence=["OBS-I1-001", "OBS-I1-002", "OBS-I1-006"],
+        output_semantics="L型絕地候選池標記 + 條件完成度評分",
+        false_positive_conditions=["純圖形L型無內在條件", "向下炒潛質未排除"],
+        false_negative_conditions=["變種形態（沉底期更短/無完全跌穿招股價）"],
+        falsification_conditions=["通過篩選的候選池與隨機半新股的後續回報無統計差異"],
+        origin_case_ids=["CASE-IVANL-2.8億-4.4億案例"],
+        origin_source_ids=[S_I1.source_id], origin_observation_ids=["OBS-I1-001", "OBS-I1-002"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+    RuleCandidate(
+        rule_candidate_id="CAND-IVANL-LADDER-STAKE-001", rule_family=RuleFamily.RISK_WINDOW,
+        methodology_id="IVAN_L", rule_name="市值階梯注碼與炒高後分級警覺",
+        description="部署階梯（主板）：3億留意→2-3億細注→1-2億中注→1億以下大注（條件不變前提）。持有階梯：≈3億第一重要區→5-6億驗證推動力→7-8億轉散貨/街貨監察→≈20億超高區。兩方向都以市值為尺度、非價格；條件破壞即停加注。",
+        preconditions=["已入L型絕地候選池"],
+        required_inputs=["即時市值", "市值區間邊界", "篩選條件狀態"],
+        optional_inputs=["CCASS街貨變化（高位階段）"],
+        trigger_conditions=["市值跨越階梯邊界"],
+        supporting_evidence=["OBS-I1-003", "OBS-I1-005"],
+        output_semantics="當前階段標籤 + 建議注碼級別/警覺級別",
+        false_positive_conditions=["條件已破壞（向下財技出現）仍按階梯加注"],
+        false_negative_conditions=["極速跨越多級（跳空炒作）"],
+        falsification_conditions=["階梯注碼法的事後資金加權回報不優於一次性等額"],
+        origin_case_ids=["CASE-IVANL-2.8億-4.4億案例"],
+        origin_source_ids=[S_I1.source_id], origin_observation_ids=["OBS-I1-003", "OBS-I1-005"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+]
+
+
+def _register_i1(store):
+    store.register_source(S_I1)
+    for o in OBS_I1:
+        store.add_observation(o)
+    store.add_observation(OBS_I1[2], CHAIN_I1_003)
+    for c in CAND_I1:
+        store.add_candidate(c)
+    store.mark_source_status(S_I1.source_id, "INGESTED")
+    store.save_checkpoint(IngestionCheckpoint(
+        source_id=S_I1.source_id,
+        processed_sections=["核心觀念", "判斷條件與邏輯", "老師重點", "操作流程", "重要案例", "例外與容易誤判情況", "注意事項", "本課總結"],
+        observation_ids=[o.observation_id for o in OBS_I1],
+        candidate_rule_ids=[c.rule_candidate_id for c in CAND_I1],
+        open_questions=["『MIMA』等術語辨識失真未採用", "股票案例/人物名稱多處失真，不建人物名單",
+                        "另有股票案例/L型研究I版_最終版_GO兌現機制_20260731.md等待批次3處理"],
+        last_position="EOF",
+    ))
+
+
 if __name__ == "__main__":
     store = IngestionStore()
     ingest(store)
-    for fn in (_register_h2, _register_h3, _register_h4, _register_h5, _register_h6, _register_h7, _register_h8, _register_h9):
+    for fn in (_register_h2, _register_h3, _register_h4, _register_h5, _register_h6, _register_h7, _register_h8, _register_h9, _register_h10, _register_z1, _register_z2, _register_i1):
         fn(store)
     print(store.batch_stats())
