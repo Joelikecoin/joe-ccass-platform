@@ -1,0 +1,71 @@
+{
+  "TARGET_ID": "LT-08",
+  "CAPABILITY_ID": "CAP-06",
+  "CANDIDATES": [
+    {
+      "CASE_CANDIDATE_ID": "LT08-CAND-8446",
+      "STOCK_CODE": "8446",
+      "OFFICIAL_ALERT": "NO",
+      "ALERT_DATE": null,
+      "ALERT_REFERENCE": null,
+      "CCASS_SAME_DATE": "NO",
+      "DENOMINATOR_AVAILABLE": "NO",
+      "POINT_IN_TIME_SAFE": "NO",
+      "ELIGIBLE": "NO",
+      "DATE_ALIGNMENT_STATUS": "UNUSABLE",
+      "REJECTION_REASON": "CCASS anomaly exists, but no official concentration-alert disclosure or same-date issued-share denominator is present."
+    },
+    {
+      "CASE_CANDIDATE_ID": "LT08-CAND-1725",
+      "STOCK_CODE": "1725",
+      "OFFICIAL_ALERT": "NO",
+      "ALERT_DATE": null,
+      "ALERT_REFERENCE": null,
+      "CCASS_SAME_DATE": "NO",
+      "DENOMINATOR_AVAILABLE": "NO",
+      "POINT_IN_TIME_SAFE": "NO",
+      "ELIGIBLE": "NO",
+      "DATE_ALIGNMENT_STATUS": "UNUSABLE",
+      "REJECTION_REASON": "Named-stock case exists, but no official concentration-alert disclosure is reachable."
+    },
+    {
+      "CASE_CANDIDATE_ID": "LT08-CAND-1735",
+      "STOCK_CODE": "1735",
+      "OFFICIAL_ALERT": "NO",
+      "ALERT_DATE": null,
+      "ALERT_REFERENCE": null,
+      "CCASS_SAME_DATE": "NO",
+      "DENOMINATOR_AVAILABLE": "NO",
+      "POINT_IN_TIME_SAFE": "NO",
+      "ELIGIBLE": "NO",
+      "DATE_ALIGNMENT_STATUS": "UNUSABLE",
+      "REJECTION_REASON": "Named-stock case exists, but no official concentration-alert disclosure is reachable."
+    },
+    {
+      "CASE_CANDIDATE_ID": "LT08-CAND-1782",
+      "STOCK_CODE": "1782",
+      "OFFICIAL_ALERT": "NO",
+      "ALERT_DATE": null,
+      "ALERT_REFERENCE": null,
+      "CCASS_SAME_DATE": "NO",
+      "DENOMINATOR_AVAILABLE": "NO",
+      "POINT_IN_TIME_SAFE": "NO",
+      "ELIGIBLE": "NO",
+      "DATE_ALIGNMENT_STATUS": "UNUSABLE",
+      "REJECTION_REASON": "Named-stock case exists, but no official concentration-alert disclosure is reachable."
+    },
+    {
+      "CASE_CANDIDATE_ID": "LT08-CAND-8282",
+      "STOCK_CODE": "8282",
+      "OFFICIAL_ALERT": "NO",
+      "ALERT_DATE": null,
+      "ALERT_REFERENCE": null,
+      "CCASS_SAME_DATE": "NO",
+      "DENOMINATOR_AVAILABLE": "NO",
+      "POINT_IN_TIME_SAFE": "NO",
+      "ELIGIBLE": "NO",
+      "DATE_ALIGNMENT_STATUS": "UNUSABLE",
+      "REJECTION_REASON": "Named-stock case exists, but no official concentration-alert disclosure is reachable."
+    }
+  ]
+}
