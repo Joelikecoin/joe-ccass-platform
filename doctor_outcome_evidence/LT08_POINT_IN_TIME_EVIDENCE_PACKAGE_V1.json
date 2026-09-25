@@ -1,0 +1,63 @@
+{
+  "PACKAGE_ID": "LT08_POINT_IN_TIME_EVIDENCE_PACKAGE_V1",
+  "TARGET": {
+    "target_id": "LT-08",
+    "capability_id": "CAP-06",
+    "rule_family_id": "RF-06",
+    "claim_to_test": "券商鴻溝法估算歸邊與官方『股權高度集中』通告披露值的吻合度（平台已有134k行持倉可測）",
+    "required_case_characteristics": [
+      "曾發股權高度集中通告的股票",
+      "通告前後CCASS快照"
+    ],
+    "required_evidence": [
+      "通告披露的持股集中數字",
+      "同期CCASS participant分佈",
+      "總已發行股數"
+    ],
+    "t0_fields_required": [
+      "concentration_alert(disclosed_top_holders, date)"
+    ],
+    "t1_outcome_fields_required": [
+      "gap_method_estimate(same_date)",
+      "estimate_error"
+    ],
+    "support_condition": "鴻溝法估算與披露值誤差在規則聲明的精度內（>90%即可用級）",
+    "contradiction_condition": "系統性背離且方向一致（高估或低估）",
+    "context_dependent_condition": "非CCASS實體股比例大的股票誤差上限放寬",
+    "falsification_trigger": "估算與披露值背離無法由實體股解釋",
+    "minimum_case_count": null,
+    "priority": "HIGH"
+  },
+  "CASE_ID": null,
+  "STOCK_CODE": null,
+  "T0_DATE": null,
+  "T0_SIGNAL_INPUTS": null,
+  "T0_SIGNAL_OUTPUT": null,
+  "T0_SOURCE_REFS": [],
+  "T1_START_DATE": null,
+  "T1_END_DATE": "2026-09-25",
+  "T1_EVIDENCE_ITEMS": [],
+  "T1_SOURCE_REFS": [],
+  "T0_T1_SOURCE_INDEPENDENCE": "UNASSESSABLE",
+  "ISSUED_SHARES_AT_T0": null,
+  "CCASS_TOTAL_AT_T0": null,
+  "DENOMINATOR_ARTIFACT_RISK": "UNKNOWN",
+  "CORPORATE_ACTION_CONFOUNDERS": "NOT_ASSESSED",
+  "SETTLEMENT_SEMANTICS_STATUS": "NOT_ASSESSED",
+  "DATA_QUALITY_STATUS": "BLOCKED_NO_ELIGIBLE_CASE",
+  "POINT_IN_TIME_SAFE": false,
+  "EVIDENCE_LINEAGE_COMPLETE": false,
+  "READY_FOR_CASE_VALIDATION": "NO",
+  "MISSING_EVIDENCE": [
+    "Authoritative concentration alert with publication date",
+    "Same-date CCASS participant snapshot for a stock with that alert",
+    "Issued-shares denominator at T0",
+    "Reproducible gap-method T0 calculation",
+    "Independent source set for comparison"
+  ],
+  "KNOWN_LIMITATIONS": [
+    "The target contract is now authoritative and preserved exactly, but no eligible official concentration-alert case is reachable in the current approved surfaces.",
+    "Existing CCASS holdings/concentration infrastructure cannot substitute for the required official disclosure target."
+  ],
+  "GENERATED_AT": "2026-09-25T04:58:31.680155+00:00"
+}
