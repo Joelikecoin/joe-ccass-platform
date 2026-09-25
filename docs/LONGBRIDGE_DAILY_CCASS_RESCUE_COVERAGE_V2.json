@@ -1,26 +1,345 @@
 {
-  "work_package": "LONGBRIDGE_CCASS_DAILY_HISTORY_EMERGENCY_RESCUE_V2",
-  "runtime_divergence_resolution": "700_HK_EXACT_REQUEST_NONEMPTY",
-  "runtime_type": "MCP_OVER_HTTP_WITH_CACHED_OAUTH",
-  "endpoint": "broker_holding_daily",
-  "rescued_store": "work/longbridge_ccass_daily_rescue_20260925.sqlite",
-  "rescued_store_sha256": "EDF6FE01D92F0C4C7D5657FEAA482B448874029D2A23E747E3E2092586415016",
-  "stocks": [{
-    "stock_code": "0700",
-    "symbol": "700.HK",
-    "earliest_date": "2026-07-31",
-    "latest_date": "2026-09-24",
-    "date_count": 40,
-    "participant_count": 2,
-    "row_count": 80,
-    "quality_status": "RECOVERED_PARTIAL"
-  }],
-  "participants": ["A00003", "B01955"],
-  "duplicate_natural_key_count": 0,
-  "conflicting_duplicate_count": 0,
-  "readback_rows": 80,
-  "august_01_to_september_08_rows": 76,
-  "august_01_to_september_08_stock_count": 1,
-  "full_market_complete": false,
-  "potential_transient_participant_gap": "UNKNOWN"
+ "schema": "LONGBRIDGE_DAILY_CCASS_RESCUE_COVERAGE_V2",
+ "generated_at": "2026-09-25T08:54:30.606335+00:00",
+ "rescue_store": "G:\\我的雲端硬碟\\投資 - 享受與豐盛\\AI Projects\\joe-ccass-platform\\08_DATA_ASSETS\\longbridge_rescue\\longbridge_ccass_daily_rescue_20260925.sqlite",
+ "rescue_store_sha256": "89f9b115b0382d91cd0c4e63201688fda550e9974f874daa03f1addca64408e4",
+ "totals": {
+  "TOTAL_ROWS": 49454,
+  "DISTINCT_STOCKS": 5,
+  "DISTINCT_PARTICIPANTS": 470,
+  "DISTINCT_DATES": 40,
+  "EARLIEST_DATE": "2026-07-31",
+  "LATEST_DATE": "2026-09-24",
+  "CONFLICTING_DUPLICATE_COUNT": 0,
+  "ERROR_COUNT": 2
+ },
+ "august_gap": {
+  "AUG_01_TO_SEP_08_ROWS": 33340,
+  "AUG_01_TO_SEP_08_STOCK_COUNT": 5,
+  "status": "RECOVERED"
+ },
+ "per_date": [
+  {
+   "date": "2026-07-31",
+   "stock_count": 5,
+   "participant_count": 464,
+   "row_count": 1227,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-03",
+   "stock_count": 5,
+   "participant_count": 465,
+   "row_count": 1228,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-04",
+   "stock_count": 5,
+   "participant_count": 464,
+   "row_count": 1227,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-05",
+   "stock_count": 5,
+   "participant_count": 464,
+   "row_count": 1228,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-06",
+   "stock_count": 5,
+   "participant_count": 464,
+   "row_count": 1228,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-07",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1232,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-10",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1233,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-11",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1233,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-12",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1233,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-13",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1233,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-14",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1233,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-17",
+   "stock_count": 5,
+   "participant_count": 466,
+   "row_count": 1233,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-18",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1236,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-19",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-20",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-21",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-24",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1238,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-25",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1238,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-26",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-27",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-28",
+   "stock_count": 5,
+   "participant_count": 467,
+   "row_count": 1236,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-08-31",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-01",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1237,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-02",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1238,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-03",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1238,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-04",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1238,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-07",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1239,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-08",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1239,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-09",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1239,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-10",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1239,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-11",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1239,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-14",
+   "stock_count": 5,
+   "participant_count": 469,
+   "row_count": 1240,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-15",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1239,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-16",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1240,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-17",
+   "stock_count": 5,
+   "participant_count": 468,
+   "row_count": 1240,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-18",
+   "stock_count": 5,
+   "participant_count": 469,
+   "row_count": 1241,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-21",
+   "stock_count": 5,
+   "participant_count": 469,
+   "row_count": 1242,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-22",
+   "stock_count": 5,
+   "participant_count": 470,
+   "row_count": 1243,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-23",
+   "stock_count": 5,
+   "participant_count": 470,
+   "row_count": 1244,
+   "status": "RECOVERED_CONFIRMED"
+  },
+  {
+   "date": "2026-09-24",
+   "stock_count": 5,
+   "participant_count": 469,
+   "row_count": 1241,
+   "status": "RECOVERED_CONFIRMED"
+  }
+ ],
+ "per_stock": [
+  {
+   "stock_code": "00001",
+   "symbol": "1.HK",
+   "earliest_date": "2026-07-31",
+   "latest_date": "2026-09-24",
+   "date_count": 40,
+   "participant_count": 322
+  },
+  {
+   "stock_code": "00002",
+   "symbol": "2.HK",
+   "earliest_date": "2026-07-31",
+   "latest_date": "2026-09-24",
+   "date_count": 40,
+   "participant_count": 300
+  },
+  {
+   "stock_code": "00003",
+   "symbol": "3.HK",
+   "earliest_date": "2026-07-31",
+   "latest_date": "2026-09-24",
+   "date_count": 40,
+   "participant_count": 120
+  },
+  {
+   "stock_code": "00004",
+   "symbol": "4.HK",
+   "earliest_date": "2026-07-31",
+   "latest_date": "2026-09-24",
+   "date_count": 40,
+   "participant_count": 67
+  },
+  {
+   "stock_code": "00005",
+   "symbol": "5.HK",
+   "earliest_date": "2026-07-31",
+   "latest_date": "2026-09-24",
+   "date_count": 40,
+   "participant_count": 435
+  }
+ ]
 }
