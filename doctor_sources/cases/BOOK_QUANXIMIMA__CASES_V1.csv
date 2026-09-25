@@ -1,0 +1,4 @@
+﻿case_id,source_id,locator,statement,fact_class
+BOOK_QUANXIMIMA-CASE-01,SRC-V1-29c98798d7c16985,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：《股市全息密碼》投資知識教材｜高保留率重製版,B_SOURCE_CASE
+BOOK_QUANXIMIMA-CASE-02,SRC-V1-29c98798d7c16985,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：書籍核心主題,B_SOURCE_CASE
+BOOK_QUANXIMIMA-CASE-03,SRC-V1-29c98798d7c16985,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：核心投資理念,B_SOURCE_CASE

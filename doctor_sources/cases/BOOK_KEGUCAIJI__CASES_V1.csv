@@ -1,0 +1,4 @@
+﻿case_id,source_id,locator,statement,fact_class
+BOOK_KEGUCAIJI-CASE-01,SRC-V1-989d63d2e64f3564,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：《殼股財技》高保留率投資知識教材,B_SOURCE_CASE
+BOOK_KEGUCAIJI-CASE-02,SRC-V1-989d63d2e64f3564,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：書籍核心主題,B_SOURCE_CASE
+BOOK_KEGUCAIJI-CASE-03,SRC-V1-989d63d2e64f3564,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：核心投資理念,B_SOURCE_CASE

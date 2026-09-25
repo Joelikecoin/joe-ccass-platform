@@ -1,0 +1,4 @@
+﻿case_id,source_id,locator,statement,fact_class
+BOOK_CAIJIPANLU-CASE-01,SRC-V1-580304043be4a3ea,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：《財技×盤路：倍升股全攻略》高保留率投資知識教材,B_SOURCE_CASE
+BOOK_CAIJIPANLU-CASE-02,SRC-V1-580304043be4a3ea,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：書籍核心主題,B_SOURCE_CASE
+BOOK_CAIJIPANLU-CASE-03,SRC-V1-580304043be4a3ea,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：核心投資理念,B_SOURCE_CASE

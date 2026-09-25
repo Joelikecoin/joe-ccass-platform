@@ -1,0 +1,4 @@
+﻿case_id,source_id,locator,statement,fact_class
+BOOK_SHANGSHIYI-CASE-01,SRC-V1-3b90d2dcf8cbb2ca,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：書籍核心主題,B_SOURCE_CASE
+BOOK_SHANGSHIYI-CASE-02,SRC-V1-3b90d2dcf8cbb2ca,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：核心投資理念,B_SOURCE_CASE
+BOOK_SHANGSHIYI-CASE-03,SRC-V1-3b90d2dcf8cbb2ca,heading:case-index,來源摘要中的案例／案例類型（需以完整上游定位）：1. 了解「一家公司如何上市」本身就是投資基本功,B_SOURCE_CASE

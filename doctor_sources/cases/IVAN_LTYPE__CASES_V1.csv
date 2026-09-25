@@ -1,0 +1,4 @@
+﻿case_id,source_id,source_location,case_description,outcome_known_in_source,teaching_case_contamination,evidence_class
+CASE-P2A-IVAN-001,SRC-V1-8d592b7256080234,重要案例/1,上市後跌破招股價、長期向下、半年至一年沉底的典型描述,UNKNOWN,YES,B
+CASE-P2A-IVAN-002,SRC-V1-8d592b7256080234,重要案例/3,約二點五至二點八億低位，約四點四億開始炒作,UNKNOWN,YES,B
+CASE-P2A-IVAN-003,SRC-V1-8d592b7256080234,重要案例/4,一萬元本金分成細、中、大注的示例,UNKNOWN,YES,B
