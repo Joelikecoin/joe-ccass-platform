@@ -1,0 +1,40 @@
+{
+  "CONTRACT_ID": "DOCTOR_HISTORICAL_OUTCOME_EVIDENCE_CONTRACT_V1",
+  "STATUS": "IMPLEMENTED_ISOLATED_READ_ONLY",
+  "QUERY": {
+    "stock_code": "string",
+    "t0_date": "date|null",
+    "t1_end_date": "date",
+    "evidence_domains": "array"
+  },
+  "RESULT_PARTITIONS": [
+    "PRE_T0_EVIDENCE",
+    "AT_T0_EVIDENCE",
+    "POST_T0_EVIDENCE"
+  ],
+  "REQUIRED_FIELDS": [
+    "STOCK_CODE",
+    "EVENT_TYPE",
+    "SOURCE_SYSTEM",
+    "SOURCE_ID",
+    "SOURCE_DATE",
+    "EVENT_DATE",
+    "AS_OF_DATE",
+    "EVIDENCE_REF",
+    "DATA_QUALITY_STATUS",
+    "KNOWN_LIMITATIONS"
+  ],
+  "SAFETY_RULES": [
+    "event_date != publication_date",
+    "missing != zero",
+    "participant != beneficial_owner",
+    "broker_transfer != market_trade",
+    "trade_date != settlement_date unless explicitly supported",
+    "no_operator_intention_labels"
+  ],
+  "ISOLATION": {
+    "production_research_store_mutated": false,
+    "historical_source_mutated": false,
+    "derived_storage": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_outcome_evidence"
+  }
+}

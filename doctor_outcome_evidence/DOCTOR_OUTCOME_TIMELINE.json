@@ -1,0 +1,26 @@
+{
+  "TIMELINE_ID": "DOCTOR_OUTCOME_TIMELINE_V1",
+  "EVENTS": [
+    {
+      "STOCK_CODE": "8446",
+      "EVENT_TYPE": "CCASS_HOLDING_ANOMALY_OBSERVATION",
+      "SOURCE_SYSTEM": "webbsite_full.sqlite",
+      "SOURCE_ID": "WEBB_NEGATIVE_HOLDINGS_FORENSIC_LEDGER_V2",
+      "SOURCE_DATE": "2022-07-12",
+      "EVENT_DATE": "2022-07-12",
+      "PUBLICATION_DATE": null,
+      "EFFECTIVE_DATE": null,
+      "SETTLEMENT_DATE": null,
+      "AS_OF_DATE": "2022-07-12",
+      "EVIDENCE_REF": "holdings:rowid=203717638;issueID=24973;partID=132;atDate=2022-07-12",
+      "DATA_QUALITY_STATUS": "PENDING_RECONCILIATION",
+      "RAW_VALUE": "-30000",
+      "NORMALIZED_VALUE": "-30000",
+      "KNOWN_LIMITATIONS": [
+        "Negative holding is a source anomaly under current reconciliation; it is not interpreted as a trade or distribution."
+      ],
+      "POINT_IN_TIME_SAFE": true
+    }
+  ],
+  "INTERPRETATION": "NONE"
+}

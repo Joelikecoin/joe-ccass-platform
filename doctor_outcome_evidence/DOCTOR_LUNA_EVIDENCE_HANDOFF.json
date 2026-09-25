@@ -1,0 +1,128 @@
+{
+  "HANDOFF_ID": "DOCTOR-LUNA-EVIDENCE-HANDOFF-V1",
+  "CASES": [
+    {
+      "CASE_ID": "OUTCOME-PILOT-1725",
+      "STOCK_CODE": "1725",
+      "T0_DATE": null,
+      "T1_END_DATE": "2026-09-25",
+      "AVAILABLE_EVIDENCE_DOMAINS": [],
+      "MISSING_EVIDENCE_DOMAINS": [
+        "HKEX_ANNOUNCEMENTS",
+        "CAPITAL_EVENTS",
+        "OWNERSHIP_DISCLOSURES",
+        "PRICE_TURNOVER",
+        "T0_DATE"
+      ],
+      "OUTCOME_TIMELINE_REF": "doctor_outcome_evidence/DOCTOR_OUTCOME_TIMELINE.json",
+      "EVIDENCE_REFS": [],
+      "DATA_QUALITY_STATUS": "MISSING",
+      "POINT_IN_TIME_SAFE": false,
+      "READY_FOR_CASE_VALIDATION": "NO",
+      "NOTE": "Evidence package reports facts only; Luna retains outcome classification responsibility."
+    },
+    {
+      "CASE_ID": "OUTCOME-PILOT-1735",
+      "STOCK_CODE": "1735",
+      "T0_DATE": null,
+      "T1_END_DATE": "2026-09-25",
+      "AVAILABLE_EVIDENCE_DOMAINS": [],
+      "MISSING_EVIDENCE_DOMAINS": [
+        "HKEX_ANNOUNCEMENTS",
+        "CAPITAL_EVENTS",
+        "OWNERSHIP_DISCLOSURES",
+        "PRICE_TURNOVER",
+        "T0_DATE"
+      ],
+      "OUTCOME_TIMELINE_REF": "doctor_outcome_evidence/DOCTOR_OUTCOME_TIMELINE.json",
+      "EVIDENCE_REFS": [],
+      "DATA_QUALITY_STATUS": "MISSING",
+      "POINT_IN_TIME_SAFE": false,
+      "READY_FOR_CASE_VALIDATION": "NO",
+      "NOTE": "Evidence package reports facts only; Luna retains outcome classification responsibility."
+    },
+    {
+      "CASE_ID": "OUTCOME-PILOT-1782",
+      "STOCK_CODE": "1782",
+      "T0_DATE": null,
+      "T1_END_DATE": "2026-09-25",
+      "AVAILABLE_EVIDENCE_DOMAINS": [],
+      "MISSING_EVIDENCE_DOMAINS": [
+        "HKEX_ANNOUNCEMENTS",
+        "CAPITAL_EVENTS",
+        "OWNERSHIP_DISCLOSURES",
+        "PRICE_TURNOVER",
+        "T0_DATE"
+      ],
+      "OUTCOME_TIMELINE_REF": "doctor_outcome_evidence/DOCTOR_OUTCOME_TIMELINE.json",
+      "EVIDENCE_REFS": [],
+      "DATA_QUALITY_STATUS": "MISSING",
+      "POINT_IN_TIME_SAFE": false,
+      "READY_FOR_CASE_VALIDATION": "NO",
+      "NOTE": "Evidence package reports facts only; Luna retains outcome classification responsibility."
+    },
+    {
+      "CASE_ID": "OUTCOME-PILOT-8446",
+      "STOCK_CODE": "8446",
+      "T0_DATE": null,
+      "T1_END_DATE": "2026-09-25",
+      "AVAILABLE_EVIDENCE_DOMAINS": [
+        "CCASS_HISTORICAL_HOLDINGS"
+      ],
+      "MISSING_EVIDENCE_DOMAINS": [
+        "HKEX_ANNOUNCEMENTS",
+        "CAPITAL_EVENTS",
+        "OWNERSHIP_DISCLOSURES",
+        "PRICE_TURNOVER",
+        "T0_DATE"
+      ],
+      "OUTCOME_TIMELINE_REF": "doctor_outcome_evidence/DOCTOR_OUTCOME_TIMELINE.json",
+      "EVIDENCE_REFS": [
+        {
+          "STOCK_CODE": "8446",
+          "EVENT_TYPE": "CCASS_HOLDING_ANOMALY_OBSERVATION",
+          "SOURCE_SYSTEM": "webbsite_full.sqlite",
+          "SOURCE_ID": "WEBB_NEGATIVE_HOLDINGS_FORENSIC_LEDGER_V2",
+          "SOURCE_DATE": "2022-07-12",
+          "EVENT_DATE": "2022-07-12",
+          "PUBLICATION_DATE": null,
+          "EFFECTIVE_DATE": null,
+          "SETTLEMENT_DATE": null,
+          "AS_OF_DATE": "2022-07-12",
+          "EVIDENCE_REF": "holdings:rowid=203717638;issueID=24973;partID=132;atDate=2022-07-12",
+          "DATA_QUALITY_STATUS": "PENDING_RECONCILIATION",
+          "RAW_VALUE": "-30000",
+          "NORMALIZED_VALUE": "-30000",
+          "KNOWN_LIMITATIONS": [
+            "Negative holding is a source anomaly under current reconciliation; it is not interpreted as a trade or distribution."
+          ],
+          "POINT_IN_TIME_SAFE": true
+        }
+      ],
+      "DATA_QUALITY_STATUS": "PENDING_RECONCILIATION",
+      "POINT_IN_TIME_SAFE": true,
+      "READY_FOR_CASE_VALIDATION": "PARTIAL",
+      "NOTE": "Evidence package reports facts only; Luna retains outcome classification responsibility."
+    },
+    {
+      "CASE_ID": "OUTCOME-PILOT-8282",
+      "STOCK_CODE": "8282",
+      "T0_DATE": null,
+      "T1_END_DATE": "2026-09-25",
+      "AVAILABLE_EVIDENCE_DOMAINS": [],
+      "MISSING_EVIDENCE_DOMAINS": [
+        "HKEX_ANNOUNCEMENTS",
+        "CAPITAL_EVENTS",
+        "OWNERSHIP_DISCLOSURES",
+        "PRICE_TURNOVER",
+        "T0_DATE"
+      ],
+      "OUTCOME_TIMELINE_REF": "doctor_outcome_evidence/DOCTOR_OUTCOME_TIMELINE.json",
+      "EVIDENCE_REFS": [],
+      "DATA_QUALITY_STATUS": "MISSING",
+      "POINT_IN_TIME_SAFE": false,
+      "READY_FOR_CASE_VALIDATION": "NO",
+      "NOTE": "Evidence package reports facts only; Luna retains outcome classification responsibility."
+    }
+  ]
+}
