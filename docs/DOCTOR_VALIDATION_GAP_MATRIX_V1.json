@@ -1,0 +1,156 @@
+[
+ {
+  "capability_id": "CAP-02",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-03",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-04",
+  "source_method_support": true,
+  "case_support": true,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "MEDIUM"
+ },
+ {
+  "capability_id": "CAP-05",
+  "source_method_support": true,
+  "case_support": true,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-06",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-07",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": false,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-08",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-09",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": false,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "MEDIUM"
+ },
+ {
+  "capability_id": "CAP-10",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": false,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "HIGH"
+ },
+ {
+  "capability_id": "CAP-11",
+  "source_method_support": true,
+  "case_support": true,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": false,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "MEDIUM"
+ },
+ {
+  "capability_id": "CAP-12",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "MEDIUM"
+ },
+ {
+  "capability_id": "CAP-13",
+  "source_method_support": true,
+  "case_support": false,
+  "contradictory_case": false,
+  "quantitative_support": false,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "LOW"
+ },
+ {
+  "capability_id": "CAP-01",
+  "source_method_support": true,
+  "case_support": true,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": true,
+  "falsification_defined": true,
+  "real_case_validation_required": true,
+  "gap_priority": "MEDIUM"
+ },
+ {
+  "capability_id": "CAP-14",
+  "source_method_support": true,
+  "case_support": true,
+  "contradictory_case": false,
+  "quantitative_support": true,
+  "point_in_time_support": false,
+  "falsification_defined": true,
+  "real_case_validation_required": false,
+  "gap_priority": "LOW"
+ }
+]

@@ -1,0 +1,321 @@
+[
+ {
+  "rule_family_id": "RF-01",
+  "rule_family_name": "供股意圖與R報告解讀",
+  "member_rule_ids": [
+   "CAND-HILTON-SUPPLY-INTENT-001",
+   "CAND-HILTON-REVENGE-TIMING-001",
+   "CAND-HILTON-RREPORT-COUNT-001",
+   "CAND-HILTON-RREPORT-DARK-001",
+   "CAND-CHAUHIN-PRIME-RATIO-001"
+  ],
+  "shared_analytical_purpose": "從供股結構與結果推斷大股東要貨還是要錢，並評估散戶參與度與暗倉線索",
+  "distinct_conditions": [
+   "除權後市價 vs 供股價走向",
+   "Last Pay Day 時間窗",
+   "申請份數≤30",
+   "市價>GO價時的異常接受比例",
+   "質數比例→碎股"
+  ],
+  "distinct_methodology_variants": [
+   "HILTON: 供乾/供錢分辨器+復仇記",
+   "CHAU_HIN: 碎股減流通（中長期尺度）"
+  ],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [
+   "CAND-CHAUHIN-PRIME-RATIO-001 與 Hilton 碎股論述同構但機制不同（流通收縮 vs 被迫留存）"
+  ],
+  "keep_separate_reason": "周顯碎股規則屬另一方法論且時間尺度不同；Hilton 內部各規則條件互斥（除權後/結果後/比例設計）"
+ },
+ {
+  "rule_family_id": "RF-02",
+  "rule_family_name": "配股Signal與組合評分",
+  "member_rule_ids": [
+   "CAND-HILTON-PLACEMENT-CHECKLIST-001",
+   "CAND-HILTON-PLACEMENT-TSTOP-001",
+   "CAND-HILTON-GO-2020-001"
+  ],
+  "shared_analytical_purpose": "判定配股是收貨還是派貨，以及成立後的持有/退出時間規則",
+  "distinct_conditions": [
+   "七利好六利淡清單",
+   "半個月至一個月時間止蝕",
+   "GO+20/20 組合觸發"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "清單/時間止蝕/組合評分是同一能力的三個正交判準，合併會丟失各自的 falsification"
+ },
+ {
+  "rule_family_id": "RF-03",
+  "rule_family_name": "資本重組意圖（合股/削股/向下炒）",
+  "member_rule_ids": [
+   "CAND-HILTON-CONSOL-INTENT-001",
+   "CAND-HILTON-CAPREORG-MAGNITUDE-001",
+   "CAND-HILTON-CUTPAR-POSITIVE-001",
+   "CAND-HILTON-DOWNWARD-PLAY-001",
+   "CAND-HILTON-REPEAT-DILUTE-001"
+  ],
+  "shared_analytical_purpose": "從股本行動序列判讀向下炒/慣犯/轉盈訊號，並計算重組威力倍數",
+  "distinct_conditions": [
+   "貼一仙合股",
+   "ABC混合威力≥100倍",
+   "獨立削股≈累虧",
+   "長期陰跌+反覆印股兩必要條件",
+   "供股間隔≤3年"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "五條規則對應五種互斥的股本行動形態；DOWNWARD-PLAY 與 REPEAT-DILUTE 的觸發序列不同（配股供股 vs 供股週期）"
+ },
+ {
+  "rule_family_id": "RF-04",
+  "rule_family_name": "殼價估值與啤殼篩選",
+  "member_rule_ids": [
+   "CAND-HILTON-SHELL-PRICE-001",
+   "CAND-HILTON-SHELLFARM-IPO-001",
+   "CAND-HILTON-SHELLFARM-TIMING-001",
+   "CAND-HILTON-NONGO-FLOOR-001"
+  ],
+  "shared_analytical_purpose": "估合理賣殼價/最低市值下限，並從IPO特徵篩出啤殼及其啟動窗",
+  "distinct_conditions": [
+   "殼價+扣水NAV",
+   "舊主應得÷餘下比例",
+   "集資額雙比較",
+   "1.5-2年啟動窗"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "估值公式（靜態）與篩選/時窗（動態）輸入輸出不同"
+ },
+ {
+  "rule_family_id": "RF-05",
+  "rule_family_name": "GO全購生命週期",
+  "member_rule_ids": [
+   "CAND-HILTON-GO-STAGE-MATRIX-001",
+   "CAND-HILTON-2668-SEQUENCE-001",
+   "CAND-HILTON-BLOCKED-BOTHWAYS-001",
+   "CAND-HILTON-WHITEKNIGHT-CB-001",
+   "CAND-HILTON-OLD-OWNER-STAKE-001"
+  ],
+  "shared_analytical_purpose": "定位 GO/白武士/Non-GO 週期階段並套用分階段退出與推演規則",
+  "distinct_conditions": [
+   "A-E 五階段",
+   "GO後一個月守GO價",
+   "受阻兩路推演",
+   "CB兌換後≥90%歸邊",
+   "舊主9.x%保留"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "同屬一條生命週期主線的階段級規則；2668 模板是序列級整合，非重複"
+ },
+ {
+  "rule_family_id": "RF-06",
+  "rule_family_name": "CCASS集中度估算與假象防護",
+  "member_rule_ids": [
+   "CAND-HILTON-CCASS-DRYNESS-CALC-001",
+   "CAND-HILTON-DRYNESS-90-001",
+   "CAND-HILTON-CCASS-PARTCOUNT-001",
+   "CAND-HILTON-FAKE-MOVE-EXCLUDE-001"
+  ],
+  "shared_analytical_purpose": "主動估算貨源歸邊度並排除機制性假象；『乾』與『貨源集中』概念分離",
+  "distinct_conditions": [
+   "非CCASS全記M+鴻溝斷層",
+   "90%門檻+M質素補足",
+   "參與者數目下降",
+   "公司行動日曆核對"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [
+   "DRYNESS-90 是決策門檻層；DRYNESS-CALC 是估算方法層——互補不重複"
+  ],
+  "keep_separate_reason": "估算/門檻/趨勢/排除四層各自可獨立被 Luna 證偽"
+ },
+ {
+  "rule_family_id": "RF-07",
+  "rule_family_name": "CCASS轉倉與存入意圖",
+  "member_rule_ids": [
+   "CAND-HILTON-CCASSIN-POSITION-001",
+   "CAND-HILTON-RREPORT-DARK-001",
+   "CAND-HILTON-FAKE-MOVE-EXCLUDE-001"
+  ],
+  "shared_analytical_purpose": "從跨行轉移/實物存入/異常接受推斷非散戶意圖（交貨/過倉/派貨前置）",
+  "distinct_conditions": [
+   "存入時的價格位置",
+   "5%/10%比例門檻",
+   "T+3 可見性"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "RREPORT-DARK 同時服務 RF-01（供股解讀）與本族（暗倉偵測）——跨族成員按 lineage 保留"
+ },
+ {
+  "rule_family_id": "RF-08",
+  "rule_family_name": "派發/散貨偵測",
+  "member_rule_ids": [
+   "CAND-HILTON-7SIGNALS-EXIT-001",
+   "CAND-HILTON-ANCHOR-DUMP-001",
+   "CAND-HILTON-BONUS-SHARE-29XX-001",
+   "CAND-HILTON-CHIP-BREAKOUT-001"
+  ],
+  "shared_analytical_purpose": "以財技/DI/CCASS/成交/媒體組合偵測莊家派發階段",
+  "distinct_conditions": [
+   "七信號程度×次數",
+   "錨定壓回途中散貨",
+   "29XX窗口掩藏",
+   "蟹貨區返家鄉"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [
+   "ANCHOR-DUMP/CHIP-BREAKOUT 為 AUTHOR_INTERPRETATION 級——單獨標籤不與信號掃描器合併"
+  ],
+  "keep_separate_reason": "掃描器是組合計分；心理機制類規則是解釋層，證偽途徑不同"
+ },
+ {
+  "rule_family_id": "RF-09",
+  "rule_family_name": "收貨/入場時機",
+  "member_rule_ids": [
+   "CAND-HILTON-SPRING-DUCK-001",
+   "CAND-HILTON-LIQUIDITY-PHASE-001"
+  ],
+  "shared_analytical_purpose": "從量價異動與流動性形態辨認莊家收集/啟動前狀態",
+  "distinct_conditions": [
+   "低位連升+量爆第二日收市前",
+   "低位難買=收貨中"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "公告前異動 vs 持續流動性形態，時間尺度與數據不同"
+ },
+ {
+  "rule_family_id": "RF-10",
+  "rule_family_name": "控制權人物網絡與門檻意圖",
+  "member_rule_ids": [
+   "CAND-HILTON-THRESHOLD-HUG-001",
+   "CAND-CHAUHIN-THRESHOLD-ASK-001",
+   "CAND-HILTON-FACTION-NETWORK-001",
+   "CAND-HILTON-DI-ARTIFACT-001"
+  ],
+  "shared_analytical_purpose": "從貼門檻持股/跨公司重複人物/申報假象推斷控制權意圖",
+  "distinct_conditions": [
+   "門檻−ε停駐",
+   "29.97% vs 29.99% 兩例",
+   "派系累積法",
+   "DI三大盲點"
+  ],
+  "distinct_methodology_variants": [
+   "HILTON: 29.97%避GO案例",
+   "CHAU_HIN: 29.99%門檻追問法"
+  ],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [
+   "THRESHOLD-HUG 與 THRESHOLD-ASK 為跨方法論變體——按 §11 不合併，僅記錄 meta 關係"
+  ],
+  "keep_separate_reason": "方法論隔離；DI-ARTIFACT 是防護層非意圖推斷層"
+ },
+ {
+  "rule_family_id": "RF-11",
+  "rule_family_name": "事件序列與量價判讀（大市層）",
+  "member_rule_ids": [
+   "CAND-HILTON-SPINOFF-PRESSURE-001",
+   "CAND-HILTON-VOLUME-DIVERGENCE-001",
+   "CAND-CHAUHIN-BADNEWS-DECAY-001"
+  ],
+  "shared_analytical_purpose": "分拆沽壓、成交分歧、消息反應鈍化的事件級判讀",
+  "distinct_conditions": [
+   "沽壓≤2-3月",
+   "極端位置爆量",
+   "壞消息殺傷力遞減"
+  ],
+  "distinct_methodology_variants": [
+   "HILTON: 分拆/成交量",
+   "CHAU_HIN: 消息-價格反應"
+  ],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [
+   "CAND-HILTON-SPINOFF-PRESSURE-001（被動基金證據增補）"
+  ],
+  "context_variants": [],
+  "keep_separate_reason": "大市層訊號不直接適用個股，與個股能力分開"
+ },
+ {
+  "rule_family_id": "RF-12",
+  "rule_family_name": "風險窗與倉位紀律",
+  "member_rule_ids": [
+   "CAND-HILTON-CEILING-GUARD-001",
+   "CAND-HILTON-DIPBOUNCE-001",
+   "CAND-IVANL-LADDER-STAKE-001"
+  ],
+  "shared_analytical_purpose": "以市值/升幅/時間窗定義風險邊界與注碼紀律",
+  "distinct_conditions": [
+   "市值天花板100億/20億",
+   "急跌三條件",
+   "市值階梯注碼"
+  ],
+  "distinct_methodology_variants": [
+   "HILTON: 天花板/斬倉反彈",
+   "IVAN_L: 階梯注碼"
+  ],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "風險管理規則與訊號規則證偽途徑不同（組合層 vs 個股層）"
+ },
+ {
+  "rule_family_id": "RF-13",
+  "rule_family_name": "L型絕地低市值模式（IVAN_L專屬）",
+  "member_rule_ids": [
+   "CAND-IVANL-LXING-SCREEN-001",
+   "CAND-IVANL-GO-MEDIATOR-001"
+  ],
+  "shared_analytical_purpose": "半新股低市值沉底模式的篩選與 GO 兌現機制",
+  "distinct_conditions": [
+   "四支柱篩選",
+   "階梯=GO機率篩 p≈0.0325",
+   "≥2-3年窗"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "IVAN_L 專屬方法論；與 Hilton 啤殼篩選相似但觸發條件與量化基礎不同"
+ },
+ {
+  "rule_family_id": "RF-14",
+  "rule_family_name": "方法論自我防護與數據品質",
+  "member_rule_ids": [
+   "CAND-HILTON-ADJECTIVE-DECOMPOSE-001",
+   "CAND-IVANL-MCAP-DATA-RISK-001",
+   "CAND-IVANL-SCREENING-NOT-DISCRIMINATOR-001"
+  ],
+  "shared_analytical_purpose": "防止形容詞替代數字、防回測數據偏差、防篩選條件被當成判別器",
+  "distinct_conditions": [
+   "形容詞→量化映射",
+   "mcap重建旗標",
+   "top-k貢獻報告"
+  ],
+  "distinct_methodology_variants": [],
+  "true_duplicates": [],
+  "same_rule_new_evidence": [],
+  "context_variants": [],
+  "keep_separate_reason": "防護規則適用於所有能力，不屬於任何單一分析對象"
+ }
+]
