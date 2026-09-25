@@ -1,0 +1,26 @@
+{
+  "work_package": "LONGBRIDGE_CCASS_DAILY_HISTORY_EMERGENCY_RESCUE_V2",
+  "runtime_divergence_resolution": "700_HK_EXACT_REQUEST_NONEMPTY",
+  "runtime_type": "MCP_OVER_HTTP_WITH_CACHED_OAUTH",
+  "endpoint": "broker_holding_daily",
+  "rescued_store": "work/longbridge_ccass_daily_rescue_20260925.sqlite",
+  "rescued_store_sha256": "EDF6FE01D92F0C4C7D5657FEAA482B448874029D2A23E747E3E2092586415016",
+  "stocks": [{
+    "stock_code": "0700",
+    "symbol": "700.HK",
+    "earliest_date": "2026-07-31",
+    "latest_date": "2026-09-24",
+    "date_count": 40,
+    "participant_count": 2,
+    "row_count": 80,
+    "quality_status": "RECOVERED_PARTIAL"
+  }],
+  "participants": ["A00003", "B01955"],
+  "duplicate_natural_key_count": 0,
+  "conflicting_duplicate_count": 0,
+  "readback_rows": 80,
+  "august_01_to_september_08_rows": 76,
+  "august_01_to_september_08_stock_count": 1,
+  "full_market_complete": false,
+  "potential_transient_participant_gap": "UNKNOWN"
+}

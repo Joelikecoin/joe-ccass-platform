@@ -560,3 +560,9 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 - authenticated `participants` directory 可讀，但 00003、00005、00006 的 `broker_holding_detail` 及 `broker_holding_daily` probes 均回傳 empty list。
 - 沒有把 empty response 當作 zero；August gap 維持 `UNVERIFIED_NOT_ZERO`，沒有新 rows 可建立 raw rescue archive。
 - 既有 Longbridge snapshots 2026-09-09 至 2026-09-11、6 rows 保持不變；完整證據：`docs/LONGBRIDGE_CCASS_DAILY_HISTORY_EMERGENCY_RESCUE_V2.md`。
+
+### LONGBRIDGE RUNTIME DIVERGENCE DEBUG 2026-09-25
+
+- exact `700.HK` probe 已證實：A00003、B01955 各 40 rows，日期 2026-07-31 至 2026-09-24；detail 421 rows、participants 545 entries。
+- 前次 empty 結果只適用於 00003/00005/00006 probe，不能分類為 upstream unavailable；沒有修改 adapter。
+- 已延續 rescue checkpoint，隔離 SQLite 保存 700.HK 兩 participant 共 80 rows，readback 80/80，duplicate/conflict 0。證據：`docs/LONGBRIDGE_RUNTIME_DIVERGENCE_DEBUG_V1.md`。
