@@ -44,6 +44,10 @@
           "source_hash": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
           "source_section": "lines 87-105",
           "source_id": "DOCSRC-PHEMEY-CASES"
+        },
+        {
+          "source_id": "OUTCOME-VALIDATION-002",
+          "status": "NO_INDEPENDENT_T1_EVIDENCE"
         }
       ],
       "SOURCE_SUPPORT": "PARTIAL",
@@ -54,7 +58,12 @@
         "CCASS",
         "turnover",
         "capital structure"
-      ]
+      ],
+      "T0_ANALYSIS": "Preserved from source summary; no hindsight rewrite.",
+      "T0_HYPOTHESIS": "The framing may identify a candidate, but does not establish a control transition or future outcome.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE": []
     },
     {
       "CASE_ID": "CASE-P1B-PHC-002",
@@ -99,6 +108,10 @@
           "source_hash": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
           "source_section": "lines 51-74",
           "source_id": "DOCSRC-PHEMEY-CASES"
+        },
+        {
+          "source_id": "OUTCOME-VALIDATION-002",
+          "status": "NO_INDEPENDENT_T1_EVIDENCE"
         }
       ],
       "SOURCE_SUPPORT": "PARTIAL",
@@ -109,7 +122,12 @@
         "CCASS",
         "turnover",
         "capital structure"
-      ]
+      ],
+      "T0_ANALYSIS": "Preserved from source summary; no hindsight rewrite.",
+      "T0_HYPOTHESIS": "The framing may identify a candidate, but does not establish a control transition or future outcome.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE": []
     },
     {
       "CASE_ID": "CASE-P1B-PHC-003",
@@ -154,6 +172,10 @@
           "source_hash": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
           "source_section": "lines 144-167",
           "source_id": "DOCSRC-PHEMEY-CASES"
+        },
+        {
+          "source_id": "OUTCOME-VALIDATION-002",
+          "status": "NO_INDEPENDENT_T1_EVIDENCE"
         }
       ],
       "SOURCE_SUPPORT": "PARTIAL",
@@ -164,7 +186,12 @@
         "CCASS",
         "turnover",
         "capital structure"
-      ]
+      ],
+      "T0_ANALYSIS": "Preserved from source summary; no hindsight rewrite.",
+      "T0_HYPOTHESIS": "A single post-GO feature may explain subsequent price behaviour.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "INDEPENDENT_T1_EVIDENCE": []
     }
   ]
 }

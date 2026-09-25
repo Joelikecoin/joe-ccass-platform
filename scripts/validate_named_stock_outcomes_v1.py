@@ -40,7 +40,7 @@ for code in ["1725", "1735", "1782", "8446", "8282"]:
 for record in records["records"]:
     code = record["STOCK_CODE"]
     record["T0_ANALYSIS"] = "Preserved from source summary; no hindsight rewrite."
-    record["T0_HYPOTHESIS"] = next(x["T0_HYPOTHESIS"] for x in validation["CASES"] if code in x["STOCK_CODE"].split(";"))
+    record["T0_HYPOTHESIS"] = next(x["T0_HYPOTHESIS"] for x in validation["CASES"] if set(code.split(";")) & set(x["STOCK_CODE"].split(";")))
     record["T1_SUBSEQUENT_EVENTS"] = None
     record["T1_OUTCOME"] = None
     record["OUTCOME_STATUS"] = "UNRESOLVED"

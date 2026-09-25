@@ -15,7 +15,7 @@
       "SOURCE_HASH": "f3da3e0ff3837c95efe5db86ff277ae2c18021687bead5bbeee97efb664b1612",
       "SOURCE_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\doctor_sources\\cases\\PHEMEY_CASES__CASES.csv"
     },
-    "SCOPE": "Only the three pilot cases represented in this source table; not a universal market rule.",
+    "SCOPE": "Only a screening/uncertainty rule for these secondary summaries; cannot predict post-GO or shell outcomes. Independent T1 validation is absent.",
     "PRECONDITIONS": [
       "The source explicitly compares shell-listing or post-GO examples."
     ],
@@ -30,12 +30,13 @@
       "The cases may be secondary summaries with incomplete outcome polarity.",
       "The apparent similarity may hide different capital structures or timelines."
     ],
-    "FALSIFICATION": "Primary evidence shows that the same framing consistently predicts the same outcome across independently documented cases.",
+    "FALSIFICATION": "Independent primary T0/T1 records show that the same screening or post-GO framing consistently predicts the same outcome across cases.",
     "KNOWN_LIMITATIONS": [
       "Small sample",
       "Secondary summaries",
       "No T0/T1 dates",
-      "No CCASS or turnover evidence"
+      "No CCASS or turnover evidence",
+      "No independent T1 evidence was reachable for 1725, 1735, 1782, 8446, or 8282."
     ],
     "VALIDATION_STATUS": "UNTESTED"
   }

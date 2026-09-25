@@ -1,0 +1,79 @@
+{
+  "BATCH_ID": "LUNA-BATCH-002-NAMED-STOCK-OUTCOME-VALIDATION",
+  "CASES": [
+    {
+      "STOCK_CODE": "1725",
+      "T0_KNOWN_FACTS": "Sponsor/history presented as a screening clue for shell-listing research; source explicitly says it is not proof.",
+      "T0_ANALYSIS": "Preserved from source summary; not rewritten using later information.",
+      "T0_HYPOTHESIS": "The framing may identify a candidate, but does not establish a control transition or future outcome.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "CLASSIFICATION": "UNRESOLVED",
+      "INDEPENDENT_EVIDENCE": [],
+      "SOURCE_CASE_IDS": [
+        "CASE-P1B-PHC-001",
+        "CASE-P1B-PHC-002"
+      ],
+      "REASON": "No independent T1 evidence reachable; methodology summary alone cannot validate outcome."
+    },
+    {
+      "STOCK_CODE": "1735",
+      "T0_KNOWN_FACTS": "Sponsor/history presented as a screening clue for shell-listing research; source explicitly says it is not proof.",
+      "T0_ANALYSIS": "Preserved from source summary; not rewritten using later information.",
+      "T0_HYPOTHESIS": "The framing may identify a candidate, but does not establish a control transition or future outcome.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "CLASSIFICATION": "UNRESOLVED",
+      "INDEPENDENT_EVIDENCE": [],
+      "SOURCE_CASE_IDS": [
+        "CASE-P1B-PHC-001",
+        "CASE-P1B-PHC-002"
+      ],
+      "REASON": "No independent T1 evidence reachable; methodology summary alone cannot validate outcome."
+    },
+    {
+      "STOCK_CODE": "1782",
+      "T0_KNOWN_FACTS": "Post-GO comparison of offer, rights/underwriting, retained holdings, and commitments.",
+      "T0_ANALYSIS": "Preserved from source summary; not rewritten using later information.",
+      "T0_HYPOTHESIS": "A single post-GO feature may explain subsequent price behaviour.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "CLASSIFICATION": "UNRESOLVED",
+      "INDEPENDENT_EVIDENCE": [],
+      "SOURCE_CASE_IDS": [
+        "CASE-P1B-PHC-003"
+      ],
+      "REASON": "No independent T1 evidence reachable; methodology summary alone cannot validate outcome."
+    },
+    {
+      "STOCK_CODE": "8446",
+      "T0_KNOWN_FACTS": "Post-GO comparison of offer, rights/underwriting, retained holdings, and commitments.",
+      "T0_ANALYSIS": "Preserved from source summary; not rewritten using later information.",
+      "T0_HYPOTHESIS": "A single post-GO feature may explain subsequent price behaviour.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "CLASSIFICATION": "UNRESOLVED",
+      "INDEPENDENT_EVIDENCE": [],
+      "SOURCE_CASE_IDS": [
+        "CASE-P1B-PHC-003"
+      ],
+      "REASON": "No independent T1 evidence reachable; methodology summary alone cannot validate outcome."
+    },
+    {
+      "STOCK_CODE": "8282",
+      "T0_KNOWN_FACTS": "Post-GO comparison of offer, rights/underwriting, retained holdings, and commitments.",
+      "T0_ANALYSIS": "Preserved from source summary; not rewritten using later information.",
+      "T0_HYPOTHESIS": "A single post-GO feature may explain subsequent price behaviour.",
+      "T1_SUBSEQUENT_EVENTS": null,
+      "T1_OUTCOME": null,
+      "CLASSIFICATION": "UNRESOLVED",
+      "INDEPENDENT_EVIDENCE": [],
+      "SOURCE_CASE_IDS": [
+        "CASE-P1B-PHC-003"
+      ],
+      "REASON": "No independent T1 evidence reachable; methodology summary alone cannot validate outcome."
+    }
+  ],
+  "INDEPENDENT_T1_EVIDENCE_FOUND": false,
+  "NOTE": "The reachable approved material is methodology-labelled secondary summary material. No independent T1 filing, event record, or outcome dataset was reachable for these five codes."
+}
