@@ -4,7 +4,7 @@ Answering 「呢條規則係邊度學返嚟？」: rule_candidate → methodolog
 source section → case → observation → evidence chain. Generated from the dev
 ingestion store; no orphan candidates (schema-enforced).
 
-## Source units (13)
+## Source units (14)
 | source_id | title | methodology | type | status |
 |---|---|---|---|---|
 | CHAUHIN-COURSE-L1 | 周顯大師股票投資課程-第1堂_課程知識摘要 | CHAU_HIN | course_summary | INGESTED |
@@ -20,8 +20,9 @@ ingestion store; no orphan candidates (schema-enforced).
 | HILTON-CAIJI-L7 | 財技班第七堂_課程摘要 | HILTON | course_summary | INGESTED |
 | HILTON-CAIJI-L8 | 財技班第八堂_課程摘要 | HILTON | course_summary | INGESTED |
 | IVANL-LXING-COURSE | L型絕地_課程知識摘要 | IVAN_L | course_summary | INGESTED |
+| IVANL-LXING-GO-MECH | L型研究I版_最終版_GO兌現機制_20260731 | IVAN_L | research_document | INGESTED |
 
-## Evidence chains (10) — intermediate steps preserved
+## Evidence chains (11) — intermediate steps preserved
 - `CHAIN-H1-004` → OBS-H1-004: input_facts=0530第一次1供9@$0.67，170份申請（7%為安排人士）; 第二次2供5@$1.07（市價$1.7），35份，公眾持股約24%; 第三次10供11@$1.07（市價$1.05，市價<供股價=假供股），22份 → temporal_order=三次供股序列→等約三年→2015大市極佳才啟動 → calculation_or_comparison=三次後股本擴大73倍；大股東明面69%+安排7%≈控制76%；投入近100億 → author_reasoning=巨額資金鎖死需要極佳市況才能獲利離場；市值由百億級放大至約3000億 → author_conclusion=規模巨大的供乾項目會等待大市極佳才啟動，需要超長耐心
 - `CHAIN-H2-011` → OBS-H2-011: input_facts=01236易手比例35%（有條件全購）; R報告：20%股份接受要約; 市價長期高於GO價 → temporal_order=GO結束後R報告揭示接受結構 → calculation_or_comparison=35%易手+20%接受=55%；接受者蝕價（市價>GO價）違反散戶理性 → author_reasoning=只有與交易相關的暗倉才會蝕價接受→20%為舊主暗倉過倉 → author_conclusion=實際控制約55%，成為歸邊線索（AUTHOR_INTERPRETATION，需CCASS佐證）
 - `CHAIN-H3-003` → OBS-H3-003: input_facts=01250印股前市值約5億；一配四後約25億; 殼價約5億+NAV約1億=合理殼價6億; 舊主75%→Non-GO後約5%；新主約80%；散戶約1.5% → temporal_order=印股（一配四）→市值25億→其後六個月炒至$1.9 → calculation_or_comparison=舊主應得=6億×75%=4.5億；最低市值=4.5億÷5%=90億；25億→90億=三至四倍最低空間 → author_reasoning=舊主自願被攤薄的前提是餘下股份經炒高後≥正常GO應得金額 → author_conclusion=實際$0.14→$1.9（十多倍）遠超最低公式；公式只定下限，離場跟出貨訊號
@@ -32,8 +33,9 @@ ingestion store; no orphan candidates (schema-enforced).
 - `CHAIN-H9-005` → OBS-H9-005: input_facts=2013-05-31: 25.56%鄭→詹轉讓; 2013-08-08: 20%配股；08-28吳良好14.13%; 2014-03-14: 一拆五; 2014-07-03: 詹21.35%→7.22%；07-29→0.15% → temporal_order=入主(避GO)→配股部署→歸邊→ED入局→出售受阻(兩路皆需炒高)→拆股出貨→DI清倉→換主席 → calculation_or_comparison=持貨50-60%合計；詹持股21.35%→7.22%→0.15%（跌穿5%申報線） → author_reasoning=每一步以SDI/通告/集中報告/公眾持股報告等公開資料獨立可驗證 → author_conclusion=完整莊家週期（等待→入主→部署→受阻推演→散貨）可用公開數據重組；前期貨源集中是部署訊號、後期拆股+DI減持是出貨訊號——同一事實的意義隨週期位置反轉
 - `CHAIN-H10-001` → OBS-H10-001: input_facts=急跌股需判別來源：莊家主動散貨 vs 被迫斬倉; 謎網2017-06-27：同系十多隻單日跌50-90% → temporal_order=系統斬倉在單日內完成；同系多股同日急跌=大股東系統被斬的指紋 → calculation_or_comparison=多股同日同步急跌的相關性↑=系統性斬倉；單股獨跌=需查莊家是否主動 → author_reasoning=莊家主動散貨的下跌其派貨區貼合理殼價，撈底者=派貨對象；被迫斬倉者莊家亦痛苦，復原動機真實 → author_conclusion=急跌博反彈只做被迫斬倉型；判別線索=同系多股同日急跌+大股東持股未減（1428確認法）
 - `CHAIN-I1-003` → OBS-I1-003: input_facts=L型候選：半新股+天生乾身+集資低; 歷史案例低位≈2.5-2.8億、約4.4億才開始炒上 → temporal_order=上市→跌穿招股價→沉底6-12月→市值分區逐步部署→其後於4.4億區啟動 → calculation_or_comparison=市值越低推動所需資金越少；分段注碼令大注集中在低市值區改善風險回報 → author_reasoning=不猜最低點；以市值為部署尺度、條件不變為加注前提 → author_conclusion=分段市值注碼法：3億留意→2-3億細注→1-2億中注→1億以下大注（條件未破壞時）
+- `CHAIN-I2-002` → OBS-I2-002: input_facts=全樣本3年GO率9.0%；階梯狀態分組GO率差異顯著(p≈0.0325); 有GO/無GO組的3年前瞻回報分佈 → temporal_order=跌入階梯(state)→GO公佈(中位59.2個月)→GO後價格兌現(payoff) → calculation_or_comparison=有GO翻倍率71.1% vs 無GO 33.0%；期末中位+68.6% vs -37.5%；階梯+GO翻倍率75.7% → author_reasoning=L型貢獻可拆直接效應與GO中介效應；若主貢獻來自GO概率提升，選股條件與兌現事件應分開建模 → author_conclusion=state→event→payoff三段模型；禁止倒推『入階梯必GO』或『GO升幅全歸因L型』
 
-## Observations (103)
+## Observations (110)
 | obs | method | source | type | generalization | statement |
 |---|---|---|---|---|---|
 | OBS-Z1-001 | CHAU_HIN | CHAUHIN-COURSE-L1 | METHOD_PRINCIPLE | REPEATABLE_METHOD | 壞消息失效訊號：連續壞消息殺傷力遞減+好消息反應放大=流動性支撐的線索；分析單位是『消息+價格反應+資金環境』三合一，非消息本身。 |
@@ -139,3 +141,10 @@ ingestion store; no orphan candidates (schema-enforced).
 | OBS-I1-004 | IVAN_L | IVANL-LXING-COURSE | RISK_WARNING | REPEATABLE_METHOD | 向下炒風險排除邏輯：剛上市已完成集資→短期再向下財技合理性低；貨源高度集中→向下出貨需承接；極低市值→向下空間受限。風險非零——須主動檢查『向下條件』是否存在（ |
 | OBS-I1-005 | IVAN_L | IVANL-LXING-COURSE | TIMING_RULE | REPEATABLE_METHOD | 炒高後分級警覺（主板）：≈3億=第一重要區域；5-6億=驗證推動力；7-8億=重點轉向街貨/散貨監察；≈20億=超高區需多條件齊備。市值階段不同，風險假設不同— |
 | OBS-I1-006 | IVAN_L | IVANL-LXING-COURSE | CONDITION | REPEATABLE_METHOD | 超額認購非單一判準：無超購可以、幾百倍超購=大量散戶參與嫌疑（街外貨結構複雜化）；須看認購者結構而非表面倍數。 |
+| OBS-I2-001 | IVAN_L | IVANL-LXING-GO-MECH | FACT_FROM_CASE | POTENTIALLY_GENERALIZABLE | 市值階梯提高未來GO機率：曾入階梯11.2% vs 從未入3.6%（Fisher p≈0.0325）；GEM<4千萬層最強17.2%；而成交爆量≥20x對GO率 |
+| OBS-I2-002 | IVAN_L | IVANL-LXING-GO-MECH | FACT_FROM_CASE | POTENTIALLY_GENERALIZABLE | GO是L型兌現機制中最強可觀測事件：3年前瞻有GO組翻倍率71.1% vs 無GO 33.0%；期末中位+68.6% vs -37.5%；階梯+GO組合75.7 |
+| OBS-I2-003 | IVAN_L | IVANL-LXING-GO-MECH | TIMING_RULE | REPEATABLE_METHOD | L型是慢變量策略：跌入階梯到首次翻倍中位≈24.3個月；1年窗翻倍率僅9.6%、3年34.7%、5年41.4%——12個月評價系統性低估。入階梯到GO公佈中位≈ |
+| OBS-I2-004 | IVAN_L | IVANL-LXING-GO-MECH | METHOD_PRINCIPLE | REPEATABLE_METHOD | 硬規則 screening_condition ≠ winner_discriminator：現有可量化入場條件是必要篩選而非充分條件，無法事前分辨最終贏輸；真 |
+| OBS-I2-005 | IVAN_L | IVANL-LXING-GO-MECH | FACT_FROM_CASE | REPEATABLE_METHOD | 回報高度右偏（venture-style payoff）：top1貢獻47.3%/top3 65.6%/top5 74.0%。止蝕算術貢獻細，但其價值在釋放資金 |
+| OBS-I2-006 | IVAN_L | IVANL-LXING-GO-MECH | FALSIFICATION_HINT | REPEATABLE_METHOD | IVAN原文條件逐項檢定分級：supported（未炒過/3年新低/絕對市值階梯-主板<1億最強）、weakly_supported（半新股0.5-3年）、no |
+| OBS-I2-007 | IVAN_L | IVANL-LXING-GO-MECH | RISK_WARNING | REPEATABLE_METHOD | 一級資料風險：(1)歷史市值重建（現時股數×CCASS比例代理）高估重度稀釋股——股本分母誤差對以市值為核心變量的L型屬一級風險，有正式issued share |

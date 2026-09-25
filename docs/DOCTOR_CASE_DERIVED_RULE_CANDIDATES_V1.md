@@ -350,6 +350,14 @@ origin_source_ids + origin_observation_ids + falsification_conditions (schema-en
 - falsification: ≥90%歸邊白武士樣本群復牌後長期（>5年）無炒作的比例顯著偏高
 - lineage: observations=['OBS-H4-001', 'OBS-H4-002'] sources=['HILTON-CAIJI-L4'] cases=['CASE-HILTON-0607', 'CASE-HILTON-0931', 'CASE-HILTON-2326', 'CASE-HILTON-1220']
 
+## CAND-IVANL-GO-MEDIATOR-001 — L型三段模型：市值階梯=GO機率篩；GO=兌現事件（2-3年窗）
+- methodology: IVAN_L | family: EVENT_SEQUENCE | generalization: REPEATABLE_METHOD | dedup: NEW_RULE
+- description: 量化支持的三段模型：低市值狀態(state，曾入階梯GO率11.2% vs 3.6%，p≈0.0325)→GO事件(event，有GO翻倍率71.1% vs 33.0%)→價格兌現(payoff)；爆量對GO無增量資訊。回測必須用≥2-3年窗（12個月嚴重低估）；入階梯=長期監察池（GO等待中位59.2個月）。禁止倒推：入階梯≠必GO；GO升幅≠全歸因L型。
+- required_inputs: 市值階梯狀態; 其後3年GO事件; 回報分佈; hit_rate_12m/24m/36m/60m; median_time_to_2x
+- trigger: 標的進入L型監察池
+- falsification: 獨立樣本（含除牌股）中階梯組與從未入階梯組的GO率差異不顯著
+- lineage: observations=['OBS-I2-001', 'OBS-I2-002', 'OBS-I2-003'] sources=['IVANL-LXING-GO-MECH'] cases=['CASE-IVANL-L型研究I版樣本']
+
 ## CAND-IVANL-LADDER-STAKE-001 — 市值階梯注碼與炒高後分級警覺
 - methodology: IVAN_L | family: RISK_WINDOW | generalization: REPEATABLE_METHOD | dedup: NEW_RULE
 - description: 部署階梯（主板）：3億留意→2-3億細注→1-2億中注→1億以下大注（條件不變前提）。持有階梯：≈3億第一重要區→5-6億驗證推動力→7-8億轉散貨/街貨監察→≈20億超高區。兩方向都以市值為尺度、非價格；條件破壞即停加注。
@@ -365,4 +373,20 @@ origin_source_ids + origin_observation_ids + falsification_conditions (schema-en
 - trigger: 四支柱初篩通過
 - falsification: 通過篩選的候選池與隨機半新股的後續回報無統計差異
 - lineage: observations=['OBS-I1-001', 'OBS-I1-002'] sources=['IVANL-LXING-COURSE'] cases=['CASE-IVANL-2.8億-4.4億案例']
+
+## CAND-IVANL-MCAP-DATA-RISK-001 — 歷史市值重建+生存偏差=L型研究一級資料風險
+- methodology: IVAN_L | family: FALSIFICATION | generalization: REPEATABLE_METHOD | dedup: NEW_RULE
+- description: L型回測的市值是核心變量→股本分母誤差屬一級風險：代理法（現時股數×CCASS總量比例）高估重度稀釋股歷史市值，須標記share_capital_source_quality/dilution_bias_risk；有正式歷史issued shares必須取代代理。樣本若僅含存活股，須加survivorship_bias_flag——低市值組表現越好越要防死股缺席假優勢。
+- required_inputs: 股本數據來源品質; 樣本是否含除牌/清盤股
+- trigger: 回測使用重建市值 或 樣本僅存活股
+- falsification: 代理市值與正式歷史issued shares市值對照誤差<5%且不隨稀釋度增長（則降級為普通噪音）
+- lineage: observations=['OBS-I2-007'] sources=['IVANL-LXING-GO-MECH'] cases=['CASE-IVANL-L型研究I版樣本']
+
+## CAND-IVANL-SCREENING-NOT-DISCRIMINATOR-001 — 篩選條件≠贏家判別器；回報右偏須報top-k貢獻
+- methodology: IVAN_L | family: FALSIFICATION | generalization: REPEATABLE_METHOD | dedup: NEW_RULE
+- description: 入場條件（入場市值/最低市值/未炒過/3年新低/上市年期）在獲利組與止蝕組間無顯著差異=必要篩選非充分條件；策略回報venture-style右偏（top1佔47.3%），組合評估必須報top1/3/5貢獻與剔除後結果；止蝕評估分算術/資金效率/尾部風險三層。
+- required_inputs: 入場條件向量; 已平倉回報序列
+- trigger: 任何L型（或類似篩選策略）的效能評估
+- falsification: 未來更大樣本中入場條件開始顯著區分獲利/止蝕組（則本規則需修訂）
+- lineage: observations=['OBS-I2-004', 'OBS-I2-005'] sources=['IVANL-LXING-GO-MECH'] cases=['CASE-IVANL-IVAN實際持倉']
 

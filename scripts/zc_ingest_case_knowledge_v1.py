@@ -2186,9 +2186,163 @@ def _register_i1(store):
     ))
 
 
+# ============================================================ IVAN_L L型研究I版 (quantitative)
+C_DIR = "股票案例"
+S_I2 = source(
+    "IVANL-LXING-GO-MECH", "L型研究I版_最終版_GO兌現機制_20260731", "L型量化研究：市值階梯=GO機率篩(11.2% vs 3.6% p≈0.0325)；GO兌現機制(有GO翻倍率71.1% vs 33.0%)；2-3年研究窗；入場條件≠贏家判別器；右偏回報top-k貢獻；市值重建+生存偏差一級風險",
+    mid="IVAN_L", loc=C_DIR, mtype="research_document", date="2026-07-31",
+)
+
+OBS_I2 = [
+    Observation(
+        observation_id="OBS-I2-001", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§1", source_quote_or_paraphrase_reference="全樣本其後3年GO比例約9.0%；曾入窄市值階梯11.2%；GEM<4千萬17.2%；從未入階梯3.6%；Fisher p≈0.0325；爆量≥20x的GO率8.9%≈基準9.0%",
+        observation_statement="市值階梯提高未來GO機率：曾入階梯11.2% vs 從未入3.6%（Fisher p≈0.0325）；GEM<4千萬層最強17.2%；而成交爆量≥20x對GO率無增量資訊（8.9%≈9.0%）。L型最重要的發現唔係爆量而係市值階梯=控制權交易機率篩選器。",
+        observation_type=ObservationType.FACT_FROM_CASE,
+        supporting_evidence="研究樣本統計數字（生存偏差與市值重建誤差已標示）",
+        generalization_class=GeneralizationClass.POTENTIALLY_GENERALIZABLE,
+    ),
+    Observation(
+        observation_id="OBS-I2-002", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§2", source_quote_or_paraphrase_reference="其後3年內有GO：翻倍率71.1%、3年最高回報中位+275%、期末中位+68.6%；無GO：33.0%/+51.9%/-37.5%；『階梯+GO』翻倍率75.7%、最高中位+333.6%",
+        observation_statement="GO是L型兌現機制中最強可觀測事件：3年前瞻有GO組翻倍率71.1% vs 無GO 33.0%；期末中位+68.6% vs -37.5%；階梯+GO組合75.7%/+333.6%。重要修正：不可倒推『跌入階梯就一定GO』，亦不可將GO後升幅全歸因L型。",
+        observation_type=ObservationType.FACT_FROM_CASE,
+        supporting_evidence="3年前瞻分組統計",
+        generalization_class=GeneralizationClass.POTENTIALLY_GENERALIZABLE,
+    ),
+    Observation(
+        observation_id="OBS-I2-003", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§4-5", source_quote_or_paraphrase_reference="跌入階梯到首次翻倍中位24.3個月；到+200%中位34.5個月；1年翻倍9.6%、2年23.6%、3年34.7%、5年41.4%；入階梯到GO公佈中位59.2個月、>4年佔大多數",
+        observation_statement="L型是慢變量策略：跌入階梯到首次翻倍中位≈24.3個月；1年窗翻倍率僅9.6%、3年34.7%、5年41.4%——12個月評價系統性低估。入階梯到GO公佈中位≈59.2個月（>4年居多）→入階梯=放入長期監察池，非短期催化。",
+        observation_type=ObservationType.TIMING_RULE,
+        supporting_evidence="hit-rate時間窗統計+GO等待期分佈",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I2-004", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§6", source_quote_or_paraphrase_reference="入場市值、全期最低市值、未炒過、3年新低、上市年期——獲利組與止蝕組均無顯著差異；真正顯著差異只出現在事後回報",
+        observation_statement="硬規則 screening_condition ≠ winner_discriminator：現有可量化入場條件是必要篩選而非充分條件，無法事前分辨最終贏輸；真正決定因素可能位於IPO結構/人物/控制權/財技質素/貨源。",
+        observation_type=ObservationType.METHOD_PRINCIPLE,
+        supporting_evidence="IVAN實際持倉獲利組vs止蝕組入場條件檢定",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I2-005", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§7-8", source_quote_or_paraphrase_reference="頭1隻佔獲利總和47.3%；頭3隻65.6%；頭5隻74.0%；止蝕-10%到-90%的等權平均回報只小幅下降——但不能推論唔需要止蝕",
+        observation_statement="回報高度右偏（venture-style payoff）：top1貢獻47.3%/top3 65.6%/top5 74.0%。止蝕算術貢獻細，但其價值在釋放資金/降尾部破產風險/心理/輪轉——不能由算術貢獻細推論不需要止蝕。",
+        observation_type=ObservationType.FACT_FROM_CASE,
+        supporting_evidence="自報平倉組合的top-k貢獻與止蝕敏感度分析",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I2-006", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§9", source_quote_or_paraphrase_reference="未炒過支持；3年新低支持；絕對市值階梯支持主板<1億最強；半新股0.5-3年弱支持；『從未升穿招股價』不支持；爆量20x/100x不支持；單純跌深市值不細不支持",
+        observation_statement="IVAN原文條件逐項檢定分級：supported（未炒過/3年新低/絕對市值階梯-主板<1億最強）、weakly_supported（半新股0.5-3年）、not_supported（從未升穿招股價/爆量20x-100x/單純跌深）、untested其餘——成套框架不可視作整體一個真假命題。",
+        observation_type=ObservationType.FALSIFICATION_HINT,
+        supporting_evidence="逐條件統計檢定",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+    Observation(
+        observation_id="OBS-I2-007", methodology_id="IVAN_L", source_id=S_I2.source_id,
+        source_section="§10-11", source_quote_or_paraphrase_reference="以現時股數×CCASS總量比例重建歷史股本，重度稀釋股歷史市值會被高估；全部樣本股存活至2026，除牌/清盤者不在樣本——文件稱此為最嚴重限制",
+        observation_statement="一級資料風險：(1)歷史市值重建（現時股數×CCASS比例代理）高估重度稀釋股——股本分母誤差對以市值為核心變量的L型屬一級風險，有正式issued shares必須取代代理 (2)生存偏差：樣本僅含存活至2026的股票，低市值組表現越好越要防『死股不在樣本』假優勢。",
+        observation_type=ObservationType.RISK_WARNING,
+        supporting_evidence="研究自身標示的資料方法限制",
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+    ),
+]
+
+CHAIN_I2_002 = EvidenceChain(
+    chain_id="CHAIN-I2-002", observation_id="OBS-I2-002",
+    input_facts=["全樣本3年GO率9.0%；階梯狀態分組GO率差異顯著(p≈0.0325)", "有GO/無GO組的3年前瞻回報分佈"],
+    temporal_order="跌入階梯(state)→GO公佈(中位59.2個月)→GO後價格兌現(payoff)",
+    calculation_or_comparison="有GO翻倍率71.1% vs 無GO 33.0%；期末中位+68.6% vs -37.5%；階梯+GO翻倍率75.7%",
+    author_reasoning="L型貢獻可拆直接效應與GO中介效應；若主貢獻來自GO概率提升，選股條件與兌現事件應分開建模",
+    author_conclusion="state→event→payoff三段模型；禁止倒推『入階梯必GO』或『GO升幅全歸因L型』",
+)
+
+CAND_I2 = [
+    RuleCandidate(
+        rule_candidate_id="CAND-IVANL-GO-MEDIATOR-001", rule_family=RuleFamily.EVENT_SEQUENCE,
+        methodology_id="IVAN_L", rule_name="L型三段模型：市值階梯=GO機率篩；GO=兌現事件（2-3年窗）",
+        description="量化支持的三段模型：低市值狀態(state，曾入階梯GO率11.2% vs 3.6%，p≈0.0325)→GO事件(event，有GO翻倍率71.1% vs 33.0%)→價格兌現(payoff)；爆量對GO無增量資訊。回測必須用≥2-3年窗（12個月嚴重低估）；入階梯=長期監察池（GO等待中位59.2個月）。禁止倒推：入階梯≠必GO；GO升幅≠全歸因L型。",
+        preconditions=["有市值歷史與GO事件記錄"],
+        required_inputs=["市值階梯狀態", "其後3年GO事件", "回報分佈", "hit_rate_12m/24m/36m/60m", "median_time_to_2x"],
+        optional_inputs=["months_since_first_ladder_entry", "GO_hazard_by_time_since_entry"],
+        trigger_conditions=["標的進入L型監察池"],
+        supporting_evidence=["OBS-I2-001", "OBS-I2-002", "OBS-I2-003"],
+        contradicting_evidence=["生存偏差可能高估階梯組GO率差異（見OBS-I2-007）"],
+        alternative_explanations=["低市值與GO同由殼質素驅動（混淆變量）"],
+        output_semantics="P(GO|L_state) + 回報分層統計—— probabilistic screening, NOT prediction of individual stock",
+        false_positive_conditions=["市值重建誤差把稀釋股錯誤標記入階梯"],
+        false_negative_conditions=["從未入階梯但GO的股票（3.6%基準組）"],
+        falsification_conditions=["獨立樣本（含除牌股）中階梯組與從未入階梯組的GO率差異不顯著"],
+        origin_case_ids=["CASE-IVANL-L型研究I版樣本"],
+        origin_source_ids=[S_I2.source_id], origin_observation_ids=["OBS-I2-001", "OBS-I2-002", "OBS-I2-003"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+    RuleCandidate(
+        rule_candidate_id="CAND-IVANL-SCREENING-NOT-DISCRIMINATOR-001", rule_family=RuleFamily.FALSIFICATION,
+        methodology_id="IVAN_L", rule_name="篩選條件≠贏家判別器；回報右偏須報top-k貢獻",
+        description="入場條件（入場市值/最低市值/未炒過/3年新低/上市年期）在獲利組與止蝕組間無顯著差異=必要篩選非充分條件；策略回報venture-style右偏（top1佔47.3%），組合評估必須報top1/3/5貢獻與剔除後結果；止蝕評估分算術/資金效率/尾部風險三層。",
+        preconditions=["有策略持倉與回報記錄"],
+        required_inputs=["入場條件向量", "已平倉回報序列"],
+        optional_inputs=["止蝕敏感度分析"],
+        trigger_conditions=["任何L型（或類似篩選策略）的效能評估"],
+        supporting_evidence=["OBS-I2-004", "OBS-I2-005"],
+        output_semantics="評估報告必含：screening≠discriminator聲明 + top-k contribution + trimmed mean",
+        false_positive_conditions=["小樣本下條件差異恰巧顯著"],
+        false_negative_conditions=["未量化的條件（人物/財技質素）實為判別器"],
+        falsification_conditions=["未來更大樣本中入場條件開始顯著區分獲利/止蝕組（則本規則需修訂）"],
+        origin_case_ids=["CASE-IVANL-IVAN實際持倉"],
+        origin_source_ids=[S_I2.source_id], origin_observation_ids=["OBS-I2-004", "OBS-I2-005"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+    RuleCandidate(
+        rule_candidate_id="CAND-IVANL-MCAP-DATA-RISK-001", rule_family=RuleFamily.FALSIFICATION,
+        methodology_id="IVAN_L", rule_name="歷史市值重建+生存偏差=L型研究一級資料風險",
+        description="L型回測的市值是核心變量→股本分母誤差屬一級風險：代理法（現時股數×CCASS總量比例）高估重度稀釋股歷史市值，須標記share_capital_source_quality/dilution_bias_risk；有正式歷史issued shares必須取代代理。樣本若僅含存活股，須加survivorship_bias_flag——低市值組表現越好越要防死股缺席假優勢。",
+        preconditions=["進行L型或任何以歷史市值為變量的回測"],
+        required_inputs=["股本數據來源品質", "樣本是否含除牌/清盤股"],
+        optional_inputs=["除牌回報處理方式"],
+        trigger_conditions=["回測使用重建市值 或 樣本僅存活股"],
+        supporting_evidence=["OBS-I2-007"],
+        output_semantics="回測報告必含 mcap_reconstruction_flag + survivorship_bias_flag",
+        false_positive_conditions=["代理法在低稀釋股上誤差可接受（仍須標記）"],
+        false_negative_conditions=["—"],
+        falsification_conditions=["代理市值與正式歷史issued shares市值對照誤差<5%且不隨稀釋度增長（則降級為普通噪音）"],
+        origin_case_ids=["CASE-IVANL-L型研究I版樣本"],
+        origin_source_ids=[S_I2.source_id], origin_observation_ids=["OBS-I2-007"],
+        generalization_class=GeneralizationClass.REPEATABLE_METHOD,
+        dedup_classification=DedupClassification.NEW_RULE,
+    ),
+]
+
+
+def _register_i2(store):
+    store.register_source(S_I2)
+    for o in OBS_I2:
+        store.add_observation(o)
+    store.add_observation(OBS_I2[1], CHAIN_I2_002)
+    for c in CAND_I2:
+        store.add_candidate(c)
+    store.mark_source_status(S_I2.source_id, "INGESTED")
+    store.save_checkpoint(IngestionCheckpoint(
+        source_id=S_I2.source_id,
+        processed_sections=["§1","§2","§3","§4","§5","§6","§7","§8","§9","§10","§11","§12","不可直接泛化"],
+        observation_ids=[o.observation_id for o in OBS_I2],
+        candidate_rule_ids=[c.rule_candidate_id for c in CAND_I2],
+        open_questions=["§3事件中介模型（Direct_L_effect/GO_mediated_effect分解）待平台實作",
+                        "『GEM<4千萬一定最佳』等7項不可泛化清單已記錄，嚴禁升格"],
+        last_position="EOF",
+    ))
+
+
 if __name__ == "__main__":
     store = IngestionStore()
     ingest(store)
-    for fn in (_register_h2, _register_h3, _register_h4, _register_h5, _register_h6, _register_h7, _register_h8, _register_h9, _register_h10, _register_z1, _register_z2, _register_i1):
+    for fn in (_register_h2, _register_h3, _register_h4, _register_h5, _register_h6, _register_h7, _register_h8, _register_h9, _register_h10, _register_z1, _register_z2, _register_i1, _register_i2):
         fn(store)
     print(store.batch_stats())

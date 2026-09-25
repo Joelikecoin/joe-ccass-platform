@@ -23,13 +23,13 @@ checkpoints for token-efficient resume).
 
 ```text
 BATCH_1_HILTON: 10 source units processed
-BATCH_2_CHAU_HIN: 2 of 9 source units processed (L1, L2A)
-BATCH_3_IVAN_L: 1 of 3 source units processed (課程摘要; L型研究檔 pending)
-TOTAL sources_processed=13 / discovered≈22
-OBSERVATION_COUNT=103
-RULE_CANDIDATE_COUNT=45 (all CASE_DERIVED)
+BATCH_2_CHAU_HIN: 2 of 9 source units processed (L1, L2A) — 7 remaining (L2B/3A/3B/4/5A/5B/102)
+BATCH_3_IVAN_L: 2 of 4 source units processed (課程摘要 + L型研究I版GO兌現機制[量化]); 完整結果總表/現況檢查 pending
+TOTAL sources_processed=14 / discovered≈23
+OBSERVATION_COUNT=110
+RULE_CANDIDATE_COUNT=48 (all CASE_DERIVED)
 FALSIFICATION_INCOMPLETE_COUNT=0 (schema enforces)
-CONTRADICTION_RECORD_COUNT=0 (none found between ingested sources so far)
+CONTRADICTION_RECORD_COUNT=0 (none found between ingested sources; near-conflicts classified in DOCTOR_METHOD_CONTRADICTIONS_V1.md)
 ```
 
 Generalization split of observations: REPEATABLE_METHOD 79 / POTENTIALLY_GENERALIZABLE 21 /
@@ -86,4 +86,4 @@ without re-reading page 1.
 
 ## Test evidence
 
-`tests/test_doctor_ingestion.py` (18) + existing doctor suites (42) = 60 passed.
+`tests/test_doctor_ingestion.py` (18) + existing doctor suites (42) = 60 passed (14 source units, 110 observations, 48 candidates).
