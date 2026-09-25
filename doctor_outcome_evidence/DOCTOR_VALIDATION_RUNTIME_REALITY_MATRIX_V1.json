@@ -1,0 +1,384 @@
+{
+  "MATRIX_ID": "DOCTOR_VALIDATION_RUNTIME_REALITY_MATRIX_V1",
+  "ZC_REFERENCE_COMMIT": "8e9b7d9",
+  "CODEX_BASELINE": "0060e08",
+  "ZC_DION_SOURCE": "8e9b7d9:app/doctor/feasibility.py static inventory and docs/DOCTOR_VALIDATION_FEASIBILITY_MATRIX_V1.json; no data file or DB path specified",
+  "CODEX_DION_SOURCE": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\data\\ccass_snapshots.db:disclosure_interests",
+  "ZC_02318_DION_ROWS": 696,
+  "CODEX_02318_DION_ROWS": 0,
+  "WHY_MISMATCH": "ZC's 696 is a documented/static feasibility claim from commit 8e9b7d9, while the current Codex runtime queries its local read-only ccass_snapshots.db and returns zero 02318 disclosure rows. The ZC commit contains no corresponding DION data artifact or runtime path, so the ZC data is non-runtime for this checkout.",
+  "CLASSIFICATION": "B_ZC_USED_NON_RUNTIME_DATA",
+  "GLOBAL_RUNTIME_TABLE_COUNTS": {
+    "ccass_snapshots": 6,
+    "announcements": 1087,
+    "disclosure_interests": 0,
+    "share_capital_history": 0
+  },
+  "TARGET_STOCK_COUNTS": {
+    "02318": {
+      "DION_DI": 0,
+      "CCASS": 0,
+      "SHARE_CAPITAL": 0,
+      "ANNOUNCEMENTS": 0
+    }
+  },
+  "DOCUMENTED_FEASIBILITY_RANK": [
+    "LT-09",
+    "LT-04",
+    "LT-02",
+    "LT-01",
+    "LT-03",
+    "LT-07",
+    "LT-06",
+    "LT-05",
+    "LT-10",
+    "LT-12",
+    "LT-13",
+    "LT-14",
+    "LT-11",
+    "LT-08"
+  ],
+  "RUNTIME_VERIFIED_FEASIBILITY_RANK": [],
+  "ROWS": [
+    {
+      "TARGET_ID": "LT-09",
+      "REQUIRED_DOMAINS": [
+        "DION_DI_SERIES",
+        "THRESHOLD_HUG_FLAG",
+        "ANNOUNCEMENTS_CAPITAL_ACTIONS_24M",
+        "CONTROL_PATH_OUTCOME",
+        "SHARE_CAPITAL"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "DION_DI_SERIES(02318 全史 696 events)",
+        "ANNOUNCEMENTS(02318)",
+        "SHARE_CAPITAL",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "YES",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-04",
+      "REQUIRED_DOMAINS": [
+        "GO_RECORD(go_price,end_date)",
+        "ANNOUNCEMENTS",
+        "PRICE_1Y",
+        "HOLD_ABOVE_GO_30D"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS(watchlist GO/易手通告)",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "GO_PRICE/END_DATE 欄位需從通告文本抽取",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-02",
+      "REQUIRED_DOMAINS": [
+        "PLACEMENT_RECORD",
+        "PRICE_POSITION_T0",
+        "LAUNCH_30D",
+        "RETURN_1M_3M"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS(配股公告)",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "承配人人數/披露狀態（通告文本抽取）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-01",
+      "REQUIRED_DOMAINS": [
+        "RIGHTS_ISSUE_RECORD",
+        "DAILY_CLOSE_90D",
+        "R_REPORT_TAKEUP",
+        "UNDERWRITER_ID"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS(供股+結果通告)",
+        "PRICE_DAILY",
+        "SHARE_CAPITAL"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "R報告承給/申請份數（文本抽取）",
+        "包銷商身份（文本抽取）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-03",
+      "REQUIRED_DOMAINS": [
+        "GO_COMPLETION",
+        "PLACEMENT_20_20",
+        "RETURN_3M_4M",
+        "WIN_RATE"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "GO完成狀態",
+        "20/20 條款抽取",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-07",
+      "REQUIRED_DOMAINS": [
+        "CONSOLIDATION_RECORD(price≤0.05)",
+        "PRICE",
+        "CAPITAL_ACTIONS_24M",
+        "RETURN_24M"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS",
+        "PRICE_DAILY",
+        "SHARE_CAPITAL"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "YES",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-06",
+      "REQUIRED_DOMAINS": [
+        "CCASS_IN_EVENT(ratio,position)",
+        "NON_CCASS_TRANSITIONS",
+        "RETURN_180D",
+        "CCASS_DISPERSION_180D"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "CCASS_DAILY_HOLDINGS(watchlist, 2026-07-21→)",
+        "SHARE_CAPITAL",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "更長歷史窗口（實物存入為低頻事件，2 個月窗口事件數不足）",
+        "存入者身份（需 DI 交叉）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "YES",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-05",
+      "REQUIRED_DOMAINS": [
+        "GO_OFFER(acceptance_ratio,mkt_vs_go)",
+        "CCASS_DESTINATION_90D",
+        "CONTROLLER_STAKE_CHANGE"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "要約期後 90 日 CCASS（限 watchlist+窗口）",
+        "新主關聯券商映射（ENTITIES 僅 9 行）",
+        "R報告接受比例（文本抽取）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-10",
+      "REQUIRED_DOMAINS": [
+        "SIGNAL_SCORE(7 components)",
+        "RETURN_30D_60D",
+        "DRAWDOWN"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS",
+        "DI(watchlist)",
+        "CCASS(watchlist)",
+        "PRICE_DAILY+分鐘(當日)"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "MEDIA_EXPOSURE（無來源，需人工）",
+        "CCASS 出貨程度（窗口短）",
+        "歷史分鐘圖（僅當日）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-12",
+      "REQUIRED_DOMAINS": [
+        "CRASH_RECORD",
+        "SAME_GROUP_MAP",
+        "CONTROLLER_DI",
+        "BOUNCE_20D"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "PRICE_DAILY(可掃急跌)",
+        "DION_DI(watchlist)"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "BROAD_UNIVERSE_GROUP_MAP",
+        "同系/同戶口映射（ENTITIES 僅 9 行）",
+        "非 watchlist 大股東 DI",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-13",
+      "REQUIRED_DOMAINS": [
+        "OLD_OWNER_STAKE_BAND",
+        "RETURN_12M"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "ANNOUNCEMENTS(易手)",
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "BROAD_HISTORICAL_DI",
+        "舊主轉移後持股（DI 僅 watchlist；DION 可按股開 job）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-14",
+      "REQUIRED_DOMAINS": [
+        "IPO_RECORD(proceeds,cost,profit,mcap)",
+        "LAUNCH_18_30M",
+        "RETURN_36M",
+        "CCASS_FROM_LISTING"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "PRICE_DAILY"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "IPO/PROSPECTUS_UNIVERSE",
+        "CCASS_FROM_LISTING_DATE",
+        "招股結果（公告內文本）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-11",
+      "REQUIRED_DOMAINS": [
+        "LADDER_STATE",
+        "BROAD_HISTORICAL_MCAP",
+        "MCAP_RECONSTRUCTION_FLAG",
+        "GO_WITHIN_36M",
+        "DELISTING_OUTCOME"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "GO 公告（部分）"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "BROAD_HISTORICAL_MCAP",
+        "DELISTED_UNIVERSE",
+        "HISTORICAL_CCASS_19Y(gated)",
+        "SHARE_CAPITAL(watchlist)",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "NO",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    },
+    {
+      "TARGET_ID": "LT-08",
+      "REQUIRED_DOMAINS": [
+        "SFC_CONCENTRATION_ALERT",
+        "CCASS_SNAPSHOT_SAME_DATE",
+        "GAP_METHOD_ESTIMATE",
+        "ESTIMATE_ERROR"
+      ],
+      "ZC_DOCUMENTED_AVAILABLE_DOMAINS": [
+        "CCASS_DAILY_HOLDINGS(watchlist only)"
+      ],
+      "CODEX_RUNTIME_VERIFIED_DOMAINS": [],
+      "QUERY_VERIFIED_FOR_TARGET_STOCK": "NO",
+      "MISSING_DOMAINS": [
+        "SFC_CONCENTRATION_ALERTS（官方公開但未攝取）",
+        "ALERT_DATE_CCASS_HISTORY（alert 股票多在 watchlist 外；歷史快照 gated）",
+        "鴻溝法估算器（可實作）",
+        "target-stock runtime join not verified"
+      ],
+      "POINT_IN_TIME_USABLE": "NO",
+      "SOURCE_INDEPENDENCE_POSSIBLE": "PARTIAL",
+      "READY_FOR_CODEX_NOW": "NO",
+      "BLOCKER": "ZC documented inventory is not backed by a reachable data artifact in this runtime; target-specific query not verified."
+    }
+  ],
+  "GENERATED_AT": "2026-09-25T05:21:40.509919+00:00"
+}
