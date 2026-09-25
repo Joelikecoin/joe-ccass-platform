@@ -1,0 +1,19 @@
+{
+  "policy": "Preserve all prior evidence; a replacement becomes active only after its batch hard gates pass.",
+  "old_source_sha256": "ADAAC9F609F4AB0495ACA5F141C5D65ECFC3AE32F7B2C9C0CF667A2431A29F0A",
+  "new_source_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C",
+  "supersession_reason": "The frozen partial-import source loses 137,575,878 canonical-eligible 2011-2025 states relative to the selected complete source and causes 36 post-2010 negative-ledger omissions in the mixed active staging.",
+  "prior_evidence_preserved": true,
+  "batches": {
+    "BATCH_2": "SUPERSEDED_SOURCE_VERSION_REPLACEMENT_PASS",
+    "BATCH_3": "SUPERSEDED_SOURCE_VERSION_REPLACEMENT_PASS",
+    "BATCH_4": "SUPERSEDED_SOURCE_VERSION_REPLACEMENT_PASS",
+    "BATCH_5": "SUPERSEDED_SOURCE_VERSION_REPLACEMENT_PASS",
+    "BATCH_6": "SUPERSEDED_SOURCE_VERSION_REPLACEMENT_PASS",
+    "BATCH_7": "SUPERSEDED_SOURCE_VERSION_METADATA_ONLY_REPLACEMENT_PASS_NO_AVAILABLE_2026_ROWS"
+  },
+  "activation_rule": "SUPERSEDED_SOURCE_VERSION after replacement row reconciliation, duplicate/conflict safety, canonical safety, readback, lineage, anomaly lineage, and idempotency pass",
+  "deleted_prior_artifacts": false,
+  "all_replacements_pass": true,
+  "activated_authoritative_source_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C"
+}

@@ -1,0 +1,31 @@
+{
+  "candidate_a_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C",
+  "candidate_b_sha256": "ADAAC9F609F4AB0495ACA5F141C5D65ECFC3AE32F7B2C9C0CF667A2431A29F0A",
+  "candidate_b_current_file_status": "MISSING_ON_COMPANY_PC_AND_VISIBLE_G_DRIVE",
+  "direct_row_level_diff_pass": false,
+  "direct_row_level_diff_blocker": "Candidate B frozen SQLite is not present on the company PC or mapped cloud root; added, removed, and changed natural-key sets cannot be recomputed without that exact file.",
+  "added_rows": null,
+  "removed_rows": null,
+  "changed_rows": null,
+  "candidate_a_raw_rows_2007_2025": 229978760,
+  "candidate_a_canonical_eligible_nonzero_rows_2007_2025": 225071295,
+  "candidate_a_explicit_zero_rows_2007_2025": 4907465,
+  "candidate_a_canonical_eligible_rows_2011_2025": 186545928,
+  "candidate_b_persisted_canonical_eligible_rows_2011_2025": 48970050,
+  "candidate_b_active_range_net_row_deficit": 137575878,
+  "candidate_a_negative_ledger_match": "92/92",
+  "candidate_b_negative_ledger_match_from_preserved_parent_gate_evidence": "34/92",
+  "candidate_b_negative_ledger_missing_from_full_ledger": 58,
+  "mixed_active_staging_negative_ledger_match": "56/92",
+  "mixed_active_staging_missing_post_2010": 36,
+  "date_coverage_change": {
+    "candidate_a": "2007-06-26..2025-12-24",
+    "candidate_b": "EXACT_RANGE_UNAVAILABLE_WITHOUT_FILE; preserved evidence proves no 2026 rows"
+  },
+  "issue_coverage_change": "NOT_RECOMPUTABLE_WITHOUT_CANDIDATE_B",
+  "participant_coverage_change": "NOT_RECOMPUTABLE_WITHOUT_CANDIDATE_B",
+  "negative_ledger_change": "Candidate B omits 58 of Candidate A's 92 source-native negatives; 36 of those omissions occur after 2010 and explain the mixed-staging 56/92 result.",
+  "source_version_diff_pass": false,
+  "raw_source_mutated": false,
+  "cloud_source_mutated": false
+}

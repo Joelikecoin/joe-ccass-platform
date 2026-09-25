@@ -1,0 +1,49 @@
+{
+  "all_active_batches_use_authoritative_source": true,
+  "all_rebuilt_batches_pass": true,
+  "authoritative_eligible_rows": 225071295,
+  "authoritative_source_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C",
+  "batch_1_retained_rows": 38525367,
+  "canonical_quarantined_state_count": 92,
+  "global_anomaly_lineage_pass": true,
+  "global_idempotency_pass": true,
+  "global_lineage_pass": true,
+  "global_row_reconciliation_pass": true,
+  "historical_current_bridge_final_pass": true,
+  "historical_research_surfaces": [
+    {
+      "cross_stock_participant_issue_count": 155,
+      "date": "2014-09-18",
+      "era": "early_rebuilt",
+      "holdings_by_stock_date_rows": 250,
+      "pass": true,
+      "sample_lineage_reference": "webbsite_full.sqlite:holdings:rowid=77334012;issueID=2730;partID=150;atDate=2014-09-18",
+      "source_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C",
+      "top_10_input_count": 10
+    },
+    {
+      "cross_stock_participant_issue_count": 1142,
+      "date": "2020-01-02",
+      "era": "middle_rebuilt",
+      "holdings_by_stock_date_rows": 251,
+      "pass": true,
+      "sample_lineage_reference": "webbsite_full.sqlite:holdings:rowid=187146082;issueID=11742;partID=454;atDate=2020-01-02",
+      "source_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C",
+      "top_10_input_count": 10
+    },
+    {
+      "cross_stock_participant_issue_count": 594,
+      "date": "2025-01-02",
+      "era": "late_rebuilt",
+      "holdings_by_stock_date_rows": 226,
+      "pass": true,
+      "sample_lineage_reference": "webbsite_full.sqlite:holdings:rowid=104802258;issueID=3507;partID=1323;atDate=2025-01-02",
+      "source_sha256": "9CCDE356D068399BFBC931CA6E367E5944AFCF5C16C83D2FF240636995B0BE7C",
+      "top_10_input_count": 10
+    }
+  ],
+  "historical_research_surfaces_pass": true,
+  "pass": true,
+  "rebuilt_batch_rows": 186545928,
+  "source_layering_2026_pass": true
+}

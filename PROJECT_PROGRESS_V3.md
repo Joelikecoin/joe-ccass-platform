@@ -536,3 +536,13 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 **OTHER STATUS:** A5 實裝 = 暫緩等 Joe 介面決定 ✓（已記錄）。D 槽 DiskGenius = Joe 手動 pending。缺口期完成後：DEFERRED_DATA_GAP 標籤更新為 CLOSED（證據股）。
 
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
+
+### WEBB AUTHORITATIVE SOURCE RECONCILIATION 2026-09-25
+
+- Candidate A (`9CCDE356...B0BE7C`) 重新核實：10,848,636,928 bytes、SQLite integrity `ok`、229,978,760 原始列、2007-06-26 至 2025-12-24、92/92 負數 ledger。
+- 權威 canonical 分母為 225,071,295 個非零狀態；4,907,465 個明確零狀態另行保存分母語義。
+- Batch 1 保留；Batch 2–6 已用 Candidate A 選擇性重建；Batch 7 為經核實的 0-row metadata checkpoint。七批 canonical 列總和精確等於 225,071,295，quarantine 總數 92。
+- 全域 row、lineage、anomaly-lineage、idempotency、歷史 research surfaces、historical/current bridge 及 2026 layering 均 PASS。
+- Candidate B 精確凍結檔在公司電腦／可見 G: 不存在，逐自然鍵 A/B diff 仍為獨立 blocker；舊證據已保留為 superseded，沒有刪除。
+- 原始來源、雲端來源及 Research Store 均未修改。詳細證據：`docs/WEBB_AUTHORITATIVE_SOURCE_RECONCILIATION_AND_SELECTIVE_REBUILD_V1.md`。
+- 最終完整 regression：631 collected，626 passed，5 個既有 baseline failures，新增 regression 0；來源核對新增測試 5/5 passed。

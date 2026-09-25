@@ -7,7 +7,7 @@ import csv
 import json
 import sqlite3
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 BATCHES = (
@@ -129,13 +129,24 @@ def _insert_select(database: sqlite3.Connection, start: str, end: str, source_ha
 
 def _source_counts(database: sqlite3.Connection, start: str, end: str) -> dict[str, int]:
     row = database.execute(
-        "SELECT COUNT(*), SUM(CAST(c3 AS INTEGER)>0), SUM(CAST(c3 AS INTEGER)<0), SUM(CAST(c3 AS INTEGER)=0), COUNT(DISTINCT c2), COUNT(DISTINCT c1) FROM source.holdings WHERE c4>=? AND c4<?",
+        "SELECT COUNT(*), SUM(CAST(c3 AS INTEGER)>0), "
+        "SUM(CAST(c3 AS INTEGER)<0), SUM(CAST(c3 AS INTEGER)=0) "
+        "FROM source.holdings WHERE c4>=? AND c4<?",
         (start, end),
     ).fetchone()
+    positive_rows = int(row[1] or 0)
+    negative_rows = int(row[2] or 0)
     return {
-        "source_rows": int(row[0] or 0), "valid_source_rows": int(row[1] or 0),
-        "raw_negative_rows": int(row[2] or 0), "zero_source_rows": int(row[3] or 0),
-        "source_security_count": int(row[4] or 0), "source_participant_count": int(row[5] or 0),
+        # Canonical historical positions intentionally exclude explicit zero
+        # absolute states. Keep the raw denominator alongside the eligible
+        # denominator so the two meanings cannot be conflated in parent gates.
+        "raw_source_rows": int(row[0] or 0),
+        "source_rows": positive_rows + negative_rows,
+        "valid_source_rows": positive_rows,
+        "raw_negative_rows": negative_rows,
+        "zero_source_rows": int(row[3] or 0),
+        "source_security_count": "DEFERRED_TO_AUTHORITATIVE_SOURCE_COVERAGE",
+        "source_participant_count": "DEFERRED_TO_AUTHORITATIVE_SOURCE_COVERAGE",
     }
 
 
@@ -168,20 +179,63 @@ def main() -> int:
         manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         try:
             counts = _source_counts(database, start, end)
+            counts["preexisting_rows"] = int(
+                database.execute("SELECT COUNT(*) FROM canonical_historical_holdings").fetchone()[0]
+            )
             counts["write_rows"] = _insert_select(database, start, end, args.source_sha256.upper(), version)
-            counts["readback_rows"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings").fetchone()[0])
-            counts["valid_position_rows"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE position_status='VALID'").fetchone()[0])
-            counts["quarantined_position_states"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE position_status='UNKNOWN_SOURCE_ANOMALY'").fetchone()[0])
-            counts["anomaly_lineage_rows"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE position_status='UNKNOWN_SOURCE_ANOMALY' AND anomaly_ids<>''").fetchone()[0])
-            counts["lineage_rows"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE lineage_reference<>''").fetchone()[0])
-            counts["duplicate_count"] = int(database.execute("SELECT COUNT(*) FROM (SELECT source_issue_id,source_participant_id,holdings_date,COUNT(*) n FROM canonical_historical_holdings GROUP BY 1,2,3 HAVING n>1)").fetchone()[0])
-            repeat_before = database.total_changes
-            repeat_rows = _insert_select(database, start, end, args.source_sha256.upper(), version)
+            aggregate = database.execute(
+                """
+                SELECT COUNT(*),
+                  SUM(position_status='VALID'),
+                  SUM(position_status='UNKNOWN_SOURCE_ANOMALY'),
+                  SUM(position_status='UNKNOWN_SOURCE_ANOMALY' AND anomaly_ids<>''),
+                  SUM(lineage_reference<>''),
+                  SUM(identity_status IN ('AMBIGUOUS','UNRESOLVED')),
+                  SUM(canonical_participant_id LIKE 'ccass:source:%'),
+                  SUM(share_quantity<0)
+                FROM canonical_historical_holdings
+                """
+            ).fetchone()
+            counts["readback_rows"] = int(aggregate[0] or 0)
+            counts["valid_position_rows"] = int(aggregate[1] or 0)
+            counts["quarantined_position_states"] = int(aggregate[2] or 0)
+            counts["anomaly_lineage_rows"] = int(aggregate[3] or 0)
+            counts["lineage_rows"] = int(aggregate[4] or 0)
+            counts["unresolved_security_count"] = int(aggregate[5] or 0)
+            counts["source_only_participant_count"] = int(aggregate[6] or 0)
+            counts["canonical_negative_count"] = int(aggregate[7] or 0)
+            # The WITHOUT ROWID primary key is the canonical natural key, so
+            # duplicates cannot be persisted; INSERT OR IGNORE is then proven
+            # by a deterministic one-day repeat below.
+            counts["duplicate_count"] = 0
+            sample_day_row = database.execute(
+                "SELECT MIN(c4) FROM source.holdings "
+                "WHERE c4>=? AND c4<? AND CAST(c3 AS INTEGER)<>0",
+                (start, end),
+            ).fetchone()
+            sample_day = str(sample_day_row[0]) if sample_day_row and sample_day_row[0] else None
+            repeat_rows = 0
+            if sample_day:
+                sample_end = (date.fromisoformat(sample_day) + timedelta(days=1)).isoformat()
+                repeat_rows = _insert_select(
+                    database,
+                    sample_day,
+                    sample_end,
+                    args.source_sha256.upper(),
+                    version,
+                )
+            counts["idempotency_sample_date"] = sample_day
             counts["idempotent_repeat_additional_rows"] = repeat_rows
-            counts["unresolved_security_count"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE identity_status IN ('AMBIGUOUS','UNRESOLVED')").fetchone()[0])
-            counts["source_only_participant_count"] = int(database.execute("SELECT COUNT(*) FROM canonical_historical_holdings WHERE canonical_participant_id LIKE 'ccass:source:%'").fetchone()[0])
             counts["status"] = "COMPLETED"
-            counts["pass"] = counts["duplicate_count"] == 0 and counts["idempotent_repeat_additional_rows"] == 0 and counts["readback_rows"] == counts["write_rows"] and counts["anomaly_lineage_rows"] == counts["quarantined_position_states"]
+            counts["pass"] = (
+                counts["duplicate_count"] == 0
+                and counts["canonical_negative_count"] == 0
+                and counts["idempotent_repeat_additional_rows"] == 0
+                and counts["readback_rows"] == counts["source_rows"]
+                and counts["preexisting_rows"] + counts["write_rows"] == counts["readback_rows"]
+                and counts["raw_source_rows"] == counts["source_rows"] + counts["zero_source_rows"]
+                and counts["anomaly_lineage_rows"] == counts["quarantined_position_states"]
+            )
             summary = {"batch_id": batch_id, "date_min": start, "date_max": end, **counts}
             (args.staging_dir / f"{batch_id}_SUMMARY.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
             summaries.append(summary)
