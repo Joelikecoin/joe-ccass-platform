@@ -136,9 +136,11 @@ class MethodRuleRegistry:
         old = self.get_rule(old_rule_id)
         if old is not None:
             old.method_status = MethodStatus.SUPERSEDED
-            old.superseded_by = new_rule.rule_id
+            old.superseded_by = f"{new_rule.rule_id}@{new_rule.rule_version}"
             self.save_rule(old)
-        new_rule.supersedes = old_rule_id
+            new_rule.supersedes = f"{old.rule_id}@{old.rule_version}"
+        else:
+            new_rule.supersedes = old_rule_id
         return self.save_rule(new_rule)
 
     def answer_lineage_question(self, rule_id: str) -> dict:

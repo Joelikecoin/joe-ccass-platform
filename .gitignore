@@ -11,3 +11,4 @@ data/*.db
 data/*.csv
 data/*.tmp
 
+app/data/
