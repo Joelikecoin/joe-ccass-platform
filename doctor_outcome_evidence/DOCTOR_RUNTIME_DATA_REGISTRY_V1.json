@@ -1,0 +1,120 @@
+{
+  "REGISTRY_ID": "DOCTOR_RUNTIME_DATA_REGISTRY_V1",
+  "GENERATED_AT": "2026-09-25T05:30:06.501954+00:00",
+  "REGISTRY": [
+    {
+      "DOMAIN": "DION_DISLOSURE_HISTORY",
+      "ARTIFACT_EXISTS": "YES_DOCUMENTED",
+      "ARTIFACT_PATH": "Production Turso via TURSO_DATABASE_URL (unavailable); docs/ZC_CURRENT_STATE_RECONCILIATION_V3.md",
+      "ARTIFACT_TYPE": "Turso/libSQL",
+      "TOTAL_ROWS": 1780,
+      "TEST_STOCK": "02318",
+      "TEST_STOCK_ROWS": 696,
+      "RUNTIME_REACHABLE": "NO",
+      "QUERY_VERIFIED": "NO_CURRENT_RUNTIME",
+      "POINT_IN_TIME_USABLE": "DOCUMENTED_YES_RUNTIME_UNVERIFIED",
+      "APPROVED_FOR_DOCTOR_VALIDATION": "NO",
+      "LIMITATIONS": [
+        "TURSO_DATABASE_URL and TURSO_AUTH_TOKEN unavailable"
+      ],
+      "DATASET_OWNER": "Codex production/local runtime",
+      "SOURCE_LINEAGE": "Documented ZC or local normalized source; no undocumented source used",
+      "DATE_RANGE": null
+    },
+    {
+      "DOMAIN": "SHARE_CAPITAL_HISTORY",
+      "ARTIFACT_EXISTS": "YES_DOCUMENTED",
+      "ARTIFACT_PATH": "Production Turso via TURSO_DATABASE_URL (unavailable); docs/ZC_CURRENT_STATE_RECONCILIATION_V3.md",
+      "ARTIFACT_TYPE": "Turso/libSQL",
+      "TOTAL_ROWS": 146,
+      "TEST_STOCK": "02318",
+      "TEST_STOCK_ROWS": 60,
+      "RUNTIME_REACHABLE": "NO",
+      "QUERY_VERIFIED": "NO_CURRENT_RUNTIME",
+      "POINT_IN_TIME_USABLE": "DOCUMENTED_YES_RUNTIME_UNVERIFIED",
+      "APPROVED_FOR_DOCTOR_VALIDATION": "NO",
+      "LIMITATIONS": [
+        "No local rows; remote credentials unavailable"
+      ],
+      "DATASET_OWNER": "Codex production/local runtime",
+      "SOURCE_LINEAGE": "Documented ZC or local normalized source; no undocumented source used",
+      "DATE_RANGE": null
+    },
+    {
+      "DOMAIN": "HKEX_ANNOUNCEMENTS",
+      "ARTIFACT_EXISTS": "YES_DOCUMENTED",
+      "ARTIFACT_PATH": "Production Turso via TURSO_DATABASE_URL (unavailable); docs/ZC_CURRENT_STATE_RECONCILIATION_V3.md",
+      "ARTIFACT_TYPE": "Turso/libSQL",
+      "TOTAL_ROWS": 6109,
+      "TEST_STOCK": "02318",
+      "TEST_STOCK_ROWS": 35,
+      "RUNTIME_REACHABLE": "NO",
+      "QUERY_VERIFIED": "NO_CURRENT_RUNTIME",
+      "POINT_IN_TIME_USABLE": "DOCUMENTED_YES_RUNTIME_UNVERIFIED",
+      "APPROVED_FOR_DOCTOR_VALIDATION": "NO",
+      "LIMITATIONS": [
+        "No local rows for 02318; remote credentials unavailable"
+      ],
+      "DATASET_OWNER": "Codex production/local runtime",
+      "SOURCE_LINEAGE": "Documented ZC or local normalized source; no undocumented source used",
+      "DATE_RANGE": null
+    },
+    {
+      "DOMAIN": "PRICE_HISTORY",
+      "ARTIFACT_EXISTS": "YES_DOCUMENTED_PARTIAL",
+      "ARTIFACT_PATH": "Longbridge-derived production service/Turso path; exact artifact not exposed",
+      "ARTIFACT_TYPE": "API/Turso",
+      "TOTAL_ROWS": null,
+      "TEST_STOCK": "02318",
+      "TEST_STOCK_ROWS": 0,
+      "RUNTIME_REACHABLE": "NO",
+      "QUERY_VERIFIED": "NO",
+      "POINT_IN_TIME_USABLE": "NO",
+      "APPROVED_FOR_DOCTOR_VALIDATION": "NO",
+      "LIMITATIONS": [
+        "Exact persisted price table/path unavailable"
+      ],
+      "DATASET_OWNER": "Codex production/local runtime",
+      "SOURCE_LINEAGE": "Documented ZC or local normalized source; no undocumented source used",
+      "DATE_RANGE": null
+    },
+    {
+      "DOMAIN": "TURNOVER_HISTORY",
+      "ARTIFACT_EXISTS": "UNKNOWN",
+      "ARTIFACT_PATH": null,
+      "ARTIFACT_TYPE": null,
+      "TOTAL_ROWS": null,
+      "TEST_STOCK": "02318",
+      "TEST_STOCK_ROWS": 0,
+      "RUNTIME_REACHABLE": "NO",
+      "QUERY_VERIFIED": "NO",
+      "POINT_IN_TIME_USABLE": "NO",
+      "APPROVED_FOR_DOCTOR_VALIDATION": "NO",
+      "LIMITATIONS": [
+        "No concrete approved artifact found"
+      ],
+      "DATASET_OWNER": "Codex production/local runtime",
+      "SOURCE_LINEAGE": "Documented ZC or local normalized source; no undocumented source used",
+      "DATE_RANGE": null
+    },
+    {
+      "DOMAIN": "CCASS_HISTORICAL_STATUS",
+      "ARTIFACT_EXISTS": "YES_PARTIAL",
+      "ARTIFACT_PATH": "C:\\Users\\Joe Lau\\Documents\\Codex\\joe-ccass-platform-standalone\\data\\ccass_snapshots.db",
+      "ARTIFACT_TYPE": "SQLite",
+      "TOTAL_ROWS": 6,
+      "TEST_STOCK": "02318",
+      "TEST_STOCK_ROWS": 0,
+      "RUNTIME_REACHABLE": "YES",
+      "QUERY_VERIFIED": "YES",
+      "POINT_IN_TIME_USABLE": "PENDING_RECONCILIATION",
+      "APPROVED_FOR_DOCTOR_VALIDATION": "NO",
+      "LIMITATIONS": [
+        "Historical authoritative-source reconciliation remains pending"
+      ],
+      "DATASET_OWNER": "Codex production/local runtime",
+      "SOURCE_LINEAGE": "Documented ZC or local normalized source; no undocumented source used",
+      "DATE_RANGE": null
+    }
+  ]
+}
