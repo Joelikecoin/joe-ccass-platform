@@ -171,4 +171,7 @@ def test_exact_700_nonempty(broker_id):
     rows = payload.get("list", []) if isinstance(payload, dict) else payload
     assert len(rows) > 0
     dates = [str(r["date"]).replace(".", "-") for r in rows]
-    assert min(dates) <= RESCUE_ANCHOR_DATE
+    # rolling window: ~40 trading days ending at the latest trade date; the
+    # earliest date advances daily, so assert the window is populated and fresh
+    assert len(dates) >= 35
+    assert max(dates) >= "2026-09-24"
