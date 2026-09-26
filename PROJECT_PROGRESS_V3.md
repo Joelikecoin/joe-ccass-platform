@@ -573,3 +573,10 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 - 既有 rescue store 49,454 rows / 5 stocks read-only reuse；沒有啟動 full-market。
 - SDW 本輪 0 requests，保留為 Longbridge uncovered dates、disappeared participant 及 targeted validation fallback。
 - `chg_60=0` sample 未見 false-flat，但不足以允許 skip；詳細證據：`docs/CCASS_RECENT_GAP_DUAL_PATH_RUNTIME_PROOF_V1.md`。
+
+## Recent CCASS disappeared-participant completeness gate V1 (2026-09-26)
+- Seven proof stocks compared at 2026-07-31 baseline against Longbridge detail and existing rescue.
+- Union=1156; disappeared=8; rescue-covered=0; unresolved=8.
+- Disappeared baseline holdings=1233555 (0.015004%).
+- Result=BLOCKED_COMPLETENESS; CHG_ZERO_SAFE_TO_SKIP=NO; targeted SDW is required before any full-market run.
+
