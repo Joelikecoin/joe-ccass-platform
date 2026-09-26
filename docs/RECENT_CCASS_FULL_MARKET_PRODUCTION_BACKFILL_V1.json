@@ -1,0 +1,23 @@
+{
+  "work_package":"RECENT_CCASS_FULL_MARKET_PRODUCTION_BACKFILL_V1",
+  "git_head":"66bfa15df3cb81565bdd35cfedb798eec6453977",
+  "worktree_clean":true,
+  "total_stock_universe":3070,
+  "completed_stocks_reused":5,
+  "pending_stocks":3065,
+  "existing_rows_reused":49454,
+  "new_rows_written":0,
+  "detail_requests":0,
+  "daily_requests":0,
+  "targeted_sdw_requests":0,
+  "date_min":"2026-07-31",
+  "date_max":"2026-09-24",
+  "duplicate_count":0,
+  "negative_holding_count":0,
+  "db_readback_pass":true,
+  "recent_gap_full_market_complete":false,
+  "full_market_run_started":false,
+  "forward_daily_persistence_ready":false,
+  "earliest_remaining_blocker":"missing frozen universe and participant baseline manifests",
+  "required_files":["data/extension_universe_2026_07.json","data/extension_participants_2026_07_ccassids.json"]
+}
