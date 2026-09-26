@@ -1,6 +1,7 @@
 """Tests for RESTORE_MD_DEFINED_FAST_CCASS_ARCHITECTURE_V1 (fast detail path)."""
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -111,3 +112,18 @@ def test_seven_stock_proof_no_daily_brute_force():
     assert d["DETAIL_REQUESTS_TOTAL"] == 7
     assert d["DAILY_REQUESTS_TOTAL"] == 0  # NO brute-force by default
     assert len(d["poc_stocks"]) == 7
+
+
+def test_single_instance_lock_defers_to_live_writer(tmp_path):
+    from scripts.zc_forward_daily_snapshot import acquire_lock
+    lock = tmp_path / "fw.lock"
+    owner = acquire_lock(lock)
+    assert owner is not None
+    assert acquire_lock(lock) is None  # live writer owns it -> defer
+
+
+def test_single_instance_lock_takes_over_stale(tmp_path):
+    from scripts.zc_forward_daily_snapshot import acquire_lock
+    lock = tmp_path / "fw.lock"
+    lock.write_text("999999999")  # dead PID
+    assert acquire_lock(lock) == os.getpid()
