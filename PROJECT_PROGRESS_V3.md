@@ -537,3 +537,26 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 **OTHER STATUS:** A5 實裝 = 暫緩等 Joe 介面決定 ✓（已記錄）。D 槽 DiskGenius = Joe 手動 pending。缺口期完成後：DEFERRED_DATA_GAP 標籤更新為 CLOSED（證據股）。
 
 **Session continuity:** chat session ID `sess_fcbaf9d8-c668-4634-9f79-048faed167e8` (same ZCode account; a new session can pull this conversation's context by that ID). The guaranteed source of truth is always this file.
+
+### 🚀 RESCUE TAKEOVER 2026-09-26 19:20 HKT (company machine) — AUTH FIXED, SCALED RESCUE LIVE
+
+**AUTH ROOT CAUSE + FIX:** `.env` 根本無任何 LONGBRIDGE key（只有 API_KEY/RENDER_API_KEY/TURSO_*），
+OAuth cache `oauth_tokens.json` 亦唔存在 → runner 全部 `LONG_BRIDGE_AUTH_UNAVAILABLE`。
+**FIX (19:13):** `python -m scripts.longbridge_oauth_login`（Joe browser 撳 approve 一次）→
+token 入 `%LOCALAPPDATA%\JoeCCASS\longbridge\oauth_tokens.json`：**expires_in 1,209,600s = 14 日，
+有 refresh_token**。驗證 6182.HK：101 行、B01438 daily PASS、DATA_DATE 2026-09-25。Runner 自動讀 cache，唔使 env。
+**如果中途過期：** 重跑同一條 login 指令（彈 browser 撳 approve）即可。
+
+**CODEX 側今晚貢獻（已併入 master）：** 00010/00012/00013/00014/00550 — master 74,149 → **113,207 行 / 12 隻股**
+（00001-00006, 00008, 00010, 00012, 00013, 00014, 00550）。
+
+**ZC TAKEOVER RUNNER（19:14 LIVE）：**
+`python -m scripts.zc_run_longbridge_rescue_scaled --universe data/extension_universe_20260926_remaining.json --batch 5 --concurrency 2 --tag zc_takeover`
+log = `data/rescue_takeover.log`。Universe 3,057 隻（filter: `scripts/zc_filter_remaining_universe.py` 排除 master 已有）。
+每 5 隻 merge 入 master（INSERT OR IGNORE，衝突保留）。開跑 3 分鐘：兩 worker 寫緊數據（300KB+），零 auth 錯誤。
+
+**速度實測：** 有數據股 ≈ 15-21 分鐘（00010: 906s/181q、00012: 1,249s/268q）；**空股 ≈ 4 秒**（00011: 0 query 真空，唔係故障）。
+粗略 ETA：**~20-30 小時連續**。窗口提醒：60 日窗口今日已退到 ~7/27，每停一日蝕一日。
+
+**⚠️ 收尾鐵律（Joe 讀到呢段請注意）：** 公司電腦**唔好 Shutdown / 登出**（瞌螢幕 OK）。一旦熄咗：
+明日重開只需兩步 — ① `python scripts/zc_filter_remaining_universe.py`（重算剩餘）② 重跑上面 runner 指令。冧咗都唔蝕數據。
