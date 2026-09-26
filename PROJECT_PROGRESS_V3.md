@@ -566,3 +566,10 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 - exact `700.HK` probe 已證實：A00003、B01955 各 40 rows，日期 2026-07-31 至 2026-09-24；detail 421 rows、participants 545 entries。
 - 前次 empty 結果只適用於 00003/00005/00006 probe，不能分類為 upstream unavailable；沒有修改 adapter。
 - 已延續 rescue checkpoint，隔離 SQLite 保存 700.HK 兩 participant 共 80 rows，readback 80/80，duplicate/conflict 0。證據：`docs/LONGBRIDGE_RUNTIME_DIVERGENCE_DEBUG_V1.md`。
+
+### RECENT CCASS GAP DUAL-PATH RUNTIME PROOF 2026-09-26
+
+- 七股 detail proof 全部成功；49 個 selective daily calls 中 48 個 non-empty，觀察到 2026-08-03 至 2026-09-25 的 40-day window。
+- 既有 rescue store 49,454 rows / 5 stocks read-only reuse；沒有啟動 full-market。
+- SDW 本輪 0 requests，保留為 Longbridge uncovered dates、disappeared participant 及 targeted validation fallback。
+- `chg_60=0` sample 未見 false-flat，但不足以允許 skip；詳細證據：`docs/CCASS_RECENT_GAP_DUAL_PATH_RUNTIME_PROOF_V1.md`。

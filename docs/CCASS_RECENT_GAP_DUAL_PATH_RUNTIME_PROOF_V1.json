@@ -1,0 +1,15 @@
+{
+  "work_package": "CCASS_RECENT_GAP_DUAL_PATH_RUNTIME_PROOF_V1",
+  "git_head": "57692f033a9ab082302ad1fddef59604f397b2d6",
+  "existing_rescue": {"rows": 49454, "stocks": 5, "dates": 40, "min_date": "2026-07-31", "max_date": "2026-09-24", "negative_rows": 0},
+  "proof_stocks": ["00550", "01750", "08283", "02138", "06182", "01792", "00700"],
+  "longbridge_detail": {"requests": 7, "successful": 7, "avg_latency_ms": 4714.2, "participant_counts": {"00550": 124, "01750": 98, "08283": 120, "02138": 167, "06182": 101, "01792": 118, "00700": 420}, "chg60_nonzero_total": 690, "chg60_zero_total": 407, "chg60_null_total": 51},
+  "longbridge_daily": {"requests": 49, "successful": 49, "nonempty": 48, "avg_latency_ms": 4431.8, "avg_rows": 36.7, "min_date_observed": "2026-08-03", "max_date_observed": "2026-09-25", "forty_day_window_observed": true, "negative_rows": 0},
+  "chg_zero_validation": {"sample_size": 16, "false_flat_count": 0, "safe_to_skip": false},
+  "sdw": {"requests": 0, "status": "NOT_USED_FOR_LONGBRIDGE_COVERED_WINDOW"},
+  "cross_source_validation": {"status": "NOT_RUN"},
+  "disappeared_participants": "UNKNOWN_NOT_ASSESSED_FOR_ALL_SEVEN",
+  "forward_persistence": "EXISTING_RESCUE_ENGINE_CHECKPOINTED_AND_READBACK_VERIFIED",
+  "full_market_run_started": false,
+  "status": "PROOF_COMPLETE_PERFORMANCE_GATE_ONLY"
+}
