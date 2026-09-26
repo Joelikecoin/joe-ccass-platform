@@ -580,3 +580,9 @@ Stock-code mapping: holdings use issueID → map via the pack's `issues in CCASS
 - Disappeared baseline holdings=1233555 (0.015004%).
 - Result=BLOCKED_COMPLETENESS; CHG_ZERO_SAFE_TO_SKIP=NO; targeted SDW is required before any full-market run.
 
+
+## Recent CCASS targeted SDW closure gate V1
+- 14 targeted HKEX SDW requests succeeded for the eight unresolved cases.
+- 7 resolved zero/exit; 1 explicit 00700/B01714 SDW-positive vs Longbridge-missing source mismatch; unresolved=0.
+- Completeness gate=PASS with the mismatch preserved as source-specific UNKNOWN; CHG_ZERO_SAFE_TO_SKIP=NO; no full-market run.
+
