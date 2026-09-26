@@ -1,0 +1,10 @@
+{
+  "schema_version": "1",
+  "baseline_date": "2026-07-31",
+  "source_archive": "G:\\我的雲端硬碟\\投資 - 享受與豐盛\\AI Projects\\joe-ccass-platform\\docs_reference_evidence\\David_Webb_CCASS_Research_Pack\\drive-download-20260921T133916Z-1-001.zip",
+  "source_table": "ccass_holdings_2026-07.csv.gz",
+  "universe_count": 3070,
+  "participant_record_count": 58373,
+  "unique_stock_participant_keys": 58373,
+  "generation_script": "scripts/rebuild_ccass_manifests_2026_07.py"
+}
