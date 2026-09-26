@@ -37,3 +37,19 @@ read-only store readbacks.
 Reason from gate JSONs + persisted readbacks, not chat summaries. Never query
 Longbridge/SDW to reproduce persisted evidence. Never write to
 08_DATA_ASSETS/longbridge_rescue/* while Luna workers are live.
+
+
+## SESSION CLOSE ADDendum (2026-09-26 evening)
+
+- Forensic gate: Luna 500-batch runner (work/run_fast_detail_500.py, PID 7360,
+  started 14:33) PROVEN ALIVE and advancing (master detail snapshots 239→256 in
+  90s, ~11 stocks/min, reached 00305). Root cause of "12 stocks only" report =
+  Luna agent 150s response window, NOT runner termination.
+- CAUTION: the runner is parented to the Codex runtime pwsh (PID 20596) — closing
+  the company Codex session will kill it (previous brute-force runner proved
+  session-bound death). Progress already persisted in master DB survives.
+- Fast architecture live: one-detail-call-per-stock + anchors; forward daily
+  snapshot Task Scheduler job 'Joe CCASS Forward Daily Snapshot' registered
+  16:35 HKT Mon-Fri, next run Mon 2026-09-28 (company machine).
+- Authoritative semantics unchanged: CHG_ZERO_SAFE_TO_SKIP=NO;
+  00700/B01714=SOURCE_SPECIFIC_UNKNOWN.
