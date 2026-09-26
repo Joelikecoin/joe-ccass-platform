@@ -1,0 +1,72 @@
+{
+ "work_package": "RESTORE_MD_DEFINED_FAST_CCASS_ARCHITECTURE_V1",
+ "poc_stocks": {
+  "00550": {
+   "snapshot_date": "2026-09-25",
+   "participants": 124,
+   "anchors": 620,
+   "null_anchors": 9,
+   "disappeared_vs_baseline": 2
+  },
+  "01750": {
+   "snapshot_date": "2026-09-25",
+   "participants": 98,
+   "anchors": 490,
+   "null_anchors": 22,
+   "disappeared_vs_baseline": 0
+  },
+  "08283": {
+   "snapshot_date": "2026-09-25",
+   "participants": 120,
+   "anchors": 600,
+   "null_anchors": 2,
+   "disappeared_vs_baseline": 0
+  },
+  "02138": {
+   "snapshot_date": "2026-09-25",
+   "participants": 167,
+   "anchors": 835,
+   "null_anchors": 3,
+   "disappeared_vs_baseline": 0
+  },
+  "06182": {
+   "snapshot_date": "2026-09-25",
+   "participants": 101,
+   "anchors": 505,
+   "null_anchors": 29,
+   "disappeared_vs_baseline": 1
+  },
+  "01792": {
+   "snapshot_date": "2026-09-25",
+   "participants": 118,
+   "anchors": 590,
+   "null_anchors": 24,
+   "disappeared_vs_baseline": 0
+  },
+  "00700": {
+   "snapshot_date": "2026-09-25",
+   "participants": 420,
+   "anchors": 2100,
+   "null_anchors": 9,
+   "disappeared_vs_baseline": 5
+  }
+ },
+ "DETAIL_REQUESTS_TOTAL": 7,
+ "DAILY_REQUESTS_TOTAL": 0,
+ "coverage_readback": {
+  "snapshot_rows": 2296,
+  "stocks": 7,
+  "anchors": 11480,
+  "anchor_null_status": 196,
+  "coverage": [
+   [
+    "DAILY_SNAPSHOT",
+    7
+   ],
+   [
+    "FULL_DAILY_RECONSTRUCTION",
+    6
+   ]
+  ]
+ }
+}
